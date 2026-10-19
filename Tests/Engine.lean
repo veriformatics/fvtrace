@@ -248,6 +248,26 @@ def witnessTests : TestM Unit := do
     (planOf (tie [p, onF2 "Q1", onF2 "Q2"])) ["P", "Q1"]
   checkEq "engine: a tie goes to the smaller ids (the smaller met first)"
     (planOf (tie [p, onF2 "QB", onF2 "QA"])) ["P", "QA"]
+  -- Coverage: an experiment that only repeats a need's current status is no alternative for it.
+  let both : Experiment :=
+    { quick with id := "XO", success := [("O2", .checked), ("O3", .assumed)] }
+  let covT := { t with experiments := t.experiments ++ [both] }
+  let cov := ({ s with trace := covT } : Scenario).coverage (claimNamed covT "C2")
+  checkEq "engine: an outcome at the need's current status is no alternative"
+    ((cov.alternatives.filter (·.experiment == "XO")).map (·.need), cov.uncovered.contains "O3")
+    (["O2"], true)
+  -- Above 20 relevant experiments no optimum is claimed (and no search runs).
+  let many := (List.range 21).map fun i => (s!"G{i}", s!"Y{i}")
+  let gs := many.map fun (g, _) => ({ f1 with id := g, text := s!"{g} holds." } : Fact)
+  let c21 : Claim := { c13 with id := "C21", needs := many.map (·.1), entailment := "EN21" }
+  let big := { t with
+    facts := t.facts ++ gs ++ [entail "EN21" "C21" .proved .lean], claims := t.claims ++ [c21]
+    experiments := t.experiments ++ many.map fun (g, y) =>
+      { p with id := y, success := [(g, .checked)] } }
+  let n := "engine: 21 relevant experiments → tooLarge"
+  match ({ s with trace := big } : Scenario).plan (claimNamed big "C21") with
+  | .tooLarge _ => check n true
+  | other => check n false s!"{repr other}"
   -- Preview counts: a success that derives a violation lowers a claim; each move counts once.
   let c12 : Claim := { id := "C12", question := "Q1", subject := "S", level := .estimand,
                        text := "The animal was sampled once.", needs := ["O4"],
