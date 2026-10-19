@@ -24,6 +24,7 @@ stage lean-build lean_build
 stage lean-test lean_test
 stage lean-pure lean_pure
 stage cli cli
+stage examples examples
 if [[ " $* " == *" --e2e "* ]]; then stage e2e e2e; fi
 
 for i in "${!names[@]}"; do

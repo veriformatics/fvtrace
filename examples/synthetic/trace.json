@@ -1,0 +1,222 @@
+{
+  "fvtrace": 1,
+  "analysis": {
+    "id": "synthetic",
+    "title": "Synthetic study",
+    "summary": "A small study exercising every trace feature."
+  },
+  "subjects": [
+    {
+      "id": "S",
+      "title": "Existing analysis",
+      "kind": "existing"
+    },
+    {
+      "id": "N",
+      "title": "New cohort",
+      "kind": "prospective",
+      "createdBy": "E3"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Effect",
+      "text": "Does the treatment change the marker?"
+    }
+  ],
+  "facts": [
+    {
+      "id": "O1",
+      "subject": "S",
+      "kind": "estimand",
+      "text": "The contrast measures treatment minus control.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Contrast proof.",
+        "artifacts": [
+          {
+            "path": "proofs/Contrast.lean",
+            "sha256": "5ece662d699d0c878f3106c3b27d99f889e5acf4811a4aa8521f435d7aff83cf"
+          }
+        ],
+        "verifier": "Lean 4.35.0",
+        "statement": "contrast_correct",
+        "statementDigest": "999f884e5ce2cf64d66725ffb75d8723be04daa9ecb7cf6e18880f3c7e4e30f5"
+      },
+      "trusts": [
+        "Lean kernel"
+      ]
+    },
+    {
+      "id": "O2",
+      "subject": "S",
+      "kind": "result",
+      "text": "The marker rises in treated samples.",
+      "status": "open",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "O3",
+      "subject": "S",
+      "kind": "statistical",
+      "text": "The model assumptions hold.",
+      "status": "assumed",
+      "route": "empirical"
+    },
+    {
+      "id": "O4",
+      "subject": "S",
+      "kind": "provenance",
+      "text": "Each sample is one animal.",
+      "status": "open",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O5",
+      "subject": "S",
+      "kind": "provenance",
+      "text": "Some animals were sampled twice.",
+      "status": "open",
+      "route": "human-ruling"
+    },
+    {
+      "id": "EN1",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "O1 entails C1.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "EN2",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "O1, O2 and O3 entail C2.",
+      "status": "open",
+      "route": "lean"
+    },
+    {
+      "id": "M1",
+      "subject": "N",
+      "kind": "result",
+      "text": "The marker rises in the new cohort.",
+      "status": "open",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "EN3",
+      "subject": "N",
+      "kind": "entailment",
+      "text": "M1 entails C3.",
+      "status": "open",
+      "route": "human-ruling"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "subject": "S",
+      "level": "estimand",
+      "text": "The contrast is the treatment effect.",
+      "needs": [
+        "O1"
+      ],
+      "entailment": "EN1"
+    },
+    {
+      "id": "C2",
+      "question": "Q1",
+      "subject": "S",
+      "level": "inferential",
+      "text": "Treatment raises the marker.",
+      "needs": [
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "entailment": "EN2"
+    },
+    {
+      "id": "C3",
+      "question": "Q1",
+      "subject": "N",
+      "level": "descriptive",
+      "text": "The new cohort shows the rise.",
+      "needs": [
+        "M1"
+      ],
+      "entailment": "EN3",
+      "variantOf": "C2"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "E1",
+      "subject": "S",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Check the result table",
+      "method": "A proved checker reads the result table.",
+      "resources": "Result table.",
+      "success": {
+        "O2": "checked"
+      },
+      "failure": {
+        "O2": "violated"
+      },
+      "caveat": "Inconclusive when the table is incomplete."
+    },
+    {
+      "id": "E2",
+      "subject": "S",
+      "kind": "dry",
+      "effort": "hours",
+      "title": "Ask the owner",
+      "method": "The data owner rules on sampling.",
+      "resources": "Owner time.",
+      "success": {
+        "O4": "assumed"
+      },
+      "requires": [
+        "E1"
+      ],
+      "caveat": "A ruling is a premise."
+    },
+    {
+      "id": "E3",
+      "subject": "N",
+      "kind": "wet",
+      "effort": "months",
+      "title": "Collect a new cohort",
+      "method": "Sample new animals.",
+      "resources": "Animals.",
+      "success": {
+        "M1": "checked"
+      },
+      "caveat": "New data only."
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "X1",
+      "subject": "S",
+      "between": [
+        "O4",
+        "O5"
+      ],
+      "text": "A sample cannot be one animal and a repeat.",
+      "status": "assumed",
+      "route": "human-ruling"
+    }
+  ],
+  "waivers": [
+    {
+      "rule": "L-result",
+      "claim": "C3",
+      "reason": "M1 is the observed result."
+    }
+  ]
+}

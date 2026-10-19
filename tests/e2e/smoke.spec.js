@@ -38,7 +38,7 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
       .filter({ hasText: "C2 /" })
       .getByRole("button", { name: /^O2 / })
       .click();
-    await page.getByRole("button", { name: "Suppose it is verified" }).click();
+    await page.getByRole("button", { name: "Suppose it is checked" }).click();
     await expect(page.getByRole("status")).toContainText("What-if");
     expect(await axeIds(page)).toEqual([]);
     await page.getByRole("button", { name: "Text" }).click();

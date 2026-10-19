@@ -30,9 +30,9 @@ test("the recorded view shows the engine's verdicts and sentences", async ({ pag
 test("switches suppose facts, the engine answers, the address keeps it", async ({ page }) => {
   await page.goto(web.url);
   const c2 = circuit(page, "C2");
-  await c2.getByRole("button", { name: "Suppose O2 verified" }).click();
+  await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
   await expect(page.getByRole("status")).toContainText("What-if: O2 checked");
-  await c2.getByRole("button", { name: "Suppose EN2 verified" }).click();
+  await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
   await expect(page.getByRole("status")).toContainText("EN2 proved");
   await expect(c2.locator(".claim-state")).toHaveText("On assumption (what-if, draft)");
   await expect(c2.locator(".sentence")).toHaveText(
@@ -58,9 +58,9 @@ test("the inspector shows a fact, a claim's plan and an experiment", async ({ pa
   await expect(inspector.getByRole("heading", { level: 2 })).toHaveText(
     "The marker rises in treated samples.",
   );
-  await inspector.getByRole("button", { name: "Suppose it is verified" }).click();
+  await inspector.getByRole("button", { name: "Suppose it is checked" }).click();
   await expect(page.getByRole("status")).toContainText("O2 checked");
-  await circuit(page, "C2").getByRole("button", { name: "Suppose EN2 verified" }).click();
+  await circuit(page, "C2").getByRole("button", { name: "Suppose EN2 proved" }).click();
   await page.getByRole("button", { name: "Restore the recorded status of O2" }).first().click();
   await circuit(page, "C2").locator(".claim-head").click();
   await expect(inspector).toContainText(

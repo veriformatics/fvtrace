@@ -28,6 +28,14 @@ input_dir webFiles where
 lean_lib FvtraceWeb where
   needs := #[webFiles]
 
+/-- The Agent Skill `fvtrace skills install` writes (module `FvtraceSkill`), traced like the GUI. -/
+input_dir skillFiles where
+  path := "skill"
+  text := true
+
+lean_lib FvtraceSkill where
+  needs := #[skillFiles]
+
 lean_lib Fvtrace where
   needs := #[traceSchema]
 

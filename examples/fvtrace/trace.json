@@ -1,0 +1,550 @@
+{
+  "fvtrace": 1,
+  "analysis": {
+    "id": "fvtrace",
+    "title": "fvTrace",
+    "summary": "What fvTrace itself can claim about its checker and engine: each claim rests on Lean proofs of the code fvTrace runs."
+  },
+  "subjects": [
+    {
+      "id": "S",
+      "title": "fvTrace 0.1.0",
+      "kind": "existing"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Checking",
+      "text": "Does fvtrace check accept exactly the traces that fvTrace can evaluate?"
+    },
+    {
+      "id": "Q2",
+      "title": "Verdicts",
+      "text": "When fvTrace gives a verdict, does it rest on what the trace records?"
+    },
+    {
+      "id": "Q3",
+      "title": "Plans",
+      "text": "Are suggested plans the best that the suggested experiments allow?"
+    },
+    {
+      "id": "Q4",
+      "title": "Isolation",
+      "text": "Can a what-if or another site reach claims it should not touch?"
+    }
+  ],
+  "facts": [
+    {
+      "id": "P1",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "fvtrace check reports no violation exactly when the trace is well-formed.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.CheckAcceptsExactlyWellFormed.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/WellFormed.lean",
+            "sha256": "4818288c789f8c6b3c312c5ca36180d0004642c9ed99f4ef2567d06450fed876",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Check.lean",
+            "sha256": "392cbef5cd3b8eb50601e1fcdb68f1f94159d5f0b0b96cfa2e4823390298a6f9",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.CheckAcceptsExactlyWellFormed",
+        "statementDigest": "3617525c292b7fce838eb8937ae09fb661bf9b105781c3c125037e7963f6708d"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P2",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "Every violation fvtrace check reports names a rule the trace breaks.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.CheckViolationsSound.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/WellFormed.lean",
+            "sha256": "4818288c789f8c6b3c312c5ca36180d0004642c9ed99f4ef2567d06450fed876",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Check.lean",
+            "sha256": "392cbef5cd3b8eb50601e1fcdb68f1f94159d5f0b0b96cfa2e4823390298a6f9",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.CheckViolationsSound",
+        "statementDigest": "ae1011b64223b919b79395ed4c4bbde2a667993a4a4deba9fec7d45a58c39849"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P3",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "With no what-if, Can claim implies every need is recorded verified with a current receipt.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.RecordedCanIsVerified.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.RecordedCanIsVerified",
+        "statementDigest": "1745821eb24bb0fa30cfff0eda98395d20a866c2eeee7b3a19367586bfb44bc9"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P4",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "A claim whose entailment is human-ruled or empirical never reads Can claim.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.RulingCeiling.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.RulingCeiling",
+        "statementDigest": "f64465bd084c8f204010b75abffc45bd4008f61e5de280bf35a37f350aef1d5f"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P5",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "Cannot claim holds exactly when a need is violated, the claim needs both sides of an exclusion, or a what-if conflicts.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.CannotExplained.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.CannotExplained",
+        "statementDigest": "454b59d7ae3d7bc9bb7847f9a13cc6b3fd3d2a8fe92354c55ec278db683370d2"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P6",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "A planned set of experiments is prerequisite-closed, keeps the subject consistent and reports the state it reaches.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.PlanSound.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Plan.lean",
+            "sha256": "6b428ac4ac99460e96217c2a2c19467e36aa00bf9990a5e1891cbfed4cbcc35c",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.PlanSound",
+        "statementDigest": "db8b37f54964dc47b07a485b0df12526a2e7bb0a0dd40fa621da008393950c08"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P7",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "No prerequisite-closed, consistent set of experiments beats a plan's state, or matches it at strictly lower cost.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.PlanOptimal.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Plan.lean",
+            "sha256": "6b428ac4ac99460e96217c2a2c19467e36aa00bf9990a5e1891cbfed4cbcc35c",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.PlanOptimal",
+        "statementDigest": "baf3b46b8008625c4072bc5a8340abfacd2e2f8fc1b046fd09df7f4cf014818e"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "P8",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "Two what-ifs that agree on a subject's facts give each claim on that subject the same state and breakdown.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.SubjectIsolation.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.SubjectIsolation",
+        "statementDigest": "861103cc5a539e0a664b8c0c10be2f6a5f56cce868a4e5f14232cd4442a46580"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda"
+      ]
+    },
+    {
+      "id": "I1",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "The fvtrace binary runs the Lean definitions that the proofs are about.",
+      "status": "assumed",
+      "route": "human-ruling",
+      "trusts": [
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
+    },
+    {
+      "id": "I2",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "fvtrace hashes evidence files with the verified HACL* SHA-256, called unchanged.",
+      "status": "assumed",
+      "route": "human-ruling",
+      "evidence": {
+        "summary": "HACL* is verified in F*; tools/vendor-hacl.sh holds the vendored files byte-equal to the pinned release.",
+        "artifacts": [
+          {
+            "path": "tools/vendor-hacl.sh",
+            "sha256": "e4d361991c1d2527f62c86bb8a6732d5493d04f3229fbc3bfa0aa62de1a37475",
+            "role": "vendoring check"
+          },
+          {
+            "path": "c/fvtrace_digest.c",
+            "sha256": "13b4478fe1299559f756eac9e8b14b0e48e69bb7b8ab29f52805a5aa4c034bfa",
+            "role": "FFI shim"
+          }
+        ],
+        "statementDigest": "3556a2b17f97c653199b54dce86bace03746ee28daa16097c6b097e6ea932986"
+      },
+      "trusts": [
+        "HACL* proofs (F*, upstream)",
+        "C compiler"
+      ]
+    },
+    {
+      "id": "T1",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "fvtrace serve answers only GET requests that carry its own Host and the run's token.",
+      "status": "tested",
+      "route": "lean",
+      "evidence": {
+        "summary": "Tests/Server.lean checks each access decision of Server.decide.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Server.lean",
+            "sha256": "313e4209c6dc2ee4473595313b894fb11340539798d81b3b4862fd358613b5df",
+            "role": "code"
+          },
+          {
+            "path": "Tests/Server.lean",
+            "sha256": "a9ce82a016828a0aaf71a91c67d5f2ba41359df6f0c2f64d4484b57d93fb87d8",
+            "role": "tests"
+          }
+        ],
+        "statementDigest": "5348ab3f1aa592a2fb570c5cbe7db09f0ed42e0caa9d0f7b4d4ee56e98380ae4"
+      }
+    },
+    {
+      "id": "E1",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C1 needs say what C1 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "E2",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C2 needs say what C2 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "E3",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C3 needs say what C3 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "E4",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C4 needs say what C4 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "E5",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C5 needs say what C5 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "E6",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C6 needs say what C6 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "E7",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The Lean statements that C7 needs say what C7 says in English.",
+      "status": "assumed",
+      "route": "human-ruling"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "fvtrace check accepts a trace exactly when it is well-formed, and each error it reports is real.",
+      "needs": [
+        "P1",
+        "P2",
+        "I1"
+      ],
+      "entailment": "E1"
+    },
+    {
+      "id": "C2",
+      "question": "Q2",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "With no what-if, a claim reads Can claim only when every fact it needs is verified with an unchanged receipt.",
+      "needs": [
+        "P3",
+        "I1",
+        "I2"
+      ],
+      "entailment": "E2"
+    },
+    {
+      "id": "C3",
+      "question": "Q2",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "A claim whose entailment rests on a human ruling or on empirical evidence never reads Can claim.",
+      "needs": [
+        "P4",
+        "I1"
+      ],
+      "entailment": "E3"
+    },
+    {
+      "id": "C4",
+      "question": "Q2",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "Every Cannot claim has a stated reason: a violated fact, an exclusion between two needs, or a conflicting what-if.",
+      "needs": [
+        "P5",
+        "I1"
+      ],
+      "entailment": "E4"
+    },
+    {
+      "id": "C5",
+      "question": "Q3",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "A suggested plan includes its prerequisites, and no other consistent set of suggested experiments reaches a higher verdict or the same verdict at lower effort.",
+      "needs": [
+        "P6",
+        "P7",
+        "I1"
+      ],
+      "entailment": "E5"
+    },
+    {
+      "id": "C6",
+      "question": "Q4",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "A what-if on the facts of one subject leaves the claims on other subjects unchanged.",
+      "needs": [
+        "P8",
+        "I1"
+      ],
+      "entailment": "E6"
+    },
+    {
+      "id": "C7",
+      "question": "Q4",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "A page from another site can never read the claims that fvtrace serve shows.",
+      "needs": [
+        "T1",
+        "I1"
+      ],
+      "entailment": "E7",
+      "latent": true
+    }
+  ],
+  "experiments": [
+    {
+      "id": "X1",
+      "subject": "S",
+      "kind": "dry",
+      "effort": "weeks",
+      "title": "Prove the server's access rules",
+      "method": "State Server.decide's access rules in Fvtrace/Spec and prove them in Lean.",
+      "resources": "Lean 4.35, Fvtrace/Server.lean.",
+      "success": {
+        "T1": "proved"
+      },
+      "caveat": "A proof covers Server.decide; the HTTP library that calls it stays trusted."
+    }
+  ],
+  "waivers": [
+    {
+      "rule": "L-result",
+      "claim": "C1",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C2",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C3",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C4",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C5",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C6",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C7",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    }
+  ]
+}
