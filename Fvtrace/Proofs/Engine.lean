@@ -322,4 +322,132 @@ theorem subjectIsolation : Spec.SubjectIsolation := by
   rw [valid_agree hwf hagree, heff]
   rfl
 
+section Monotone
+
+theorem lookup_filter_key {o : Overrides} {j k : String} (h : j ≠ k) :
+    (o.filter fun (p : String × Status) => !(k == p.1)).lookup j = o.lookup j := by
+  induction o with
+  | nil => rfl
+  | cons p ps ih =>
+    obtain ⟨k', st'⟩ := p
+    by_cases hk : k = k'
+    · subst hk
+      have hjk : (j == k) = false := by simp [h]
+      simp [List.filter_cons, List.lookup, hjk, ih]
+    · have hkk : (k == k') = false := by simp [hk]
+      simp only [List.filter_cons, hkk, Bool.not_false, ite_true, List.lookup]
+      by_cases hj : j = k'
+      · subst hj; simp
+      · have hjk : (j == k') = false := by simp [hj]
+        simp [hjk, ih]
+
+theorem withOverrides_eff1 (s : Scenario) (k j : String) (st : Status) :
+    (s.withOverrides [(k, st)]).eff1 j = if j = k then .ofStatus st else s.eff1 j := by
+  unfold Scenario.withOverrides Scenario.eff1
+  by_cases hj : j = k
+  · subst hj; simp [List.lookup]
+  · have hjk : (j == k) = false := by simp [hj]
+    simp only [List.cons_append, List.nil_append, List.lookup, hjk, hj, ite_false,
+      List.any_cons, List.any_nil, Bool.or_false]
+    rw [lookup_filter_key hj]
+    rfl
+
+theorem strength_le_three (e : EStatus) : e.strength ≤ 3 := by cases e <;> decide
+
+/-- The state ladder as a function of its three tests: weaker cannot-test, stronger verified +
+asserted tests ⇒ rank never drops. -/
+theorem rank_ladder_mono {a a' v v' p p' : Bool} (ha : a' = true → a = true)
+    (hv : v = true → v' = true) (hp : p = true → p' = true) :
+    (if a = true then State.cannot else if v = true then .can
+      else if p = true then .conditional else .«open»).rank ≤
+    (if a' = true then State.cannot else if v' = true then .can
+      else if p' = true then .conditional else .«open»).rank := by
+  cases a <;> cases a' <;> cases v <;> cases v' <;> cases p <;> cases p' <;>
+    simp_all [State.rank]
+
+theorem intrinsic_rank_mono {s s' : Scenario} {c : Claim}
+    (hinc : s'.incompatible c = s.incompatible c)
+    (hle : ∀ n ∈ c.needsAll, (s.eff n).strength ≤ (s'.eff n).strength)
+    (hviol : ∀ n ∈ c.needsAll, s'.eff n = .violated → s.eff n = .violated) :
+    (s.intrinsic c).rank ≤ (s'.intrinsic c).rank := by
+  simp only [Scenario.intrinsic, hinc]
+  apply rank_ladder_mono
+  · simp only [Bool.or_eq_true, List.any_map, List.any_eq_true, Function.comp_apply,
+      beq_iff_eq]
+    rintro (⟨n, hn, hv⟩ | h)
+    · exact Or.inl ⟨n, hn, hviol n hn hv⟩
+    · exact Or.inr h
+  · simp only [List.all_map, List.all_eq_true, Function.comp_apply, EStatus.verified,
+      beq_iff_eq]
+    intro h n hn
+    have := hle n hn; have := h n hn; have := strength_le_three (s'.eff n)
+    omega
+  · simp only [List.all_map, List.all_eq_true, Function.comp_apply, EStatus.asserted,
+      decide_eq_true_eq]
+    intro h n hn
+    have := hle n hn; have := h n hn
+    omega
+
+theorem derivations_nil {s : Scenario} {k : String}
+    (hx : ∀ x ∈ s.trace.exclusions, x.between.1 ≠ k ∧ x.between.2 ≠ k) :
+    s.derivations k = [] := by
+  unfold Scenario.derivations
+  rw [List.filterMap_eq_nil_iff]
+  intro x hxm
+  have ⟨h1, h2⟩ := hx x hxm
+  simp [h1, h2]
+
+theorem raisingMonotone : Spec.RaisingMonotone := by
+  intro s c k st hx hst hle
+  have h1 : ∀ j, j ≠ k → (s.withOverrides [(k, st)]).eff1 j = s.eff1 j := fun j hj => by
+    rw [withOverrides_eff1]; simp [hj]
+  have heff : ∀ j, j ≠ k → (s.withOverrides [(k, st)]).eff j = s.eff j := by
+    intro j hj
+    have hder : (s.withOverrides [(k, st)]).derivations j = s.derivations j := by
+      unfold Scenario.derivations
+      apply filterMap_congr'
+      intro x hxm
+      have ⟨ha, hb⟩ := hx x hxm
+      simp only [h1 j hj, h1 _ ha, h1 _ hb]
+      rfl
+    unfold Scenario.eff
+    rw [hder, h1 j hj]
+  have heffk : (s.withOverrides [(k, st)]).eff k = .ofStatus st := by
+    unfold Scenario.eff
+    rw [derivations_nil (s := s.withOverrides [(k, st)]) hx, withOverrides_eff1]
+    simp
+  have heffk0 : s.eff k = s.eff1 k := by
+    unfold Scenario.eff
+    rw [derivations_nil hx]
+    rfl
+  have hnv : EStatus.ofStatus st ≠ .violated := by
+    cases st <;> simp_all [EStatus.ofStatus]
+  have hvalid : (s.withOverrides [(k, st)]).valid c.subject = s.valid c.subject := by
+    unfold Scenario.valid Scenario.conflicts
+    congr 2
+    apply List.filter_congr
+    intro x hxm
+    have ⟨ha, hb⟩ := hx x hxm
+    have hact : (s.withOverrides [(k, st)]).active x = s.active x := by
+      unfold Scenario.active
+      rw [h1 _ ha, h1 _ hb]
+      rfl
+    rw [hact]
+  unfold Scenario.final
+  rw [hvalid]
+  split
+  · apply intrinsic_rank_mono
+    · rfl
+    · intro n _
+      by_cases hn : n = k
+      · subst hn; rw [heffk, heffk0]; exact hle
+      · rw [heff n hn]; exact Nat.le_refl _
+    · intro n _ hv
+      by_cases hn : n = k
+      · subst hn; rw [heffk] at hv; exact absurd hv hnv
+      · rwa [heff n hn] at hv
+  · exact Nat.le_refl _
+
+end Monotone
+
 end Fvtrace.Proofs.Engine

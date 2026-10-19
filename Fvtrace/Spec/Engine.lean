@@ -71,6 +71,15 @@ def SubjectIsolation : Prop :=
     ({ trace := t, current, overrides := o₁ } : Scenario).final c =
       ({ trace := t, current, overrides := o₂ } : Scenario).final c
 
+/-- G9: raising one fact's status (staying non-violated) never lowers any claim's state, when
+the fact sits in no exclusion (an exclusion can turn verifying one side into the other's
+violation). -/
+def RaisingMonotone : Prop :=
+  ∀ (s : Scenario) (c : Claim) (k : String) (st : Status),
+    (∀ x ∈ s.trace.exclusions, x.between.1 ≠ k ∧ x.between.2 ≠ k) → st ≠ .violated →
+    (s.eff1 k).strength ≤ (EStatus.ofStatus st).strength →
+      (s.final c).rank ≤ ((s.withOverrides [(k, st)]).final c).rank
+
 /-- G6: the verdict "Can claim" is emitted exactly for final state `can`. -/
 def CanVerdictExact : Prop := ∀ st : State, st.verdict = "Can claim" ↔ st = .can
 
