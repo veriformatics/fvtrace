@@ -10,7 +10,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
   - `prototype/gui/fixture/tau-amyloid.json` = hand-written trace of the tau × amyloid study (structure from veriformatics `studies/naoto` docs; private, no data).
   - `prototype/gui/engine.py` = deterministic claim-state engine; `GET /api/trace`, `POST /api/evaluate {"overrides":{Oid:status}}` (what-if).
   - `prototype/gui/web/variants/ledger/` = variant A, claim ledger: can say / cannot say / if verified.
-  - `prototype/gui/web/variants/graph/` = variant B, dependency map: question → claim → obligation graph.
+  - `prototype/gui/web/variants/graph/` = variant B, dependency map: question → claim → obligation graph + suggested dry/wet experiments per gap (ranked list, per-claim plan, success/failure what-if).
   - `prototype/gui/web/variants/lint/` = variant C, manuscript check: draft sentences flagged overstated + safe rewrite.
 
 ## Decisions
@@ -23,10 +23,13 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - FV stance in the engine: verified = `proved` | `checked` (proved checker accepted the actual object). `assumed` = declared premise ⇒ claim allowed only in conditional form. `tested` | `open` = gaps. `violated` ⇒ claim cannot be made as written.
 - Claim state = `cannot` (any violated) > `can` (all verified) > `conditional` (rest assumed) > `open`.
 - Where FV pays = per unverified obligation: claims it gates + claims verifying it alone unlocks; ranked by unlocks. `latent` claims = overlooked directions that become live when their obligations verify.
+- Experiments (user request, round 1; graph variant) = trace `experiments[]`: `kind` `dry` (existing data, code, proofs) | `wet` (new samples, bench), `effort` hours < days < weeks < months, `success` + `failure` = obligation → status maps replayed as what-ifs, `scope: new` = creates new data. Engine per experiment: `lights` (claims raised into can|conditional), `clears` (cannot → open), `breaks` (failure → cannot); ranked lights > clears > cheaper. Per claim `plan` = cheapest experiment raising each unverified need + `uncovered` gaps (ruling | new approach) + plan-success state.
+- Experiment outcome honesty (scientist-1 rulings): `checked` only via a proved checker on the actual data, `proved` only via a completed proof; empirical support → `assumed` at most; failure = established counterexample, inconclusive → `{}`; `scope: new` outcomes are shown on the new data's facts, existing analysis keeps its gaps (versioned artifacts = open user ruling).
 - Draft sentence verdict = `overstated` (cites open|cannot claim) | `needs-premise` (cites conditional) | `supported`.
 
 ## Tasks
 
+- [ ] ITERATE round 1a: graph variant suggests dry + wet experiments per gap (user request)
 - [ ] ITERATE round 1: run the 3 variants, collect the user's pick/combination + feedback on the claim model → `Decisions`
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE history → `.agent/archive/prototype.md`
 
