@@ -194,6 +194,12 @@ def tests : TestM Unit := do
     check "store: a symlink to the project can be made" linked
     let (_, pl, _) ← capture (Cli.runIn away ["path", "--project", "link"])
     checkEq "store: a symlinked folder shares its target's entry" (line pl) trace
+    -- An entry keeps the folder name's letters, digits, `-`, `_` + `.`; any other character → `-`.
+    IO.FS.createDirAll (dir / "my_proj.v-2 x")
+    let (_, pn, _) ← capture (Cli.runIn away ["path", "--project", "my_proj.v-2 x"])
+    let entry := ((System.FilePath.mk (line pn)).parent.bind (·.fileName)).getD ""
+    check "store: the entry name keeps the folder's name, other characters as -"
+      (entry.startsWith "my_proj.v-2-x-" && entry.length == "my_proj.v-2-x-".length + 12) entry
     let (rc, _, err) ← capture (Cli.runIn away ["path", "--project", "absent"])
     checkEq "store: a missing --project folder rc" rc 2
     check "store: the missing folder is named" (count err "no folder absent" == 1) err
