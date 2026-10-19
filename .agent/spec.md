@@ -9,7 +9,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - `lakefile.lean` = Lake package `fvtrace` (Lean 4.35, `lean-toolchain`): library `Fvtrace` (`Fvtrace/Spec*` = human-read claims, `Fvtrace/Proofs*` = their proofs, the rest = shipped code), embedded-file libraries `FvtraceWeb` (`web/`) + `FvtraceSkill` (`skill/fvtrace/`), binary `fvtrace` (`Main.lean`), tests `fvtrace-tests` (`TestMain.lean` + `Tests/`; FFI-free half `TestPure.lean`), dev-only audit `fvtrace-trust` (`TrustMain.lean`). Run: `lake build fvtrace && .lake/build/bin/fvtrace --help`; tests: `lake test`.
 - `fvtrace` commands: `init`, `path`, `check`, `pin`, `review`, `claims`, `gaps`, `experiments`, `plan`, `eval`, `serve` (GUI: `fvtrace serve` → printed token link), `export --html|--bundle`, `skills install|show`, `schema`; usage = `README.md`.
 - `web/` = GUI (claim circuits, no-build ES modules, display-only); `skill/fvtrace/` = the Agent Skill; `schema/trace.schema.json` = trace format; `examples/fvtrace/` (self-trace) + `examples/synthetic/` = pinned examples.
-- `tools/gate.sh` = the one gate (local + CI); `tools/fast-gate.sh` = iteration; `tools/gate-probe.sh` = positive controls; law = `.claude/rules/ops.md`.
+- `tools/gate.sh` = the one gate (local + CI); `tools/fast-gate.sh` = iteration; `tools/gate-probe.sh` = positive controls; `tools/mutate.mjs` = mutation credit (`--list` sizes a campaign); law = `.claude/rules/ops.md`.
+- `.agent/contracts/kernel.md` = kernel contract (ids cited by proofs + tests); `.agent/contracts/units.md` = unit → tier → evidence; `.agent/review.md` = closing-review ledger.
 - `README.md` = user documentation. Prototype retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-lint` (shelved manuscript check).
 
 ## Decisions
@@ -37,22 +38,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [x] e85e50c U1 Foundation: Lake package `fvtrace` + `fvtrace --version` + one passing test; dev manifests; `tools/gate.sh` (every stage + scanners) + fast gate; CI + update automation; `.claude/rules/` gate law
-- [x] 649f492 U2 Kernel contract: `.agent/contracts/kernel.md` + `Fvtrace/Spec` statements (consultant before code)
-- [ ] U3 JSON codec + trace decoder (all errors, paths) + JSON Schema (code 2467416; mutation credit → U13 campaign)
-- [ ] U4 Trace checker (proved) + lints/waivers + evidence binding (HACL* SHA-256, digest cache, `pin`) + review digest (code 2467416; mutation credit → U13 campaign)
-- [ ] U5 Engine + proofs: states, entailment, subjects, exclusions, what-if, ranking + blockers, experiments, plans (mutation credit of unproved parts → U13 campaign)
-- [x] a20feab U6 CLI + data dir + text rendering (+ d9370d9 interpreted-suite guard)
-- [x] 87c479a U7 Server: `Std.Http`, token + Host allowlist + CSP/Trusted Types, evaluation API (no file-serving route)
-- [x] 1a63833 U8 GUI: claim circuits on the engine's output, e2e + axe + reduced motion + palette, visual QA (operator-1: fixes 5353708 + 9884777, re-check passed)
-- [x] 5353708 U9 Export: HTML + bundle
-- [x] 3d885af U10 Agent skill + installer (5353708); blind live trial on veriformatics `studies/naoto` (trial-1) → fixes 3d885af
-- [x] 3d885af U11 Examples: self-trace + synthetic study (5353708); private tau × amyloid migration (migrator-1) → `~/.local/share/fvtrace/<project>/trace.json`, `check --strict` rc 0
-- [x] 9884777 U12 README + docs; prototype retired (tag `prototype-gui`)
-- [ ] U13 Closing review → `.agent/review.md` (rows = every round-1 finding). RESUME: rounds 1 + 2 fixed (3d885af, 38bb2e9); next = re-review of the accepted rows (reviewer-5, `.scratch/review/rereview-1.md`), mutation campaign on the round-2 commit (`.scratch/mut-c{n,p}.sh` → `.scratch/mutation/<File>.log`; Decode + Model done), then L-HARD (survivors + R1/R2), then close rows
-- [ ] U14 Close: Artifacts, Decisions, Tasks, Phase → MAINTAIN
-- Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE history → `.agent/archive/`
+- Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT history → `.agent/archive/`
 
 ## Phase
 
-IMPLEMENT — whole product
+MAINTAIN — whole product
