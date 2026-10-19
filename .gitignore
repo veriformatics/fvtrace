@@ -1,22 +1,10 @@
 # stack caches + build output
-__pycache__/
-*.pyc
-.venv/
-.pytest_cache/
-.ruff_cache/
 node_modules/
 .lake/
 .tools/
 test-results/
 playwright-report/
 blob-report/
-dist/
-build/
-*.egg-info/
-# local databases
-*.db
-*.sqlite
-*.sqlite3
 # agent-local
 .scratch/
 .claude/settings.local.json
