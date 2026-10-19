@@ -228,6 +228,26 @@ def witnessTests : TestM Unit := do
   match ({ s with trace := rule2 } : Scenario).plan (claimNamed rule2 "C11") with
   | .planned _ exps st .. => checkEq n (exps, st) (["E7"], .can)
   | other => check n false s!"{repr other}"
+  -- Plan rule, last tie-break: equal state + equal cost → the smaller id list, whichever of the
+  -- two tied candidates the search meets first.
+  let f1 : Fact := { id := "F1", subject := "S", kind := .numerical, text := "F1 holds.",
+                     status := .«open», route := .runtimeChecker }
+  let c13 : Claim := { id := "C13", question := "Q1", subject := "S", level := .estimand,
+                       text := "F1 and F2 hold.", needs := ["F1", "F2"], entailment := "EN13" }
+  let p : Experiment := { quick with id := "P", success := [("F1", .checked)] }
+  let onF2 := fun (id : String) => ({ p with id, success := [("F2", .checked)] } : Experiment)
+  let tie := fun (exps : List Experiment) => ({ t with
+    facts := t.facts ++ [f1, { f1 with id := "F2", text := "F2 holds." },
+      entail "EN13" "C13" .proved .lean]
+    claims := t.claims ++ [c13], experiments := t.experiments ++ exps } : Trace)
+  let planOf := fun (tr : Trace) =>
+    match ({ s with trace := tr } : Scenario).plan (claimNamed tr "C13") with
+    | .planned _ exps .. => exps
+    | _ => []
+  checkEq "engine: a tie goes to the smaller ids (the larger met first)"
+    (planOf (tie [p, onF2 "Q1", onF2 "Q2"])) ["P", "Q1"]
+  checkEq "engine: a tie goes to the smaller ids (the smaller met first)"
+    (planOf (tie [p, onF2 "QB", onF2 "QA"])) ["P", "QA"]
   -- Preview counts: a success that derives a violation lowers a claim; each move counts once.
   let c12 : Claim := { id := "C12", question := "Q1", subject := "S", level := .estimand,
                        text := "The animal was sampled once.", needs := ["O4"],
