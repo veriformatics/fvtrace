@@ -341,7 +341,7 @@
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "75c9e678517954b33c30677dcdadd56a6675db0257f15f8c6344448c2db64618",
+            "sha256": "4969675cb364b4a209ad2bc9ed98dbb364a73be6db6eb7c46824819292d18535",
             "role": "tests"
           }
         ],
