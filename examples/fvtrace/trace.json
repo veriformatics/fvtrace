@@ -207,7 +207,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "6b428ac4ac99460e96217c2a2c19467e36aa00bf9990a5e1891cbfed4cbcc35c",
+            "sha256": "e262ceb922db649f3a9f2d1e04f398a6328d91c5ea2faccd526cf58163332784",
             "role": "proof"
           }
         ],
@@ -238,7 +238,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "6b428ac4ac99460e96217c2a2c19467e36aa00bf9990a5e1891cbfed4cbcc35c",
+            "sha256": "e262ceb922db649f3a9f2d1e04f398a6328d91c5ea2faccd526cf58163332784",
             "role": "proof"
           }
         ],
@@ -336,12 +336,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "313e4209c6dc2ee4473595313b894fb11340539798d81b3b4862fd358613b5df",
+            "sha256": "032abb3f941167386ddf3f5104cd43f052d6e206ee2d4bed73a415649292c0b9",
             "role": "code"
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "a9ce82a016828a0aaf71a91c67d5f2ba41359df6f0c2f64d4484b57d93fb87d8",
+            "sha256": "75c9e678517954b33c30677dcdadd56a6675db0257f15f8c6344448c2db64618",
             "role": "tests"
           }
         ],

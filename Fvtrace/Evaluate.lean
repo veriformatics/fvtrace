@@ -45,11 +45,17 @@ def baseline : Scenario := { s with overrides := [] }
 def prospective (subject : String) : Bool :=
   ((s.trace.subject? subject).map (·.kind == .prospective)).getD false
 
-/-- The claim's state depends on the what-if (or its subject does not exist yet). -/
-def hypothetical (c : Claim) : Bool :=
-  s.prospective c.subject ||
-    c.needsAll.any (fun n => s.eff n != s.baseline.eff n) ||
+/-- The what-if changes a need of the claim or its subject's consistency. -/
+def changedByWhatif (c : Claim) : Bool :=
+  c.needsAll.any (fun n => s.eff n != s.baseline.eff n) ||
     s.valid c.subject != s.baseline.valid c.subject
+
+/-- The claim's state depends on the what-if (or its subject does not exist yet). -/
+def hypothetical (c : Claim) : Bool := s.prospective c.subject || s.changedByWhatif c
+
+/-- The experiment creates its subject (a prospective subject names it in `createdBy`). -/
+def creates (e : Experiment) : Bool :=
+  (s.trace.subject? e.subject).any (·.createdBy == some e.id)
 
 def creatorTitle (subject : String) : Option String := do
   let sub ← s.trace.subject? subject
@@ -58,7 +64,7 @@ def creatorTitle (subject : String) : Option String := do
   return x.title
 
 def qualifiers (c : Claim) (review : Receipt.ReviewState) : List String :=
-  (if s.hypothetical c && !s.prospective c.subject then ["what-if"] else []) ++
+  (if s.changedByWhatif c then ["what-if"] else []) ++
   (match review with | .draft => ["draft"] | .stale => ["stale review"] | .reviewed => []) ++
   ((if s.prospective c.subject then s.creatorTitle c.subject else none).map
     (fun t => [s!"if {t} runs"])).getD [] ++
@@ -138,7 +144,7 @@ def experimentJson (sc : Scenario) (e : Experiment) : Value :=
     ("requires", strs e.requires), ("closure", strs cl),
     ("applied", .bool (mergedHere.all fun (k, st) => sc.overrides.lookup k == some st)),
     ("contingent", .bool (mergedHere.any fun (k, _) => sc.resultFacts.contains k)),
-    ("prospective", .bool (sc.prospective e.subject)),
+    ("prospective", .bool (sc.prospective e.subject)), ("creates", .bool (sc.creates e)),
     ("wins", .arr (wins.map moveJson)), ("losses", .arr (losses.map moveJson)),
     ("lights", .num (Scenario.lights wins)), ("clears", .num (Scenario.clears wins)),
     ("breaks", .num (Scenario.breaks losses))]

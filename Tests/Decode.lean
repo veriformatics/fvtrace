@@ -143,4 +143,31 @@ def tests : TestM Unit := do
     checkEq "decode: syntax error located" (ds.toList.map (·.message))
       ["line 3, column 3: expected a string key"]
 
+/-- G-codec on an outcome map written out of key order (pretty keeps member order). -/
+def outcomeOrderTests : TestM Unit := do
+  match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
+  | .error _ => check "decode: fixture" false
+  | .ok t =>
+    let shuffled := { t with experiments := t.experiments.map fun e =>
+      { e with success := (("O3", .assumed) :: e.success).reverse } }
+    match decodeTrace (Encode.trace shuffled).pretty.toUTF8 with
+    | .error ds => check "decode: an outcome map in any key order decodes" false s!"{repr ds}"
+    | .ok d =>
+      let again := (decodeTrace (Encode.trace d).canonical.toUTF8).toOption
+      check "decode: decode (encode t) = t for a trace decoded from unsorted keys" (again == some d)
+
+/-- D-json's size limit: checked before parsing, on a small limit (building 16 MiB in the
+interpreted suite costs a minute); the shipped limit is pinned apart. -/
+def sizeTests : TestM Unit := do
+  checkEq "decode: the shipped limit is 16 MiB" maxTraceBytes (16 * 1024 * 1024)
+  checkEq "decode: an input over the limit is refused before parsing"
+    ((decodeTraceWithin 10 "{\"fvtrace\": 1}".toUTF8).toOption.isNone,
+     match decodeTraceWithin 10 "{\"fvtrace\": 1}".toUTF8 with
+     | .error ds => ds.toList.map (·.code)
+     | .ok _ => []) (true, ["size"])
+  checkEq "decode: an input at the limit reaches the parser"
+    (match decodeTraceWithin 3 "[1]".toUTF8 with
+     | .error ds => ds.toList.map (·.code)
+     | .ok _ => []) ["type"]
+
 end Tests.Decode

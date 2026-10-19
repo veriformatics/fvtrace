@@ -235,20 +235,34 @@ function alternatives(p, on) {
   ];
 }
 
-/** @param {Claim} c @param {Handlers} on */
-function planSection(c, on) {
+/** @param {Claim} c @param {Handlers} on @param {Envelope} env */
+function planSection(c, on, env) {
   const p = c.plan;
-  const uncovered = p.uncovered.length
-    ? h(
-        "p",
-        { class: "note" },
-        "No suggested experiment raises ",
-        refs("fact", p.uncovered, on),
-        p.uncovered.length === 1
-          ? ". It needs a new experiment or a ruling."
-          : ". They need a new experiment or a ruling.",
-      )
-    : null;
+  const closable = (/** @type {string} */ id) => env.facts.some((f) => f.id === id && f.closable);
+  const raisable = p.uncovered.filter(closable);
+  const settled = p.uncovered.filter((id) => !closable(id));
+  const uncovered = [
+    raisable.length
+      ? h(
+          "p",
+          { class: "note" },
+          "No suggested experiment raises ",
+          refs("fact", raisable, on),
+          raisable.length === 1
+            ? ". It needs a new experiment or a ruling."
+            : ". They need a new experiment or a ruling.",
+        )
+      : null,
+    settled.length
+      ? h(
+          "p",
+          { class: "note" },
+          "Stays as it is: ",
+          refs("fact", settled, on),
+          " (no route allows a stronger status).",
+        )
+      : null,
+  ];
   if (p.result === "planned") {
     return [
       h(
@@ -318,7 +332,7 @@ function inspectClaim(env, id, on) {
           `The what-if conflicts on this subject (${c.conflicts.join(", ")}).`,
         )
       : null,
-    c.final === "can" ? null : [h("h3", {}, "Plan"), planSection(c, on)],
+    c.final === "can" ? null : [h("h3", {}, "Plan"), planSection(c, on, env)],
   ];
 }
 
@@ -365,7 +379,9 @@ function inspectExperiment(env, id, on) {
       ? h(
           "p",
           { class: "new-data" },
-          "It creates new data: its claims are about that data, and the existing analysis keeps its gaps.",
+          e.creates
+            ? "It creates new data: claims about that data can rise; the existing analysis keeps its gaps."
+            : "It works on new data that another experiment creates; the existing analysis keeps its gaps.",
         )
       : null,
     first.length ? h("p", {}, "Runs after ", refs("experiment", first, on), ".") : null,
@@ -440,7 +456,7 @@ export function experimentList(env, filter, selected, on) {
       h(
         "small",
         { class: "experiment-meta" },
-        `${e.id} / ${word(efforts, e.effort)}${e.prospective ? " / creates new data" : ""}`,
+        `${e.id} / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
       ),
       h("span", { class: `impact${e.lights ? " lit" : ""}` }, impact(e)),
     ),

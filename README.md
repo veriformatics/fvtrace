@@ -95,7 +95,9 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 - **Evidence**: the files behind a verified fact (a proof, a checker log). `fvtrace pin` records
   their digests. If a file or the wording of the fact changes later, the fact is no longer
   verified until you pin again. fvTrace checks that the files are unchanged, not that they prove
-  the fact.
+  the fact. Each command reads every evidence file again. For large files, add `--cached` to
+  `claims`, `gaps`, `experiments`, `plan` or `serve`: it reuses the digest of a file that kept
+  its size and modification time, which is faster but misses an edit that keeps both.
 - **Subjects**: what the facts are about. The existing analysis is one subject. Data that an
   experiment would create is another subject: such an experiment can raise claims about the new
   data, never the claims of the existing analysis.
@@ -151,8 +153,9 @@ rely on are Lean theorems, stated in `Fvtrace/Spec` and proved in `Fvtrace/Proof
 "Can claim" holds only when every fact is verified with current evidence; a claim with a human
 ruling for its entailment never reads "Can claim"; a suggested plan is the best that the
 suggested experiments allow. `bash tools/trust.sh` checks every proof again with independent
-kernels (lean4lean and nanoda). `fvtrace check` is proved to accept exactly the well-formed
-traces.
+kernels (lean4lean and nanoda). The well-formedness check that `fvtrace check` applies to a
+decoded trace is proved to accept exactly the well-formed traces; the JSON decoding before it is
+tested, not proved.
 
 `examples/fvtrace/trace.json` applies fvTrace to itself. Its six claims read **On assumption**,
 and one overlooked direction reads **Not yet**. The assumptions are that the compiled program

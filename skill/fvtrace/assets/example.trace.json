@@ -67,7 +67,7 @@
       "id": "O4",
       "subject": "S",
       "kind": "provenance",
-      "text": "Each sample is one animal.",
+      "text": "Each animal was sampled once.",
       "status": "open",
       "route": "human-ruling"
     },
@@ -189,7 +189,7 @@
       "kind": "wet",
       "effort": "months",
       "title": "Collect a new cohort",
-      "method": "Sample new animals.",
+      "method": "Sample new animals, then run the proved marker checker on their data.",
       "resources": "Animals.",
       "success": {
         "M1": "checked"
@@ -205,7 +205,7 @@
         "O4",
         "O5"
       ],
-      "text": "A sample cannot be one animal and a repeat.",
+      "text": "An animal cannot be sampled once and twice.",
       "status": "assumed",
       "route": "human-ruling"
     }

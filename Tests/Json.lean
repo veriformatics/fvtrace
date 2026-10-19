@@ -90,6 +90,11 @@ def tests : TestM Unit := do
   check "json: different kinds differ" (Value.null != Value.bool false)
   checkEq "json: canonical keeps a space raw, escapes U+0010" (Value.str " \x10").canonical
     "\" \\u0010\""
+  checkEq "json: printed JSON escapes DEL + C1 controls (a terminal acts on them)"
+    (Value.obj [("k\x9b", .str "a\x7fb\x9bc\x85d")]).pretty
+    "{\n  \"k\\u009b\": \"a\\u007fb\\u009bc\\u0085d\"\n}\n"
+  checkEq "json: the digest form keeps them raw (JSON.stringify bytes)"
+    (Value.str "a\x7fb\x9b").canonical "\"a\x7fb\x9b\""
   checkEq "json: pretty nests arrays" (Value.arr [.arr [.num 1]]).pretty "[\n  [\n    1\n  ]\n]\n"
   checkEq "json: lineCol start" (lineCol (bytes "ab\ncd") 0) (1, 1)
   checkEq "json: canonical sorts keys"

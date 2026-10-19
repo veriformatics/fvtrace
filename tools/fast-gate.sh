@@ -36,7 +36,7 @@ for i in "${!names[@]}"; do
     [[ $rc -eq 0 ]] || failed+=("${names[$i]}")
 done
 
-skipped="trust audit secrets workflows"
+skipped="tools trust c-analyze vendor audit secrets workflows"
 [[ " $* " == *" --e2e "* ]] || skipped="$skipped e2e"
 printf '\n=== fast gate ===\nskipped: %s\n' "$skipped"
 if [[ ${#failed[@]} -ne 0 ]]; then

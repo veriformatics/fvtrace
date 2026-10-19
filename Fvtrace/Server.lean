@@ -26,6 +26,8 @@ structure Config where
   port : UInt16
   /-- `Host` header values the server answers. -/
   hosts : List String
+  /-- Reuse an evidence digest while the file keeps its size + mtime (`serve --cached`). -/
+  cached : Bool := false
 
 def cookieName (cfg : Config) : String := s!"fvtrace_{cfg.port}"
 
@@ -106,7 +108,7 @@ def problemJson (status : Std.Http.Status) (kind message : String) : Reply :=
 /-- The evaluation route: the envelope, or the problem in the GUI's words. -/
 def evaluation (cfg : Config) (cache : IO.Ref Receipt.Cache) (whatif : Option String) :
     IO Reply := do
-  let r ← Session.load cfg.target cfg.explicit whatif false cache
+  let r ← Session.load cfg.target cfg.explicit whatif (!cfg.cached) cache
   Session.closeCache cfg.target cache
   return match r with
   | .ok l => json .ok (Session.envelope l)
@@ -122,7 +124,11 @@ def evaluation (cfg : Config) (cache : IO.Ref Receipt.Cache) (whatif : Option St
 def respond (cfg : Config) (cache : IO.Ref Receipt.Cache) (req : Req) : IO Reply := do
   match decide cfg req with
   | .reply r => return r
-  | .evaluate w => evaluation cfg cache w
+  | .evaluate w =>
+    try evaluation cfg cache w
+    catch e =>
+      return problemJson .internalServerError "io" s!"fvtrace could not read the project: \
+        {(toString e).replace "\n" " "}"
 
 def reqOf (r : Request Body.Stream) : Req :=
   let header := fun (n : String) => (r.line.headers.get? (Header.Name.ofString! n)).map toString

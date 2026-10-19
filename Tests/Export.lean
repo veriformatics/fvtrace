@@ -100,6 +100,15 @@ def nativeTests : TestM Unit := do
     check "export: the bundle receipt reads current" (count out "receipt O1: current" == 1) out
     let (rc, _, _) ← run ["export", "--bundle", b.toString]
     checkEq "export: a non-empty bundle folder is refused" rc 2
+    IO.FS.createDirAll (proj / "inside")
+    let linked ← symlink (proj / "inside") (dir / "alias") true
+    let (rc, _, _) ← run ["export", "--bundle", (dir / "alias").toString]
+    check "export: a link into the project is refused as a bundle folder" (linked && rc == 2)
+    IO.FS.removeDirAll (proj / "inside")
+    let (rc, _, err) ← capture (Cli.runIn { home := proj / "proofs" / "Contrast.lean", cwd := proj }
+      ["init"])
+    checkEq "cli: an I/O failure no command anticipates exits 2" rc 2
+    check "cli: the I/O failure is named" (err.startsWith "fvtrace: ") err
     let (rc, _, _) ← run ["export"]
     checkEq "export: no --html or --bundle rc" rc 2
     checkEq "export: nothing written into the project"

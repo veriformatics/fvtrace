@@ -22,6 +22,14 @@ def capture {α : Type} (act : IO α) : IO (α × String × String) := do
   let e := String.fromUTF8! (← err.get).data
   return (r, o, e)
 
+/-- Creates `link` → `target` (`ln -s`; `mklink` on Windows, where CI runs as administrator). -/
+def symlink (target link : System.FilePath) (dir : Bool) : IO Bool := do
+  let out ← if System.Platform.isWindows then
+      IO.Process.output { cmd := "cmd", args := #["/c", "mklink"] ++
+        (if dir then #["/D"] else #[]) ++ #[link.toString, target.toString] }
+    else IO.Process.output { cmd := "ln", args := #["-s", target.toString, link.toString] }
+  return out.exitCode == 0
+
 /-- Prints each failure + a summary; rc 0 iff every check passed. -/
 def report (outcomes : Array Outcome) : IO UInt32 := do
   let failed := outcomes.filter (!·.ok)
