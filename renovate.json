@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "minimumReleaseAge": "7 days",
+  "rangeStrategy": "pin",
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] },
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "groupName": "dev toolchain (npm)"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Lean toolchain (lean-toolchain)",
+      "managerFilePatterns": ["/^lean-toolchain$/"],
+      "matchStrings": ["leanprover/lean4:v(?<currentValue>\\S+)"],
+      "depNameTemplate": "leanprover/lean4",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Pinned scanner binaries (tools/tools.lock); the digest column needs a manual update",
+      "managerFilePatterns": ["/^tools/tools\\.lock$/"],
+      "matchStrings": [
+        "^(?<depName>\\S+) (?<currentValue>\\S+) linux-x86_64 \\S+ https://github\\.com/(?<packageName>[^/]+/[^/]+)/"
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ]
+}
