@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "jsdoc", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+    "no-restricted-properties": [
+      "error",
+      {
+        "property": "innerHTML",
+        "message": "HTML-string sink: build DOM nodes; Trusted Types blocks it at runtime."
+      },
+      {
+        "property": "outerHTML",
+        "message": "HTML-string sink: build DOM nodes; Trusted Types blocks it at runtime."
+      },
+      {
+        "property": "insertAdjacentHTML",
+        "message": "HTML-string sink: build DOM nodes; Trusted Types blocks it at runtime."
+      },
+      { "property": "srcdoc", "message": "HTML-string sink: build DOM nodes." },
+      { "property": "createContextualFragment", "message": "HTML-string sink: build DOM nodes." },
+      {
+        "object": "document",
+        "property": "write",
+        "message": "HTML-string sink: build DOM nodes."
+      },
+      {
+        "object": "document",
+        "property": "writeln",
+        "message": "HTML-string sink: build DOM nodes."
+      }
+    ],
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/restrict-template-expressions": "error"
+  }
+}

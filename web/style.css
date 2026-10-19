@@ -1,0 +1,24 @@
+:root {
+  color: #23354a;
+  background: #f3f6fa;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+}
+
+.top {
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #c6d1de;
+}
+
+.brand {
+  font-weight: 700;
+}
+
+main {
+  padding: 24px;
+}

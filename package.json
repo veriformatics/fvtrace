@@ -1,0 +1,25 @@
+{
+  "name": "fvtrace-dev",
+  "private": true,
+  "description": "Dev-only toolchain for fvTrace's GUI checks; the shipped binary carries no Node code.",
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "@types/culori": "4.0.1",
+    "@types/node": "26.6.5",
+    "culori": "4.0.2",
+    "html-validate": "11.16.4",
+    "oxlint": "1.88.0",
+    "oxlint-tsgolint": "7.0.2004",
+    "prettier": "3.9.10",
+    "stylelint": "17.16.0",
+    "stylelint-config-standard": "40.0.0",
+    "typescript": "7.0.2"
+  }
+}
