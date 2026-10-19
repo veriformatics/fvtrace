@@ -152,19 +152,20 @@ def experimentBefore (sc : Scenario) (a b : Experiment) : Bool :=
   let eb := (Effort.all.idxOf b.effort)
   ka > kb || (ka == kb && (ca > cb || (ca == cb && (ea < eb || (ea == eb && a.id < b.id)))))
 
-/-- The finite one-click what-if domain from the baseline (export precomputes each). -/
+/-- The one-click what-ifs from this scenario, each as the complete what-if it leads to (so a
+click replaces the what-if): suppose a closable fact at its route's ceiling, an experiment's
+success or failure, a claim's plan. A recorded scenario gives the export's finite domain. -/
 def actions (sc : Scenario) : List (String × String × String × Overrides) :=
-  let base := sc.baseline
-  (sc.trace.facts.filter base.closable).map (fun f =>
-      (s!"suppose:{f.id}", "suppose", f.id, [(f.id, f.route.ceiling)])) ++
+  (sc.trace.facts.filter sc.closable).map (fun f =>
+      (s!"suppose:{f.id}", "suppose", f.id,
+        (sc.withOverrides [(f.id, f.route.ceiling)]).overrides)) ++
   sc.trace.experiments.map (fun e =>
-      let after := base.applySuccess (base.closure [e.id])
-      (s!"success:{e.id}", "success", e.id, after.overrides)) ++
+      (s!"success:{e.id}", "success", e.id, (sc.applySuccess (sc.closure [e.id])).overrides)) ++
   (sc.trace.experiments.filter (!·.failure.isEmpty)).map (fun e =>
-      (s!"failure:{e.id}", "failure", e.id, (base.applyFailure e).overrides)) ++
+      (s!"failure:{e.id}", "failure", e.id, (sc.applyFailure e).overrides)) ++
   sc.trace.claims.filterMap fun c =>
-    match base.plan c with
-    | .planned _ exps .. => some (s!"plan:{c.id}", "plan", c.id, (base.applySuccess exps).overrides)
+    match sc.plan c with
+    | .planned _ exps .. => some (s!"plan:{c.id}", "plan", c.id, (sc.applySuccess exps).overrides)
     | _ => none
 
 def overridesJson (o : Overrides) : Value :=

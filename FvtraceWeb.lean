@@ -8,7 +8,12 @@ namespace FvtraceWeb
 /-- URL path, content type, body. -/
 def files : List (String × String × String) :=
   [("/", "text/html; charset=utf-8", include_str "web/index.html"),
+   ("/style.css", "text/css; charset=utf-8", include_str "web/style.css"),
    ("/app.js", "text/javascript; charset=utf-8", include_str "web/app.js"),
-   ("/style.css", "text/css; charset=utf-8", include_str "web/style.css")]
+   ("/circuit.js", "text/javascript; charset=utf-8", include_str "web/circuit.js"),
+   ("/dom.js", "text/javascript; charset=utf-8", include_str "web/dom.js"),
+   ("/envelope.js", "text/javascript; charset=utf-8", include_str "web/envelope.js"),
+   ("/panels.js", "text/javascript; charset=utf-8", include_str "web/panels.js"),
+   ("/words.js", "text/javascript; charset=utf-8", include_str "web/words.js")]
 
 end FvtraceWeb
