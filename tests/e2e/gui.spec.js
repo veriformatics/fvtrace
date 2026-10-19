@@ -54,7 +54,9 @@ test("switches suppose facts, the engine answers, the address keeps it", async (
 test("a linked what-if goes to the engine as written", async ({ page }) => {
   await page.goto(`${web.url}#whatif=O2%3Dchecked%2CO2%3Dviolated`);
   await expect(page.locator("#error")).toBeVisible();
-  await expect(page.locator("#error")).toContainText("O2 appears twice in the what-if");
+  await expect(page.locator("#error")).toHaveText(
+    "O2 appears twice in the what-if. This page shows the recorded evidence instead.",
+  );
   await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
   expect(new URL(page.url()).hash).not.toContain("whatif=");
 });
