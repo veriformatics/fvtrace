@@ -27,15 +27,9 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [x] a4f62ad Scaffold: fixture, engine, server, launcher, spec
-- [ ] Variant A ledger
-- [ ] Variant B graph
-- [ ] Variant C manuscript check
-- [ ] Visual QA of all variants (webcap, desktop + mobile, what-if states)
-- [ ] Close review + `.agent/deferred.md` + Phase → ITERATE
-- Deferred queue → `.agent/deferred.md`
+- [ ] ITERATE round 1: run the 3 variants, collect the user's pick/combination + feedback on the claim model → `Decisions`
+- Deferred queue → `.agent/deferred.md`; PROTOTYPE history → `.agent/archive/prototype.md`
 
 ## Phase
 
-PROTOTYPE — whole product
-
+ITERATE — whole product
