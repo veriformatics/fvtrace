@@ -67,6 +67,13 @@ def nativeTests : TestM Unit := do
     IO.FS.writeBinFile pathOut.trimAscii.toString
       (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json")
     let (_, _, _) ← run ["pin"]
+    -- export reads each evidence file again: a planted digest for the same size + mtime is ignored.
+    let real ← IO.FS.realPath (proj / "proofs" / "Contrast.lean")
+    let m ← real.metadata
+    let planted : Receipt.Cache :=
+      ({} : Receipt.Cache).insert real.toString (m.byteSize, m.modified.sec, m.modified.nsec, "x")
+    Receipt.Cache.save planted
+      ((System.FilePath.mk pathOut.trimAscii.toString).parent.get! / "cache.json")
     let pagePath := dir / "claims.html"
     let (rc, out, _) ← run ["export", "--html", pagePath.toString]
     checkEq "export: --html rc" rc 0
@@ -79,6 +86,8 @@ def nativeTests : TestM Unit := do
       (count html "require-trusted-types-for 'script'; trusted-types 'none'" == 1)
     check "export: the page links no file" (count html "src=\"" == 0 && count html "href=\"" == 0)
     let island := ((html.splitOn "id=\"fvtrace-data\">")[1]!.splitOn "</script>")[0]!
+    check "export: the page's receipts come from a fresh read (no cache)"
+      (count island "\"current\":false" == 0 && count island "\"current\":true" ≥ 1)
     match Json.parse island.toUTF8 with
     | .error e => check "export: the data block is JSON" false e.message
     | .ok (.obj kvs) =>
@@ -108,6 +117,17 @@ def nativeTests : TestM Unit := do
     check "export: the bundle receipt reads current" (count out "receipt O1: current" == 1) out
     let (rc, _, _) ← run ["export", "--bundle", b.toString]
     checkEq "export: a non-empty bundle folder is refused" rc 2
+    let absent := (dir / "absent.json").toString
+    let pinnedT ← match decodeTrace (← IO.FS.readBinFile pathOut.trimAscii.toString) with
+      | .ok t => pure t
+      | .error _ => throw (IO.userError "the pinned trace does not decode")
+    Cli.writeTrace absent { pinnedT with facts := pinnedT.facts.map fun f =>
+      if f.id == "O1" then { f with evidence := f.evidence.map fun ev =>
+        { ev with artifacts := ev.artifacts.map fun a => { a with path := "proofs/Absent.lean" } } }
+      else f }
+    let (rc, _, err) ← run ["export", "--bundle", (dir / "bundle2").toString, "--trace", absent]
+    check "export: a bundle missing an evidence file exits 1 and names it"
+      (rc == 1 && count err "cannot copy missing proofs/Absent.lean" == 1) err
     IO.FS.createDirAll (proj / "inside")
     let linked ← symlink (proj / "inside") (dir / "alias") true
     let (rc, _, _) ← run ["export", "--bundle", (dir / "alias").toString]

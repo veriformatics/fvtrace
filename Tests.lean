@@ -19,7 +19,8 @@ namespace Tests
 /-- Suites that call no FFI code: the interpreter can run them (`TestPure.lean`, mutation
 credit). -/
 def pure : TestM Unit := do
-  area "cli" do Tests.Cli.tests; Tests.Cli.skillTests; Tests.Cli.writeTests
+  area "cli" do
+    Tests.Cli.tests; Tests.Cli.skillTests; Tests.Cli.writeTests; Tests.Cli.bindTests
   area "json" Tests.Json.tests
   area "decode" do
     Tests.Decode.tests; Tests.Decode.sizeTests; Tests.Decode.outcomeOrderTests
