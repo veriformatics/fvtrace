@@ -12,6 +12,10 @@ def pureTests : TestM Unit := do
     (["", "f", "fo", "foo", "foob", "fooba", "foobar"].map (base64 ·.toUTF8))
     ["", "Zg==", "Zm8=", "Zm9v", "Zm9vYg==", "Zm9vYmE=", "Zm9vYmFy"]
   checkEq "export: hex to bytes" (hexBytes "00ff10").toList [0, 255, 16]
+  checkEq "export: base64 of a top-6-bit triple + of SHA-256(\"\") (a CSP hash)"
+    [base64 (hexBytes "fc0000"),
+      base64 (hexBytes "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
+    ["/AAA", "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="]
   let tricky := Json.Value.obj [("a", .str "</script><!-- & \u2028\u2029 >")]
   let safe := htmlSafe tricky.canonical
   check "export: no tag, comment or line separator survives in the data block"
