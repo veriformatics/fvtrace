@@ -9,6 +9,7 @@ import Tests.Digest
 import Tests.Receipt
 import Tests.Args
 import Tests.CliReceipt
+import Tests.Engine
 
 namespace Tests
 
@@ -22,6 +23,7 @@ def pure : TestM Unit := do
   Tests.Assets.tests
   Tests.Check.tests
   Tests.Args.tests
+  Tests.Engine.tests
 
 /-- Suites that call the C digest code: native binary alone (`lake test`). -/
 def native : TestM Unit := do
