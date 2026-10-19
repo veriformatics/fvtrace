@@ -6,10 +6,11 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Artifacts
 
-- `lakefile.toml` = Lake package `fvtrace` (Lean 4.35, `lean-toolchain`): library `Fvtrace` (`Fvtrace/Spec*` = human-read claims, `Fvtrace/Proofs*` = their proofs), shipped binary `fvtrace` (`Main.lean`), tests `fvtrace-tests` (`TestMain.lean` + `Tests/`), dev-only audit `fvtrace-trust` (`TrustMain.lean`). Run: `lake build fvtrace && .lake/build/bin/fvtrace --version`; tests: `lake test`.
+- `lakefile.lean` = Lake package `fvtrace` (Lean 4.35, `lean-toolchain`): library `Fvtrace` (`Fvtrace/Spec*` = human-read claims, `Fvtrace/Proofs*` = their proofs, the rest = shipped code), embedded-file libraries `FvtraceWeb` (`web/`) + `FvtraceSkill` (`skill/fvtrace/`), binary `fvtrace` (`Main.lean`), tests `fvtrace-tests` (`TestMain.lean` + `Tests/`; FFI-free half `TestPure.lean`), dev-only audit `fvtrace-trust` (`TrustMain.lean`). Run: `lake build fvtrace && .lake/build/bin/fvtrace --help`; tests: `lake test`.
+- `fvtrace` commands: `init`, `path`, `check`, `pin`, `review`, `claims`, `gaps`, `experiments`, `plan`, `eval`, `serve` (GUI: `fvtrace serve` → printed token link), `export --html|--bundle`, `skills install|show`, `schema`; usage = `README.md`.
+- `web/` = GUI (claim circuits, no-build ES modules, display-only); `skill/fvtrace/` = the Agent Skill; `schema/trace.schema.json` = trace format; `examples/fvtrace/` (self-trace) + `examples/synthetic/` = pinned examples.
 - `tools/gate.sh` = the one gate (local + CI); `tools/fast-gate.sh` = iteration; `tools/gate-probe.sh` = positive controls; law = `.claude/rules/ops.md`.
-- `web/` = GUI sources (no-build ES modules), embedded into the binary; dev-only JS toolchain = `package.json` + `pnpm-lock.yaml`.
-- `prototype/gui/` = PROTOTYPE GUI (retires at IMPLEMENT close → tag `prototype-gui`): stdlib server + engine + fixture + claim circuits. Run: `uv run prototype/gui/serve.py` → http://127.0.0.1:8642/.
+- `README.md` = user documentation. Prototype retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-lint` (shelved manuscript check).
 
 ## Decisions
 

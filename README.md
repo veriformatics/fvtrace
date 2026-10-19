@@ -1,0 +1,182 @@
+# fvTrace
+
+fvTrace shows which claims your analysis can make and which it cannot.
+
+fvTrace takes one stance: you can make a claim only when every fact that the claim needs is
+formally verified. A fact is verified when a proof covers it, or when a proved checker accepted
+the actual data or code. If an analysis has no verification yet, fvTrace shows where verification
+would make the most claims available. It also shows which experiments could fill each gap, and
+which claims an assumption or a violated fact holds back.
+
+You describe the analysis in a *trace*: the scientific questions, the claims, the facts that each
+claim needs, and how each fact could be verified. Your coding agent can draft the trace for you.
+fvTrace checks the trace and decides every verdict. fvTrace never calls a language model.
+
+## The four verdicts
+
+| Verdict | Meaning |
+|---|---|
+| **Can claim** | Every fact that the claim needs is verified, and its evidence is unchanged since it was pinned. |
+| **On assumption** | No fact is violated, and each fact is verified or assumed. You can state the claim only with its assumptions: "Assuming …: claim". |
+| **Not yet** | At least one fact is open, only tested, or its evidence changed. |
+| **Cannot claim** | A fact is violated, the claim needs two facts that exclude each other, or a what-if conflicts. |
+
+Each claim also needs one *entailment* fact: "these facts entail the claim as worded". If a
+person rules on the entailment, the claim can read **On assumption** at best. Until a reviewer
+signs off the trace, every verdict is provisional.
+
+## Install
+
+fvTrace is one program, `fvtrace`. To build it from source:
+
+1. Install [elan](https://github.com/leanprover/elan) (the Lean toolchain manager) and a C
+   compiler (`cc`). On Windows, the build uses MinGW `gcc` (set `CC=gcc`); Windows and macOS
+   builds are not tested yet.
+2. In this folder, run `lake build fvtrace`.
+3. Copy `.lake/build/bin/fvtrace` to a folder on your `PATH`.
+4. Run `fvtrace --version` to check the installation.
+
+## Quick start
+
+1. Go to the folder of your analysis: `cd my-analysis`.
+2. Create the trace: `fvtrace init`. The command shows where the trace is.
+3. Describe the analysis in that file. To let your coding agent draft it, run
+   `fvtrace skills install` once, then ask the agent to set up fvTrace for the analysis.
+4. If a fact is verified, name its evidence files (a proof, a checker log) in the trace, then
+   pin them: `fvtrace pin` records the digests of the files, so that a later change shows.
+5. Check the trace: `fvtrace check`. Correct each error that it shows.
+6. Read the verdicts: `fvtrace claims`. To use the browser view, run `fvtrace serve` and open
+   the link that it prints.
+7. When the trace is correct, sign it off: `fvtrace review --reviewer "Your Name"`.
+
+The folder `examples/synthetic` holds a small study that uses every part of a trace. To see it,
+go to `examples/synthetic/project` and run `fvtrace serve --trace ../trace.json`.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `fvtrace init` | Creates the trace of the project and shows where it is. |
+| `fvtrace path` | Prints the location of the trace. |
+| `fvtrace check [--strict]` | Checks the trace and the evidence of each verified fact. With `--strict`, a warning without a waiver or changed evidence also fails. |
+| `fvtrace pin` | Records the SHA-256 of each evidence file and statement. |
+| `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. |
+| `fvtrace claims` | Shows each claim with its verdict, by question. |
+| `fvtrace gaps` | Shows the facts whose verification makes the most claims available. |
+| `fvtrace experiments` | Shows the suggested experiments and what each one changes. |
+| `fvtrace plan CLAIM` | Shows the set of suggested experiments that raises the claim as far as they allow, the cheapest among those. |
+| `fvtrace serve` | Shows the claims in a browser. |
+| `fvtrace export --html FILE` | Writes one page that opens in any browser. |
+| `fvtrace export --bundle DIR` | Writes the trace and copies of its evidence files. |
+| `fvtrace skills install` | Installs the skill for coding agents. |
+| `fvtrace schema` | Prints the JSON Schema of the trace format. |
+
+A command works on the project in the current folder. To use another folder, add
+`--project DIR`. To read a trace file directly, for example a draft, add `--trace FILE`. To
+suppose other statuses, add `--whatif FACT=STATUS,...` to `claims`, `gaps`, `experiments` or
+`plan`. A what-if is a supposition, not evidence: fvTrace marks each verdict that depends on it.
+
+`claims`, `gaps`, `experiments`, `plan` and `check` accept `--json` for scripts and agents.
+`fvtrace eval` prints the full evaluation as JSON.
+
+The exit status is 0 for success, 1 for an invalid or failing trace, and 2 for a usage or read
+error.
+
+## The trace
+
+A trace is one JSON file. `fvtrace schema` prints its full format. The main parts are:
+
+- **Questions**: the scientific questions of the analysis.
+- **Claims**: the sentences that the analysis wants to state. fvTrace shows them word for word.
+- **Facts**: one statement each. A fact has a **status** (`proved`, `checked`, `assumed`,
+  `tested`, `open`, `violated`) and a **route**: how it could be verified (`lean`,
+  `refinement`, `runtime-checker`, `human-ruling`, `empirical`). A route limits the status: a
+  human ruling or empirical evidence makes a fact `assumed` at best.
+- **Evidence**: the files behind a verified fact (a proof, a checker log). `fvtrace pin` records
+  their digests. If a file or the wording of the fact changes later, the fact is no longer
+  verified until you pin again. fvTrace checks that the files are unchanged, not that they prove
+  the fact.
+- **Subjects**: what the facts are about. The existing analysis is one subject. Data that an
+  experiment would create is another subject: such an experiment can raise claims about the new
+  data, never the claims of the existing analysis.
+- **Experiments**: suggested work to fill gaps. A *dry* experiment uses existing data, code or
+  proofs; a *wet* experiment needs new samples or bench work.
+
+### Results, exclusions and violated facts
+
+- A **result** fact states the value or pattern that a claim reports. `fvtrace check` warns when a
+  claim lacks a kind of fact that its level usually needs, for example a causal claim without an
+  interpretation fact. If the fact does not apply, record a **waiver** with the reason.
+- An **exclusion** records two facts that cannot both hold. If the exclusion is verified and one
+  side is verified, fvTrace marks the other side violated. A claim that needs both sides cannot
+  be made. A what-if that supposes both sides makes every claim on that subject **Cannot claim**.
+- A **violated** fact is false as worded. fvTrace lists it apart, with the claims that it
+  blocks: reword those claims, or collect new data.
+
+## Where fvTrace keeps its files
+
+fvTrace keeps its own files in its data folder: one folder for each project, with the trace, the
+project location and a cache of file digests. It writes into your project folder only when you
+point `--trace` at a file there. The data folder is
+`FVTRACE_HOME` if you set it. Otherwise it is the data folder of your platform plus `fvtrace`:
+`~/.local/share/fvtrace` on Linux, `~/Library/Application Support/fvtrace` on macOS, and
+`%LOCALAPPDATA%\fvtrace` on Windows. The project folders are keyed by their full path, so a
+moved project gets a new folder. After you move a project, run `fvtrace init` in its new
+location, then copy the old trace file to the path that `fvtrace path` prints.
+
+## Sharing
+
+- `fvtrace export --html claims.html` writes one page. The page needs no server: every one-click
+  what-if is computed in advance, and each one applies alone.
+- `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. On another
+  computer, go to `DIR/project` and run `fvtrace serve --trace ../trace.json`.
+- `fvtrace serve` answers on this computer only. Each run makes a new secret link. With
+  `--host ADDRESS`, computers on your network can open the page at that address. The page is
+  not encrypted, so use `--host` only on a network that you trust.
+
+## Use fvTrace with a coding agent
+
+`fvtrace skills install` installs the fvTrace skill for Claude Code (`~/.claude/skills`) and for
+agents that read `~/.agents/skills` (Codex, Gemini CLI, GitHub Copilot, Cursor). To install it
+in another folder, add `--dir DIR`. `fvtrace skills show` prints the instructions.
+
+The skill tells the agent to read the analysis, draft the trace honestly, run `fvtrace check`,
+and show you the verdicts. The agent never marks a fact verified without evidence, and it never
+signs off the trace: the review is yours.
+
+## How fvTrace verifies itself
+
+The rules that decide each verdict are Lean 4 definitions. The guarantees that the verdicts
+rely on are Lean theorems, stated in `Fvtrace/Spec` and proved in `Fvtrace/Proofs`. Examples:
+"Can claim" holds only when every fact is verified with current evidence; a claim with a human
+ruling for its entailment never reads "Can claim"; a suggested plan is the best that the
+suggested experiments allow. `bash tools/trust.sh` checks every proof again with independent
+kernels (lean4lean and nanoda). `fvtrace check` is proved to accept exactly the well-formed
+traces.
+
+`examples/fvtrace/trace.json` applies fvTrace to itself. Its six claims read **On assumption**,
+and one overlooked direction reads **Not yet**. The assumptions are that the compiled program
+runs the proved definitions, that each Lean statement says what its English claim says, and
+(for the receipt claim) that fvTrace calls the verified HACL* SHA-256 code unchanged.
+
+fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C compiler,
+the proofs of the HACL* SHA-256 code that fvTrace uses, the evidence files that you pin (fvTrace
+checks their digests, not their content), and every human ruling in the trace.
+
+## Limits
+
+- fvTrace does not run your analysis or prove anything about your data. It records what is
+  verified and shows what follows.
+- A plan shows coverage by the suggested experiments, not scientific priority.
+- A what-if is a supposition. A review covers the recorded trace, never a what-if.
+
+## Development
+
+- `bash tools/gate.sh` runs every check: build, proofs and their independent replay, tests,
+  the browser tests, the scanners and the format checks. CI runs the same command.
+- `bash tools/fast-gate.sh` runs the quick checks while you work.
+- `bash tools/gate-probe.sh` shows that each purpose-built check fails on a planted error.
+
+## License
+
+Apache License 2.0 with LLVM exception. See `LICENSE`.

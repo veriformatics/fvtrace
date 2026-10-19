@@ -28,8 +28,8 @@ fvTrace takes one stance: a claim can be made only when every fact it needs is f
    - add one entailment fact (`entailment`, kind `entailment`): "these needs entail the claim as worded";
    - give each fact the route by which it could be verified and its honest status now (`references/stance.md`).
 4. Add experiments that could raise open facts: `dry` (existing data, code or proofs) or `wet` (new samples, bench work), with effort, method, resources, success and failure outcomes, and a caveat. A success asserts only what the experiment can establish; a failure sets facts `violated`.
-5. Validate: `fvtrace check`. Fix every error. For each warning, add the missing kind of fact or a waiver with the reason the user gives.
-6. When evidence files exist (a Lean proof, a checker log), add them as artifacts and run `fvtrace pin`. Never edit `sha256` or `statementDigest` by hand.
+5. When evidence files exist (a Lean proof, a checker log), add them as artifacts and run `fvtrace pin`. A `proved` or `checked` fact fails the check until it is pinned. Never edit `sha256` or `statementDigest` by hand.
+6. Validate: `fvtrace check`. Fix every error. For each warning, add the missing kind of fact or a waiver with the reason the user gives.
 7. Show the result: `fvtrace claims`, `fvtrace gaps` (facts whose verification pays most), `fvtrace experiments`, `fvtrace plan CLAIM`. For a browser view, run `fvtrace serve` and give the user the printed link. Add `--whatif FACT=STATUS,...` to explore a supposition; say that it is a supposition.
 8. Hand over: tell the user the trace is a draft, list the facts you were unsure about, and ask them to check it and run `fvtrace review --reviewer "Their Name"`.
 

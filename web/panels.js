@@ -402,7 +402,7 @@ export function inspector(env, sel, on) {
       h(
         "p",
         {},
-        "A switch supposes its fact verified; its label shows the fact, its evidence and how to verify it.",
+        "A switch supposes its fact at the best status that its route allows. Its label shows the fact, its evidence and how it can be established.",
       ),
     ];
   }
