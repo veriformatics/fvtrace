@@ -25,6 +25,8 @@ def pureTests : TestM Unit := do
   checkEq "export: export names"
     (["export function h(tag) {", "export const verdicts = {", "export class E extends Error {}",
       "export default x;"].map exportName) [some "h", some "verdicts", some "E", none]
+  checkEq "export: a name keeps letters, digits, _ and $"
+    (exportName "export function a_1$b(x) {") (some "a_1$b")
   match bundle modules with
   | .error m => check "export: the GUI modules bundle" false m
   | .ok script =>
