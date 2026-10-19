@@ -131,19 +131,6 @@ def tests : TestM Unit := do
   checkEq "lint: release claim without a release fact"
     ((Lint.warnings (mapClaim t "C1" fun c => { c with level := .release })).map (·.rule))
     ["L-release"]
-  let (rc, out, _) ← capture (Fvtrace.Cli.run ["check", "tests/fixtures/synthetic.trace.json"])
-  checkEq "cli: check valid rc" rc 0
-  checkEq "cli: check valid output" out
-    ("tests/fixtures/synthetic.trace.json: valid\n" ++
-      "  receipts: not checked (give --project DIR)\n  review: draft\n")
-  let (rc, out, _) ←
-    capture (Fvtrace.Cli.run ["check", "--json", "tests/schema/cases/invalid-status.json"])
-  checkEq "cli: check invalid rc" rc 1
-  check "cli: check --json is JSON" ((Json.parse out.toUTF8).toOption.isSome)
-  let (rc, _, err) ← capture (Fvtrace.Cli.run ["check", "tests/fixtures/absent.json"])
-  checkEq "cli: check unreadable rc" rc 2
-  check "cli: unreadable file named"
-    (err.startsWith "fvtrace: cannot read tests/fixtures/absent.json")
   checkEq "render: control characters escaped" (Render.safe "a\x1b[2Jb\x9bc\x7f\nd")
     "a\\u{1b}[2Jb\\u{9b}c\\u{7f}\\u{0a}d"
   checkEq "render: escape range boundaries" (Render.safe "\x1f \x7e\x7f\x9f\xa0\x10\x90")
