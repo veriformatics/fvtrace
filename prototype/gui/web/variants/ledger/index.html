@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Claim ledger | fvTrace</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header class="masthead"><a class="brand" href="/">fvTrace</a><span>Claim ledger</span><span class="private">Private study</span></header>
+  <main>
+    <div class="intro"><div><p class="notebook">An account of what this analysis supports</p><h1 id="title">Opening the claim ledger…</h1><p id="summary"></p></div><span class="prototype">Working prototype</span></div>
+    <p class="disclosure">Example study. Statuses come from a hand-written study record, not a live check. Draft rewrites are hand-written stubs. A verified fact supports only the claims within its stated scope.</p>
+    <div id="error" role="alert" hidden></div>
+    <section id="scenario" class="scenario" aria-label="Hypothetical changes" hidden></section>
+    <section id="balances" class="balances" aria-label="All claim totals"></section>
+    <nav id="questions" class="questions" aria-label="Scientific questions"></nav>
+    <div class="columns"><section class="ledger" aria-labelledby="question-title"><div id="question-heading"></div><div id="claims"></div><section id="directions" class="directions"></section></section><aside class="work" aria-labelledby="work-title"><h2 id="work-title">Verification worth doing</h2><p class="quiet">Ranked by the claims that one verified fact would unlock. Checking a fact is not the same as proving it.</p><div id="work"></div></aside></div>
+    <details class="draft"><summary>Check the draft wording</summary><p>Rewrites below are hand-written stub text. They are not new scientific findings.</p><div id="draft"></div></details>
+    <footer>Prototype only. What-if changes are not saved. Evidence references describe the study record; source files are not loaded here.</footer>
+  </main>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+</body>
+</html>
