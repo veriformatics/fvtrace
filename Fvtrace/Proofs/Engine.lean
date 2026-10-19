@@ -38,10 +38,42 @@ theorem countsComplete : Spec.CountsComplete := by
     cases h : s.final c <;> simp [h] at ih ⊢ <;> omega
 
 theorem breakdownPartitions : Spec.BreakdownPartitions := by
-  intro s c n hn
-  simp only [Scenario.verifiedNeeds, Scenario.premises, Scenario.gaps, Scenario.blockers,
-    List.mem_filter, hn, true_and]
-  cases h : s.eff n <;> simp [h, EStatus.verified, EStatus.strength]
+  intro s c
+  refine ⟨fun n hn => ?_, ?_⟩
+  · simp only [Scenario.verifiedNeeds, Scenario.premises, Scenario.gaps, Scenario.blockers,
+      List.mem_filter, hn, true_and]
+    cases h : s.eff n <;> simp [h, EStatus.verified, EStatus.strength]
+  · simp only [List.mem_cons, List.mem_nil_iff, or_false]
+    rintro l (rfl | rfl | rfl | rfl) <;> exact List.filter_sublist
+
+theorem blockers_ne_nil (s : Scenario) (c : Claim) :
+    s.blockers c ≠ [] ↔ (c.needsAll.map s.eff).any (· == .violated) = true := by
+  simp [Scenario.blockers, List.filter_eq_nil_iff, List.any_map]
+
+theorem intrinsic_cannot_iff (s : Scenario) (c : Claim) :
+    s.intrinsic c = .cannot ↔
+      ((c.needsAll.map s.eff).any (· == .violated) || !(s.incompatible c).isEmpty) = true := by
+  unfold Scenario.intrinsic
+  dsimp only
+  split
+  · rename_i h; exact ⟨fun _ => h, fun _ => rfl⟩
+  · rename_i h
+    refine ⟨fun h' => ?_, fun h' => absurd h' h⟩
+    split at h'
+    · cases h'
+    · split at h' <;> cases h'
+
+theorem cannotExplained : Spec.CannotExplained := by
+  intro s c
+  constructor
+  · have hi : s.incompatible c ≠ [] ↔ (!(s.incompatible c).isEmpty) = true := by
+      cases s.incompatible c <;> simp
+    rw [intrinsic_cannot_iff, Bool.or_eq_true, blockers_ne_nil, hi]
+  · unfold Scenario.final Scenario.valid
+    cases h : (s.conflicts c.subject).isEmpty
+    · have : s.conflicts c.subject ≠ [] := by simpa [List.isEmpty_iff] using h
+      simp [this]
+    · simp [List.isEmpty_iff.mp h]
 
 /-- `find?` by id returns an element of the list carrying that id. -/
 theorem fact?_mem {t : Trace} {id : String} {f : Fact} (h : t.fact? id = some f) :
@@ -96,9 +128,17 @@ theorem final_can {s : Scenario} {c : Claim} (h : s.final c = .can) : s.intrinsi
   · exact h
   · cases h
 
+theorem final_can_valid {s : Scenario} {c : Claim} (h : s.final c = .can) :
+    s.valid c.subject = true := by
+  unfold Scenario.final at h
+  split at h
+  · assumption
+  · cases h
+
 theorem recordedCanIsVerified : Spec.RecordedCanIsVerified := by
-  intro t current c hcan n hn
-  exact eff1_recorded (eff_verified (intrinsic_can (final_can hcan) n hn))
+  intro t current c hcan
+  exact ⟨final_can_valid hcan, fun n hn =>
+    eff1_recorded (eff_verified (intrinsic_can (final_can hcan) n hn))⟩
 
 theorem lookup_mem {o : Overrides} {k : String} {st : Status} (h : o.lookup k = some st) :
     (k, st) ∈ o := by
@@ -316,11 +356,38 @@ theorem subjectIsolation : Spec.SubjectIsolation := by
       · exact hentR
     obtain ⟨sub, hsub⟩ := factSubject?_of_mem hres
     rw [hsub, hwf.2.2.1.1 c hc n hn sub hsub]
+  have hn : ∀ n ∈ c.needsAll, (s₁ t current o₁).eff n = (s₁ t current o₂).eff n :=
+    fun n hn => eff_agree hwf hagree (hneeds n hn)
   have heff : c.needsAll.map (s₁ t current o₁).eff = c.needsAll.map (s₁ t current o₂).eff :=
-    List.map_congr_left fun n hn => eff_agree hwf hagree (hneeds n hn)
-  unfold Scenario.final Scenario.intrinsic
-  rw [valid_agree hwf hagree, heff]
-  rfl
+    List.map_congr_left hn
+  dsimp only
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · unfold Scenario.final Scenario.intrinsic
+    rw [valid_agree hwf hagree, heff]
+    rfl
+  all_goals
+    simp only [Scenario.verifiedNeeds, Scenario.premises, Scenario.gaps, Scenario.blockers]
+    exact List.filter_congr fun n h => by rw [hn n h]
+
+theorem recordedCanIsExisting : Spec.RecordedCanIsExisting := by
+  intro t current c hwf hc hcan
+  have hent : c.entailment ∈ c.needsAll := by simp [Claim.needsAll]
+  obtain ⟨f, hf, hv, _⟩ := (recordedCanIsVerified t current c hcan).2 c.entailment hent
+  have hfm := (fact?_mem hf).1
+  have hfs : f.subject = c.subject :=
+    hwf.2.2.1.1 c hc c.entailment hent f.subject (by simp [Trace.factSubject?, hf])
+  have ⟨_, hsubR, _⟩ := hwf.2.1.1 c hc
+  have hsome : (t.subject? c.subject).isSome := by
+    unfold Trace.subject?
+    obtain ⟨x, hx, hxid⟩ := List.mem_map.mp hsubR
+    exact List.find?_isSome.mpr ⟨x, hx, by simp [hxid]⟩
+  obtain ⟨sub, hsub⟩ := Option.isSome_iff_exists.mp hsome
+  refine ⟨sub, hsub, ?_⟩
+  cases hk : sub.kind
+  · rfl
+  · have := hwf.2.2.2.2.2.2.2.2.2.1.2.2 f hfm sub (by rw [hfs]; exact hsub) hk
+    rw [this] at hv
+    cases hv
 
 section Monotone
 
@@ -449,5 +516,67 @@ theorem raisingMonotone : Spec.RaisingMonotone := by
   · exact Nat.le_refl _
 
 end Monotone
+
+section Ranking
+
+theorem workBefore_asymm (a b : Scenario.Work) :
+    ¬ (Scenario.workBefore a b = true ∧ Scenario.workBefore b a = true) := by
+  rintro ⟨h1, h2⟩
+  unfold Scenario.workBefore at h1 h2
+  simp only [Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at h1 h2
+  rcases h1 with h1 | ⟨_, h1 | ⟨_, h1⟩⟩ <;> rcases h2 with h2 | ⟨_, h2 | ⟨_, h2⟩⟩ <;>
+    first | omega | exact String.lt_asymm h1 h2
+
+/-- "Not after" is transitive: the work order is a strict weak order. -/
+theorem workBefore_neg_trans (a b c : Scenario.Work) (hab : Scenario.workBefore b a = false)
+    (hbc : Scenario.workBefore c b = false) : Scenario.workBefore c a = false := by
+  cases h : Scenario.workBefore c a
+  · rfl
+  · exfalso
+    unfold Scenario.workBefore at h hab hbc
+    simp only [Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at h
+    simp only [Bool.or_eq_false_iff, Bool.and_eq_false_iff, decide_eq_false_iff_not,
+      beq_eq_false_iff_ne, String.not_lt] at hab hbc
+    rcases h with h | ⟨hu, h | ⟨hg, hf⟩⟩
+    · omega
+    · rcases hab with ⟨_, hab | ⟨_, _⟩⟩ <;> rcases hbc with ⟨_, hbc | ⟨_, _⟩⟩ <;> omega
+    · rcases hab with ⟨_, hab | ⟨_, hab | hab⟩⟩ <;> rcases hbc with ⟨_, hbc | ⟨_, hbc | hbc⟩⟩ <;>
+        first | omega | exact (String.not_lt.mpr (String.le_trans hab hbc)) hf
+
+theorem workExact : Spec.WorkExact := by
+  intro s
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro w hw
+    simp only [Scenario.work, List.mem_mergeSort, List.mem_map, List.mem_filter,
+      Bool.and_eq_true, Bool.not_eq_true', List.isEmpty_eq_false_iff] at hw
+    obtain ⟨f, ⟨hf, hcl, hg⟩, rfl⟩ := hw
+    exact ⟨f, hf, rfl, hcl, by simpa using hg, rfl, rfl⟩
+  · intro f hf hcl hg
+    refine ⟨{ fact := f.id, unlocks := s.unlocks f, gates := s.gates f }, ?_, rfl⟩
+    simp only [Scenario.work, List.mem_mergeSort, List.mem_map, List.mem_filter,
+      Bool.and_eq_true]
+    exact ⟨f, ⟨hf, hcl, by simpa [List.isEmpty_iff] using hg⟩, rfl⟩
+  · intro hwf
+    have hids : s.trace.factIds.Nodup := by
+      have h := hwf.1
+      unfold IdsUnique Trace.allIds at h
+      exact (List.nodup_append.mp (List.nodup_append.mp (List.nodup_append.mp
+        (List.nodup_append.mp h).1).1).1).2.1
+    unfold Scenario.work
+    rw [(List.Perm.map _ (List.mergeSort_perm _ _)).nodup_iff, List.map_map]
+    exact List.Pairwise.sublist (List.Sublist.map _ List.filter_sublist) hids
+  · unfold Scenario.work
+    have := List.pairwise_mergeSort (le := fun a b => !Scenario.workBefore b a)
+      (fun a b c hab hbc => by
+        simp only [Bool.not_eq_true'] at hab hbc ⊢
+        exact workBefore_neg_trans _ _ _ hab hbc)
+      (fun a b => by
+        have := workBefore_asymm a b
+        cases h1 : Scenario.workBefore a b <;> cases h2 : Scenario.workBefore b a <;> simp_all)
+      ((s.trace.facts.filter fun f => s.closable f && !(s.gates f).isEmpty).map fun f =>
+        { fact := f.id, unlocks := s.unlocks f, gates := s.gates f })
+    exact this.imp fun h => by simpa using h
+
+end Ranking
 
 end Fvtrace.Proofs.Engine

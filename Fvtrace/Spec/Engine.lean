@@ -12,19 +12,36 @@ binding of each id (`current`), and what-if overrides.
 namespace Fvtrace.Spec
 open Fvtrace
 
-/-- G1: with no what-if, "Can claim" means every need, the claim's own entailment fact
-included, is recorded verified with a current receipt. -/
+/-- G1: with no what-if, "Can claim" means the claim's subject is consistent and every need,
+the claim's own entailment fact included, is recorded verified with a current receipt. -/
 def RecordedCanIsVerified : Prop :=
   ∀ (t : Trace) (current : String → Bool) (c : Claim),
     (({ trace := t, current } : Scenario).final c = .can) →
+      ({ trace := t, current } : Scenario).valid c.subject = true ∧
       ∀ n ∈ c.needsAll, ∃ f, t.fact? n = some f ∧ f.status.verified = true ∧ current n = true
 
+/-- G1b: in a well-formed trace, a recorded "Can claim" sits on an existing subject (facts on a
+subject that does not exist yet record `open`). -/
+def RecordedCanIsExisting : Prop :=
+  ∀ (t : Trace) (current : String → Bool) (c : Claim), WellFormed t → c ∈ t.claims →
+    ({ trace := t, current } : Scenario).final c = .can →
+      ∃ sub, t.subject? c.subject = some sub ∧ sub.kind = .existing
+
 /-- G2: a claim's verified, assumed, gap and violated needs partition its needs: each need is in
-exactly one of the four lists. -/
+exactly one of the four lists, and each list keeps the needs' order. -/
 def BreakdownPartitions : Prop :=
-  ∀ (s : Scenario) (c : Claim), ∀ n ∈ c.needsAll,
-    [decide (n ∈ s.verifiedNeeds c), decide (n ∈ s.premises c), decide (n ∈ s.gaps c),
-      decide (n ∈ s.blockers c)].count true = 1
+  ∀ (s : Scenario) (c : Claim),
+    (∀ n ∈ c.needsAll,
+      [decide (n ∈ s.verifiedNeeds c), decide (n ∈ s.premises c), decide (n ∈ s.gaps c),
+        decide (n ∈ s.blockers c)].count true = 1) ∧
+    ∀ l ∈ [s.verifiedNeeds c, s.premises c, s.gaps c, s.blockers c], l.Sublist c.needsAll
+
+/-- G2b: "Cannot claim" always has a stated reason: a violated need or an asserted exclusion
+between two needs (intrinsic), or a conflicting what-if on the subject. -/
+def CannotExplained : Prop :=
+  ∀ (s : Scenario) (c : Claim),
+    (s.intrinsic c = .cannot ↔ s.blockers c ≠ [] ∨ s.incompatible c ≠ []) ∧
+    (s.final c = .cannot ↔ s.intrinsic c = .cannot ∨ s.conflicts c.subject ≠ [])
 
 /-- G5: a claim whose entailment is only human-ruled or empirical never reads "Can claim", in a
 well-formed trace under any valid what-if. -/
@@ -62,14 +79,16 @@ def ReviewStateExact : Prop :=
   ∀ (t : Trace) (digest : String),
     Receipt.reviewStateOf t digest = .reviewed ↔ ∃ r, t.review = some r ∧ r.digest = digest
 
-/-- G7: two what-ifs that agree on every fact of subject `T` give every claim on `T` the same
-state, in a well-formed trace (what happens to other subjects cannot reach it). -/
+/-- G7: two what-ifs that agree on every fact of a claim's subject give that claim the same state
+and breakdown, in a well-formed trace (what happens to other subjects cannot reach it). -/
 def SubjectIsolation : Prop :=
   ∀ (t : Trace) (current : String → Bool) (o₁ o₂ : Overrides) (c : Claim),
     WellFormed t → c ∈ t.claims →
     (∀ k, t.factSubject? k = some c.subject → o₁.lookup k = o₂.lookup k) →
-    ({ trace := t, current, overrides := o₁ } : Scenario).final c =
-      ({ trace := t, current, overrides := o₂ } : Scenario).final c
+    let s₁ : Scenario := { trace := t, current, overrides := o₁ }
+    let s₂ : Scenario := { trace := t, current, overrides := o₂ }
+    s₁.final c = s₂.final c ∧ s₁.verifiedNeeds c = s₂.verifiedNeeds c ∧
+      s₁.premises c = s₂.premises c ∧ s₁.gaps c = s₂.gaps c ∧ s₁.blockers c = s₂.blockers c
 
 /-- G9: raising one fact's status (staying non-violated) never lowers any claim's state, when
 the fact sits in no exclusion (an exclusion can turn verifying one side into the other's
@@ -96,6 +115,16 @@ def MovesExact : Prop :=
     (∀ m ∈ s.moves after, ∃ c ∈ s.trace.claims, c.id = m.claim ∧ m.before = s.final c ∧
       m.after = after.final c ∧ m.before ≠ m.after) ∧
     (∀ c ∈ s.trace.claims, s.final c ≠ after.final c → ∃ m ∈ s.moves after, m.claim = c.id)
+
+/-- Ranking: `work` lists exactly the closable facts gating some claim (once each in a well-formed
+trace), each with that fact's unlocks + gates, ordered by unlocks, then gates, then id. -/
+def WorkExact : Prop :=
+  ∀ s : Scenario,
+    (∀ w ∈ s.work, ∃ f ∈ s.trace.facts, w.fact = f.id ∧ s.closable f = true ∧ s.gates f ≠ [] ∧
+      w.unlocks = s.unlocks f ∧ w.gates = s.gates f) ∧
+    (∀ f ∈ s.trace.facts, s.closable f = true → s.gates f ≠ [] → ∃ w ∈ s.work, w.fact = f.id) ∧
+    (WellFormed s.trace → (s.work.map (·.fact)).Nodup) ∧
+    s.work.Pairwise fun a b => Scenario.workBefore b a = false
 
 /-- Experiment ids closed under prerequisites: each member's `requires` + the creator of its
 subject (a prospective subject) are members. -/
