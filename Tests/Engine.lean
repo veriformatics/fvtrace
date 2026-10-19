@@ -243,6 +243,20 @@ def witnessTests : TestM Unit := do
     (Scenario.lights wins, Scenario.clears wins, Scenario.lowers wins) (0, 0, 1)
   checkEq "engine: raises = the facts a success lifts" (sl.raised (sl.closure ["E1"]))
     [("O2", .checked)]
+  -- Ranking: unlocks = the claims verifying a fact alone moves from open or cannot to can or
+  -- conditional; a claim that is already conditional is not unlocked.
+  let sE := s.withOverrides [("EN2", .proved)]
+  checkEq "engine: verifying O2 alone unlocks C2" (sE.unlocks (t.fact? "O2").get!) ["C2"]
+  let a : Fact := { id := "A", subject := "S", kind := .numerical, text := "A holds.",
+                    status := .assumed, route := .lean }
+  let ck : Claim := { id := "CK", question := "Q1", subject := "S", level := .estimand,
+                      text := "A is so.", needs := ["O1", "A"], entailment := "EK" }
+  let kT := { t with
+    facts := t.facts ++ [a, entail "EK" "CK" .proved .lean], claims := t.claims ++ [ck] }
+  let sk : Scenario := { s with trace := kT }
+  checkEq "engine: CK is conditional on A" (finalOf sk "CK") .conditional
+  checkEq "engine: verifying A makes CK can, yet a conditional claim is not unlocked"
+    (sk.unlocks a) []
   -- Envelope: an instantiation fact keeps its source.
   let inst : Fact := { id := "I1", subject := "N", kind := .instantiation,
                        text := "O1 holds for the new cohort.", status := .«open»,
