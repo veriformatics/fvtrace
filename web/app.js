@@ -135,8 +135,8 @@ async function load() {
         view.spec = "";
         writeHash();
         await load();
-      }
-      showError(problem.message);
+        showError(`${problem.message}. This page shows the recorded evidence instead.`);
+      } else showError(problem.message);
       return;
     }
     env = decodeEnvelope(json);
