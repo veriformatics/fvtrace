@@ -36,10 +36,11 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] U1 Foundation: Lake package `fvtrace` + `fvtrace --version` + one passing test; dev manifests; `tools/gate.sh` (every stage + scanners) + fast gate; CI + update automation; `.claude/rules/` gate law
-- [ ] U2 Kernel contract: `.agent/contracts/kernel.md` + `Fvtrace/Spec` statements (consultant before code)
-- [ ] U3 JSON codec + trace decoder (all errors, paths) + JSON Schema
-- [ ] U4 Trace checker (proved) + lints/waivers + evidence binding (HACL* SHA-256, digest cache, `pin`) + review digest
+- [x] e85e50c U1 Foundation: Lake package `fvtrace` + `fvtrace --version` + one passing test; dev manifests; `tools/gate.sh` (every stage + scanners) + fast gate; CI + update automation; `.claude/rules/` gate law
+- [x] 649f492 U2 Kernel contract: `.agent/contracts/kernel.md` + `Fvtrace/Spec` statements (consultant before code)
+- [ ] U3 JSON codec + trace decoder (all errors, paths) + JSON Schema (code 2467416; mutation credit pending)
+- [ ] U4 Trace checker (proved) + lints/waivers + evidence binding (HACL* SHA-256, digest cache, `pin`) + review digest (code 2467416; mutation credit pending)
+- [ ] RESUME: U5 engine code landed (Fvtrace/Engine.lean, Evaluate.lean envelope, CLI eval/claims/gaps/experiments/plan; --project required); next = Spec/Engine claims G1–G11 + proofs (plan pruning sketch: Q∩R closure ≥ Q under join), engine tests incl. contract regression witnesses, U6 data dir. Mutation credit campaigns (logs .scratch/mut-<File>.log; scratch copies .scratch/mut*, run with absolute paths): Json (older suite → recheck 27+ survivors vs full suite), Decode done (R1–R2 open), Encode done; Lint/Render/Args/Check (.scratch/mut-a) + Receipt/Cli native (.scratch/mut-b) queued on heavy
 - [ ] U5 Engine + proofs: states, entailment, subjects, exclusions, what-if, ranking + blockers, experiments, plans
 - [ ] U6 CLI + data dir + text rendering (phrasing proof)
 - [ ] U7 Server: `Std.Http`, token + Host allowlist + CSP/Trusted Types, API, evidence preview

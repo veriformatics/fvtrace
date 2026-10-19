@@ -3,6 +3,8 @@ import Fvtrace.Assets
 import Fvtrace.Check
 import Fvtrace.Decode
 import Fvtrace.Encode
+import Fvtrace.Engine
+import Fvtrace.Evaluate
 import Fvtrace.Json
 import Fvtrace.Lint
 import Fvtrace.Receipt
@@ -23,6 +25,16 @@ def usage : String :=
   "      Record the sha256 of every evidence artifact and statement in TRACE.\n" ++
   "  review TRACE --reviewer NAME [--note TEXT]\n" ++
   "      Record that NAME reviewed the current content of TRACE.\n" ++
+  "  claims TRACE --project DIR [--whatif F=S,...] [--question Q] [--json]\n" ++
+  "      What the analysis can and cannot claim, grouped by question and verdict.\n" ++
+  "  gaps TRACE --project DIR [--whatif F=S,...] [--json]\n" ++
+  "      Facts whose verification would make the most claims available; violated facts apart.\n" ++
+  "  experiments TRACE --project DIR [--whatif F=S,...] [--json]\n" ++
+  "      Suggested experiments, ranked by the claims their success would make available.\n" ++
+  "  plan TRACE CLAIM --project DIR [--whatif F=S,...] [--json]\n" ++
+  "      The cheapest coherent experiments that raise CLAIM as far as the suggestions allow.\n" ++
+  "  eval TRACE --project DIR [--whatif F=S,...]\n" ++
+  "      The full evaluation as JSON (fvtrace.evaluation/1).\n" ++
   "  schema      Print the JSON Schema of the trace format.\n" ++
   "  --version   Print the fvTrace version.\n" ++
   "  --help      Print this help.\n"
@@ -161,6 +173,180 @@ def review (args : List String) : IO UInt32 := do
   say s!"{file}: reviewed by {reviewer}"
   return 0
 
+/-! ## Evaluation commands -/
+
+structure Loaded where
+  scenario : Scenario
+  bindings : List Receipt.Binding
+  digest : String
+  review : Receipt.ReviewState
+
+def evalSpec (positional : Nat) : Args.Spec :=
+  { valued := ["--project", "--whatif", "--question"], switches := ["--json", "--rehash"],
+    positional := [positional] }
+
+/-- Reads, checks + binds a trace; prints why not and returns the exit code otherwise. -/
+def load (p : Args.Parsed) : IO (Except UInt32 Loaded) := do
+  let file := p.positional.head!
+  let t ← match ← readTrace file with
+    | .ok (.ok t) => pure t
+    | .ok (.error _) =>
+      complain s!"fvtrace: {file} does not decode; run fvtrace check {file}"
+      return .error 1
+    | .error rc => return .error rc
+  unless (Check.violations t).isEmpty do
+    complain s!"fvtrace: {file} is not well-formed; run fvtrace check {file}"
+    return .error 1
+  let some dir := p.value? "--project" | return .error (← usageError "give --project DIR")
+  let overrides ← match p.value? "--whatif" with
+    | none => pure []
+    | some spec =>
+      match Overrides.parse t spec with
+      | .ok o => pure o
+      | .error m => return .error (← usageError m)
+  let cache ← IO.mkRef ({} : Receipt.Cache)
+  let bindings ← Receipt.bindings t dir cache (p.has "--rehash")
+  let current := fun id => (bindings.find? (·.id == id)).any (·.current)
+  return .ok { scenario := { trace := t, current, overrides }, bindings,
+               digest := ← Receipt.reviewDigest t, review := ← Receipt.reviewState t }
+
+def envelopeOf (l : Loaded) : Value :=
+  Evaluate.envelope l.scenario l.bindings l.digest l.review
+
+/-- The envelope's members named in `keys`, in envelope order (contract CLI projections). -/
+def project (env : Value) (keys : List String) : Value :=
+  match env with
+  | .obj kvs => .obj (kvs.filter fun (k, _) => keys.contains k)
+  | v => v
+
+def projectionKeys : List String := ["schema", "mode", "overrides", "trace"]
+
+def withLoaded (args : List String) (positional : Nat) (k : Args.Parsed → Loaded → IO UInt32) :
+    IO UInt32 := do
+  let p ← match Args.parse (evalSpec positional) args with
+    | .ok p => pure p
+    | .error m => return ← usageError m
+  match ← load p with
+  | .ok l => k p l
+  | .error rc => return rc
+
+def footer (l : Loaded) : IO Unit := do
+  let mode := if l.scenario.overrides.isEmpty then "recorded statuses" else
+    "what-if: " ++ ", ".intercalate (l.scenario.overrides.map fun (k, st) => s!"{k}={st.name}")
+  let review := match l.review with
+    | .reviewed => "reviewed"
+    | .draft => "draft: every verdict is provisional until a reviewer signs off"
+    | .stale => "the trace changed since its review: every verdict is provisional"
+  say s!"({mode}; {review})"
+
+def claimsCmd (args : List String) : IO UInt32 :=
+  withLoaded args 1 fun p l => do
+    let sc := l.scenario
+    if p.has "--json" then
+      IO.print (project (envelopeOf l) (projectionKeys ++ ["subjects", "counts", "claims"])).pretty
+      return 0
+    let qs := sc.trace.questions.filter fun q => (p.value? "--question").all (· == q.id)
+    for q in qs do
+      say s!"{q.id} {q.title}: {q.text}"
+      let mine := sc.trace.claims.filter (·.question == q.id)
+      let groups : List (String × List Claim) :=
+        [State.can, .conditional, .«open», .cannot].map (fun st =>
+          (st.verdict, mine.filter fun c =>
+            !c.latent && !sc.prospective c.subject && sc.final c == st)) ++
+        [("Overlooked directions", mine.filter fun c => c.latent && !sc.prospective c.subject)] ++
+        ((sc.trace.subjects.filter (·.kind == .prospective)).map fun sub =>
+          (s!"If {(sc.creatorTitle sub.id).getD sub.title} runs",
+            mine.filter (·.subject == sub.id)))
+      for (title, cs) in groups do
+        unless cs.isEmpty do
+          say s!"  {title}"
+          for c in cs do
+            let qual := sc.qualifiers c l.review
+            let tail := if qual.isEmpty then "" else s!" [{", ".intercalate qual}]"
+            say s!"    {c.id} {(sc.final c).verdict}{tail}: {sc.sentence c}"
+            let list := fun (xs : List String) => ", ".intercalate xs
+            let detail :=
+              (if (sc.blockers c).isEmpty then [] else [s!"violated: {list (sc.blockers c)}"]) ++
+              (if (sc.incompatible c).isEmpty then []
+               else [s!"needs both sides of: {list (sc.incompatible c)}"]) ++
+              (if (sc.gaps c).isEmpty then [] else [s!"gaps: {", ".intercalate (sc.gaps c)}"]) ++
+              (if (sc.premises c).isEmpty || sc.final c == .conditional then []
+               else [s!"assumes: {", ".intercalate (sc.premises c)}"])
+            unless detail.isEmpty do say s!"      {"; ".intercalate detail}"
+    footer l
+    return 0
+
+def gapsCmd (args : List String) : IO UInt32 :=
+  withLoaded args 1 fun p l => do
+    let sc := l.scenario
+    if p.has "--json" then
+      IO.print (project (envelopeOf l) (projectionKeys ++ ["work", "blockers"])).pretty
+      return 0
+    say "Facts whose verification pays (claims each would make available, alone):"
+    for w in sc.work do
+      let unlocked := ", ".intercalate w.unlocks
+      say s!"  {w.fact}: unlocks {w.unlocks.length} ({unlocked}); needed by {w.gates.length}: \
+        {sc.factText w.fact}"
+    unless sc.blockerFacts.isEmpty do
+      say "Violated facts (reword the claim or gather new data):"
+      for (f, cs) in sc.blockerFacts do
+        say s!"  {f}: blocks {", ".intercalate cs}: {sc.factText f}"
+    footer l
+    return 0
+
+def experimentsCmd (args : List String) : IO UInt32 :=
+  withLoaded args 1 fun p l => do
+    let sc := l.scenario
+    let env := envelopeOf l
+    if p.has "--json" then
+      IO.print (project env (projectionKeys ++ ["experiments"])).pretty
+      return 0
+    for e in sc.trace.experiments.mergeSort (Evaluate.experimentBefore sc) do
+      let wins := sc.moves (sc.applySuccess (sc.closure [e.id]))
+      let note := if sc.prospective e.subject then " (new data)" else ""
+      say s!"  {e.id} [{e.kind.name}, {e.effort.name}]{note} {e.title}: \
+        lights {Scenario.lights wins}, clears {Scenario.clears wins}"
+    footer l
+    return 0
+
+def planCmd (args : List String) : IO UInt32 :=
+  withLoaded args 2 fun p l => do
+    let sc := l.scenario
+    let id := p.positional[1]!
+    let some c := sc.trace.claim? id | return ← usageError s!"no claim \"{id}\""
+    if p.has "--json" then
+      let claim := match envelopeOf l with
+        | .obj kvs => match kvs.lookup "claims" with
+          | some (.arr cs) => cs.find? fun (v : Value) => match v with
+            | .obj ckv => ckv.lookup "id" == some (Value.str id)
+            | _ => false
+          | _ => none
+        | _ => none
+      IO.print (Value.obj ((match project (envelopeOf l) projectionKeys with
+        | .obj kvs => kvs | _ => []) ++ [("claim", claim.getD .null)])).pretty
+      return 0
+    say s!"{c.id} {(sc.final c).verdict}: {sc.sentence c}"
+    match sc.plan c with
+    | .planned cov exps st _ _ contingent =>
+      say s!"  Plan (coverage, not scientific priority): {", ".intercalate exps} → {st.verdict}"
+      if contingent then
+        say "  Its success touches a result fact: it holds only if that result is observed."
+      for a in cov.alternatives do say s!"    {a.need}: {a.experiment} sets {a.status.name}"
+      unless cov.uncovered.isEmpty do
+        say s!"  No suggested experiment raises: {", ".intercalate cov.uncovered}"
+    | .noImprovement cov =>
+      say "  No suggested experiment raises this claim."
+      unless cov.uncovered.isEmpty do say s!"  Uncovered: {", ".intercalate cov.uncovered}"
+    | .inconsistent _ => say "  The what-if conflicts on this subject: no plan."
+    | .tooLarge _ => say s!"  More than {maxRelevant} relevant experiments: no optimum claimed."
+    footer l
+    return 0
+
+def evalCmd (args : List String) : IO UInt32 :=
+  withLoaded args 1 fun _ l => do
+    IO.print (envelopeOf l).pretty
+    return 0
+
 /-- Exit codes: 0 = success, 1 = an invalid or failing trace, 2 = usage or read error. -/
 def run (args : List String) : IO UInt32 := do
   match args with
@@ -170,6 +356,11 @@ def run (args : List String) : IO UInt32 := do
   | "check" :: rest => check rest
   | "pin" :: rest => pin rest
   | "review" :: rest => review rest
+  | "claims" :: rest => claimsCmd rest
+  | "gaps" :: rest => gapsCmd rest
+  | "experiments" :: rest => experimentsCmd rest
+  | "plan" :: rest => planCmd rest
+  | "eval" :: rest => evalCmd rest
   | [] => IO.eprint usage; pure 2
   | cmd :: _ => usageError s!"unknown command '{cmd}'"
 
