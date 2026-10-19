@@ -1,6 +1,7 @@
 // Mutation credit for Lean code (Lean ships no mutation tool): applies the default operators below
 // to one source file, one site at a time, rebuilds, runs the tests, and lists every survivor.
-// Usage: node tools/mutate.mjs <file.lean> [--lines A-B] [--test "<cmd>"] [--timeout <s>]
+// Usage: node tools/mutate.mjs <file.lean> [--lines A-B] [--test "<cmd>"] [--timeout <s>] [--list]
+// `--list` prints the mutant sites + their count and runs nothing (campaign sizing).
 // Outcome per mutant: killed (tests fail) · survived (tests pass) · incompetent (build fails).
 // Default operators: == ↔ !=, < ↔ ≤ (<=), > ↔ ≥ (>=), && ↔ ||, true ↔ false, binary + ↔ -,
 // removal of a prefix `!`, integer literal n → n + 1. Comments, strings + chars are never mutated.
@@ -15,6 +16,7 @@ const { values, positionals } = parseArgs({
     // The interpreter skips the native compile + link of the test binary (about 10× faster).
     test: { type: "string", default: "lake env lean --run TestPure.lean" },
     timeout: { type: "string", default: "120" },
+    list: { type: "boolean", default: false },
   },
 });
 const file = positionals[0];
@@ -136,6 +138,12 @@ for (const op of operators) {
   }
 }
 sites.sort((a, b) => a.pos - b.pos);
+if (values.list) {
+  restore();
+  for (const s of sites) process.stdout.write(`${file}:${s.line} ${s.from} → ${s.to}\n`);
+  process.stdout.write(`mutants: ${sites.length}\n`);
+  process.exit(0);
+}
 
 /**
  * Runs `cmd` in its own process group; a timeout kills the whole group (bash → lake → lean).

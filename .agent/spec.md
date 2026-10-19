@@ -39,18 +39,17 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - [x] e85e50c U1 Foundation: Lake package `fvtrace` + `fvtrace --version` + one passing test; dev manifests; `tools/gate.sh` (every stage + scanners) + fast gate; CI + update automation; `.claude/rules/` gate law
 - [x] 649f492 U2 Kernel contract: `.agent/contracts/kernel.md` + `Fvtrace/Spec` statements (consultant before code)
-- [ ] U3 JSON codec + trace decoder (all errors, paths) + JSON Schema (code 2467416; mutation credit pending)
-- [ ] U4 Trace checker (proved) + lints/waivers + evidence binding (HACL* SHA-256, digest cache, `pin`) + review digest (code 2467416; mutation credit pending)
-- [ ] RESUME: U6–U9 landed (8d304c7, d9370d9, 87c479a, 1a63833, 5353708); U10 + U11 public parts landed (5353708). Open: operator-1 re-check of U8 fail rows on 5353708 (.scratch/qa/operator-1/visual-qa.md, marker operator-1-DONE-2); mutation re-runs (.scratch/roster.md: mut-e Render/Args/Check/Json/Evaluate/Engine on heavy; Store + Cli to rerun on the final CLI) → kill evidence + equivalence rows (Json fuel +2→+3, insertBy `<`→`≤`; Decode R1–R2) → tick U3/U4/U5; U10 live skill trial on studies/naoto; U11 private tau × amyloid migration (data folder); full trust.sh replay (heavy)
-- [ ] U5 Engine + proofs: states, entailment, subjects, exclusions, what-if, ranking + blockers, experiments, plans
-- [x] 8d304c7 U6 CLI + data dir + text rendering (+ d9370d9 interpreted-suite guard)
+- [ ] U3 JSON codec + trace decoder (all errors, paths) + JSON Schema (code 2467416; mutation credit → U13 campaign)
+- [ ] U4 Trace checker (proved) + lints/waivers + evidence binding (HACL* SHA-256, digest cache, `pin`) + review digest (code 2467416; mutation credit → U13 campaign)
+- [ ] U5 Engine + proofs: states, entailment, subjects, exclusions, what-if, ranking + blockers, experiments, plans (mutation credit of unproved parts → U13 campaign)
+- [x] a20feab U6 CLI + data dir + text rendering (+ d9370d9 interpreted-suite guard)
 - [x] 87c479a U7 Server: `Std.Http`, token + Host allowlist + CSP/Trusted Types, evaluation API (no file-serving route)
-- [x] 1a63833 U8 GUI: claim circuits on the engine's output, e2e + axe + reduced motion + palette, visual QA (fixes 5353708; re-check pending)
+- [x] 1a63833 U8 GUI: claim circuits on the engine's output, e2e + axe + reduced motion + palette, visual QA (operator-1: fixes 5353708 + 9884777, re-check passed)
 - [x] 5353708 U9 Export: HTML + bundle
-- [ ] U10 Agent skill + installer (5353708); live trial on veriformatics `studies/naoto`
-- [ ] U11 Examples: self-trace + synthetic study (5353708); private tau × amyloid migration + local check
-- [ ] U12 README + docs; prototype retired (tag `prototype-gui`)
-- [ ] U13 Closing review (per lens + security) → `.agent/review.md`; fixes
+- [x] 3d885af U10 Agent skill + installer (5353708); blind live trial on veriformatics `studies/naoto` (trial-1) → fixes 3d885af
+- [x] 3d885af U11 Examples: self-trace + synthetic study (5353708); private tau × amyloid migration (migrator-1) → `~/.local/share/fvtrace/<project>/trace.json`, `check --strict` rc 0
+- [x] 9884777 U12 README + docs; prototype retired (tag `prototype-gui`)
+- [ ] U13 Closing review → `.agent/review.md`. RESUME: round 1 = reviewer-1..4 deliverables `.scratch/review/L-{CORR,CLAIM,GAP,LAW}.md` (reviewer-3 G5/G6 pending); fixes 3d885af; round-2 plan = `.scratch/review/rulings-r1.md`; then L-SEC (MAIN), trust replay, one mutation campaign on final code (`node tools/mutate.mjs <file> --list` sizes it; native files first; byte-identical files keep prior credit), L-HARD reviewer on survivors + R1/R2
 - [ ] U14 Close: Artifacts, Decisions, Tasks, Phase → MAINTAIN
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE history → `.agent/archive/`
 
