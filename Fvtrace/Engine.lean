@@ -182,6 +182,10 @@ end Scenario
 
 /-! ## Experiments -/
 
+/-- The stronger of two statuses (the first on a tie). -/
+def Status.stronger (a b : Status) : Status :=
+  if (EStatus.ofStatus b).strength > (EStatus.ofStatus a).strength then b else a
+
 namespace Scenario
 
 variable (s : Scenario)
@@ -206,14 +210,15 @@ def closure (ids : List String) : List String :=
   let all := closureFuel s (s.trace.experiments.length + 1) ids
   s.trace.experimentIds.filter all.contains
 
-/-- Per fact, the strongest asserted value any success in `ids` sets. -/
+/-- The success outcomes the experiments `ids` name, in order. -/
+def successPairs (ids : List String) : List (String × Status) :=
+  ids.flatMap fun id => ((s.trace.experiment? id).map (·.success)).getD []
+
+/-- Per fact, the strongest value any success in `ids` sets (successes only assert). -/
 def merged (ids : List String) : List (String × Status) :=
-  let pairs := ids.flatMap fun id => ((s.trace.experiment? id).map (·.success)).getD []
-  let keys := (pairs.map (·.1)).eraseDups
-  keys.map fun k =>
-    (k, (pairs.filter (·.1 == k)).foldl (fun best (_, st) =>
-      if (EStatus.ofStatus st).strength > (EStatus.ofStatus best).strength then st else best)
-      .assumed)
+  let pairs := s.successPairs ids
+  (pairs.map (·.1)).eraseDups.map fun k =>
+    (k, ((pairs.filter (·.1 == k)).map (·.2)).foldl Status.stronger .assumed)
 
 /-- Success of `ids` (closed): raises each touched fact to the merged value, never lowering it. -/
 def applySuccess (ids : List String) : Scenario :=
