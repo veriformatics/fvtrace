@@ -15,7 +15,7 @@
     },
     {
       "id": "Q2",
-      "text": "Do snRNA-seq, GeoMx and bulk proteomics agree on the amyloid response?"
+      "text": "Do the assays and measurement layers agree on the amyloid response?"
     },
     {
       "id": "Q3",
@@ -127,10 +127,21 @@
     {
       "id": "O12",
       "kind": "provenance",
+      "status": "checked",
+      "text": "Protein-group and phosphosite data come from the same 16 samples, matched by sample key.",
+      "evidence": "User-reported design fact; key equality across both layers verified",
+      "route": "runtime-checker",
+      "trusts": [
+        "sample key file"
+      ]
+    },
+    {
+      "id": "O21",
+      "kind": "implementation",
       "status": "open",
-      "text": "A validated animal/aliquot crosswalk links samples across assays.",
-      "evidence": "Integration dossier: no validated cross-assay map",
-      "route": "empirical"
+      "text": "Each phosphosite maps to the correct parent protein group.",
+      "evidence": "Parent-protein averaging exists (Figure 8); mapping not checked",
+      "route": "runtime-checker"
     },
     {
       "id": "O13",
@@ -286,12 +297,12 @@
       "question": "Q2",
       "level": "inferential",
       "latent": true,
-      "text": "Per-animal tau effects correlate across snRNA, GeoMx and proteomics.",
+      "text": "For P301S and NLGF lines, phosphosite changes can be normalized to parent-protein changes within the same animals, separating phosphorylation from protein abundance.",
       "needs": [
-        "O1",
-        "O2",
-        "O10",
-        "O12"
+        "O12",
+        "O14",
+        "O15",
+        "O21"
       ]
     },
     {
