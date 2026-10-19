@@ -97,4 +97,32 @@ def MovesExact : Prop :=
       m.after = after.final c ∧ m.before ≠ m.after) ∧
     (∀ c ∈ s.trace.claims, s.final c ≠ after.final c → ∃ m ∈ s.moves after, m.claim = c.id)
 
+/-- Experiment ids closed under prerequisites: each member's `requires` + the creator of its
+subject (a prospective subject) are members. -/
+def Closed (t : Trace) (q : List String) : Prop :=
+  ∀ id ∈ q, ∀ e, t.experiment? id = some e →
+    (∀ r ∈ e.requires, r ∈ q) ∧
+      ∀ sub, t.subject? e.subject = some sub → ∀ x, sub.createdBy = some x → x ∈ q
+
+/-- G4a: a plan holds its prerequisites, keeps the claim's subject consistent and reports the
+state its success reaches. -/
+def PlanSound : Prop :=
+  ∀ (s : Scenario) (c : Claim) cov p st prem gaps contingent, WellFormed s.trace →
+    s.plan c = .planned cov p st prem gaps contingent →
+      Closed s.trace p ∧ (s.applySuccess p).valid c.subject = true ∧
+        st = (s.applySuccess p).final c
+
+/-- G4b: no prerequisite-closed set of experiments that keeps the claim's subject consistent
+reaches a higher state than the plan, or the plan's state at a strictly lower cost (effort
+counts, months first); without a plan, none beats the current state. -/
+def PlanOptimal : Prop :=
+  ∀ (s : Scenario) (c : Claim) (q : List String), WellFormed s.trace → c ∈ s.trace.claims →
+    Closed s.trace q → (s.applySuccess q).valid c.subject = true →
+      (∀ cov p st prem gaps contingent, s.plan c = .planned cov p st prem gaps contingent →
+        ((s.applySuccess q).final c).rank ≤ st.rank ∧
+        (((s.applySuccess q).final c).rank = st.rank →
+          lexLt (costOf s.trace q) (costOf s.trace p) = false)) ∧
+      (∀ cov, s.plan c = .noImprovement cov →
+        ((s.applySuccess q).final c).rank ≤ (s.final c).rank)
+
 end Fvtrace.Spec

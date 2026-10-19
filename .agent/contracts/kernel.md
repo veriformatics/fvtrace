@@ -87,7 +87,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 
 - Relevant R = experiments on the claim's subject whose success raises a needsAll fact above its `eff1` (strength up). Candidates = closure S for every S ⊆ R. coherent P ⇔ valid (subject) under ω ⊕ P.
 - Result (tagged; first matching branch): `inconsistent` (ω already invalid on the subject) | `tooLarge` (|R| > 20: no plan claimed) | `noImprovement` (no coherent candidate beats the empty plan) | `planned P` (max rank of final under ω ⊕ P over coherent candidates; tie → min cost = effort counts months→hours lexicographic; tie → id list lexicographic). Every variant carries the coverage payload: remaining premises + gaps under the current scenario, uncovered needs (no member of R raises them; route hint), alternatives per need (experiment, status); `planned` adds experiments, final state, its premises + gaps under ω ⊕ P, contingent.
-- **Proved** G4: P closed + coherent + its reported state = replay; ∀ closed coherent Q ⊆ experiments on the subject: rank Q ≤ rank P, equal rank ⇒ cost P ≤ cost Q (pruning lemma: with join application, adding experiments outside R never raises the claim's rank, so candidates = closures of subsets of R lose no optimum).
+- **Proved** G4: P closed + coherent + its reported state = replay (G4a); ∀ closed coherent Q (any experiments): rank Q ≤ rank P, equal rank ⇒ Q not strictly cheaper; `noImprovement` ⇒ no closed coherent Q beats the current state (G4b). Pruning lemma: with join application, experiments outside R never raise the claim's rank, so Q's stand-in = closure (Q ∩ R) ⊆ Q, a candidate at least as high + no costlier.
 
 ## Review
 
