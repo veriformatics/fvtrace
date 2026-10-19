@@ -31,6 +31,14 @@ def tests : TestM Unit := do
     (((recordOf (envOf (s.withOverrides [("O2", .checked)])) "experiments" "E1").bind
       (field · "applied")), ((recordOf env "experiments" "E1").bind (field · "applied")))
     (some (.bool true), some (.bool false))
+  let e1 := fun (k : String) => (recordOf env "experiments" "E1").bind (field · k)
+  checkEq "evaluate: E1's failure breaks C2; its success touches result fact O2"
+    (e1 "breaks", e1 "contingent") (some (.num 1), some (.bool true))
+  let ask : Experiment := { (t.experiment? "E1").get! with
+    id := "XN", success := [("O4", .assumed)], failure := [] }
+  checkEq "evaluate: a success that touches no result fact is not contingent"
+    ((recordOf (envOf { s with trace := { t with experiments := t.experiments ++ [ask] } })
+      "experiments" "XN").bind (field · "contingent")) (some (.bool false))
   let stale : Receipt.Binding := { id := "O1", current := false, reasons := ["changed p"] }
   let other : Receipt.Binding := { id := "O2", current := true, reasons := [] }
   checkEq "evaluate: a fact carries its own receipt binding"
