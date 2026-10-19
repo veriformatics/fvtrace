@@ -79,10 +79,15 @@ def tests : TestM Unit := do
     let m ← real.metadata
     let planted : Receipt.Cache :=
       ({} : Receipt.Cache).insert real.toString (m.byteSize, m.modified.sec, m.modified.nsec, "x")
-    planted.save ((System.FilePath.mk trace).parent.get! / "cache.json")
+    let plant := planted.save ((System.FilePath.mk trace).parent.get! / "cache.json")
+    plant
     let (_, out, _) ← run ["claims", "--cached"]
     check "cli: claims --cached reuses a digest recorded for the same size + mtime"
       (count out "C1 Not yet" == 1) out
+    let (_, out, _) ← run ["check"]
+    check "cli: check reads each evidence file again (no cache)"
+      (count out "receipt O1: current" == 1) out
+    plant
     let (rc, out, _) ← run ["claims"]
     checkEq "cli: claims rc" rc 0
     check "cli: claims reads each evidence file again by default"
@@ -91,6 +96,18 @@ def tests : TestM Unit := do
       "C1 On assumption: Assuming “O1 entails C1.”: The contrast is the treatment effect." == 1)
       out
     check "cli: claims names the project" (count out s!"(project: {projReal})" == 1) out
+    check "cli: a claim that is not conditional lists its premises"
+      (count out "      gaps: O2, EN2; assumes: O3\n" == 1) out
+    check "cli: a conditional claim's premises sit in its sentence alone"
+      (count out "assumes: EN1" == 0) out
+    let (_, out, _) ← run ["claims", "--question", "Z9"]
+    check "cli: --question shows that question alone" (count out "Q1 " == 0) out
+    let latentPath := (dir / "latent.json").toString
+    Cli.writeTrace latentPath { pinned with claims := pinned.claims.map fun c =>
+      if c.id == "C1" then { c with latent := true } else c }
+    let (_, out, _) ← run ["claims", "--trace", latentPath]
+    check "cli: a latent claim lists under Overlooked directions"
+      (count out "  Overlooked directions\n    C1 " == 1) out
     let (rc, out, _) ← run ["claims", "--whatif", "O2=checked,EN2=proved"]
     checkEq "cli: claims --whatif rc" rc 0
     check "cli: a what-if raises C2 + says so" (count out
@@ -99,7 +116,8 @@ def tests : TestM Unit := do
     let (rc, _, err) ← run ["claims", "--whatif", "O3=proved"]
     checkEq "cli: a what-if above the route rc" rc 2
     check "cli: the route limit is named" (count err "O3 cannot reach proved" == 1) err
-    let (_, evalOut, _) ← run ["eval"]
+    let (rc, evalOut, _) ← run ["eval"]
+    checkEq "cli: eval rc" rc 0
     let some envelope := (Json.parse evalOut.toUTF8).toOption
       | check "cli: eval prints JSON" false evalOut
     let projections := [("claims", ["subjects", "counts", "claims"]),
@@ -126,6 +144,14 @@ def tests : TestM Unit := do
       (count out "Stays as it is: O3 (no route allows a stronger status)." == 1) out
     let (rc, _, _) ← run ["plan", "C9"]
     checkEq "cli: plan on an unknown claim rc" rc 2
+    -- serve: a port out of range is a usage error; a bind failure (an address of no local
+    -- interface, TEST-NET-1) exits 2 naming the address + default port.
+    let (rc, _, err) ← run ["serve", "--port", "65536"]
+    check "cli: serve --port 65536 is refused" (rc == 2 && count err "--port is 0 to 65535" == 1)
+      err
+    let (rc, _, err) ← run ["serve", "--host", "192.0.2.1"]
+    check "cli: serve names the address it cannot bind (default port 8642)"
+      (rc == 2 && count err "cannot serve on 192.0.2.1:8642" == 1) err
     let (rc, out, _) ← run ["gaps"]
     checkEq "cli: gaps rc" rc 0
     check "cli: gaps lists closable facts" (count out
