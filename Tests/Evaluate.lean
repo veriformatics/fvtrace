@@ -58,7 +58,9 @@ def tests : TestM Unit := do
   let added := [x, { x with id := "XB", effort := .weeks, success := [("V", .assumed)] },
     { x with id := "XD", effort := .hours, success := [("G", .checked)] },
     { x with id := "XC", effort := .hours, success := [("G", .checked)] },
-    { x with id := "XE", effort := .days, success := [("G", .checked)] }]
+    { x with id := "XE", effort := .days, success := [("G", .checked)] },
+    { x with id := "XF", effort := .weeks, success := [("G", .checked)] },
+    { x with id := "XG", effort := .weeks, success := [("G", .checked)] }]
   let order := { t with
     facts := t.facts ++ [v, g, env'], claims := t.claims ++ [cv]
     experiments := t.experiments ++ added }
@@ -67,7 +69,8 @@ def tests : TestM Unit := do
       | some (.str i) => if i.startsWith "X" then some i else none
       | _ => none
     | _ => []
+  -- Id ties both ways round: XD is listed before XC, XF before XG.
   checkEq "evaluate: experiments order by lights, clears, effort, then id" ids
-    ["XA", "XB", "XC", "XD", "XE"]
+    ["XA", "XB", "XC", "XD", "XE", "XF", "XG"]
 
 end Tests.Evaluate
