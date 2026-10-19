@@ -37,6 +37,9 @@ lean_build() { lake build Fvtrace fvtrace «fvtrace-tests» «fvtrace-trust»; }
 
 lean_test() { lake test; }
 
+# The shipped binary end to end (data folder from the environment, exit codes, no write outside).
+cli() { bash tests/cli/smoke.sh; }
+
 # Claims ↔ proofs ↔ axioms ↔ escape hatches, then every proof's closure replayed through the
 # independent kernels bundled with Lean (`lake check --paranoid`).
 trust() { bash tools/trust.sh; }
@@ -157,6 +160,7 @@ main() {
     stage lean-style lean_style
     stage lean-build lean_build
     stage lean-test lean_test
+    stage cli cli
     stage trust trust
     stage c-analyze c_analyze
     stage vendor vendor

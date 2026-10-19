@@ -165,8 +165,16 @@ probe_vendor() {
     expect vendor-unpinned-file 'unpinned file in c/hacl: planted.h' vendor
 }
 
+probe_cli() {
+    local stub="$backup/fvtrace-ignores-home"
+    printf '#!/usr/bin/env bash\nunset FVTRACE_HOME\nexec %q "$@"\n' "$root/.lake/build/bin/fvtrace" >"$stub"
+    chmod +x "$stub"
+    expect cli-data-folder 'FAIL FVTRACE_HOME holds the trace' \
+        env FVTRACE_SMOKE_BIN="$stub" bash tests/cli/smoke.sh
+}
+
 probes=("$@")
-[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor)
+[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"

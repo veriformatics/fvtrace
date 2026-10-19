@@ -8,7 +8,7 @@ import Tests.Check
 import Tests.Digest
 import Tests.Receipt
 import Tests.Args
-import Tests.CliReceipt
+import Tests.CliStore
 import Tests.Engine
 
 namespace Tests
@@ -29,7 +29,7 @@ def pure : TestM Unit := do
 def native : TestM Unit := do
   Tests.Digest.tests
   Tests.Receipt.tests
-  Tests.CliReceipt.tests
+  Tests.CliStore.tests
 
 /-- Every suite, in run order (`lake test`). -/
 def all : TestM Unit := do
