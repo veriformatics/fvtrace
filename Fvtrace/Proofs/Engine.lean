@@ -175,4 +175,40 @@ theorem bothSidesCannot : Spec.BothSidesCannot := by
     simp [List.isEmpty_iff, hinc]
   · rfl
 
+theorem mem_joinParts {q : String} {qs : List String} (h : q ∈ qs) : q ∈ Scenario.joinParts qs := by
+  induction qs with
+  | nil => cases h
+  | cons x xs ih =>
+    cases xs with
+    | nil => simp [Scenario.joinParts] at h ⊢; exact h
+    | cons y ys =>
+      simp only [Scenario.joinParts, List.mem_cons] at h ⊢
+      rcases h with h | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inr (ih (by simpa using h)))
+
+theorem getLast?_cons_pair (a : String) (l : List String) (x y : String) :
+    (a :: (l ++ [x, y])).getLast? = some y := by
+  have h : a :: (l ++ [x, y]) = (a :: l ++ [x]) ++ [y] := by simp
+  rw [h, List.getLast?_concat]
+
+theorem sentenceVerbatim : Spec.SentenceVerbatim := by
+  intro s c
+  refine ⟨rfl, ?_, ?_⟩
+  · unfold Scenario.sentenceParts
+    split
+    · exact getLast?_cons_pair _ _ _ _
+    · rfl
+  · intro hcond p hp
+    unfold Scenario.sentenceParts
+    simp only [hcond, beq_self_eq_true, ite_true, List.mem_append, List.mem_cons]
+    exact Or.inl (Or.inr (mem_joinParts (List.mem_map_of_mem hp)))
+
+theorem reviewStateExact : Spec.ReviewStateExact := by
+  intro t d
+  unfold Receipt.reviewStateOf
+  cases h : t.review with
+  | none => simp
+  | some r => by_cases hd : r.digest = d <;> simp [hd]
+
 end Fvtrace.Proofs.Engine

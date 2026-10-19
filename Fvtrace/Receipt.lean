@@ -189,10 +189,14 @@ inductive ReviewState where
 def ReviewState.name : ReviewState → String
   | .draft => "draft" | .stale => "stale" | .reviewed => "reviewed"
 
-def reviewState (t : Trace) : IO ReviewState := do
+/-- The review state for a given content digest (contract § Review). -/
+def reviewStateOf (t : Trace) (digest : String) : ReviewState :=
   match t.review with
-  | none => return .draft
-  | some r => return if r.digest == (← reviewDigest t) then .reviewed else .stale
+  | none => .draft
+  | some r => if r.digest == digest then .reviewed else .stale
+
+def reviewState (t : Trace) : IO ReviewState := do
+  return reviewStateOf t (← reviewDigest t)
 
 /-- Records a review of the current content, dated today (local date). -/
 def review (t : Trace) (reviewer : String) (note : Option String) : IO Trace := do
