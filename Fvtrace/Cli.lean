@@ -4,6 +4,8 @@ import Fvtrace.Check
 import Fvtrace.Decode
 import Fvtrace.Encode
 import Fvtrace.Engine
+import FvtraceSkill
+import Fvtrace.Export
 import Fvtrace.Evaluate
 import Fvtrace.Json
 import Fvtrace.Lint
@@ -32,7 +34,8 @@ def usage : String :=
   "      Print the location of the trace of the project.\n" ++
   "  check [--strict] [--rehash] [--json]\n" ++
   "      Check the trace, and the receipt of each verified fact against the project\n" ++
-  "      folder. With --strict, a warning or a stale receipt also fails the check.\n" ++
+  "      folder. With --strict, a warning without a waiver or a stale receipt also\n" ++
+  "      fails the check.\n" ++
   "      With --rehash, read each artifact again instead of the digest cache.\n" ++
   "  pin\n" ++
   "      Record the sha256 of each evidence artifact and statement in the trace.\n" ++
@@ -51,13 +54,22 @@ def usage : String :=
   "      suggestions allow.\n" ++
   "  eval\n" ++
   "      Print the full evaluation as JSON (fvtrace.evaluation/1).\n" ++
+  "  export --html FILE | --bundle DIR\n" ++
+  "      Share the claims. --html writes one page that opens in any browser, with\n" ++
+  "      each one-click what-if computed in advance. --bundle writes the trace and\n" ++
+  "      copies of its evidence files for another computer with fvtrace.\n" ++
   "  serve [--port N] [--host ADDRESS]\n" ++
   "      Show the claims in a browser: open the link that the command prints. The\n" ++
   "      port is 8642 by default (0 = any free port). With --host, computers on your\n" ++
   "      network can open the page at ADDRESS. The page is not encrypted: share it\n" ++
   "      on a network that you trust.\n" ++
   "  schema\n" ++
-  "      Print the JSON Schema of the trace format.\n\n" ++
+  "      Print the JSON Schema of the trace format.\n" ++
+  "  skills install [--agent claude|agents] [--dir DIR]\n" ++
+  "      Install the fvtrace skill for coding agents: Claude Code reads it from\n" ++
+  "      ~/.claude/skills, other agents from ~/.agents/skills (both by default).\n" ++
+  "  skills show\n" ++
+  "      Print the skill's instructions.\n\n" ++
   "claims, gaps, experiments, plan and eval accept --whatif FACT=STATUS,... to\n" ++
   "suppose statuses, and --rehash. check, claims, gaps, experiments and plan accept\n" ++
   "--json for machine output.\n" ++
@@ -218,7 +230,7 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
     if let some (st, r) := review then
       let by_ := match r with | some r => s!" by {r.reviewer} on {r.date}" | none => ""
       say s!"  review: {st.name}{by_}"
-  let strictFail := p.has "--strict" && (!warnings.isEmpty || !stale.isEmpty)
+  let strictFail := p.has "--strict" && (warnings.any (·.waived.isNone) || !stale.isEmpty)
   return if !errors.isEmpty || strictFail then 1 else 0
 
 def pin (env : Store.Env) (args : List String) : IO UInt32 := do
@@ -450,6 +462,112 @@ def evalCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     IO.print (envelopeOf l).pretty
     return 0
 
+/-! ## Agent skill -/
+
+/-- `~/.claude/skills` (Claude Code) and `~/.agents/skills` (Codex, Gemini CLI, Copilot, Cursor). -/
+def skillDirs (agent : Option String) : IO (Except String (List System.FilePath)) := do
+  let some home ← Store.envVar (if System.Platform.isWindows then "USERPROFILE" else "HOME")
+    | return .error "cannot find the home folder; give --dir DIR"
+  let home : System.FilePath := home
+  match agent with
+  | none => return .ok [home / ".claude" / "skills", home / ".agents" / "skills"]
+  | some "claude" => return .ok [home / ".claude" / "skills"]
+  | some "agents" => return .ok [home / ".agents" / "skills"]
+  | some a => return .error s!"--agent is claude or agents, got \"{a}\""
+
+/-- The marker an installed copy carries, so a reinstall replaces it and nothing else. -/
+def skillMarker : String := ".fvtrace-skill"
+
+/-- Writes the skill into `root/fvtrace`; refuses a folder that fvtrace did not write. -/
+def installSkill (root : System.FilePath) : IO (Except String System.FilePath) := do
+  let dir := root / "fvtrace"
+  if ← dir.pathExists then
+    unless ← (dir / skillMarker).pathExists do
+      return .error s!"{dir} exists and was not written by fvtrace; remove it or give --dir"
+    IO.FS.removeDirAll dir
+  for (path, body) in FvtraceSkill.files do
+    let dest := dir / path
+    if let some parent := dest.parent then IO.FS.createDirAll parent
+    IO.FS.writeFile dest body
+  IO.FS.writeFile (dir / skillMarker) s!"fvtrace {version}\n"
+  return .ok dir
+
+def skillsCmd (args : List String) : IO UInt32 := do
+  match args with
+  | "show" :: [] =>
+    IO.print ((FvtraceSkill.files.lookup "SKILL.md").getD "")
+    return 0
+  | "install" :: rest =>
+    let p ← match ← parseArgs { valued := ["--agent", "--dir"] } rest with
+      | .ok p => pure p
+      | .error rc => return rc
+    let roots ← match p.value? "--dir" with
+      | some d =>
+        if (p.value? "--agent").isSome then
+          return ← usageError "give --agent or --dir, not both"
+        pure [Store.absolute (← IO.currentDir) d]
+      | none => match ← skillDirs (p.value? "--agent") with
+        | .ok ds => pure ds
+        | .error m => return ← usageError m
+    let mut rc : UInt32 := 0
+    for root in roots do
+      match ← installSkill root with
+      | .ok dir => say s!"Installed the fvtrace skill in {dir}"
+      | .error m => complain s!"fvtrace: {m}"; rc := 1
+    if rc == 0 then say "Start a new session of your coding agent to load it."
+    return rc
+  | _ => usageError "skills takes install [--agent claude|agents] [--dir DIR], or show"
+
+/-! ## Sharing -/
+
+def exportSpec : Args.Spec := { valued := located ++ ["--html", "--bundle"] }
+
+/-- The real path `dest` would have, when its folder exists; refuses the project folder. -/
+def outside (tg : Store.Target) (dest : System.FilePath) : IO (Except String System.FilePath) := do
+  let some parent := dest.parent | return .error s!"{dest} has no folder"
+  unless ← parent.isDir do return .error s!"no folder {parent}"
+  let real := (← IO.FS.realPath parent) / (dest.fileName.getD "")
+  if Export.within tg.project real then
+    return .error s!"{dest} lies in the project folder; fvtrace writes nothing there"
+  return .ok real
+
+def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
+  let p ← match ← parseArgs exportSpec args with
+    | .ok p => pure p
+    | .error rc => return rc
+  let (dest, html) ← match p.value? "--html", p.value? "--bundle" with
+    | some f, none => pure (f, true)
+    | none, some d => pure (d, false)
+    | _, _ => return ← usageError "export needs either --html FILE or --bundle DIR"
+  let tg ← match ← target env p with
+    | .ok t => pure t
+    | .error rc => return rc
+  let real ← match ← outside tg (Store.absolute env.cwd dest) with
+    | .ok r => pure r
+    | .error m => complain s!"fvtrace: {m}"; return 2
+  let cache ← Session.openCache tg
+  let r ← Session.load tg (p.value? "--trace").isSome none false cache
+  Session.closeCache tg cache
+  let l ← match r with
+    | .ok l => pure l
+    | .error prob => return ← report prob
+  if html then
+    let tmp : System.FilePath := real.toString ++ ".fvtrace-tmp"
+    IO.FS.writeFile tmp (← Export.page l)
+    IO.FS.rename tmp real
+    let n := (Evaluate.actions l.scenario).length
+    say s!"Wrote {real}: the claims of {tg.project} with {n} one-click what-ifs."
+    return 0
+  if ← real.pathExists then
+    unless (← real.readDir).isEmpty do
+      complain s!"fvtrace: {real} is not empty"
+      return 2
+  let problems ← Export.writeBundle l.scenario.trace tg.project real
+  for prob in problems do complain s!"  cannot copy {prob}"
+  let tail := if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found"
+  say s!"Wrote the bundle {real}{tail}."
+  return if problems.isEmpty then 0 else 1
+
 /-! ## The GUI server -/
 
 def serveSpec : Args.Spec := { valued := located ++ ["--port", "--host"] }
@@ -524,6 +642,8 @@ def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
   | "plan" :: rest => planCmd env rest
   | "eval" :: rest => evalCmd env rest
   | "serve" :: rest => serveCmd env rest
+  | "export" :: rest => exportCmd env rest
+  | "skills" :: rest => skillsCmd rest
   | [] => IO.eprint usage; pure 2
   | cmd :: _ => usageError s!"unknown command '{cmd}'"
 

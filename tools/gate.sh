@@ -43,6 +43,19 @@ lean_pure() { lake env lean --run TestPure.lean; }
 # The shipped binary end to end (data folder from the environment, exit codes, no write outside).
 cli() { bash tests/cli/smoke.sh; }
 
+# fvTrace's own trace + the synthetic study: valid, every warning waived, every receipt current.
+# A changed file that the self-trace pins (a proof, a spec) stales its receipt until re-pinned.
+examples() {
+    local rc=0 home bin="$root/.lake/build/bin/fvtrace"
+    home="$(mktemp -d)"
+    FVTRACE_HOME="$home" "$bin" check --strict --trace examples/fvtrace/trace.json --project . ||
+        rc=1
+    (cd examples/synthetic/project &&
+        FVTRACE_HOME="$home" "$bin" check --strict --trace ../trace.json) || rc=1
+    rm -rf "$home"
+    return $rc
+}
+
 # Claims ↔ proofs ↔ axioms ↔ escape hatches, then every proof's closure replayed through the
 # independent kernels bundled with Lean (`lake check --paranoid`).
 trust() { bash tools/trust.sh; }
@@ -166,6 +179,7 @@ main() {
     stage lean-test lean_test
     stage lean-pure lean_pure
     stage cli cli
+    stage examples examples
     stage trust trust
     stage c-analyze c_analyze
     stage vendor vendor

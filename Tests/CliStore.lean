@@ -21,6 +21,10 @@ def decoded : IO Trace := do
   | .ok t => pure t
   | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
 
+def releaseWaiver : Waiver :=
+  { rule := "L-release", claim := "C1",
+    reason := "Released through the journal, recorded elsewhere." }
+
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do
   let fixture ← decoded
@@ -58,6 +62,20 @@ def tests : TestM Unit := do
     check "cli: pinned receipt reads current" (count out "receipt O1: current" == 1) out
     check "store: the digest cache persists beside the trace"
       (← ((System.FilePath.mk trace).parent.getD "." / "cache.json").pathExists)
+    -- --strict: a warning fails the check until a waiver records why it does not apply.
+    let pinned ← match decodeTrace (← IO.FS.readBinFile trace) with
+      | .ok t => pure t
+      | .error _ => throw (IO.userError "the pinned trace does not decode")
+    let release := { pinned with claims := pinned.claims.map fun c =>
+      if c.id == "C1" then { c with level := .release } else c }
+    let variant := (dir / "release.json").toString
+    Cli.writeTrace variant release
+    let (rc, _, _) ← run ["check", "--strict", "--trace", variant]
+    checkEq "cli: --strict fails on an unwaived warning" rc 1
+    Cli.writeTrace variant { release with waivers := [releaseWaiver] }
+    let (rc, out, _) ← run ["check", "--strict", "--trace", variant]
+    checkEq "cli: --strict passes a waived warning" rc 0
+    check "cli: the waived warning stays listed" (count out "(waived: Released" == 1) out
     let (rc, _, _) ← run ["review", "--reviewer", "R. Viewer"]
     checkEq "cli: review rc" rc 0
     let (_, out, _) ← run ["check"]

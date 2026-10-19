@@ -13,12 +13,22 @@ import { count, efforts, kinds, routes, statuses, verdicts, word } from "./words
 /**
  * @typedef {{ select: (kind: "fact" | "claim" | "experiment", id: string) => void,
  *   toggle: (fact: string) => void, canToggle: (fact: string) => boolean,
+ *   supposeStatus: (fact: string) => string | undefined,
  *   apply: (action: string) => void, hasAction: (action: string) => boolean }} Handlers
  */
 
 /** A link-styled button that selects `id`. @param {Handlers} on */
 function ref(/** @type {"fact" | "claim" | "experiment"} */ kind, /** @type {string} */ id, on) {
-  return h("button", { class: "ref", type: "button", onclick: () => on.select(kind, id) }, id);
+  return h(
+    "button",
+    {
+      class: "ref",
+      "data-key": `ref:${kind}:${id}`,
+      type: "button",
+      onclick: () => on.select(kind, id),
+    },
+    id,
+  );
 }
 
 /** `O1, O2` as selectable references. @param {string[]} ids @param {Handlers} on */
@@ -38,6 +48,7 @@ function actionButton(label, action, on, primary = true) {
         "button",
         {
           class: primary ? "action" : "action secondary",
+          "data-key": `action:${action}`,
           type: "button",
           onclick: () => on.apply(action),
         },
@@ -114,7 +125,7 @@ function inspectFact(env, id, on) {
           ]),
         )
       : null,
-    h("h3", {}, "How it can be verified"),
+    h("h3", {}, "How it can be established"),
     h("p", {}, word(routes, f.route)),
     f.evidence
       ? [
@@ -181,10 +192,46 @@ function inspectFact(env, id, on) {
     on.canToggle(f.id)
       ? h(
           "button",
-          { class: "action", type: "button", onclick: () => on.toggle(f.id) },
-          f.supposed ? "Restore the recorded status" : "Suppose it is verified",
+          {
+            class: "action",
+            "data-key": "action:toggle",
+            type: "button",
+            onclick: () => on.toggle(f.id),
+          },
+          f.supposed
+            ? "Restore the recorded status"
+            : `Suppose it is ${on.supposeStatus(f.id) ?? "verified"}`,
         )
       : null,
+  ];
+}
+
+/** Every suggested experiment that raises each unverified need (the plan picks among them). */
+/** @param {Claim["plan"]} p @param {Handlers} on */
+function alternatives(p, on) {
+  if (!p.alternatives.length) return null;
+  const needs = [...new Set(p.alternatives.map((a) => a.need))];
+  return [
+    h("h3", {}, "Experiments for each fact"),
+    h(
+      "ul",
+      { class: "changes" },
+      needs.map((n) =>
+        h(
+          "li",
+          {},
+          ref("fact", n, on),
+          ": ",
+          p.alternatives
+            .filter((a) => a.need === n)
+            .flatMap((a, i) => [
+              i ? ", " : "",
+              ref("experiment", a.experiment, on),
+              ` sets ${a.status}`,
+            ]),
+        ),
+      ),
+    ),
   ];
 }
 
@@ -215,6 +262,13 @@ function planSection(c, on) {
       p.contingent
         ? h("p", { class: "note" }, "It holds only if the planned result is observed.")
         : null,
+      p.planPremises.length
+        ? h("p", {}, "Still assumed after the plan: ", refs("fact", p.planPremises, on), ".")
+        : null,
+      p.planGaps.length
+        ? h("p", {}, "Still open after the plan: ", refs("fact", p.planGaps, on), ".")
+        : null,
+      alternatives(p, on),
       uncovered,
       actionButton("Suppose the plan succeeds", `plan:${c.id}`, on),
     ];
@@ -376,6 +430,7 @@ export function experimentList(env, filter, selected, on) {
       "button",
       {
         class: "experiment-row",
+        "data-key": `experiment:${e.id}`,
         type: "button",
         "aria-pressed": selected === e.id ? "true" : "false",
         onclick: () => on.select("experiment", e.id),
@@ -398,7 +453,12 @@ export function workList(env, on) {
   return env.work.map((w) =>
     h(
       "button",
-      { class: "work-item", type: "button", onclick: () => on.select("fact", w.fact) },
+      {
+        class: "work-item",
+        "data-key": `work:${w.fact}`,
+        type: "button",
+        onclick: () => on.select("fact", w.fact),
+      },
       h("span", { class: "work-count", "aria-hidden": "true" }, String(w.unlocks.length)),
       h(
         "span",
@@ -469,8 +529,18 @@ export function textView(env, groups, on) {
               {},
               h(
                 "button",
-                { class: "text-claim", type: "button", onclick: () => on.select("claim", c.id) },
+                {
+                  class: "text-claim",
+                  "data-key": `text:${c.id}`,
+                  type: "button",
+                  onclick: () => on.select("claim", c.id),
+                },
                 c.sentence,
+              ),
+              h(
+                "small",
+                { class: "list-meta" },
+                c.qualifiers.length ? `${c.verdict} (${c.qualifiers.join(", ")})` : c.verdict,
               ),
               c.gaps.length
                 ? h("small", { class: "list-meta" }, "Gaps: ", refs("fact", c.gaps, on))
@@ -501,7 +571,12 @@ export function textView(env, groups, on) {
                 { class: "text-row stacked" },
                 h(
                   "button",
-                  { class: "text-claim", type: "button", onclick: () => on.select("fact", id) },
+                  {
+                    class: "text-claim",
+                    "data-key": `text:${id}`,
+                    type: "button",
+                    onclick: () => on.select("fact", id),
+                  },
                   `${id} ${f?.text ?? ""}`,
                 ),
                 h(

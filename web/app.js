@@ -1,10 +1,12 @@
-// Claim circuits over `fvtrace serve`. The GUI displays what the fvTrace engine computed (the
-// evaluation envelope) and derives no verdict itself: a what-if is sent to the engine, never
-// replayed here. The address hash holds the view, so a scenario can be shared or reloaded.
+// Claim circuits. The GUI displays what the fvTrace engine computed (the evaluation envelope)
+// and derives no verdict itself. Served (`fvtrace serve`): a what-if goes to the engine and may
+// stack. Exported (`fvtrace export --html`): the page carries the recorded envelope + one
+// precomputed envelope per one-click action, so a what-if applies alone. The address hash holds
+// the view, so a scenario can be shared or reloaded.
 
 import { circuit, lamp } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
-import { DecodeError, decodeEnvelope, decodeProblem } from "./envelope.js";
+import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
 import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
 import { count, verdicts, word } from "./words.js";
 
@@ -12,10 +14,13 @@ import { count, verdicts, word } from "./words.js";
 /** @typedef {import("./envelope.js").Claim} Claim */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 
-/** The view: what-if (fact → status), question, layout, selection, experiment filter. */
+/** The view: what-if (fact → status; served) or action (exported), question, layout, selection,
+experiment filter. */
 const view = {
   /** @type {Map<string, string>} */
   whatif: new Map(),
+  /** @type {string | undefined} */
+  action: undefined,
   question: "",
   layout: /** @type {"circuits" | "text"} */ ("circuits"),
   /** @type {Selection | undefined} */
@@ -26,6 +31,11 @@ const view = {
 /** @type {Envelope | undefined} */
 let env;
 let requested = "";
+
+const island = document.getElementById("fvtrace-data");
+/** @type {unknown} */
+const islandJson = island ? JSON.parse(island.textContent ?? "null") : undefined;
+const exported = island ? decodeExported(islandJson) : undefined;
 
 /** @param {Map<string, string>} w */
 function whatifSpec(w) {
@@ -51,6 +61,7 @@ function readHash() {
       .filter((x) => x.includes("="))
       .map(pair),
   );
+  view.action = p.get("action") ?? undefined;
   view.question = p.get("q") ?? "";
   view.layout = p.get("view") === "text" ? "text" : "circuits";
   const sel = /^(fact|claim|experiment):(.+)$/.exec(p.get("select") ?? "");
@@ -63,6 +74,7 @@ function readHash() {
 function writeHash() {
   const p = new URLSearchParams();
   if (view.whatif.size) p.set("whatif", whatifSpec(view.whatif));
+  if (view.action) p.set("action", view.action);
   if (view.question) p.set("q", view.question);
   if (view.layout === "text") p.set("view", "text");
   if (view.selection) p.set("select", `${view.selection.kind}:${view.selection.id}`);
@@ -78,7 +90,35 @@ function showError(message) {
   el.hidden = false;
 }
 
+/** @type {import("./envelope.js").Action[] | undefined} */
+let recordedCache;
+
+/** An exported page's one-click actions (those of its recorded envelope). */
+function recordedActions() {
+  if (!recordedCache && exported) recordedCache = decodeEnvelope(exported.recorded).actions;
+  return recordedCache ?? [];
+}
+
+/** An exported page: the precomputed envelope of the current action. */
+function loadExported(/** @type {NonNullable<typeof exported>} */ ex) {
+  const raw = view.action === undefined ? ex.recorded : ex.actions.get(view.action);
+  try {
+    if (raw === undefined) {
+      view.action = undefined;
+      writeHash();
+      env = decodeEnvelope(ex.recorded);
+    } else env = decodeEnvelope(raw);
+    render();
+  } catch (e) {
+    showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
+  }
+}
+
 async function load() {
+  if (exported) {
+    loadExported(exported);
+    return;
+  }
   const spec = whatifSpec(view.whatif);
   requested = spec;
   document.body.setAttribute("aria-busy", "true");
@@ -118,6 +158,13 @@ function setWhatif(w) {
   void load();
 }
 
+/** Exported page: shows one action's envelope (`undefined` = recorded). @param {string} [a] */
+function setAction(a) {
+  view.action = a;
+  writeHash();
+  void load();
+}
+
 /** @type {import("./panels.js").Handlers} */
 const on = {
   select(kind, id) {
@@ -131,19 +178,31 @@ const on = {
     byId("inspector").focus();
   },
   canToggle(fact) {
+    if (exported) return view.action === `suppose:${fact}` || on.hasAction(`suppose:${fact}`);
     return view.whatif.has(fact) || on.hasAction(`suppose:${fact}`);
   },
   toggle(fact) {
-    if (view.whatif.has(fact)) {
+    if (exported) setAction(view.action === `suppose:${fact}` ? undefined : `suppose:${fact}`);
+    else if (view.whatif.has(fact)) {
       const w = new Map(view.whatif);
       w.delete(fact);
       setWhatif(w);
     } else on.apply(`suppose:${fact}`);
   },
+  supposeStatus(fact) {
+    const actions = exported ? recordedActions() : (env?.actions ?? []);
+    const a = actions.find((x) => x.id === `suppose:${fact}`);
+    return a?.overrides.find((o) => o.fact === fact)?.status;
+  },
   hasAction(action) {
+    if (exported) return exported.actions.has(action);
     return env?.actions.some((a) => a.id === action) ?? false;
   },
   apply(action) {
+    if (exported) {
+      if (exported.actions.has(action)) setAction(action);
+      return;
+    }
     const a = env?.actions.find((x) => x.id === action);
     if (a) setWhatif(new Map(a.overrides.map((o) => [o.fact, o.status])));
   },
@@ -191,9 +250,32 @@ function renderScenario(/** @type {Envelope} */ e) {
   review.className = `review ${e.review.state}`;
 }
 
+/** The focused re-rendered control, so a render can hand focus back to its successor. */
+function focusKey() {
+  const el = document.activeElement;
+  return el instanceof HTMLElement ? (el.dataset["key"] ?? undefined) : undefined;
+}
+
+/** @param {string | undefined} key */
+function refocus(key) {
+  if (
+    !key ||
+    (document.activeElement instanceof HTMLElement && document.activeElement.dataset["key"] === key)
+  )
+    return;
+  const el = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+  if (el instanceof HTMLElement) el.focus();
+}
+
 function render() {
   if (!env) return;
-  const e = env;
+  const key = focusKey();
+  draw(env);
+  refocus(key);
+}
+
+/** @param {Envelope} e */
+function draw(e) {
   if (!e.questions.some((q) => q.id === view.question)) view.question = e.questions[0]?.id ?? "";
   byId("analysis-title").textContent = e.analysis.title;
   byId("analysis-summary").textContent = e.analysis.summary;
@@ -217,6 +299,7 @@ function render() {
         "button",
         {
           class: "question-tab",
+          "data-key": `question:${q.id}`,
           type: "button",
           "aria-current": q.id === view.question ? "true" : "false",
           onclick: () => {
@@ -282,7 +365,11 @@ function render() {
 }
 
 function wire() {
-  byId("reset").addEventListener("click", () => setWhatif(new Map()));
+  byId("reset").addEventListener("click", () => {
+    if (exported) setAction(undefined);
+    else setWhatif(new Map());
+  });
+  byId("export-note").hidden = !exported;
   byId("question-select").addEventListener("change", (ev) => {
     if (ev.target instanceof HTMLSelectElement) view.question = ev.target.value;
     writeHash();
@@ -304,9 +391,9 @@ function wire() {
     });
   }
   window.addEventListener("popstate", () => {
-    const before = whatifSpec(view.whatif);
+    const before = `${whatifSpec(view.whatif)}|${view.action ?? ""}`;
     readHash();
-    if (whatifSpec(view.whatif) === before) render();
+    if (`${whatifSpec(view.whatif)}|${view.action ?? ""}` === before) render();
     else void load();
   });
 }

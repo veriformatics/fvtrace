@@ -17,6 +17,17 @@ def tests : TestM Unit := do
       (body == (← IO.FS.readFile ("web" / fileOf path)))
   let shipped := (← System.FilePath.readDir "web").toList.map (·.fileName) |>.filter fun n =>
     n.endsWith ".html" || n.endsWith ".js" || n.endsWith ".css"
+  for (path, body) in FvtraceSkill.files do
+    check s!"assets: skill/fvtrace/{path} embedded byte-equal"
+      (body == (← IO.FS.readFile ("skill/fvtrace" / path)))
+  let skill := (FvtraceSkill.files.lookup "SKILL.md").getD ""
+  let front := (skill.splitOn "---\n")[1]!
+  let field := fun (k : String) => (front.splitOn "\n").find? (·.startsWith s!"{k}: ")
+  check "skill: frontmatter names the folder" (field "name" == some "name: fvtrace")
+  check "skill: the description fits the Agent Skills limit (1-1024 characters)"
+    ((field "description").any fun d => 13 < d.length && d.length ≤ 13 + 1024)
+  check "skill: the compatibility note fits its limit (1-500 characters)"
+    ((field "compatibility").any fun d => d.length ≤ 15 + 500)
   checkEq "assets: every GUI file in web/ is embedded"
     (shipped.mergeSort (· ≤ ·)) ((FvtraceWeb.files.map (fileOf ·.1)).mergeSort (· ≤ ·))
 

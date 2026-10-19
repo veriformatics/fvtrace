@@ -401,3 +401,17 @@ export function decodeProblem(json) {
   const p = obj(json.problem, "/problem");
   return { kind: str(p["kind"], "/problem/kind"), message: str(p["message"], "/problem/message") };
 }
+
+/**
+ * An exported page's data island: the recorded envelope + one envelope per one-click action of
+ * the recorded scenario (decoded when shown).
+ * @param {unknown} json @returns {{ recorded: unknown, actions: Map<string, unknown> }}
+ */
+export function decodeExported(json) {
+  const r = obj(json, "");
+  if (r["schema"] !== "fvtrace.export/1") fail("/schema", '"fvtrace.export/1"');
+  return {
+    recorded: r["recorded"],
+    actions: new Map(Object.entries(obj(r["actions"], "/actions"))),
+  };
+}

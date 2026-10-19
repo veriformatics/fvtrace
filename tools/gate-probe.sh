@@ -185,8 +185,14 @@ probe_palette() {
     expect palette-contrast 'conductor on --paper' env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
 }
 
+probe_examples() {
+    keep Fvtrace/Proofs/Plan.lean
+    printf '\n-- planted\n' >>Fvtrace/Proofs/Plan.lean
+    expect examples-stale-receipt 'receipt P6: stale \(changed Fvtrace/Proofs/Plan.lean' examples
+}
+
 probes=("$@")
-[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli lean_pure palette)
+[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli lean_pure palette examples)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"

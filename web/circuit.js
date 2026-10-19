@@ -11,7 +11,8 @@ import { kinds, statuses, symbols, word } from "./words.js";
 /**
  * What a circuit can ask the app to do.
  * @typedef {{ select: (kind: "fact" | "claim" | "experiment", id: string) => void,
- *   toggle: (fact: string) => void, canToggle: (fact: string) => boolean }} Handlers
+ *   toggle: (fact: string) => void, canToggle: (fact: string) => boolean,
+ *   supposeStatus: (fact: string) => string | undefined }} Handlers
  */
 
 /** @param {string} state @param {string} [size] */
@@ -46,11 +47,13 @@ function switchSvg(status) {
 
 /**
  * One contact of a circuit: the switch (suppose / restore) + its fact label (inspect).
- * @param {Fact} f @param {Handlers} on
+ * @param {Fact} f @param {Handlers} on @param {string} claim
  */
-function contact(f, on) {
+function contact(f, on, claim) {
   const toggleable = on.canToggle(f.id);
-  const verb = f.supposed ? `Restore the recorded status of ${f.id}` : `Suppose ${f.id} verified`;
+  const verb = f.supposed
+    ? `Restore the recorded status of ${f.id}`
+    : `Suppose ${f.id} ${on.supposeStatus(f.id) ?? "verified"}`;
   return h(
     "li",
     { class: "contact" },
@@ -58,6 +61,7 @@ function contact(f, on) {
       "button",
       {
         class: `switch ${f.effective}`,
+        "data-key": `switch:${claim}:${f.id}`,
         type: "button",
         "aria-pressed": f.supposed ? "true" : "false",
         "aria-label": toggleable ? verb : `${f.id}: ${word(statuses, f.effective)}`,
@@ -73,6 +77,7 @@ function contact(f, on) {
       "button",
       {
         class: "contact-label",
+        "data-key": `label:${claim}:${f.id}`,
         type: "button",
         onclick: () => on.select("fact", f.id),
       },
@@ -97,11 +102,16 @@ export function circuit(c, env, on, selected) {
   const qualifiers = c.qualifiers.length ? ` (${c.qualifiers.join(", ")})` : "";
   return h(
     "article",
-    { class: `circuit${c.latent ? " latent" : ""}${selected ? " selected" : ""}` },
+    {
+      class: `circuit${c.latent ? " latent" : ""}${selected ? " selected" : ""}${
+        needs.length > 6 ? " tall" : ""
+      }`,
+    },
     h(
       "button",
       {
         class: "claim-head",
+        "data-key": `claim:${c.id}`,
         type: "button",
         "aria-pressed": selected ? "true" : "false",
         onclick: () => on.select("claim", c.id),
@@ -122,7 +132,7 @@ export function circuit(c, env, on, selected) {
     h(
       "ul",
       { class: "contacts", "aria-label": `Facts that ${c.id} needs` },
-      needs.map((f) => contact(f, on)),
+      needs.map((f) => contact(f, on, c.id)),
       h(
         "li",
         { class: "terminal", "aria-hidden": "true" },

@@ -11,6 +11,7 @@ import Tests.Args
 import Tests.CliStore
 import Tests.Engine
 import Tests.Server
+import Tests.Export
 
 namespace Tests
 
@@ -18,6 +19,7 @@ namespace Tests
 credit). -/
 def pure : TestM Unit := do
   Tests.Cli.tests
+  Tests.Cli.skillTests
   Tests.Json.tests
   Tests.Decode.tests
   Tests.Schema.tests
@@ -26,6 +28,7 @@ def pure : TestM Unit := do
   Tests.Args.tests
   Tests.Engine.tests
   Tests.Server.pureTests
+  Tests.Export.pureTests
 
 /-- Suites that call the C digest code: native binary alone (`lake test`). -/
 def native : TestM Unit := do
@@ -33,6 +36,7 @@ def native : TestM Unit := do
   Tests.Receipt.tests
   Tests.CliStore.tests
   Tests.Server.nativeTests
+  Tests.Export.nativeTests
 
 /-- Every suite, in run order (`lake test`). -/
 def all : TestM Unit := do

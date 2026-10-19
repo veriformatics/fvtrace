@@ -18,4 +18,34 @@ def tests : TestM Unit := do
   checkEq "cli: unknown command rc" rc 2
   check "cli: unknown command named" (err.startsWith "fvtrace: unknown command 'bogus'") err
 
+/-- `skills install --dir` + `skills show` (no store: pure suite). -/
+def skillTests : TestM Unit := do
+  let (rc, out, _) ← capture (Fvtrace.Cli.run ["skills", "show"])
+  checkEq "skills: show rc" rc 0
+  check "skills: show prints SKILL.md" (out.startsWith "---\nname: fvtrace\n")
+  IO.FS.withTempDir fun dir => do
+    let (rc, out, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir", dir.toString])
+    checkEq "skills: install rc" rc 0
+    check "skills: install names the folder" ((out.splitOn (dir / "fvtrace").toString).length == 2)
+      out
+    let mut same := true
+    for (path, body) in FvtraceSkill.files do
+      same := same && (← IO.FS.readFile (dir / "fvtrace" / path)) == body
+    check "skills: every file installed byte-equal" same
+    IO.FS.writeFile (dir / "fvtrace" / "SKILL.md") "edited"
+    let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir", dir.toString])
+    checkEq "skills: reinstall replaces its own copy rc" rc 0
+    check "skills: reinstall restores the skill"
+      ((← IO.FS.readFile (dir / "fvtrace" / "SKILL.md")) ==
+        (FvtraceSkill.files.lookup "SKILL.md").get!)
+    IO.FS.removeFile (dir / "fvtrace" / ".fvtrace-skill")
+    let (rc, _, err) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir", dir.toString])
+    checkEq "skills: a folder fvtrace did not write is refused" rc 1
+    check "skills: the refusal names the folder"
+      ((err.splitOn "was not written by fvtrace").length == 2) err
+  let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--agent", "vim"])
+  checkEq "skills: an unknown agent rc" rc 2
+  let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills"])
+  checkEq "skills: no subcommand rc" rc 2
+
 end Tests.Cli
