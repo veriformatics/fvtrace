@@ -46,6 +46,8 @@ def pureTests : TestM Unit := do
     none
   checkEq "export: a missing module is refused"
     ((bundle [("a", "import { y } from \"./zz.js\";")]).toOption) none
+  checkEq "export: a module holding </script is refused"
+    ((bundle [("m", "const s = \"</script>\";")]).toOption) none
 
 /-- The page + bundle on the synthetic study (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do
