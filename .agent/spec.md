@@ -21,18 +21,15 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - FV stance in the engine: verified = `proved` | `checked` (proved checker accepted the actual object). `assumed` = declared premise ⇒ claim allowed only in conditional form. `tested` | `open` = gaps. `violated` ⇒ claim cannot be made as written.
 - Claim state = `cannot` (any violated) > `can` (all verified) > `conditional` (rest assumed) > `open`.
 - Where FV pays = per unverified obligation: claims it gates + claims verifying it alone unlocks; ranked by unlocks. `latent` claims = overlooked directions that become live when their obligations verify.
-- Experiments (user request, round 1; graph variant) = trace `experiments[]`: `kind` `dry` (existing data, code, proofs) | `wet` (new samples, bench), `effort` hours < days < weeks < months, `success` + `failure` = obligation → status maps replayed as what-ifs, `scope: new` = creates new data. Engine per experiment: `lights` (claims raised into can|conditional), `clears` (cannot → open), `breaks` (failure → cannot); ranked lights > clears > cheaper. Per claim `plan` = cheapest experiment raising each unverified need + `uncovered` gaps (ruling | new approach) + plan-success state.
-- Experiment outcome honesty (scientist-1 rulings): `checked` only via a proved checker on the actual data, `proved` only via a completed proof; empirical support → `assumed` at most; failure = established counterexample, inconclusive → `{}`; `scope: new` outcomes are shown on the new data's facts, existing analysis keeps its gaps (versioned artifacts = open user ruling).
+- Experiments (user request, round 1; graph variant) = trace `experiments[]`: `kind` `dry` (existing data, code, proofs) | `wet` (new samples, bench), `effort` hours < days < weeks < months, `success` + `failure` = obligation → status maps replayed as what-ifs, `scope: new` = creates new data. Engine per experiment: `lights` (claims raised into can|conditional), `clears` (cannot → open), `breaks` (failure → cannot); ranked lights > clears > cheaper. Per claim `plan` = cheapest experiment raising each unverified need (prototype default; selection rule = open user ruling, `.agent/deferred.md`) + `uncovered` gaps (ruling | new approach) + plan-success state.
+- Experiment outcome honesty (scientist-1 rulings): `checked` only via a proved checker on the actual data, `proved` only via a completed proof; empirical support → `assumed` at most; failure = established counterexample, inconclusive → `{}`; `scope: new` = intent: a new-data outcome never closes a gap in the existing analysis. Prototype shortcut: the engine ignores `scope` + reuses existing fact ids as stand-ins, disclosed in the UI; modeling = open user ruling (`.agent/deferred.md`).
+- ITERATE closed (user ruling): claim circuits = approved direction for IMPLEMENT; open model questions (new-data experiments, plan selection) stay unruled → `.agent/deferred.md`.
 - Manuscript check shelved (user ruling, round 3; possible separate project): variant, draft-sentence verdicts + fixture `draft` removed; recoverable from tag `prototype-lint` (`.agent/archive/manuscript-check.md`).
 
 ## Tasks
 
-- [x] 96a1fe0 ITERATE round 1a: graph variant suggests dry + wet experiments per gap (user request)
-- [x] 5074c63 ITERATE round 2: retire ledger → circuits gains verdict grouping + text view (user ruling)
-- [x] c796182 ITERATE round 3: shelve manuscript check (user ruling) → circuits = sole design
-- [ ] ITERATE: user feedback on claim circuits + the claim model → `Decisions`
-- Deferred queue → `.agent/deferred.md`; PROTOTYPE history → `.agent/archive/prototype.md`
+- Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE history → `.agent/archive/`
 
 ## Phase
 
-ITERATE — whole product
+IMPLEMENT — whole product
