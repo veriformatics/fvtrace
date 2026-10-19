@@ -27,7 +27,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] Scaffold: fixture, engine, server, launcher, spec
+- [x] a4f62ad Scaffold: fixture, engine, server, launcher, spec
 - [ ] Variant A ledger
 - [ ] Variant B graph
 - [ ] Variant C manuscript check
