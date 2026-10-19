@@ -29,7 +29,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - [x] 96a1fe0 ITERATE round 1a: graph variant suggests dry + wet experiments per gap (user request)
 - [x] 5074c63 ITERATE round 2: retire ledger → circuits gains verdict grouping + text view (user ruling)
-- [ ] ITERATE round 3: shelve manuscript check (user ruling) → circuits = sole design
+- [x] c796182 ITERATE round 3: shelve manuscript check (user ruling) → circuits = sole design
 - [ ] ITERATE: user feedback on claim circuits + the claim model → `Decisions`
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE history → `.agent/archive/prototype.md`
 
