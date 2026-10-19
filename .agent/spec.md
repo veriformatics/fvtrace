@@ -6,11 +6,10 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Artifacts
 
-- `prototype/gui/` = PROTOTYPE GUI: stdlib server + engine + fixture + 3 variants. Run: `uv run prototype/gui/serve.py` → http://127.0.0.1:8642/ (`--port N` overrides).
+- `prototype/gui/` = PROTOTYPE GUI: stdlib server + engine + fixture + 2 variants. Run: `uv run prototype/gui/serve.py` → http://127.0.0.1:8642/ (`--port N` overrides).
   - `prototype/gui/fixture/tau-amyloid.json` = hand-written trace of the tau × amyloid study (structure from veriformatics `studies/naoto` docs; private, no data).
   - `prototype/gui/engine.py` = deterministic claim-state engine; `GET /api/trace`, `POST /api/evaluate {"overrides":{Oid:status}}` (what-if).
-  - `prototype/gui/web/variants/ledger/` = variant A, claim ledger: can say / cannot say / if verified.
-  - `prototype/gui/web/variants/graph/` = variant B, dependency map: question → claim → obligation graph + suggested dry/wet experiments per gap (ranked list, per-claim plan, success/failure what-if).
+  - `prototype/gui/web/variants/graph/` = variant B, claim circuits: claims grouped by verdict per question (circuit | text view) + suggested dry/wet experiments per gap (ranked list, per-claim plan, success/failure what-if).
   - `prototype/gui/web/variants/lint/` = variant C, manuscript check: draft sentences flagged overstated + safe rewrite.
 
 ## Decisions
@@ -18,7 +17,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - PROTOTYPE set = GUI first over a hard-coded fixture; CLI + agent instructions follow later (user ruling).
 - Stack = Python via `uv` (stdlib `http.server`, no deps) + vanilla HTML/CSS/JS, no build step (user ruling).
 - Fixture = the tau × amyloid study from veriformatics `studies/naoto` alone (user ruling) ⇒ repo stays private.
-- GUI = 3 divergent variants over one engine (ledger, graph, manuscript check); user picks/combines at PROTOTYPE close.
+- GUI = divergent variants over one engine; user picks/combines in ITERATE. Ledger retired (user ruling, round 2: redundant with circuits); its verdict grouping + "Assuming …" conditional phrasing + linear reading carried into circuits (group headings, text view listing each open fact once per question).
 - Trace model = questions → claims → obligations. Obligation = one fact a claim needs + `status` + `route` (how it could be verified: `lean`, `runtime-checker`, `refinement`, `human-ruling`, `empirical`) + evidence + trusted base.
 - FV stance in the engine: verified = `proved` | `checked` (proved checker accepted the actual object). `assumed` = declared premise ⇒ claim allowed only in conditional form. `tested` | `open` = gaps. `violated` ⇒ claim cannot be made as written.
 - Claim state = `cannot` (any violated) > `can` (all verified) > `conditional` (rest assumed) > `open`.
@@ -30,7 +29,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 ## Tasks
 
 - [x] 96a1fe0 ITERATE round 1a: graph variant suggests dry + wet experiments per gap (user request)
-- [ ] ITERATE round 1: run the 3 variants, collect the user's pick/combination + feedback on the claim model → `Decisions`
+- [ ] ITERATE round 2: retire ledger → circuits gains verdict grouping + text view (user ruling)
+- [ ] ITERATE round 1: run the variants, collect the user's pick/combination + feedback on the claim model → `Decisions`
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE history → `.agent/archive/prototype.md`
 
 ## Phase
