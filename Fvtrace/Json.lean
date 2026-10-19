@@ -61,7 +61,7 @@ def isWs (c : UInt8) : Bool := c == 32 || c == 9 || c == 10 || c == 13
 
 def skipWs (b : ByteArray) (i : Nat) : Nat := Id.run do
   let mut j := i
-  while j < b.size && isWs b[j]! do
+  while (byteAt b j).any isWs do
     j := j + 1
   return j
 
@@ -150,8 +150,10 @@ def number (b : ByteArray) (i : Nat) : Result Value := Id.run do
     if c == 48 && (byteAt b (j + 1)).any isDigit then return fail i "leading zero in number"
   | none => return fail i "invalid number"
   let mut n : Nat := 0
-  while j < b.size && isDigit b[j]! do
-    n := n * 10 + (b[j]! - 48).toNat
+  repeat
+    let some c := byteAt b j | break
+    unless isDigit c do break
+    n := n * 10 + (c - 48).toNat
     j := j + 1
   if byteAt b j == some 46 || byteAt b j == some 101 || byteAt b j == some 69 then
     return fail i "non-integer number"

@@ -49,6 +49,33 @@ def tests : TestM Unit := do
       ((Check.violations pinned).map (·.rule.code)) []
     for id in ["O1", "EN1", "X1"] do
       checkEq s!"receipt: {id} current after pin" (← reasonsOf pinned root id) []
+    -- Digest cache: a hit needs the recorded size + mtime; rehash + pin read the bytes.
+    let real ← IO.FS.realPath (root / "proofs" / "Entail.lean")
+    let m ← real.metadata
+    let entailSha ← Digest.ofFile real
+    let seed (size : UInt64) (sec : Int) (nsec : UInt32) : Receipt.Cache :=
+      ({} : Receipt.Cache).insert real.toString (size, sec, nsec, "seeded")
+    let hit := seed m.byteSize m.modified.sec m.modified.nsec
+    checkEq "cache: a size + mtime match reuses the recorded digest"
+      (← Receipt.fileDigest (← IO.mkRef hit) false real) "seeded"
+    checkEq "cache: rehash reads the bytes" (← Receipt.fileDigest (← IO.mkRef hit) true real)
+      entailSha
+    checkEq "cache: another size reads the bytes"
+      (← Receipt.fileDigest (← IO.mkRef (seed (m.byteSize + 1) m.modified.sec m.modified.nsec))
+        false real) entailSha
+    checkEq "cache: another mtime reads the bytes"
+      (← Receipt.fileDigest (← IO.mkRef (seed m.byteSize (m.modified.sec + 1) m.modified.nsec))
+        false real) entailSha
+    checkEq "cache: bindings reuse the cache unless asked to rehash"
+      (((← Receipt.bindings pinned root (← IO.mkRef hit)).find? (·.id == "EN1")).map (·.reasons))
+      (some ["changed proofs/Entail.lean"])
+    let (repinned, _) ← Receipt.pin t root (← IO.mkRef hit)
+    checkEq "cache: pin reads the bytes"
+      (((repinned.fact? "EN1").bind (·.evidence)).map (·.artifacts.map (·.sha256)))
+      (some [some entailSha])
+    checkEq "receipt: a verified fact without a receipt is not current"
+      ((← bindingOf (mapFact pinned "O1" fun f => { f with evidence := none }) root "O1").map
+        fun b => (b.current, b.reasons)) (some (false, ["no receipt"]))
     IO.FS.writeFile (root / "proofs" / "Contrast.lean")
       "theorem contrast_correct : False := sorry\n"
     checkEq "receipt: an edited artifact is changed" (← reasonsOf pinned root "O1")
