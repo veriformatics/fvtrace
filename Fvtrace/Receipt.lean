@@ -12,7 +12,9 @@ A verified status counts only while its receipt is current: every artifact still
 pinned sha256 and the fact's statement (with what it binds: an entailment's claim, an
 instantiation's source, an exclusion's endpoints) still hashes to its pinned `statementDigest`.
 This module computes that binding from the project folder; the engine consumes it as input.
-Nothing here writes into the project folder.
+Every artifact is read + hashed again unless the caller opts into the cache (`--cached`): then a
+file that kept its resolved path, size + mtime reuses its recorded digest, so an edit that keeps
+all three goes unseen. Nothing here writes into the project folder.
 -/
 
 namespace Fvtrace.Receipt
