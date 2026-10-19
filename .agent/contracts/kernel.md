@@ -101,7 +101,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 
 ## Outcome guarantees (**proved** unless noted)
 
-- G1 recorded soundness: mode recorded (ω = []) ∧ final c = can ⇒ subject existing ∧ valid ∧ ∀ n ∈ needsAll: recorded verified n ∧ current n. (Its meaning: the receipts named for every need, incl. the claim's own entailment statement, are present + unchanged; receipt acceptance + the entailment's formal reading are the declared trust boundary.)
+- G1 recorded soundness: mode recorded (ω = []) ∧ final c = can ⇒ valid ∧ ∀ n ∈ needsAll: recorded verified n ∧ current n; WF ⇒ subject existing (G1b). (Its meaning: the receipts named for every need, incl. the claim's own entailment statement, are present + unchanged; receipt acceptance + the entailment's formal reading are the declared trust boundary.)
 - G5 ruling ceiling: WF ∧ ω valid ∧ route (entailment c) ∈ {human-ruling, empirical} ⇒ final c ≠ can.
 - G7 subject isolation: ω or an outcome touching only subject s leaves final + breakdown of every claim on another subject unchanged.
 - G8 exclusion: verified current exclusion ∧ verified (eff1 a) ∧ ¬asserted (eff1 b) ⇒ eff b = violated; a claim needing both sides of an asserted exclusion ⇒ intrinsic cannot.

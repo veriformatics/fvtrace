@@ -172,7 +172,7 @@ def workBefore (a b : Work) : Bool :=
 def work : List Work :=
   let ws := (s.trace.facts.filter fun f => s.closable f && !(s.gates f).isEmpty).map fun f =>
     { fact := f.id, unlocks := s.unlocks f, gates := s.gates f }
-  ws.mergeSort workBefore
+  ws.mergeSort fun a b => !workBefore b a
 
 /-- Violated facts + the claims they block (reword the claim or gather new data). -/
 def blockerFacts : List (String × List String) :=
