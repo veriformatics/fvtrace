@@ -19,6 +19,15 @@ input_file traceSchema where
   path := "schema/trace.schema.json"
   text := true
 
+/-- The GUI files `fvtrace serve` embeds (module `FvtraceWeb`): a library of their own, so a GUI
+edit rebuilds one module, never the kernel + its proofs. -/
+input_dir webFiles where
+  path := "web"
+  text := true
+
+lean_lib FvtraceWeb where
+  needs := #[webFiles]
+
 lean_lib Fvtrace where
   needs := #[traceSchema]
 

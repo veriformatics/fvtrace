@@ -9,6 +9,8 @@ import Fvtrace.Json
 import Fvtrace.Lint
 import Fvtrace.Receipt
 import Fvtrace.Render
+import Fvtrace.Server
+import Fvtrace.Session
 import Fvtrace.Store
 import Fvtrace.Version
 
@@ -49,6 +51,11 @@ def usage : String :=
   "      suggestions allow.\n" ++
   "  eval\n" ++
   "      Print the full evaluation as JSON (fvtrace.evaluation/1).\n" ++
+  "  serve [--port N] [--host ADDRESS]\n" ++
+  "      Show the claims in a browser: open the link that the command prints. The\n" ++
+  "      port is 8642 by default (0 = any free port). With --host, computers on your\n" ++
+  "      network can open the page at ADDRESS. The page is not encrypted: share it\n" ++
+  "      on a network that you trust.\n" ++
   "  schema\n" ++
   "      Print the JSON Schema of the trace format.\n\n" ++
   "claims, gaps, experiments, plan and eval accept --whatif FACT=STATUS,... to\n" ++
@@ -107,20 +114,26 @@ def target (env : Store.Env) (p : Args.Parsed) : IO (Except UInt32 Store.Target)
   | .ok t => return .ok t
   | .error m => complain s!"fvtrace: {m}"; return .error 2
 
-/-- Reads the target's trace; a missing trace names its fix. -/
+/-- Says why a trace cannot be used; returns the exit code. -/
+def report : Session.Problem → IO UInt32
+  | .noTrace project => do
+    complain s!"fvtrace: no trace for the project {project} yet; run fvtrace init"
+    return 2
+  | .unreadable file reason => do complain s!"fvtrace: cannot read {file}: {reason}"; return 2
+  | .undecodable file _ => do
+    complain s!"fvtrace: {file} does not decode; run fvtrace check"
+    return 1
+  | .illFormed file _ => do
+    complain s!"fvtrace: {file} is not well-formed; run fvtrace check"
+    return 1
+  | .badWhatif m => usageError m
+
+/-- Reads the target's trace (decoded or not), reporting a missing or unreadable file. -/
 def readTarget (p : Args.Parsed) (t : Store.Target) :
     IO (Except UInt32 (Except (Array Decode.Diag) Trace)) := do
-  if (p.value? "--trace").isNone && !(← t.trace.pathExists) then
-    complain s!"fvtrace: no trace for the project {t.project} yet; run fvtrace init"
-    return .error 2
-  readTrace t.trace
-
-/-- The digest cache of the target's data folder entry (in memory alone when there is none). -/
-def openCache (t : Store.Target) : IO (IO.Ref Receipt.Cache) := do
-  if ← t.entry.isDir then IO.mkRef (← Receipt.Cache.load t.cacheFile) else IO.mkRef {}
-
-def closeCache (t : Store.Target) (cache : IO.Ref Receipt.Cache) : IO Unit := do
-  if ← t.entry.isDir then (← cache.get).save t.cacheFile
+  match ← Session.read t (p.value? "--trace").isSome with
+  | .ok d => return .ok d
+  | .error prob => return .error (← report prob)
 
 def initCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs { valued := ["--project"] } args with
@@ -176,9 +189,9 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
   if let some t := trace? then
     review := some (← Receipt.reviewState t, t.review)
     if errors.isEmpty then
-      let cache ← openCache tg
+      let cache ← Session.openCache tg
       receipts ← Receipt.bindings t tg.project cache (p.has "--rehash")
-      closeCache tg cache
+      Session.closeCache tg cache
   let stale := receipts.filter (!·.current)
   if p.has "--json" then
     IO.print (Value.obj ([("trace", .str tg.trace.toString),
@@ -222,9 +235,9 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
       complain s!"fvtrace: {tg.trace} does not decode; nothing pinned"
       return 1
     | .error rc => return rc
-  let cache ← openCache tg
+  let cache ← Session.openCache tg
   let (pinned, problems) ← Receipt.pin t tg.project cache
-  closeCache tg cache
+  Session.closeCache tg cache
   if pinned != t then writeTrace tg.trace pinned
   for prob in problems do complain s!"  cannot pin {prob}"
   let tail := if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found"
@@ -256,16 +269,11 @@ def review (env : Store.Env) (args : List String) : IO UInt32 := do
 
 /-! ## Evaluation commands -/
 
-structure Loaded where
-  target : Store.Target
-  scenario : Scenario
-  bindings : List Receipt.Binding
-  digest : String
-  review : Receipt.ReviewState
-
 def evalSpec (positional : Nat) : Args.Spec :=
   { valued := located ++ ["--whatif", "--question"], switches := ["--json", "--rehash"],
     positional := [positional] }
+
+abbrev Loaded := Session.Loaded
 
 /-- Reads, checks + binds the target's trace; prints why not and returns the exit code
 otherwise. -/
@@ -273,30 +281,14 @@ def load (env : Store.Env) (p : Args.Parsed) : IO (Except UInt32 Loaded) := do
   let tg ← match ← target env p with
     | .ok t => pure t
     | .error rc => return .error rc
-  let t ← match ← readTarget p tg with
-    | .ok (.ok t) => pure t
-    | .ok (.error _) =>
-      complain s!"fvtrace: {tg.trace} does not decode; run fvtrace check"
-      return .error 1
-    | .error rc => return .error rc
-  unless (Check.violations t).isEmpty do
-    complain s!"fvtrace: {tg.trace} is not well-formed; run fvtrace check"
-    return .error 1
-  let overrides ← match p.value? "--whatif" with
-    | none => pure []
-    | some spec =>
-      match Overrides.parse t spec with
-      | .ok o => pure o
-      | .error m => return .error (← usageError m)
-  let cache ← openCache tg
-  let bindings ← Receipt.bindings t tg.project cache (p.has "--rehash")
-  closeCache tg cache
-  let current := fun id => (bindings.find? (·.id == id)).any (·.current)
-  return .ok { target := tg, scenario := { trace := t, current, overrides }, bindings,
-               digest := ← Receipt.reviewDigest t, review := ← Receipt.reviewState t }
+  let cache ← Session.openCache tg
+  let r ← Session.load tg (p.value? "--trace").isSome (p.value? "--whatif") (p.has "--rehash") cache
+  Session.closeCache tg cache
+  match r with
+  | .ok l => return .ok l
+  | .error prob => return .error (← report prob)
 
-def envelopeOf (l : Loaded) : Value :=
-  Evaluate.envelope l.scenario l.bindings l.digest l.review
+def envelopeOf (l : Loaded) : Value := Session.envelope l
 
 /-- The envelope's members named in `keys`, in envelope order (contract CLI projections). -/
 def project (env : Value) (keys : List String) : Value :=
@@ -458,6 +450,63 @@ def evalCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     IO.print (envelopeOf l).pretty
     return 0
 
+/-! ## The GUI server -/
+
+def serveSpec : Args.Spec := { valued := located ++ ["--port", "--host"] }
+
+/-- The bind address: loopback, or the one `--host` names (an address others use to reach this
+computer; a wildcard address has no single name to allow as `Host`). -/
+def bindAddress (host : Option String) (port : UInt16) :
+    Except String (Std.Net.SocketAddress × String) :=
+  match host with
+  | none => .ok (.v4 { addr := Std.Net.IPv4Addr.ofParts 127 0 0 1, port }, "127.0.0.1")
+  | some h =>
+    match Std.Net.IPv4Addr.ofString h, Std.Net.IPv6Addr.ofString h with
+    | some a, _ =>
+      if a == Std.Net.IPv4Addr.ofParts 0 0 0 0 then .error wildcard
+      else .ok (.v4 { addr := a, port }, h)
+    | none, some a =>
+      if a == Std.Net.IPv6Addr.ofParts 0 0 0 0 0 0 0 0 then .error wildcard
+      else .ok (.v6 { addr := a, port }, s!"[{h}]")
+    | none, none => .error s!"--host needs an IP address, got \"{h}\""
+where
+  wildcard := "--host needs the address that others use to reach this computer, \
+    not a wildcard address"
+
+def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
+  let p ← match ← parseArgs serveSpec args with
+    | .ok p => pure p
+    | .error rc => return rc
+  let port ← match p.value? "--port" with
+    | none => pure 8642
+    | some v => match v.toNat? with
+      | some n => if n < 65536 then pure n.toUInt16 else return ← usageError "--port is 0 to 65535"
+      | none => return ← usageError "--port is 0 to 65535"
+  let (addr, name) ← match bindAddress (p.value? "--host") port with
+    | .ok a => pure a
+    | .error m => return ← usageError m
+  let tg ← match ← target env p with
+    | .ok t => pure t
+    | .error rc => return rc
+  let token := Digest.hex (← IO.getRandomBytes 16)
+  let cache ← Session.openCache tg
+  let initial : Server.Config :=
+    { target := tg, explicit := (p.value? "--trace").isSome, token, port, hosts := [] }
+  let cfg ← IO.mkRef initial
+  let bound ← try Server.start cfg addr cache catch e =>
+    complain s!"fvtrace: cannot serve on {name}:{port}: {e}. Give another --port (0 = any)."
+    return 2
+  let aliases := if (p.value? "--host").isNone then [s!"localhost:{bound}"] else []
+  cfg.modify ({ · with port := bound, hosts := s!"{name}:{bound}" :: aliases })
+  say s!"Serving the project {tg.project}"
+  say s!"Open http://{name}:{bound}/?token={token}"
+  if (p.value? "--host").isSome then
+    say "Anyone on your network who has this link can see the trace (the link is not encrypted)."
+  say "Stop with Ctrl+C."
+  (← IO.getStdout).flush
+  repeat IO.sleep 3600000
+  return 0
+
 /-- Exit codes: 0 = success, 1 = an invalid or failing trace, 2 = usage or read error. -/
 def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
   match args with
@@ -474,6 +523,7 @@ def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
   | "experiments" :: rest => experimentsCmd env rest
   | "plan" :: rest => planCmd env rest
   | "eval" :: rest => evalCmd env rest
+  | "serve" :: rest => serveCmd env rest
   | [] => IO.eprint usage; pure 2
   | cmd :: _ => usageError s!"unknown command '{cmd}'"
 
