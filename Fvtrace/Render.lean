@@ -8,9 +8,10 @@ Every text line the CLI prints passes through `safe`.
 
 namespace Fvtrace.Render
 
+/-- Two lowercase hex digits of `n < 256`. -/
 def hex2 (n : Nat) : String :=
   let d := "0123456789abcdef".toList
-  String.ofList [d[n / 16 % 16]!, d[n % 16]!]
+  String.ofList [d[n / 16]!, d[n % 16]!]
 
 /-- C0 controls, DEL and C1 controls as `\u{xx}`; everything else unchanged. -/
 def safe (s : String) : String :=

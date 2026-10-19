@@ -96,7 +96,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 ## Evaluation envelope (`fvtrace.evaluation/1`; CLI `--json` projections + server + export share it)
 
 - `{schema, mode: recorded | what-if, overrides (normalized, sorted), trace: {digest, review: {state, by?, at?}}, subjects: [{id, kind, valid, conflicts}], counts, questions, facts: [{…recorded, eff, current, reasons, derivedFrom, closable, supposed}], claims: [{id, question, subject, level, text, final, intrinsic, sentence, label, breakdown, hypothetical, provisional, plan}], work, blockers, experiments, lints, actions}`.
-- actions = the finite one-click domain from the base snapshot: `suppose f` (closable f ↦ ceiling), `success e`, `failure e` (non-empty failure), `plan c` (planned results); each maps to the overrides it applies. Export precomputes one envelope per action; actions never stack.
+- actions = the one-click domain from the evaluated scenario: `suppose f` (closable f ↦ ceiling), `success e`, `failure e` (non-empty failure), `plan c` (planned results); each maps to the complete what-if it leads to (ω ⊕ the action), so a click replaces ω. Recorded (ω = []) = the export's finite domain: one envelope per action, never stacked; the server GUI stacks by clicking from a what-if.
 - CLI projections: `claims --json` = envelope keys {schema, mode, overrides, trace, subjects, counts, claims}; `gaps --json` = {schema, mode, overrides, trace, work, blockers}; `experiments --json` = {schema, mode, overrides, trace, experiments}; `plan <c> --json` = {schema, mode, overrides, trace, claim c}. Parity = structural equality with the server envelope's same keys for one snapshot (trace bytes, bindings, ω).
 
 ## Outcome guarantees (**proved** unless noted)

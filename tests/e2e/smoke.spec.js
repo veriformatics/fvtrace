@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { serveFvtrace } from "./fvtrace-server.js";
 
+/** @param {import("@playwright/test").Page} page */
+async function axeIds(page) {
+  const result = await new AxeBuilder({ page }).analyze();
+  return result.violations.map(
+    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`,
+  );
+}
+
 test("the GUI loads through fvtrace serve without errors and passes axe", async ({ page }) => {
   const web = await serveFvtrace();
   /** @type {string[]} */
@@ -14,7 +22,8 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     await page.goto(web.url);
     expect(page.url()).toBe(`${web.base}/`);
     await expect(page).toHaveTitle("fvTrace");
-    await expect(page.getByRole("status")).toHaveText("No trace loaded yet.");
+    await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
+    await page.locator("article.circuit").first().waitFor();
     const evaluation = await page.evaluate(async () => {
       const res = await fetch("/api/evaluation");
       /** @type {unknown} */
@@ -23,8 +32,19 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     });
     expect(evaluation.status).toBe(200);
     expect(evaluation.body).toMatchObject({ schema: "fvtrace.evaluation/1", mode: "recorded" });
-    const axe = await new AxeBuilder({ page }).analyze();
-    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    expect(await axeIds(page)).toEqual([]);
+    await page
+      .locator("article.circuit")
+      .filter({ hasText: "C2 /" })
+      .getByRole("button", { name: /^O2 / })
+      .click();
+    await page.getByRole("button", { name: "Suppose it is verified" }).click();
+    await expect(page.getByRole("status")).toContainText("What-if");
+    expect(await axeIds(page)).toEqual([]);
+    await page.getByRole("button", { name: "Text" }).click();
+    expect(await axeIds(page)).toEqual([]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await axeIds(page)).toEqual([]);
     expect(errors).toEqual([]);
   } finally {
     await web.close();

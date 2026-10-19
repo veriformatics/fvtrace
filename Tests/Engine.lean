@@ -102,6 +102,18 @@ def tests : TestM Unit := do
     ["EN2", "EN3", "M1", "O2"]
   checkEq "engine: a violated fact lists apart" ((s.withOverrides [("O2", .violated)]).blockerFacts)
     [("O2", ["C2"])]
+  let acts := fun (sc : Scenario) => (Evaluate.actions sc).map fun (id, _, _, o) => (id, o)
+  checkEq "evaluate: recorded actions = suppose closable facts, outcomes, plans"
+    ((acts s).map (·.1)) ["suppose:O2", "suppose:O4", "suppose:O5", "suppose:EN2", "suppose:M1",
+      "suppose:EN3", "success:E1", "success:E2", "success:E3", "failure:E1"]
+  checkEq "evaluate: a suppose action is the whole what-if it leads to"
+    ((acts (s.withOverrides [("O2", .checked)])).lookup "suppose:EN2")
+    (some [("EN2", .proved), ("O2", .checked)])
+  checkEq "evaluate: a supposed fact at its ceiling has no suppose action"
+    ((acts (s.withOverrides [("O2", .checked)])).lookup "suppose:O2") none
+  checkEq "evaluate: a plan action from a what-if keeps it"
+    ((acts (s.withOverrides [("EN2", .proved)])).lookup "plan:C2")
+    (some [("O2", .checked), ("EN2", .proved)])
   checkEq "engine: what-if parse normalizes" (Overrides.parse t "O3=assumed,O2=checked").toOption
     (some [("O2", .checked), ("O3", .assumed)])
   check "engine: what-if above the route is rejected"

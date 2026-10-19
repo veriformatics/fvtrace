@@ -179,8 +179,14 @@ probe_lean_pure() {
     expect lean-pure-ffi 'Could not find native implementation' lean_pure
 }
 
+probe_palette() {
+    local css="$backup/palette.css"
+    sed 's/--conductor: #506984;/--conductor: #b0bfce;/' web/style.css >"$css"
+    expect palette-contrast 'conductor on --paper' env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
+}
+
 probes=("$@")
-[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli lean_pure)
+[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli lean_pure palette)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
