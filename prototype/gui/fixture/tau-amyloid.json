@@ -1,0 +1,422 @@
+{
+  "schema": "fvtrace.trace.prototype",
+  "analysis": {
+    "id": "tau-amyloid",
+    "title": "Tau × amyloid microglia study",
+    "summary": "Mouse 2×2 design: MAPTKI, P301S, NLGF_MAPTKI, NLGF_P301S. Three assays: snRNA-seq pseudobulk, GeoMx spatial, bulk TiO2 proteomics + phosphoproteomics.",
+    "source": "Hand-written prototype fixture. Structure + wording are drawn from veriformatics studies/naoto docs (CONTRACT.md, PROOF_SCOPE.md, case-study.md, publication-review, annotation-audit-findings). No data. Statuses reflect those docs, not a live check.",
+    "private": true
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "text": "Does mutant humanized tau (P301S) change the microglial response to amyloid (NLGF)?",
+      "primary": true
+    },
+    {
+      "id": "Q2",
+      "text": "Do snRNA-seq, GeoMx and bulk proteomics agree on the amyloid response?"
+    },
+    {
+      "id": "Q3",
+      "text": "Which phosphoproteomic results can be published?"
+    },
+    {
+      "id": "Q4",
+      "text": "Is there a tau- or amyloid-modulated proliferative microglia state?"
+    }
+  ],
+  "obligations": [
+    {
+      "id": "O1",
+      "kind": "estimand",
+      "status": "proved",
+      "text": "The five named contrasts, including the interaction sign, compile exactly into factorial coefficients.",
+      "evidence": "assurance/ContrastProof.lean: compile_preserves_estimand, canonical_estimands (13 theorems, standard axioms only)",
+      "route": "lean",
+      "trusts": [
+        "Lean kernel",
+        "exact ring arithmetic (no floating point)"
+      ]
+    },
+    {
+      "id": "O2",
+      "kind": "implementation",
+      "status": "checked",
+      "text": "Every supported fit uses a contrast matrix that matches the contract.",
+      "evidence": "assurance/ProductionChecker.lean accepted_sound, invoked by R/core/design.R::assert_fit_identity at 5 fit entry points",
+      "route": "runtime-checker",
+      "trusts": [
+        "JSON transport",
+        "R adapter call placement",
+        "compiler + runtime"
+      ]
+    },
+    {
+      "id": "O3",
+      "kind": "spec-review",
+      "status": "open",
+      "text": "A human confirms the contrast table is the intended biological question on each model's scale.",
+      "evidence": "CONTRACT.md: human semantic review pending",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O4",
+      "kind": "numerical",
+      "status": "tested",
+      "text": "limma/voom fits compute the estimates, standard errors and p-values correctly.",
+      "evidence": "18 baseline/estimand fixtures on synthetic data; no full-data rerun",
+      "route": "refinement"
+    },
+    {
+      "id": "O5",
+      "kind": "provenance",
+      "status": "assumed",
+      "text": "Each snRNA library is one distinct, unpooled animal (together_NWR04 included).",
+      "evidence": "User directive: treat together_NWR04 like the rest of the samples",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O6",
+      "kind": "statistical",
+      "status": "open",
+      "text": "Model assumptions hold: voom mean-variance trend, empirical-Bayes moderation, independence of preparations.",
+      "evidence": "Not assessed",
+      "route": "empirical"
+    },
+    {
+      "id": "O7",
+      "kind": "statistical",
+      "status": "open",
+      "text": "The multiple-testing family for FDR is defined per contrast and matches the reported tables.",
+      "evidence": "case-study.md: next bounded contract, needs a statistical specification",
+      "route": "lean"
+    },
+    {
+      "id": "O8",
+      "kind": "interpretation",
+      "status": "open",
+      "text": "The genotype difference is causal for the microglial phenotype (no confound from sex, batch or preparation).",
+      "evidence": "Observational group comparison; sex assigned by batch",
+      "route": "empirical"
+    },
+    {
+      "id": "O9",
+      "kind": "estimand",
+      "status": "violated",
+      "text": "GeoMx and snRNA microglia measure the same estimand.",
+      "evidence": "GeoMx selected plaque-contacting microglia in NLGF lines; snRNA keeps all microglia",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O10",
+      "kind": "implementation",
+      "status": "tested",
+      "text": "Ensembl IDs (snRNA) map to gene symbols (GeoMx) through the validated symbol_map.",
+      "evidence": "Cache symbol_map validated; mapping not proved",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "O11",
+      "kind": "provenance",
+      "status": "assumed",
+      "text": "Assays use distinct animals, so only group-level comparison is valid.",
+      "evidence": "User-reported design fact",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O12",
+      "kind": "provenance",
+      "status": "open",
+      "text": "A validated animal/aliquot crosswalk links samples across assays.",
+      "evidence": "Integration dossier: no validated cross-assay map",
+      "route": "empirical"
+    },
+    {
+      "id": "O13",
+      "kind": "release",
+      "status": "violated",
+      "text": "The result does not depend on restricted MAPTKI phosphoproteomic measurements.",
+      "evidence": "Publication restriction; MAPTKI weights -1, -1, +1 in tau_alone, nlgf_in_maptki, interaction",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O14",
+      "kind": "estimand",
+      "status": "proved",
+      "text": "nlgf_in_p301s and tau_in_nlgf have zero direct MAPTKI weight.",
+      "evidence": "assurance/ContrastProof.lean: canonical_compilation",
+      "route": "lean",
+      "trusts": [
+        "Lean kernel"
+      ]
+    },
+    {
+      "id": "O15",
+      "kind": "dataflow",
+      "status": "open",
+      "text": "Shared filtering, residual variance and moderation leave nlgf_in_p301s and tau_in_nlgf independent of MAPTKI values.",
+      "evidence": "publication-review: prevalence filter + eBayes use all four genotypes",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "O16",
+      "kind": "release",
+      "status": "open",
+      "text": "The owner confirms the restriction covers MAPTKI-derived values only, not every phosphosite output.",
+      "evidence": "Restriction scope needs clarification",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O17",
+      "kind": "provenance",
+      "status": "open",
+      "text": "Protein-group proteomics is a separate measurement from the restricted phosphosite data.",
+      "evidence": "Source comments call both the same TiO2 assay",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O18",
+      "kind": "interpretation",
+      "status": "violated",
+      "text": "Cluster 2 is a coherent cycling (proliferative) microglia population.",
+      "evidence": "Annotation audit: 99.22% of 4,366 cells detect none of five proliferation markers; label depends on Stmn1 alone",
+      "route": "empirical"
+    },
+    {
+      "id": "O19",
+      "kind": "implementation",
+      "status": "checked",
+      "text": "Cluster-2 fractions are computed per preparation from the recorded labels.",
+      "evidence": "scripts/verify_annotation_aggregates.py",
+      "route": "runtime-checker",
+      "trusts": [
+        "Python runtime",
+        "label export"
+      ]
+    },
+    {
+      "id": "O20",
+      "kind": "statistical",
+      "status": "violated",
+      "text": "Sex and batch effects can be separated from genotype.",
+      "evidence": "snRNA sex assigned by batch (01/03 male, 02/04 female)",
+      "route": "empirical"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "level": "estimand",
+      "text": "The interaction contrast measures how P301S tau changes the amyloid response.",
+      "needs": [
+        "O1",
+        "O2",
+        "O3"
+      ]
+    },
+    {
+      "id": "C2",
+      "question": "Q1",
+      "level": "inferential",
+      "text": "P301S tau amplifies the microglial transcriptional response to amyloid (interaction FDR < 0.05, snRNA pseudobulk).",
+      "needs": [
+        "O1",
+        "O2",
+        "O3",
+        "O4",
+        "O5",
+        "O6",
+        "O7"
+      ]
+    },
+    {
+      "id": "C3",
+      "question": "Q1",
+      "level": "causal",
+      "text": "Mutant tau causes microglia to fail to respond to amyloid plaques.",
+      "needs": [
+        "O1",
+        "O2",
+        "O3",
+        "O4",
+        "O5",
+        "O6",
+        "O7",
+        "O8"
+      ]
+    },
+    {
+      "id": "C4",
+      "question": "Q2",
+      "level": "inferential",
+      "text": "Amyloid responses of plaque-contacting microglia (GeoMx) match those of all snRNA microglia.",
+      "needs": [
+        "O1",
+        "O2",
+        "O9",
+        "O10"
+      ]
+    },
+    {
+      "id": "C5",
+      "question": "Q2",
+      "level": "descriptive",
+      "text": "At group level, nlgf_in_p301s effect directions agree between snRNA and GeoMx for shared genes.",
+      "needs": [
+        "O1",
+        "O2",
+        "O10",
+        "O11"
+      ]
+    },
+    {
+      "id": "C13",
+      "question": "Q2",
+      "level": "descriptive",
+      "text": "Each contrast compares genotype groups within one assay; no animal is paired across assays.",
+      "needs": [
+        "O2",
+        "O11"
+      ]
+    },
+    {
+      "id": "C6",
+      "question": "Q2",
+      "level": "inferential",
+      "latent": true,
+      "text": "Per-animal tau effects correlate across snRNA, GeoMx and proteomics.",
+      "needs": [
+        "O1",
+        "O2",
+        "O10",
+        "O12"
+      ]
+    },
+    {
+      "id": "C7",
+      "question": "Q3",
+      "level": "release",
+      "text": "Phosphosite results for tau_alone, nlgf_in_maptki and interaction can be published.",
+      "needs": [
+        "O13"
+      ]
+    },
+    {
+      "id": "C8",
+      "question": "Q3",
+      "level": "release",
+      "latent": true,
+      "text": "Phosphosite results for nlgf_in_p301s and tau_in_nlgf can be published.",
+      "needs": [
+        "O14",
+        "O15",
+        "O16"
+      ]
+    },
+    {
+      "id": "C9",
+      "question": "Q3",
+      "level": "release",
+      "text": "Protein-group proteomics results are not covered by the phosphosite restriction.",
+      "needs": [
+        "O17"
+      ]
+    },
+    {
+      "id": "C10",
+      "question": "Q4",
+      "level": "inferential",
+      "text": "A proliferative microglia population is depleted in NLGF_P301S mice.",
+      "needs": [
+        "O18",
+        "O19",
+        "O5"
+      ]
+    },
+    {
+      "id": "C11",
+      "question": "Q4",
+      "level": "descriptive",
+      "text": "Cluster 2 makes up 0.87–4.27% of each NLGF_P301S preparation and 58.80–67.72% of three MAPTKI preparations.",
+      "needs": [
+        "O19"
+      ]
+    },
+    {
+      "id": "C12",
+      "question": "Q4",
+      "level": "inferential",
+      "latent": true,
+      "text": "Genotype changes the cluster-2 fraction independently of sex and batch.",
+      "needs": [
+        "O19",
+        "O20",
+        "O6"
+      ]
+    }
+  ],
+  "draft": {
+    "title": "Draft results paragraph (stub text written for the prototype)",
+    "sentences": [
+      {
+        "id": "S1",
+        "text": "We defined the tau × amyloid interaction as the difference of amyloid effects between P301S and MAPTKI mice.",
+        "claims": [
+          "C1"
+        ],
+        "rewrite": "We defined the tau × amyloid interaction as (NLGF_P301S − P301S) − (NLGF_MAPTKI − MAPTKI). Its contrast algebra is proved; its match to the biological question awaits review."
+      },
+      {
+        "id": "S2",
+        "text": "P301S tau significantly amplified the microglial response to amyloid.",
+        "claims": [
+          "C2"
+        ],
+        "rewrite": "We report interaction estimates as exploratory; spec review, numerical checks and model checks are pending, so no significance claim is made."
+      },
+      {
+        "id": "S3",
+        "text": "This shows that mutant tau drives microglial dysfunction around plaques.",
+        "claims": [
+          "C3"
+        ],
+        "rewrite": null
+      },
+      {
+        "id": "S4",
+        "text": "Spatial profiling of plaque-contacting microglia confirmed the snRNA-seq findings.",
+        "claims": [
+          "C4"
+        ],
+        "rewrite": "GeoMx profiled plaque-contacting microglia, a different population from snRNA-seq microglia, so the two assays are not directly compared."
+      },
+      {
+        "id": "S5",
+        "text": "Phosphoproteomics revealed tau-dependent signalling changes (Figure 8).",
+        "claims": [
+          "C7"
+        ],
+        "rewrite": "Phosphoproteomic contrasts that depend on MAPTKI measurements are withheld under a publication restriction."
+      },
+      {
+        "id": "S6",
+        "text": "A proliferative microglia population was nearly absent in NLGF_P301S mice.",
+        "claims": [
+          "C10"
+        ],
+        "rewrite": "Cluster 2, earlier labelled proliferative, is a heterogeneous group of uncertain identity; it made up 0.87–4.27% of NLGF_P301S preparations."
+      },
+      {
+        "id": "S7",
+        "text": "Cluster 2 made up 0.87–4.27% of NLGF_P301S preparations.",
+        "claims": [
+          "C11"
+        ],
+        "rewrite": null
+      }
+    ],
+    "rewrite_note": "Rewrites are hand-written stub text. In the product a coding agent drafts them; the engine verdict stays deterministic."
+  }
+}
