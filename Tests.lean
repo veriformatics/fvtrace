@@ -10,6 +10,7 @@ import Tests.Receipt
 import Tests.Args
 import Tests.CliStore
 import Tests.Engine
+import Tests.Evaluate
 import Tests.Server
 import Tests.Export
 
@@ -27,6 +28,7 @@ def pure : TestM Unit := do
   area "check" Tests.Check.tests
   area "args" Tests.Args.tests
   area "engine" do Tests.Engine.tests; Tests.Engine.witnessTests
+  area "evaluate" Tests.Evaluate.tests
   area "server" Tests.Server.pureTests
   area "export" Tests.Export.pureTests
 

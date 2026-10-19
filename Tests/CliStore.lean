@@ -13,17 +13,6 @@ def decoded : IO Trace := do
   | .ok t => pure t
   | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
 
-def fields : Json.Value → List (String × Json.Value)
-  | .obj kvs => kvs
-  | _ => []
-
-def field (v : Json.Value) (k : String) : Option Json.Value := (fields v).lookup k
-
-/-- The envelope's claim record with this id. -/
-def claimOf (env : Json.Value) (id : String) : Option Json.Value := do
-  let .arr cs ← field env "claims" | none
-  cs.find? fun c => field c "id" == some (.str id)
-
 def releaseWaiver : Waiver :=
   { rule := "L-release", claim := "C1",
     reason := "Released through the journal, recorded elsewhere." }
