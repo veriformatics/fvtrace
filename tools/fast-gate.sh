@@ -22,6 +22,7 @@ done
 start="$(stamp)"
 stage lean-build lean_build
 stage lean-test lean_test
+stage lean-pure lean_pure
 stage cli cli
 if [[ " $* " == *" --e2e "* ]]; then stage e2e e2e; fi
 

@@ -195,7 +195,9 @@ def reviewStateOf (t : Trace) (digest : String) : ReviewState :=
   | none => .draft
   | some r => if r.digest == digest then .reviewed else .stale
 
+/-- A draft needs no digest, which keeps FFI-free callers FFI-free (the interpreted suite). -/
 def reviewState (t : Trace) : IO ReviewState := do
+  if t.review.isNone then return .draft
   return reviewStateOf t (← reviewDigest t)
 
 /-- Records a review of the current content, dated today (local date). -/

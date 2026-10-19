@@ -37,6 +37,9 @@ lean_build() { lake build Fvtrace fvtrace «fvtrace-tests» «fvtrace-trust»; }
 
 lean_test() { lake test; }
 
+# The FFI-free suites interpreted, as the mutation tool runs them (an FFI call there aborts it).
+lean_pure() { lake env lean --run TestPure.lean; }
+
 # The shipped binary end to end (data folder from the environment, exit codes, no write outside).
 cli() { bash tests/cli/smoke.sh; }
 
@@ -160,6 +163,7 @@ main() {
     stage lean-style lean_style
     stage lean-build lean_build
     stage lean-test lean_test
+    stage lean-pure lean_pure
     stage cli cli
     stage trust trust
     stage c-analyze c_analyze
