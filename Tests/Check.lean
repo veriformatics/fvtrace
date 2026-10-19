@@ -84,6 +84,14 @@ def tests : TestM Unit := do
     (mapFact t "O1" fun f => { f with evidence := f.evidence.map fun ev =>
       { ev with artifacts := ev.artifacts.map fun a => { a with path := "/etc/passwd" } } })
     [("WF-path", "")]
+  expect "check: backslash in a path rejected"
+    (mapFact t "O1" fun f => { f with evidence := f.evidence.map fun ev =>
+      { ev with artifacts := ev.artifacts.map fun a => { a with path := "proofs\\A.lean" } } })
+    [("WF-path", "")]
+  expect "check: NUL in a path rejected"
+    (mapFact t "O1" fun f => { f with evidence := f.evidence.map fun ev =>
+      { ev with artifacts := ev.artifacts.map fun a => { a with path := "proofs/A\x00.lean" } } })
+    [("WF-path", "")]
   expect "check: prospective fact must record open"
     (mapFact t "M1" fun f => { f with status := .assumed })
     [("WF-prospective", "/facts/7/status")]
@@ -138,5 +146,7 @@ def tests : TestM Unit := do
     (err.startsWith "fvtrace: cannot read tests/fixtures/absent.json")
   checkEq "render: control characters escaped" (Render.safe "a\x1b[2Jb\x9bc\x7f\nd")
     "a\\u{1b}[2Jb\\u{9b}c\\u{7f}\\u{0a}d"
+  checkEq "render: escape range boundaries" (Render.safe "\x1f \x7e\x7f\x9f\xa0\x10\x90")
+    "\\u{1f} ~\\u{7f}\\u{9f}\xa0\\u{10}\\u{90}"
 
 end Tests.Check

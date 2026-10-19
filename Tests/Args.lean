@@ -27,6 +27,8 @@ def tests : TestM Unit := do
   checkEq "args: too few positionals" (failure []) (some "expected 1 or 2 arguments, got 0")
   checkEq "args: too many positionals" (failure ["a", "b", "c"])
     (some "expected 1 or 2 arguments, got 3")
+  checkEq "args: a command declaring no positionals takes none"
+    ((Args.parse {} []).toOption.isSome, (Args.parse {} ["x"]).toOption.isSome) (true, false)
   check "args: lookups" ((Args.parse spec ["t", "--project", "p"]).toOption.all fun p =>
     p.value? "--project" == some "p" && p.value? "--other" == none && !p.has "--json")
 

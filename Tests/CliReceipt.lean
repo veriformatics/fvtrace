@@ -31,6 +31,28 @@ def tests : TestM Unit := do
     check "cli: pin names the missing option" (err.startsWith "fvtrace: pin needs --project DIR")
     let (rc, _, _) ← capture (Cli.run ["review", trace, "--reviewer", "a\x1bb"])
     checkEq "cli: review rejects control characters in the name" rc 2
+    let bad := (dir / "bad.json").toString
+    IO.FS.writeFile bad "{}"
+    let (rc, _, _) ← capture (Cli.run ["pin", bad, "--project", proj.toString])
+    checkEq "cli: pin on a trace that does not decode rc" rc 1
+    let (rc, _, _) ← capture (Cli.run ["review", bad, "--reviewer", "R. Viewer"])
+    checkEq "cli: review on a trace that does not decode rc" rc 1
+    let base ← match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
+      | .ok t => pure t
+      | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
+    let broken := (dir / "broken.json").toString
+    Cli.writeTrace broken
+      { base with claims := base.claims.map fun c => { c with needs := c.needs ++ ["Z9"] } }
+    let (rc, _, _) ← capture (Cli.run ["review", broken, "--reviewer", "R. Viewer"])
+    checkEq "cli: review on an ill-formed trace rc" rc 1
+    let absent := (dir / "absent.json").toString
+    Cli.writeTrace absent { base with facts := base.facts.map fun f =>
+      if f.id == "O1" then { f with evidence := f.evidence.map fun ev =>
+        { ev with artifacts := ev.artifacts.map fun a => { a with path := "proofs/Absent.lean" } } }
+      else f }
+    let (rc, _, err) ← capture (Cli.run ["pin", absent, "--project", proj.toString])
+    checkEq "cli: pin with a missing artifact rc" rc 1
+    check "cli: pin names the missing artifact" ((err.splitOn "proofs/Absent.lean").length == 2) err
     let entries ← (proj / "proofs").readDir
     checkEq "cli: nothing written into the project"
       (entries.map (·.fileName)).toList ["Contrast.lean"]

@@ -19,6 +19,10 @@ def rejects (name input : String) (offset : Nat) (message : String) : TestM Unit
 
 def nested (n : Nat) : String := "".pushn '[' n ++ "".pushn ']' n
 
+/-- `n` objects nested under key `a`. -/
+def nestedObj (n : Nat) : String :=
+  String.join (List.replicate (n - 1) "{\"a\":") ++ "{}" ++ "".pushn '}' (n - 1)
+
 def tests : TestM Unit := do
   parses "json: literals" " [true, false, null] " (.arr [.bool true, .bool false, .null])
   parses "json: integers" "[0, -1, 123, -0]" (.arr [.num 0, .num (-1), .num 123, .num 0])
@@ -56,10 +60,37 @@ def tests : TestM Unit := do
   rejects "json: stray character" "@" 0 "unexpected character"
   parses "json: depth 64 accepted" (nested 64) (Nat.repeat (fun v => .arr [v]) 63 (.arr []))
   rejects "json: depth 65 rejected" (nested 65) 64 "nesting deeper than 64"
+  parses "json: object depth 64 accepted" (nestedObj 64)
+    (Nat.repeat (fun v => .obj [("a", v)]) 63 (.obj []))
+  rejects "json: object depth 65 rejected" (nestedObj 65) 320 "nesting deeper than 64"
   match parse (ByteArray.mk #[34, 0xff, 34]) with
   | .ok _ => check "json: invalid UTF-8 rejected" false "accepted"
-  | .error e => checkEq "json: invalid UTF-8 rejected" e.message "input is not UTF-8"
+  | .error e =>
+    checkEq "json: invalid UTF-8 rejected" (e.offset, e.message) (0, "input is not UTF-8")
   checkEq "json: lineCol" (lineCol (bytes "ab\ncd") 4) (2, 2)
+  checkEq "json: lineCol counts a leading newline" (lineCol (bytes "\nab") 2) (2, 2)
+  parses "json: tab, CR + LF are whitespace" "\t[\r\n1\t]\r" (.arr [.num 1])
+  parses "json: hex digit range ends" "\"\\u00af\\u00AF\\u0909\"" (.str "¯¯\u0909")
+  rejects "json: ':' is no hex digit" "\"\\u00:0\"" 1 "invalid \\u escape"
+  rejects "json: 'g' is no hex digit" "\"\\u00ag\"" 1 "invalid \\u escape"
+  rejects "json: 'G' is no hex digit" "\"\\u00AG\"" 1 "invalid \\u escape"
+  parses "json: surrogate range ends" "\"\\ud800\\udc00\\udbff\\udfff\\ue000\""
+    (.str (String.ofList [Char.ofNat 0x10000, Char.ofNat 0x10FFFF, Char.ofNat 0xE000]))
+  rejects "json: low surrogate first" "\"\\udc00\\udc00\"" 1 "unpaired surrogate in \\u escape"
+  rejects "json: high surrogate + U+E000" "\"\\ud800\\ue000\"" 1
+    "unpaired surrogate in \\u escape"
+  parses "json: digits 0 + 9" "[90, 19]" (.arr [.num 90, .num 19])
+  rejects "json: ':' is no digit" "[1:]" 2 "expected ',' or ']'"
+  rejects "json: negative leading zero" "-01" 0 "leading zero in number"
+  check "json: arrays differing in an element differ" (Value.arr [.num 1] != Value.arr [.num 2])
+  check "json: objects differing in a key differ"
+    (Value.obj [("a", .null)] != Value.obj [("b", .null)])
+  check "json: objects differing in a value differ"
+    (Value.obj [("a", .null)] != Value.obj [("a", .bool true)])
+  check "json: different kinds differ" (Value.null != Value.bool false)
+  checkEq "json: canonical keeps a space raw, escapes U+0010" (Value.str " \x10").canonical
+    "\" \\u0010\""
+  checkEq "json: pretty nests arrays" (Value.arr [.arr [.num 1]]).pretty "[\n  [\n    1\n  ]\n]\n"
   checkEq "json: lineCol start" (lineCol (bytes "ab\ncd") 0) (1, 1)
   checkEq "json: canonical sorts keys"
     (Value.obj [("b", .num 1), ("a", .arr [.bool false, .null]), ("ä", .str "x")]).canonical
