@@ -28,3 +28,6 @@ Mobile = question select → inspector → stacked claim circuits → work list;
 
 ## Brief test
 Generic dashboard cards replaced by serial wires, switch contacts + lamps tied to the actual dependency semantics. No chart library, gradients, entrance motion, decorative data labels, or generic accent headline. Horizontal question navigation expresses four real scientific questions. Mobile keeps readable text + actual controls rather than scaled SVG. Prototype source + stub rewrite limits remain visible.
+
+## Experiments
+- Dry/wet = icon (monitor | flask) + word, no new hue. Ranked list beside the switch ranking; filter All/Dry/Wet. Inspector: experiment = method, success + failure (fact changes + lamp moves), limits, suppose buttons; fact = experiments filling it; claim = plan to light it + `Suppose the plan succeeds`. `scope: new` = amber note, the what-if applies to new data.

@@ -213,6 +213,206 @@
       "text": "Sex and batch effects can be separated from genotype.",
       "evidence": "snRNA sex assigned by batch (01/03 male, 02/04 female)",
       "route": "empirical"
+    },
+    {
+      "id": "O22",
+      "kind": "release",
+      "status": "open",
+      "route": "human-ruling",
+      "text": "The owner rules that the phosphosite restriction does not cover protein-group results.",
+      "evidence": "Restriction scope covers phosphosite data; protein-group coverage not ruled",
+      "trusts": []
+    }
+  ],
+  "experiments": [
+    {
+      "id": "E1",
+      "kind": "dry",
+      "effort": "hours",
+      "title": "Check that no animal appears in two assays",
+      "method": "Resolve every assay-local sample ID through the animal registry, aliases and exclusions included. A proved checker confirms that each specimen resolves to one animal and one genotype, and that the three assays share no animal.",
+      "needs": "Complete sample sheets + animal-ID registry",
+      "success": {
+        "O11": "checked"
+      },
+      "failure": {
+        "O11": "violated"
+      },
+      "caveat": "Missing or unresolved IDs are inconclusive. A shared animal permits pairing for confirmed matched specimens only; group-level comparison stays valid."
+    },
+    {
+      "id": "E2",
+      "kind": "dry",
+      "effort": "hours",
+      "title": "Verify the gene-ID mapping against a pinned Ensembl release",
+      "method": "Pin the Ensembl annotation used for snRNA quantification and the GeoMx target manifest. Define a policy for version suffixes, retired IDs, aliases and many-to-one mappings. A proved checker confirms every retained mapping follows that policy and flags ambiguous entries.",
+      "needs": "symbol_map + source annotation + GeoMx panel manifest + mapping policy",
+      "success": {
+        "O10": "checked"
+      },
+      "failure": {
+        "O10": "violated"
+      },
+      "caveat": "The result holds for these source annotations and the approved policy. Ambiguity is inconclusive; a confirmed wrong mapping is a failure."
+    },
+    {
+      "id": "E3",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Audit phosphosite-to-protein-group assignments",
+      "method": "Pin the search database, protein-group membership and site-localization records. Check each peptide sequence, modified residue and group membership, and list every compatible group. Accept only assignments that the grouping policy justifies uniquely.",
+      "needs": "Search-engine output + search FASTA + localization scores",
+      "success": {
+        "O21": "assumed"
+      },
+      "failure": {
+        "O21": "violated"
+      },
+      "caveat": "Sequence compatibility cannot prove the biological parent protein, so success supports a premise only. Ambiguous peptides stay open; a confirmed incompatible assignment is a failure."
+    },
+    {
+      "id": "E4",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Refit the two contrasts without MAPTKI samples",
+      "method": "Create a separate refit from raw inputs for P301S, NLGF_MAPTKI and NLGF_P301S only. Recompute filtering, normalization, missing values and moderation without MAPTKI, with a limma workflow for intensities (voom takes counts). A proved dataflow checker confirms that no MAPTKI value enters any step.",
+      "needs": "Raw phosphosite measurements + preprocessing specification",
+      "success": {
+        "O15": "checked"
+      },
+      "failure": {
+        "O15": "violated"
+      },
+      "caveat": "The refit is a new analysis with its own estimates and fewer degrees of freedom. It does not verify the existing four-group outputs.",
+      "scope": "new"
+    },
+    {
+      "id": "E5",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Trace both proteomics tables to their raw instrument files",
+      "method": "Trace each protein-group and phosphosite table through raw acquisition IDs, fractions and processing records. A proved checker confirms that no protein-group value is aggregated or derived from the restricted phosphosite values.",
+      "needs": "Raw-file and fraction manifest + processing lineage",
+      "success": {
+        "O17": "checked"
+      },
+      "failure": {
+        "O17": "violated"
+      },
+      "caveat": "A separate measurement does not give permission to publish. The data owner must still rule on the restriction scope (O22). Shared TiO2 enrichment alone does not show dependence."
+    },
+    {
+      "id": "E6",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Run model diagnostics on the snRNA pseudobulk fits",
+      "method": "Inspect the voom mean-variance trend, residual patterns, leverage, outliers and the eBayes prior fit. Rerun key estimates under prespecified alternative weights and moderation, and record how the effect sizes change.",
+      "needs": "Pseudobulk counts + fitted design + sample metadata",
+      "success": {
+        "O6": "assumed"
+      },
+      "failure": {},
+      "caveat": "Diagnostics support model assumptions; they cannot prove them, so success adopts a premise. A warning or an underpowered screen is inconclusive. Only a confirmed violation, such as unmodeled repeated preparations, falsifies O6."
+    },
+    {
+      "id": "E7",
+      "kind": "dry",
+      "effort": "weeks",
+      "title": "Specify the FDR family and prove the reported tables follow it",
+      "method": "Approve a versioned family manifest: the complete tested feature set per contrast and the adjustment method. A proved checker confirms the complete p-value vectors, adjusted values and reported tables follow that manifest.",
+      "needs": "Complete p-value vectors + result tables + reviewed family manifest",
+      "success": {
+        "O7": "checked"
+      },
+      "failure": {
+        "O7": "violated"
+      },
+      "caveat": "This verifies the approved family contract, not that per-contrast FDR is the right scientific choice. A proof that does not complete is inconclusive."
+    },
+    {
+      "id": "E8",
+      "kind": "dry",
+      "effort": "months",
+      "title": "Verify a bounded limma/voom numerical path",
+      "method": "Freeze the versions, input domain and executed path. Specify error bounds through weights, fitting, moderation and tail probabilities. Audit one component against a high-precision oracle first, then prove that the executed path refines the contract.",
+      "needs": "limma source + a statistical specification",
+      "success": {
+        "O4": "proved"
+      },
+      "failure": {
+        "O4": "violated"
+      },
+      "caveat": "Months is a lower bound. Oracle agreement is test evidence only; only a completed refinement proof verifies O4. The trusted base grows to include the floating-point model and the R runtime."
+    },
+    {
+      "id": "E10",
+      "kind": "wet",
+      "effort": "months",
+      "title": "Replicate in a cohort balanced for sex and batch",
+      "method": "Plan a new cohort from a power calculation for the interaction. Put both sexes of every genotype in every preparation batch, balance age, litter and cage, and blind processing. Repeat snRNA-seq and report estimates with intervals.",
+      "needs": "New animals + sequencing",
+      "success": {
+        "O8": "assumed"
+      },
+      "failure": {},
+      "caveat": "The new cohort gets its own facts; the existing data keep their confound. Support for a causal genotype effect stays a premise, not a proof. A null or underpowered result does not falsify the effect.",
+      "scope": "new"
+    },
+    {
+      "id": "E11",
+      "kind": "wet",
+      "effort": "weeks",
+      "title": "Sample microglia away from plaques in GeoMx",
+      "method": "Define the target population first. Sample plaque-contact and plaque-distant regions in all genotypes by a prespecified stratified scheme, with purity controls and population weights. Compare assay effects on prespecified shared genes.",
+      "needs": "Remaining tissue sections + GeoMx run",
+      "success": {
+        "O9": "assumed"
+      },
+      "failure": {},
+      "caveat": "New regions cannot make the original plaque-selected population equal to all snRNA microglia. A scientist must rule that the weighted regions represent all microglia; that ruling stays a premise.",
+      "scope": "new"
+    },
+    {
+      "id": "E12",
+      "kind": "wet",
+      "effort": "months",
+      "title": "Acquire an unrestricted, balanced phosphoproteomics cohort",
+      "method": "First ask the owner whether the existing results can be released. If not, agree on publication terms and collect all four genotypes in shared preparation and acquisition batches. A proved dataflow checker confirms no restricted value enters any step.",
+      "needs": "Data agreement + new animals + mass spectrometry",
+      "success": {
+        "O13": "checked"
+      },
+      "failure": {},
+      "caveat": "A new MAPTKI group alone would confound genotype with cohort, so the cohort must include all four genotypes. Permission and provenance stay separate conditions.",
+      "scope": "new"
+    },
+    {
+      "id": "E13",
+      "kind": "dry",
+      "effort": "hours",
+      "title": "Check which contrasts the existing design can estimate",
+      "method": "Tabulate genotype by sex by preparation batch. A proved checker computes the design rank and confirms whether each genotype contrast is estimable with sex and batch as nuisance terms.",
+      "needs": "Existing sample metadata",
+      "success": {
+        "O20": "checked"
+      },
+      "failure": {
+        "O20": "violated"
+      },
+      "caveat": "Sex aliased with batch prevents separating sex from batch, but genotype can still be estimable. Success corrects the recorded violation; it does not show the effect is causal."
+    },
+    {
+      "id": "E14",
+      "kind": "wet",
+      "effort": "weeks",
+      "title": "Stain for cycling microglia",
+      "method": "Co-stain microglia with Iba1, Ki67 and an EdU pulse in all four genotypes, with positive cycling controls. Quantify blinded, per animal, and compare with the cluster-2 signature.",
+      "needs": "Tissue sections or new animals + EdU dosing",
+      "success": {
+        "O18": "assumed"
+      },
+      "failure": {},
+      "caveat": "Staining can show a cycling population; it cannot prove cluster 2 is that population, so success adopts a premise. A stain without working positive controls is inconclusive."
     }
   ],
   "claims": [
@@ -332,7 +532,8 @@
       "level": "release",
       "text": "Protein-group proteomics results are not covered by the phosphosite restriction.",
       "needs": [
-        "O17"
+        "O17",
+        "O22"
       ]
     },
     {
