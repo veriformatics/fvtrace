@@ -73,6 +73,17 @@ def problemKind (r : Reply) : Option String :=
     | _ => none
   | _ => none
 
+/-- `facts[id].receipt.current` of an envelope reply. -/
+def receiptCurrent (r : Reply) (id : String) : Option Bool := do
+  let .obj kvs ← body r | none
+  let .arr fs ← kvs.lookup "facts" | none
+  let .obj fk ← fs.find? (fun v => match v with
+    | .obj fk => fk.lookup "id" == some (.str id)
+    | _ => false) | none
+  let .obj rk ← fk.lookup "receipt" | none
+  let .bool b ← rk.lookup "current" | none
+  pure b
+
 /-- The evaluation route against a real project folder (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do
   IO.FS.withTempDir fun dir => do
@@ -89,6 +100,25 @@ def nativeTests : TestM Unit := do
     | .ok l => check "server: the route serves the session's envelope" (body r == some
         (Session.envelope l))
     | .error _ => check "server: the route serves the session's envelope" false
+    -- Evidence is read again by default; `cached` (serve --cached) reuses a digest recorded for
+    -- the same size + mtime (planted: "x").
+    IO.FS.createDirAll (dir / "proofs")
+    let proof := "theorem contrast_correct : True := trivial\n"
+    IO.FS.writeFile (dir / "proofs" / "Contrast.lean") proof
+    let fixture ← match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
+      | .ok t => pure t
+      | .error _ => throw (IO.userError "the fixture does not decode")
+    let (pinned, _) ← Receipt.pin fixture dir (← IO.mkRef {})
+    Cli.writeTrace c.target.trace pinned
+    let real ← IO.FS.realPath (dir / "proofs" / "Contrast.lean")
+    let m ← real.metadata
+    let planted : Receipt.Cache :=
+      ({} : Receipt.Cache).insert real.toString (m.byteSize, m.modified.sec, m.modified.nsec, "x")
+    let fresh ← respond c (← IO.mkRef planted) (req "/api/evaluation" [] cookie)
+    checkEq "server: evidence is read again by default" (receiptCurrent fresh "O1") (some true)
+    let reused ← respond { c with cached := true } (← IO.mkRef planted)
+      (req "/api/evaluation" [] cookie)
+    checkEq "server: cached reuses a recorded digest" (receiptCurrent reused "O1") (some false)
     let r ← ask (some "O3=proved")
     checkEq "server: a what-if above the route" (r.status.toCode, problemKind r)
       (400, some "what-if")
