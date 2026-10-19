@@ -173,8 +173,14 @@ probe_cli() {
         env FVTRACE_SMOKE_BIN="$stub" bash tests/cli/smoke.sh
 }
 
+probe_lean_pure() {
+    keep TestPure.lean
+    sed -i 's/^def main : IO UInt32 := do$/def main : IO UInt32 := do\n  let _ ← Fvtrace.Digest.ofString "planted"/' TestPure.lean
+    expect lean-pure-ffi 'Could not find native implementation' lean_pure
+}
+
 probes=("$@")
-[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli)
+[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli lean_pure)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
