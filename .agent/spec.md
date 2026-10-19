@@ -49,7 +49,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 3d885af U10 Agent skill + installer (5353708); blind live trial on veriformatics `studies/naoto` (trial-1) → fixes 3d885af
 - [x] 3d885af U11 Examples: self-trace + synthetic study (5353708); private tau × amyloid migration (migrator-1) → `~/.local/share/fvtrace/<project>/trace.json`, `check --strict` rc 0
 - [x] 9884777 U12 README + docs; prototype retired (tag `prototype-gui`)
-- [ ] U13 Closing review → `.agent/review.md` (rows = every round-1 finding). RESUME: rounds 1 + 2 fixed (3d885af, round-2 commit); next = re-review of the accepted rows (reviewer-5, `.scratch/review/rereview-1.md`), mutation campaign on the round-2 commit (`.scratch/mut-c{n,p}.sh` → `.scratch/mutation/<File>.log`; Decode + Model done), then L-HARD (survivors + R1/R2), then close rows
+- [ ] U13 Closing review → `.agent/review.md` (rows = every round-1 finding). RESUME: rounds 1 + 2 fixed (3d885af, 38bb2e9); next = re-review of the accepted rows (reviewer-5, `.scratch/review/rereview-1.md`), mutation campaign on the round-2 commit (`.scratch/mut-c{n,p}.sh` → `.scratch/mutation/<File>.log`; Decode + Model done), then L-HARD (survivors + R1/R2), then close rows
 - [ ] U14 Close: Artifacts, Decisions, Tasks, Phase → MAINTAIN
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE history → `.agent/archive/`
 
