@@ -135,11 +135,13 @@ def Rule.Holds : Check.Rule → Trace → Prop
   | .prospective => SubjectsProper | .variant => VariantsProper | .exclusion => ExclusionsProper
   | .consistent => RecordedConsistent | .waiver => WaiversProper | .kind => KindsProper
 
-/-- `fvtrace check` reports no violation exactly when the trace is well-formed. -/
+/-- The well-formedness check in `fvtrace check` (`Check.violations`) reports no violation
+exactly when the decoded trace is well-formed. -/
 def CheckAcceptsExactlyWellFormed : Prop :=
   ∀ t : Trace, Check.violations t = [] ↔ WellFormed t
 
-/-- Every violation `fvtrace check` lists names a rule the trace truly breaks. -/
+/-- Every violation the well-formedness check lists names a rule the decoded trace truly
+breaks. -/
 def CheckViolationsSound : Prop :=
   ∀ t : Trace, ∀ v ∈ Check.violations t, ¬ Rule.Holds v.rule t
 

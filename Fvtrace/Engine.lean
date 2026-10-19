@@ -217,10 +217,13 @@ def merged (ids : List String) : List (String × Status) :=
   (pairs.map (·.1)).eraseDups.map fun k =>
     (k, ((pairs.filter (·.1 == k)).map (·.2)).foldl Status.stronger .assumed)
 
+/-- The facts a success of `ids` (closed) raises: each merged value stronger than the fact's
+current status. -/
+def raised (ids : List String) : Overrides :=
+  (s.merged ids).filter fun (k, st) => (EStatus.ofStatus st).strength > (s.eff1 k).strength
+
 /-- Success of `ids` (closed): raises each touched fact to the merged value, never lowering it. -/
-def applySuccess (ids : List String) : Scenario :=
-  s.withOverrides ((s.merged ids).filter fun (k, st) =>
-    (EStatus.ofStatus st).strength > (s.eff1 k).strength)
+def applySuccess (ids : List String) : Scenario := s.withOverrides (s.raised ids)
 
 def applyFailure (e : Experiment) : Scenario :=
   s.withOverrides (e.failure.map fun (k, _) => (k, .violated))
@@ -241,6 +244,7 @@ def lights (ms : List Move) : Nat :=
   (ms.filter fun m => m.after.rank ≥ 2 && m.after.rank > m.before.rank).length
 def clears (ms : List Move) : Nat :=
   (ms.filter fun m => m.before == .cannot && m.after == .«open»).length
+def lowers (ms : List Move) : Nat := (ms.filter fun m => m.after.rank < m.before.rank).length
 def breaks (ms : List Move) : Nat := (ms.filter fun m => m.after == .cannot).length
 
 def resultFacts : List String := (s.trace.facts.filter (·.kind == .result)).map (·.id)
@@ -363,13 +367,13 @@ def Overrides.parse (t : Trace) (spec : String) : Except String Overrides := do
     match e.splitOn "=" with
     | [k, v] =>
       let some st := Status.all.find? (·.name == v)
-        | throw s!"unknown status \"{v}\" in --whatif"
-      let some f := t.fact? k | throw s!"no fact \"{k}\" in --whatif"
+        | throw s!"unknown status \"{v}\" in the what-if"
+      let some f := t.fact? k | throw s!"the trace has no fact \"{k}\""
       unless f.route.allows st do
         throw s!"{k} cannot reach {v} by route {f.route.name}"
-      if out.any (·.1 == k) then throw s!"{k} appears twice in --whatif"
+      if out.any (·.1 == k) then throw s!"{k} appears twice in the what-if"
       out := out ++ [(k, st)]
-    | _ => throw s!"--whatif entries read FACT=STATUS, got \"{e}\""
+    | _ => throw s!"a what-if entry reads FACT=STATUS, got \"{e}\""
   return Overrides.normalize out
 
 end Fvtrace

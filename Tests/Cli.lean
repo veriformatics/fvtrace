@@ -59,4 +59,19 @@ def skillTests : TestM Unit := do
   let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills"])
   checkEq "skills: no subcommand rc" rc 2
 
+/-- `replaceFile` never writes through a link planted at its temporary path. -/
+def writeTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let victim := dir / "victim.txt"
+    IO.FS.writeFile victim "keep"
+    let file := dir / "trace.json"
+    let linked ← symlink victim (dir / "trace.json.fvtrace-tmp") false
+    check "write: a link can be planted at the temporary path" linked
+    Fvtrace.Cli.replaceFile file "new"
+    checkEq "write: a link at the temporary path is not written through"
+      (← IO.FS.readFile victim) "keep"
+    checkEq "write: the file gets the new content" (← IO.FS.readFile file) "new"
+    check "write: the file is a plain file, not the link"
+      ((← file.symlinkMetadata).type == .file)
+
 end Tests.Cli

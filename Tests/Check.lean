@@ -135,5 +135,10 @@ def tests : TestM Unit := do
     "a\\u{1b}[2Jb\\u{9b}c\\u{7f}\\u{0a}d"
   checkEq "render: escape range boundaries" (Render.safe "\x1f \x7e\x7f\x9f\xa0\x10\x90")
     "\\u{1f} ~\\u{7f}\\u{9f}\xa0\\u{10}\\u{90}"
+  checkEq "render: bidirectional formatting escaped"
+    (Render.safe "a\u202ab\u202ec\u2066d\u2069e\u061cf\u200eg\u200f")
+    "a\\u{202a}b\\u{202e}c\\u{2066}d\\u{2069}e\\u{61c}f\\u{200e}g\\u{200f}"
+  let kept := "\u2029\u202f\u2065\u206a\u200d\u061b\u200b"
+  checkEq "render: bidirectional range boundaries kept" (Render.safe kept) kept
 
 end Tests.Check

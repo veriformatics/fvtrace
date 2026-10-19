@@ -14,9 +14,10 @@ import { count, verdicts, word } from "./words.js";
 /** @typedef {import("./envelope.js").Claim} Claim */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 
-/** The view: what-if (fact → status; served) or action (exported), question, layout, selection,
-experiment filter. */
+/** The view: what-if (served: the spec sent to the engine + the overrides it accepted) or action
+(exported), question, layout, selection, experiment filter. */
 const view = {
+  spec: "",
   /** @type {Map<string, string>} */
   whatif: new Map(),
   /** @type {string | undefined} */
@@ -42,25 +43,16 @@ function whatifSpec(w) {
   return [...w].map(([f, st]) => `${f}=${st}`).join(",");
 }
 
-/** `F=S` as `[F, S]`. @param {string} x @returns {[string, string]} */
-function pair(x) {
-  const i = x.indexOf("=");
-  return [x.slice(0, i), x.slice(i + 1)];
-}
-
 /** @param {string | undefined} k @returns {k is Selection["kind"]} */
 function isKind(k) {
   return k === "fact" || k === "claim" || k === "experiment";
 }
 
+// The engine judges a linked what-if as written: duplicates or malformed entries come back as a
+// what-if problem, shown to the user, never repaired here.
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  view.whatif = new Map(
-    (p.get("whatif") ?? "")
-      .split(",")
-      .filter((x) => x.includes("="))
-      .map(pair),
-  );
+  view.spec = p.get("whatif") ?? "";
   view.action = p.get("action") ?? undefined;
   view.question = p.get("q") ?? "";
   view.layout = p.get("view") === "text" ? "text" : "circuits";
@@ -73,7 +65,7 @@ function readHash() {
 
 function writeHash() {
   const p = new URLSearchParams();
-  if (view.whatif.size) p.set("whatif", whatifSpec(view.whatif));
+  if (view.spec) p.set("whatif", view.spec);
   if (view.action) p.set("action", view.action);
   if (view.question) p.set("q", view.question);
   if (view.layout === "text") p.set("view", "text");
@@ -103,11 +95,20 @@ function recordedActions() {
 function loadExported(/** @type {NonNullable<typeof exported>} */ ex) {
   const raw = view.action === undefined ? ex.recorded : ex.actions.get(view.action);
   try {
-    if (raw === undefined) {
+    if (raw === undefined || view.spec) {
+      showError(
+        view.spec
+          ? "This page holds one-click what-ifs only, so it shows the recorded evidence."
+          : `This page holds no what-if "${view.action}", so it shows the recorded evidence.`,
+      );
       view.action = undefined;
+      view.spec = "";
       writeHash();
       env = decodeEnvelope(ex.recorded);
-    } else env = decodeEnvelope(raw);
+    } else {
+      byId("error").hidden = true;
+      env = decodeEnvelope(raw);
+    }
     render();
   } catch (e) {
     showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
@@ -119,7 +120,7 @@ async function load() {
     loadExported(exported);
     return;
   }
-  const spec = whatifSpec(view.whatif);
+  const spec = view.spec;
   requested = spec;
   document.body.setAttribute("aria-busy", "true");
   try {
@@ -129,15 +130,17 @@ async function load() {
     if (spec !== requested) return;
     const problem = decodeProblem(json);
     if (problem) {
-      showError(problem.message);
-      if (problem.kind === "what-if" && view.whatif.size) {
-        view.whatif.clear();
+      // A refused what-if falls back to the recorded evidence; the message outlives that load.
+      if (problem.kind === "what-if" && spec) {
+        view.spec = "";
         writeHash();
         await load();
       }
+      showError(problem.message);
       return;
     }
     env = decodeEnvelope(json);
+    view.whatif = new Map(env.overrides.map((o) => [o.fact, o.status]));
     byId("error").hidden = true;
     render();
   } catch (e) {
@@ -153,7 +156,7 @@ async function load() {
 
 /** Sets the what-if, then asks the engine. @param {Map<string, string>} w */
 function setWhatif(w) {
-  view.whatif = w;
+  view.spec = whatifSpec(w);
   writeHash();
   void load();
 }
@@ -177,8 +180,13 @@ const on = {
     render();
     byId("inspector").focus();
   },
+  // Exported one-click what-ifs apply alone: a switch undoes only its own action, so a fact that
+  // another action supposes stays as it is until Reset.
   canToggle(fact) {
-    if (exported) return view.action === `suppose:${fact}` || on.hasAction(`suppose:${fact}`);
+    if (exported) {
+      const supposed = env?.facts.find((f) => f.id === fact)?.supposed ?? false;
+      return view.action === `suppose:${fact}` || (!supposed && on.hasAction(`suppose:${fact}`));
+    }
     return view.whatif.has(fact) || on.hasAction(`suppose:${fact}`);
   },
   toggle(fact) {
@@ -391,9 +399,9 @@ function wire() {
     });
   }
   window.addEventListener("popstate", () => {
-    const before = `${whatifSpec(view.whatif)}|${view.action ?? ""}`;
+    const before = `${view.spec}|${view.action ?? ""}`;
     readHash();
-    if (`${whatifSpec(view.whatif)}|${view.action ?? ""}` === before) render();
+    if (`${view.spec}|${view.action ?? ""}` === before) render();
     else void load();
   });
 }

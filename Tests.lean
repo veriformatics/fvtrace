@@ -18,27 +18,25 @@ namespace Tests
 /-- Suites that call no FFI code: the interpreter can run them (`TestPure.lean`, mutation
 credit). -/
 def pure : TestM Unit := do
-  Tests.Cli.tests
-  Tests.Cli.skillTests
-  Tests.Json.tests
-  Tests.Decode.tests
-  Tests.Decode.sizeTests
-  Tests.Decode.outcomeOrderTests
-  Tests.Schema.tests
-  Tests.Assets.tests
-  Tests.Check.tests
-  Tests.Args.tests
-  Tests.Engine.tests
-  Tests.Server.pureTests
-  Tests.Export.pureTests
+  area "cli" do Tests.Cli.tests; Tests.Cli.skillTests; Tests.Cli.writeTests
+  area "json" Tests.Json.tests
+  area "decode" do
+    Tests.Decode.tests; Tests.Decode.sizeTests; Tests.Decode.outcomeOrderTests
+  area "schema" Tests.Schema.tests
+  area "assets" Tests.Assets.tests
+  area "check" Tests.Check.tests
+  area "args" Tests.Args.tests
+  area "engine" do Tests.Engine.tests; Tests.Engine.witnessTests
+  area "server" Tests.Server.pureTests
+  area "export" Tests.Export.pureTests
 
 /-- Suites that call the C digest code: native binary alone (`lake test`). -/
 def native : TestM Unit := do
-  Tests.Digest.tests
-  Tests.Receipt.tests
-  Tests.CliStore.tests
-  Tests.Server.nativeTests
-  Tests.Export.nativeTests
+  area "digest" Tests.Digest.tests
+  area "receipt" Tests.Receipt.tests
+  area "cli-store" Tests.CliStore.tests
+  area "server-native" Tests.Server.nativeTests
+  area "export-native" Tests.Export.nativeTests
 
 /-- Every suite, in run order (`lake test`). -/
 def all : TestM Unit := do

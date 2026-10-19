@@ -19,7 +19,7 @@ fvTrace checks the trace and decides every verdict. fvTrace never calls a langua
 | **Can claim** | Every fact that the claim needs is verified, and its evidence is unchanged since it was pinned. |
 | **On assumption** | No fact is violated, and each fact is verified or assumed. You can state the claim only with its assumptions: "Assuming …: claim". |
 | **Not yet** | At least one fact is open, only tested, or its evidence changed. |
-| **Cannot claim** | A fact is violated, the claim needs two facts that exclude each other, or a what-if conflicts. |
+| **Cannot claim** | A fact is violated, the claim needs two facts that a verified or assumed exclusion rules out together, or a what-if conflicts. |
 
 Each claim also needs one *entailment* fact: "these facts entail the claim as worded". If a
 person rules on the entailment, the claim can read **On assumption** at best. Until a reviewer
@@ -102,24 +102,29 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
   experiment would create is another subject: such an experiment can raise claims about the new
   data, never the claims of the existing analysis.
 - **Experiments**: suggested work to fill gaps. A *dry* experiment uses existing data, code or
-  proofs; a *wet* experiment needs new samples or bench work.
+  proofs; a *wet* experiment needs new samples or bench work. List an experiment after the
+  experiments that it requires.
 
 ### Results, exclusions and violated facts
 
 - A **result** fact states the value or pattern that a claim reports. `fvtrace check` warns when a
   claim lacks a kind of fact that its level usually needs, for example a causal claim without an
   interpretation fact. If the fact does not apply, record a **waiver** with the reason.
-- An **exclusion** records two facts that cannot both hold. If the exclusion is verified and one
-  side is verified, fvTrace marks the other side violated. A claim that needs both sides cannot
-  be made. A what-if that supposes both sides makes every claim on that subject **Cannot claim**.
+- An **exclusion** records two facts that cannot both hold. An exclusion has its own status, and
+  fvTrace uses it only when it is verified or assumed. Then a claim that needs both sides cannot
+  be made. If the exclusion is verified and one side is verified, fvTrace marks the other side
+  violated, unless that side is verified or assumed too. Two sides that are both verified or
+  assumed contradict each other: `fvtrace check` reports an error for the recorded trace, and a
+  what-if that supposes both sides makes every claim on that subject **Cannot claim**.
 - A **violated** fact is false as worded. fvTrace lists it apart, with the claims that it
   blocks: reword those claims, or collect new data.
 
 ## Where fvTrace keeps its files
 
 fvTrace keeps its own files in its data folder: one folder for each project, with the trace, the
-project location and a cache of file digests. It writes into your project folder only when you
-point `--trace` at a file there. The data folder is
+project location and a cache of file digests. It writes into your project folder only where you
+point it: `--trace` at a file there, or `FVTRACE_HOME` or `skills install --dir` at a folder in
+it. The data folder is
 `FVTRACE_HOME` if you set it. Otherwise it is the data folder of your platform plus `fvtrace`:
 `~/.local/share/fvtrace` on Linux, `~/Library/Application Support/fvtrace` on macOS, and
 `%LOCALAPPDATA%\fvtrace` on Windows. The project folders are keyed by their full path, so a
@@ -128,10 +133,11 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
 
 ## Sharing
 
-- `fvtrace export --html claims.html` writes one page. The page needs no server: every one-click
-  what-if is computed in advance, and each one applies alone.
-- `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. On another
-  computer, go to `DIR/project` and run `fvtrace serve --trace ../trace.json`.
+- `fvtrace export --html ../claims.html` writes one page outside the project folder. The page
+  needs no server: every one-click what-if is computed in advance, and each one applies alone.
+- `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
+  outside the project folder. On another computer, go to `DIR/project` and run
+  `fvtrace serve --trace ../trace.json`.
 - `fvtrace serve` answers on this computer only. Each run makes a new secret link. With
   `--host ADDRESS`, computers on your network can open the page at that address. The page is
   not encrypted, so use `--host` only on a network that you trust.
@@ -157,10 +163,15 @@ kernels (lean4lean and nanoda). The well-formedness check that `fvtrace check` a
 decoded trace is proved to accept exactly the well-formed traces; the JSON decoding before it is
 tested, not proved.
 
-`examples/fvtrace/trace.json` applies fvTrace to itself. Its six claims read **On assumption**,
-and one overlooked direction reads **Not yet**. The assumptions are that the compiled program
-runs the proved definitions, that each Lean statement says what its English claim says, and
-(for the receipt claim) that fvTrace calls the verified HACL* SHA-256 code unchanged.
+`examples/fvtrace/trace.json` applies fvTrace to itself. Five of its claims read **On
+assumption**. The assumptions are that the compiled program runs the proved definitions, and
+that each Lean statement says what its English claim says. Two claims read **Not yet**, because
+a fact that they need is tested but not proved:
+
+- The receipt claim ("Can claim" means unchanged evidence) needs the file check of the receipts.
+  This claim also assumes that fvTrace calls the verified HACL* SHA-256 code unchanged.
+- An overlooked direction (no other site can read what `fvtrace serve` shows) needs the access
+  check of the server.
 
 fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C compiler,
 the proofs of the HACL* SHA-256 code that fvTrace uses, the evidence files that you pin (fvTrace

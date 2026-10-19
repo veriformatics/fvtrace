@@ -28,7 +28,7 @@ A status above the route's ceiling is an error (`fvtrace check`).
 - **Can claim**: every need, the entailment included, is verified with a current receipt.
 - **On assumption**: no need is violated and every need is verified or assumed; the claim is stated as "Assuming …: claim".
 - **Not yet**: some need is open, tested or stale.
-- **Cannot claim**: a need is violated, the claim needs both sides of an exclusion, or a what-if conflicts.
+- **Cannot claim**: a need is violated, the claim needs both sides of a verified or assumed exclusion, or a what-if conflicts.
 
 An entailment ruled by a person caps the claim at On assumption. A subject that a new experiment would create holds only `open` facts until the experiment runs.
 

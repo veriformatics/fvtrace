@@ -116,6 +116,13 @@ def MovesExact : Prop :=
       m.after = after.final c ∧ m.before ≠ m.after) ∧
     (∀ c ∈ s.trace.claims, s.final c ≠ after.final c → ∃ m ∈ s.moves after, m.claim = c.id)
 
+/-- G3b: the preview counts partition the moves: each move counts once, as lighting (up into
+can or conditional), clearing (cannot to open) or lowering a claim. -/
+def CountsPartition : Prop :=
+  ∀ (s after : Scenario),
+    Scenario.lights (s.moves after) + Scenario.clears (s.moves after) +
+      Scenario.lowers (s.moves after) = (s.moves after).length
+
 /-- Ranking: `work` lists exactly the closable facts gating some claim (once each in a well-formed
 trace), each with that fact's unlocks + gates, ordered by unlocks, then gates, then id. -/
 def WorkExact : Prop :=
@@ -143,7 +150,8 @@ def PlanSound : Prop :=
 
 /-- G4b: no prerequisite-closed set of experiments that keeps the claim's subject consistent
 reaches a higher state than the plan, or the plan's state at a strictly lower cost (effort
-counts, months first); without a plan, none beats the current state. -/
+counts, months first); with `noImprovement`, none beats the current state. `tooLarge` and
+`inconsistent` claim no optimality. -/
 def PlanOptimal : Prop :=
   ∀ (s : Scenario) (c : Claim) (q : List String), WellFormed s.trace → c ∈ s.trace.claims →
     Closed s.trace q → (s.applySuccess q).valid c.subject = true →

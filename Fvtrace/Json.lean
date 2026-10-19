@@ -1,3 +1,5 @@
+import Fvtrace.Render
+
 /-!
 # JSON values, parser and printers
 
@@ -246,9 +248,14 @@ def parse (input : ByteArray) : Except ParseError Value :=
 
 def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
 
+/-- `\uxxxx` (lowercase) for a code point below U+10000. -/
+def uEscape (n : Nat) : String :=
+  "\\u" ++ String.ofList ([12, 8, 4, 0].map fun k => hexDigit (n >>> k))
+
 /-- String escaping of D-canon: `JSON.stringify`'s rules (short escapes, other C0 as `\u00xx`,
-everything else raw). `shown` (printed JSON: CLI, server) also writes DEL + C1 controls as
-`\u00xx`, since a terminal acts on them; digests keep the `JSON.stringify` bytes. -/
+everything else raw). `shown` (printed JSON: CLI, server, written files) also writes DEL, C1 +
+bidirectional formatting characters as `\uxxxx`, since a terminal acts on them; digests keep the
+`JSON.stringify` bytes. -/
 def escape (s : String) (shown : Bool := false) : String :=
   s.foldl (init := "\"") (fun acc c =>
     match c with
@@ -260,8 +267,8 @@ def escape (s : String) (shown : Bool := false) : String :=
     | '\r' => acc ++ "\\r"
     | '\t' => acc ++ "\\t"
     | c =>
-      if c.toNat < 0x20 || (shown && 0x7f ≤ c.toNat && c.toNat ≤ 0x9f) then
-        acc ++ "\\u00" ++ (hexDigit (c.toNat / 16)).toString ++ (hexDigit c.toNat).toString
+      let n := c.toNat
+      if n < 0x20 || (shown && ((0x7f ≤ n && n ≤ 0x9f) || Render.bidi n)) then acc ++ uEscape n
       else acc.push c) ++ "\""
 
 def insertBy (k : String × Value) : List (String × Value) → List (String × Value)

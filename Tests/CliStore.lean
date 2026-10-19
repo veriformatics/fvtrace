@@ -13,6 +13,17 @@ def decoded : IO Trace := do
   | .ok t => pure t
   | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
 
+def fields : Json.Value → List (String × Json.Value)
+  | .obj kvs => kvs
+  | _ => []
+
+def field (v : Json.Value) (k : String) : Option Json.Value := (fields v).lookup k
+
+/-- The envelope's claim record with this id. -/
+def claimOf (env : Json.Value) (id : String) : Option Json.Value := do
+  let .arr cs ← field env "claims" | none
+  cs.find? fun c => field c "id" == some (.str id)
+
 def releaseWaiver : Waiver :=
   { rule := "L-release", claim := "C1",
     reason := "Released through the journal, recorded elsewhere." }
@@ -110,6 +121,11 @@ def tests : TestM Unit := do
       check s!"cli: {cmd} --json = the envelope's projection"
         ((Json.parse out.toUTF8).toOption == some (Cli.project envelope
           (Cli.projectionKeys ++ keys))) out
+    let (rc, out, _) ← run ["plan", "C2", "--json"]
+    checkEq "cli: plan --json rc" rc 0
+    check "cli: plan --json = the envelope's projection + the claim"
+      ((Json.parse out.toUTF8).toOption == some (.obj (fields (Cli.project envelope
+        Cli.projectionKeys) ++ [("claim", (claimOf envelope "C2").getD .null)]))) out
     let (rc, out, _) ← run ["plan", "C2"]
     checkEq "cli: plan rc" rc 0
     check "cli: plan names the claim" (count out "C2 Not yet: Treatment raises the marker." == 1)
@@ -137,6 +153,26 @@ def tests : TestM Unit := do
       "theorem contrast_correct : False := sorry\n"
     let (rc, _, _) ← run ["check", "--strict"]
     checkEq "cli: --strict fails on a stale receipt" rc 1
+    -- R1-P5: supposing a stale fact verified is a what-if; the review digest stays the recorded
+    -- trace's.
+    let (_, recorded, _) ← run ["claims", "--json"]
+    let (rc, supposed, _) ← run ["claims", "--json", "--whatif", "O1=proved"]
+    checkEq "cli: a what-if on a stale fact rc" rc 0
+    match (Json.parse recorded.toUTF8).toOption, (Json.parse supposed.toUTF8).toOption with
+    | some r, some w =>
+      let c1 := claimOf w "C1"
+      checkEq "cli: the stale fact reads verified only under the what-if (R1-P5)"
+        ((claimOf r "C1").bind (field · "final"), c1.bind (field · "final"))
+        (some (.str "open"), some (.str "conditional"))
+      checkEq "cli: the claim is marked hypothetical (R1-P5)" (c1.bind (field · "hypothetical"))
+        (some (.bool true))
+      check "cli: its label says what-if (R1-P5)"
+        (((c1.bind (field · "label")).bind (field · "qualifiers")).any fun q =>
+          q == .arr [.str "what-if"] || match q with
+            | .arr qs => qs.contains (.str "what-if") | _ => false)
+      checkEq "cli: the review digest stays the recorded trace's (R1-P5)"
+        ((field w "trace").bind (field · "digest")) ((field r "trace").bind (field · "digest"))
+    | _, _ => check "cli: claims --json is JSON" false s!"{recorded}{supposed}"
     -- --trace: a data-folder trace keeps its project from any folder; any other file reads
     -- the project of the current folder.
     let away : Store.Env := { home, cwd := dir }
