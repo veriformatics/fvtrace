@@ -17,7 +17,23 @@ const kindIcons = {
   wet:'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 2.5h5M8.5 2.5v5L4 16a1.2 1.2 0 0 0 1 1.5h10a1.2 1.2 0 0 0 1-1.5L11.5 7.5v-5M6 12.5h8"/></svg>'
 };
 const kindNames = {dry:'Dry experiment',wet:'Wet experiment'};
-let filter = 'all';
+let filter = 'all', view = new URLSearchParams(location.search).get('view') === 'text' ? 'text' : 'circuits';
+const groupTitles = {can:'Can claim',conditional:'On assumption',open:'Not yet',cannot:'Cannot claim'};
+function groups() {
+  const qs = trace.claims.filter(c => c.question === question);
+  return [...Object.keys(groupTitles).map(st => [groupTitles[st], qs.filter(c => !c.latent && c.state === st)]), ['Overlooked directions', qs.filter(c => c.latent)]].filter(([,list]) => list.length);
+}
+function phrased(c) {
+  if (c.state !== 'conditional') return c.text;
+  return `Assuming ${c.premises.map(id => `“${obligation(id).text.replace(/[.]$/,'')}”`).join(' and ')}, ${c.text.charAt(0).toLowerCase() + c.text.slice(1)}`;
+}
+function textGroup(list) {
+  return `<ul class="text-claims">${list.map(c => `<li>${lamp(c.state)}<div><button class="text-claim" data-inspect="${c.id}">${escape(phrased(c))}</button><small>${c.id} / ${escape(c.level)}${c.blockers.length ? ` / violated: ${c.blockers.join(', ')}` : ''}${c.gaps.length ? ` / gaps: ${c.gaps.join(', ')}` : ''}${c.premises.length ? ` / assumes: ${c.premises.join(', ')}` : ''}</small></div></li>`).join('')}</ul>`;
+}
+function factList() {
+  const ids = [...new Set(trace.claims.filter(c => c.question === question).flatMap(c => c.needs))].filter(id => !['proved','checked'].includes(obligation(id).status));
+  return `<h3 class="group-title">Facts to settle <span>${ids.length}</span></h3><ul class="text-facts">${ids.map(id => { const o = obligation(id), n = trace.experiments.filter(e => fills(e,o)).length; return `<li><button class="text-claim" data-inspect="${id}"><strong>${id}</strong> ${escape(o.text)}</button><small>${factLabels[o.status]} / ${routes[o.route][0]}${n ? ` / ${n} ${n === 1 ? 'experiment' : 'experiments'}` : ''}</small></li>`; }).join('')}</ul>`;
+}
 let trace, question = new URLSearchParams(location.search).get('question') || 'Q1', selection = 'O3', overrides = {}, busy = false;
 if(!/^Q[1-4]$/.test(question)) question = 'Q1';
 function selectQuestionFact() {
@@ -76,10 +92,13 @@ function render() {
   const q = trace.questions.find(q => q.id === question);
   $('question-reference').textContent = `Scientific question ${q.id.slice(1)}`;
   $('question-title').textContent = q.text;
-  $('circuits').innerHTML = trace.claims.filter(c => c.question === question).map(c => `<article class="circuit ${c.latent ? 'latent' : ''}"><button class="claim-head" data-inspect="${c.id}" aria-label="Inspect claim ${c.id}: ${escape(c.text)}">${lamp(c.state)}<span><span class="claim-meta">${c.id} / ${escape(c.level)}${c.latent ? ' / Overlooked direction' : ''}</span><h3>${escape(c.text)}</h3><span class="claim-state ${c.state}">${labels[c.state]}${c.premises.length ? `; ${c.premises.length} ${c.premises.length === 1 ? 'assumption' : 'assumptions'}` : ''}</span></span></button><div class="contacts" aria-label="Facts needed by ${c.id}">${c.needs.map(id => {
+  const card = c => `<article class="circuit ${c.latent ? 'latent' : ''}"><button class="claim-head" data-inspect="${c.id}" aria-label="Inspect claim ${c.id}: ${escape(c.text)}">${lamp(c.state)}<span><span class="claim-meta">${c.id} / ${escape(c.level)}${c.latent ? ' / Overlooked direction' : ''}</span><h3>${escape(c.text)}</h3><span class="claim-state ${c.state}">${labels[c.state]}${c.premises.length ? `; ${c.premises.length} ${c.premises.length === 1 ? 'assumption' : 'assumptions'}` : ''}</span></span></button><div class="contacts" aria-label="Facts needed by ${c.id}">${c.needs.map(id => {
     const o = trace.obligations.find(o => o.id === id);
     return `<div class="contact"><button class="switch ${o.status}" data-toggle="${id}" aria-pressed="${Object.hasOwn(overrides,id)}" aria-label="${Object.hasOwn(overrides,id) ? 'Restore recorded status for' : 'Suppose verified:'} ${id}. ${escape(o.text)}" title="${escape(o.text)} — ${factLabels[o.status]}" ${busy ? 'disabled' : ''}>${switchSVG(o.status)}</button><button class="contact-label" data-inspect="${id}"><strong>${id}</strong><span>${escape(kindLabels[o.kind] || o.kind)}</span><span>${factLabels[o.status]}</span>${(n => n ? `<span class="exp-hint">${n} ${n === 1 ? 'experiment' : 'experiments'}</span>` : '')(trace.experiments.filter(e => fills(e,o)).length)}</button>${Object.hasOwn(overrides,id) ? '<span class="hyp-tag">What-if</span>' : ''}</div>`;
-  }).join('')}<span class="terminal" aria-label="${c.id}: ${labels[c.state]}">${lamp(c.state)}<small>${c.id}</small></span></div></article>`).join('');
+  }).join('')}<span class="terminal" aria-label="${c.id}: ${labels[c.state]}">${lamp(c.state)}<small>${c.id}</small></span></div></article>`;
+  $('board-hint').textContent = view === 'text' ? 'Click a claim or fact to inspect it.' : 'Click a switch to suppose the fact verified. Click its reference to inspect the evidence.';
+  document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === view));
+  $('circuits').innerHTML = groups().map(([title,list]) => `<h3 class="group-title">${title} <span>${list.length}</span></h3>${view === 'text' ? textGroup(list) : list.map(card).join('')}`).join('') + (view === 'text' ? factList() : '');
   renderInspector();
   const shown = trace.experiments.filter(e => filter === 'all' || e.kind === filter);
   document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed', b.dataset.filter === filter));
@@ -138,6 +157,7 @@ document.addEventListener('click', event => {
   if(!button) return;
   if(button.dataset.question) { changeQuestion(button.dataset.question); document.querySelector(`[data-question="${question}"]`)?.focus({preventScroll:true}); }
   if(button.dataset.inspect) { selection = button.dataset.inspect; renderInspector(); $('inspector').focus({preventScroll:true}); if(innerWidth <= 760) $('inspector').scrollIntoView({block:'start'}); }
+  if(button.dataset.view) { view = button.dataset.view; const url = new URL(location.href); url.searchParams.set('view',view); history.replaceState(null,'',url); render(); }
   if(button.dataset.filter) { filter = button.dataset.filter; render(); }
   if(button.dataset.experiment) { const e = trace.experiments.find(e => e.id === button.dataset.experiment); selection = e.id; applyOutcome(button.dataset.outcome === 'success' ? e.success : e.failure); }
   if(button.dataset.plan) { const p = trace.claims.find(c => c.id === button.dataset.plan).plan; selection = button.dataset.plan; evaluate({...overrides, ...Object.assign({}, ...p.experiments.map(id => trace.experiments.find(e => e.id === id).success))}); }

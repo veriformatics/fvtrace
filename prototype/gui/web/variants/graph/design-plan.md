@@ -31,3 +31,6 @@ Generic dashboard cards replaced by serial wires, switch contacts + lamps tied t
 
 ## Experiments
 - Dry/wet = icon (monitor | flask) + word, no new hue. Ranked list beside the switch ranking; filter All/Dry/Wet. Inspector: experiment = method, success + failure (fact changes + lamp moves), limits, suppose buttons; fact = experiments filling it; claim = plan to light it + `Suppose the plan succeeds`. `scope: new` = amber note, the what-if applies to new data.
+
+## Grouping + text view
+- Claims grouped per question by verdict (can, on assumption, not yet, cannot), overlooked directions last; group title = state word + count. Text view (`?view=text`) = conditional claims phrased "Assuming …", one line of gap/premise ids per claim, then each open fact once per question with status, route + experiment count.
