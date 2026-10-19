@@ -105,13 +105,6 @@ def evaluate(trace, overrides=None):
         c["plan"] = {"experiments": [e["id"] for e in sorted(pick, key=cost)], "uncovered": uncovered,
                      "state": claim_state(c["needs"], trial)}
 
-    sentences = []
-    for s in trace.get("draft", {}).get("sentences", []):
-        states = [by_id[c]["state"] for c in s["claims"]]
-        verdict = ("overstated" if any(x in ("open", "cannot") for x in states)
-                   else "needs-premise" if "conditional" in states else "supported")
-        sentences.append({**s, "verdict": verdict})
-
     counts = {k: sum(c["state"] == k for c in claims) for k in ("can", "conditional", "open", "cannot")}
     return {
         "analysis": trace["analysis"],
@@ -120,7 +113,6 @@ def evaluate(trace, overrides=None):
         "claims": claims,
         "work": work,
         "experiments": experiments,
-        "draft": {**trace.get("draft", {}), "sentences": sentences},
         "counts": counts,
         "overrides": overrides,
     }

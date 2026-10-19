@@ -4,7 +4,7 @@
 # ///
 """fvTrace prototype GUI server. GET /api/trace → evaluated fixture;
 POST /api/evaluate {"overrides": {"O3": "proved"}} → what-if evaluation.
-Static: / = variant launcher, /variants/<name>/ = each GUI variant."""
+Static: / redirects to /variants/graph/ (claim circuits)."""
 
 import argparse
 import json
