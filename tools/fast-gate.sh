@@ -14,8 +14,15 @@ trap 'rm -rf "$log"' EXIT
 pids=()
 names=(lean-style js-format js-lint js-types js-test spec shell meta)
 fns=(lean_style js_format js_lint js_types js_test spec shell meta)
+# Each parallel stage records its own wall-clock beside its log.
 for i in "${!names[@]}"; do
-    ("${fns[$i]}" >"$log/${names[$i]}" 2>&1) &
+    (
+        t0="$(stamp)"
+        "${fns[$i]}" >"$log/${names[$i]}" 2>&1
+        rc=$?
+        elapsed "$t0" >"$log/${names[$i]}.time"
+        exit $rc
+    ) &
     pids+=($!)
 done
 
@@ -32,7 +39,7 @@ for i in "${!names[@]}"; do
     rc=$?
     printf '\n=== %s ===\n' "${names[$i]}"
     cat "$log/${names[$i]}"
-    printf '%s rc=%d\n' "${names[$i]}" "$rc"
+    printf '%s rc=%d %ss\n' "${names[$i]}" "$rc" "$(cat "$log/${names[$i]}.time")"
     [[ $rc -eq 0 ]] || failed+=("${names[$i]}")
 done
 

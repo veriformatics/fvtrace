@@ -89,11 +89,19 @@ def usageError (message : String) : IO UInt32 := do
   IO.eprint usage
   return 2
 
-/-- Writes `t` to `file` through a sibling temporary file, so a reader never sees half a trace. -/
-def writeTrace (file : System.FilePath) (t : Trace) : IO Unit := do
+/-- Writes `body` to `file` through a sibling temporary file, so a reader never sees half a file.
+The temporary file is created new (`O_EXCL`): an entry already at that path, a planted link
+included, is removed first and never written through. -/
+def replaceFile (file : System.FilePath) (body : String) : IO Unit := do
   let tmp : System.FilePath := file.toString ++ ".fvtrace-tmp"
-  IO.FS.writeFile tmp (Encode.trace t).pretty
+  try IO.FS.removeFile tmp catch _ => pure ()
+  let h ← IO.FS.Handle.mk tmp .writeNew
+  h.putStr body
+  h.flush
   IO.FS.rename tmp file
+
+def writeTrace (file : System.FilePath) (t : Trace) : IO Unit :=
+  replaceFile file (Encode.trace t).pretty
 
 def diagJson (code path message : String) : Value :=
   .obj [("code", .str code), ("path", .str path), ("message", .str message)]
@@ -371,7 +379,9 @@ def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     if p.has "--json" then
       IO.print (project (envelopeOf l) (projectionKeys ++ ["work", "blockers"])).pretty
       return 0
-    if sc.work.isEmpty then say "No fact is left to verify."
+    if sc.work.isEmpty then
+      say "No fact that a claim needs can rise further: each one is violated or has the \
+        strongest status that its route allows."
     else say "Facts to verify, most useful first:"
     for w in sc.work do
       say s!"  {w.fact} {sc.factText w.fact}"
@@ -559,9 +569,7 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     | .ok l => pure l
     | .error prob => return ← report prob
   if html then
-    let tmp : System.FilePath := real.toString ++ ".fvtrace-tmp"
-    IO.FS.writeFile tmp (← Export.page l)
-    IO.FS.rename tmp real
+    replaceFile real (← Export.page l)
     let n := (Evaluate.actions l.scenario).length
     say s!"Wrote {real}: the claims of {tg.project} with {n} one-click what-ifs."
     return 0

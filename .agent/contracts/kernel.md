@@ -22,7 +22,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
   - claim `{id, question, subject, level, text, needs: [F], entailment: F, latent?: bool, variantOf?}`; `needsAll c` = `needs ++ [entailment]`.
   - experiment `{id, subject, kind, effort, title, method, resources, success: {F: Status}, failure?: {F: Status}, requires?: [E], caveat}` (`resources` = prose; `requires` = experiments that must run first).
   - exclusion `{id, subject, between: [F, F], text, status, route, evidence?}` (a relation is itself a fact-like assertion: "these two cannot both hold").
-  - waiver `{rule, claim, reason}`; review `{by, at, digest, note?}`.
+  - waiver `{rule, claim, reason}`; review `{reviewer, date, digest, note?}`.
 - Scenario = trace + `current : F ∪ X → Bool` (receipt binding, computed by the shell; consulted for recorded verified statuses alone) + overrides `ω : F ⇀ Status`.
 
 ## Well-formedness (WF-*; `check` = list of violations; **proved**: `check t = [] ↔ WF t`, each listed violation ⇒ its rule fails)
@@ -49,7 +49,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 ## Receipts (shell computes `current`; tested against real files)
 
 - statementDigest f = SHA-256 of D-canon `{id, subject, kind, text, route}` of f; for an entailment fact add its claim `{id, subject, level, text, needs: [{id, text}]}`; for an instantiation fact add the source fact's `{id, subject, kind, text}`. For an exclusion: `{id, subject, text, route, between: [{id, subject, kind, text} of each endpoint]}` (rewording an endpoint stales the relation's receipt).
-- current x ⇔ every artifact exists under the project root + its sha256 matches ∧ statementDigest = the recomputed digest. Reasons (display): `changed`, `missing`, `statement-changed`. Path resolution never leaves the project root (symlinks resolved, then prefix-checked).
+- current x ⇔ every artifact exists under the project root + its sha256 matches ∧ statementDigest = the recomputed digest. Artifacts are read + hashed on every command; `--cached` (opt-in, disclosed) reuses a digest whose file kept its resolved path, size + mtime. Reasons (display): `changed`, `missing`, `statement-changed`. Path resolution never leaves the project root (symlinks resolved, then prefix-checked).
 - Receipts are accepted as recorded (not replayed): the trusted base names receipt issuers.
 
 ## Effective status (S-*; total; **proved** lemmas)
@@ -81,7 +81,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 ## Experiments
 
 - closure E = the least set ⊇ E holding, for each member, its `requires` + the creator of its subject when prospective (a fixed point: a creator's own `requires` are included). merged P = per fact, the strongest asserted value any success in P sets. Applying a success never weakens: ω ⊕ P = per fact the strength join (max) of `eff1` and merged P; a failure sets its facts `violated`.
-- preview e (success) = scenario ω ⊕ merged (closure {e}); preview e (failure) = ω ⊕ failure e. moves = claims whose final differs; lights = moves up into {can, conditional}; clears = cannot → open; breaks = failure moves into cannot. contingent ⇔ the success closure touches a `result` fact; applied ⇔ ω ⊇ merged (closure {e}). Order: lights desc, clears desc, effort asc, id asc. **Proved** G3: moves = exactly the replayed differences; counts match moves; outcomes touch only their subject.
+- preview e (success) = scenario ω ⊕ merged (closure {e}); preview e (failure) = ω ⊕ failure e. moves = claims whose final differs; lights = moves up into {can, conditional}; clears = cannot → open; breaks = failure moves into cannot. contingent ⇔ the success closure touches a `result` fact; applied ⇔ ω ⊇ merged (closure {e}). lowers = success moves down in rank; raises = the overrides the success applies (merged values stronger than `eff1`). Order: lights desc, clears desc, effort asc, id asc. **Proved** G3 (`MovesExact`): moves = exactly the replayed differences; G3b (`CountsPartition`): lights + clears + lowers = |moves| (each move counted once). breaks = a definition over failure moves (tested). Outcome isolation = WF-subject + G7.
 
 ## Plans (per claim with final ≠ can)
 
@@ -95,7 +95,10 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 
 ## Evaluation envelope (`fvtrace.evaluation/1`; CLI `--json` projections + server + export share it)
 
-- `{schema, mode: recorded | what-if, overrides (normalized, sorted), trace: {digest, review: {state, by?, at?}}, subjects: [{id, kind, valid, conflicts}], counts, questions, facts: [{…recorded, eff, current, reasons, derivedFrom, closable, supposed}], claims: [{id, question, subject, level, text, final, intrinsic, sentence, label, breakdown, hypothetical, provisional, plan}], work, blockers, experiments, lints, actions}`.
+- `{schema, mode: recorded | what-if, overrides: [{fact, status}] (normalized, sorted), trace: {digest, review: {state, reviewer?, date?}}, analysis, subjects: [{id, title, kind, valid, conflicts}], counts: {can, conditional, open, cannot}, prospectiveCounts: [{subject, counts}], questions, facts, claims, work: [{fact, unlocks, gates}], blockers: [{fact, claims}], experiments, exclusions: [{id, subject, between, text, recorded, effective, active}], lints: [{rule, claim, path, message, waived?}], actions: [{id, kind, target, overrides}]}`.
+- fact = `{id, subject, kind, text, route, recorded, effective, closable, supposed, derivedFrom: [{exclusion, source}], trusts, instantiates?, evidence?, receipt?: {current, reasons}}`.
+- claim = `{id, question, subject, level, text, latent, needs, entailment, final, intrinsic, sentence, label: {verdict, qualifiers}, verified, premises, gaps, blockers, incompatible, conflicts (= the breakdown), hypothetical, provisional, plan, variantOf?}`; plan = `{result, premises, gaps, uncovered, alternatives: [{need, experiment, status}]}` + for `planned`: `experiments, state, planPremises, planGaps, contingent`.
+- experiment = `{id, subject, kind, effort, title, method, resources, caveat, success, failure, requires, closure, raises, applied, contingent, prospective, creates, wins, losses, lights, clears, lowers, breaks}`.
 - actions = the one-click domain from the evaluated scenario: `suppose f` (closable f ↦ ceiling), `success e`, `failure e` (non-empty failure), `plan c` (planned results); each maps to the complete what-if it leads to (ω ⊕ the action), so a click replaces ω. Recorded (ω = []) = the export's finite domain: one envelope per action, never stacked; the server GUI stacks by clicking from a what-if.
 - CLI projections: `claims --json` = envelope keys {schema, mode, overrides, trace, subjects, counts, claims}; `gaps --json` = {schema, mode, overrides, trace, work, blockers}; `experiments --json` = {schema, mode, overrides, trace, experiments}; `plan <c> --json` = {schema, mode, overrides, trace, claim c}. Parity = structural equality with the server envelope's same keys for one snapshot (trace bytes, bindings, ω).
 
@@ -133,6 +136,6 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 - R2-N1 exclusion receipt: rewording an endpoint fact stales the verified exclusion.
 - R2-D1 Unicode: `"\ud800"` is rejected at decode.
 
-## Trusted base (shipped by `fvtrace about`)
+## Trusted base (user-facing copy: README `How fvTrace verifies itself`)
 
 Lean kernel (replayed by independent kernels), Lean compiler + runtime + C compiler, `Std` (HTTP, async, file system), HACL* SHA-256 C (verified in F*; extraction + FFI shim trusted), JSON codec (tested), OS file system, receipt issuers (receipts accepted, not replayed), browser + GUI JS (display only). A claim's natural-language meaning reaches the kernel only through its entailment fact.

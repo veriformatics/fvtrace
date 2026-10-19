@@ -112,6 +112,7 @@ def factJson (sc : Scenario) (bindings : List Receipt.Binding) (f : Fact) : Valu
     ("derivedFrom", .arr ((sc.derivations f.id).map fun (x, src) =>
       .obj [("exclusion", .str x), ("source", .str src)])),
     ("trusts", strs f.trusts)] ++
+    (match f.instantiates with | some src => [("instantiates", .str src)] | none => []) ++
     (match f.evidence with | some ev => [("evidence", Encode.evidence ev)] | none => []) ++
     (match b with
      | some b => [("receipt", .obj [("current", .bool b.current), ("reasons", strs b.reasons)])]
@@ -132,6 +133,9 @@ def claimJson (sc : Scenario) (review : Receipt.ReviewState) (c : Claim) : Value
     ("plan", planJson (sc.plan c))] ++
     (match c.variantOf with | some v => [("variantOf", .str v)] | none => []))
 
+def overridesJson (o : Overrides) : Value :=
+  .arr (o.map fun (k, st) => .obj [("fact", .str k), ("status", .str st.name)])
+
 def experimentJson (sc : Scenario) (e : Experiment) : Value :=
   let cl := sc.closure [e.id]
   let wins := sc.moves (sc.applySuccess cl)
@@ -141,13 +145,13 @@ def experimentJson (sc : Scenario) (e : Experiment) : Value :=
     ("effort", .str e.effort.name), ("title", .str e.title), ("method", .str e.method),
     ("resources", .str e.resources), ("caveat", .str e.caveat),
     ("success", Encode.outcome e.success), ("failure", Encode.outcome e.failure),
-    ("requires", strs e.requires), ("closure", strs cl),
+    ("requires", strs e.requires), ("closure", strs cl), ("raises", overridesJson (sc.raised cl)),
     ("applied", .bool (mergedHere.all fun (k, st) => sc.overrides.lookup k == some st)),
     ("contingent", .bool (mergedHere.any fun (k, _) => sc.resultFacts.contains k)),
     ("prospective", .bool (sc.prospective e.subject)), ("creates", .bool (sc.creates e)),
     ("wins", .arr (wins.map moveJson)), ("losses", .arr (losses.map moveJson)),
     ("lights", .num (Scenario.lights wins)), ("clears", .num (Scenario.clears wins)),
-    ("breaks", .num (Scenario.breaks losses))]
+    ("lowers", .num (Scenario.lowers wins)), ("breaks", .num (Scenario.breaks losses))]
 
 def experimentBefore (sc : Scenario) (a b : Experiment) : Bool :=
   let ka := Scenario.lights (sc.moves (sc.applySuccess (sc.closure [a.id])))
@@ -173,9 +177,6 @@ def actions (sc : Scenario) : List (String × String × String × Overrides) :=
     match sc.plan c with
     | .planned _ exps .. => some (s!"plan:{c.id}", "plan", c.id, (sc.applySuccess exps).overrides)
     | _ => none
-
-def overridesJson (o : Overrides) : Value :=
-  .arr (o.map fun (k, st) => .obj [("fact", .str k), ("status", .str st.name)])
 
 /-- The full envelope for one snapshot (trace + receipt bindings + overrides + review state). -/
 def envelope (sc : Scenario) (bindings : List Receipt.Binding) (digest : String)

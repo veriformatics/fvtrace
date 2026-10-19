@@ -75,7 +75,11 @@ allow() {
     restore
 }
 
-trust_build() { lake build Fvtrace «fvtrace-trust» >/dev/null 2>&1 && lake exe fvtrace-trust; }
+# A build failure prints its errors, so a plant that no longer compiles reads as such.
+trust_build() { lake build Fvtrace «fvtrace-trust» 2>&1 | grep -E '^error' ; lake exe fvtrace-trust; }
+# Fvtrace/Proofs.lean imports the Spec submodules alone; a proof of a claim planted in the
+# aggregate Fvtrace/Spec.lean needs that module imported.
+plant_import() { sed -i '1i import Fvtrace.Spec' Fvtrace/Proofs.lean; }
 
 probe_lean_style() {
     keep Fvtrace/Version.lean
@@ -99,13 +103,15 @@ probe_meta() {
 }
 
 probe_trust() {
+    # A plain `def` named like a generated equation lemma is still a claim.
     keep Fvtrace/Spec.lean
-    printf 'namespace Fvtrace.Spec\ndef PlantedUnproven : Prop := Fvtrace.version = "planted"\nend Fvtrace.Spec\n' \
+    printf 'namespace Fvtrace.Spec\ndef eq_987654 : Prop := Fvtrace.version = "planted"\nend Fvtrace.Spec\n' \
         >>Fvtrace/Spec.lean
-    expect trust-unproven 'PlantedUnproven: no proof' trust_build
+    expect trust-unproven 'eq_987654: no proof' trust_build
 
     keep Fvtrace/Spec.lean
     keep Fvtrace/Proofs.lean
+    plant_import
     printf 'namespace Fvtrace.Spec\ndef PlantedAxiom : Prop := Fvtrace.version = "planted"\nend Fvtrace.Spec\n' \
         >>Fvtrace/Spec.lean
     printf 'namespace Fvtrace.Proofs\naxiom planted : False\ntheorem plantedAxiom : Spec.PlantedAxiom := planted.elim\nend Fvtrace.Proofs\n' \
@@ -115,6 +121,7 @@ probe_trust() {
     keep Fvtrace/Version.lean
     keep Fvtrace/Spec.lean
     keep Fvtrace/Proofs.lean
+    plant_import
     printf 'namespace Fvtrace\npartial def plantedLoop (n : Nat) : Nat := plantedLoop n\nend Fvtrace\n' \
         >>Fvtrace/Version.lean
     printf 'namespace Fvtrace.Spec\ndef PlantedPartial : Prop := Fvtrace.plantedLoop 0 = Fvtrace.plantedLoop 0\nend Fvtrace.Spec\n' \
@@ -125,6 +132,7 @@ probe_trust() {
 
     keep Fvtrace/Spec.lean
     keep Fvtrace/Proofs.lean
+    plant_import
     printf 'namespace Fvtrace.Spec\ndef PlantedVacuous : Prop := 1 + 1 = 2\nend Fvtrace.Spec\n' >>Fvtrace/Spec.lean
     printf 'namespace Fvtrace.Proofs\ntheorem plantedVacuous : Spec.PlantedVacuous := rfl\nend Fvtrace.Proofs\n' \
         >>Fvtrace/Proofs.lean

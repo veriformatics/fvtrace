@@ -57,12 +57,6 @@ def escapeHatches (env : Environment) (c : Name) (ci : ConstantInfo) : Array Str
   if let .opaqueInfo _ := ci then fs := fs.push "opaque"
   return fs
 
-/-- Generated equation lemmas land in whichever module first unfolds a definition. -/
-def isEqnLemma : Name → Bool
-  | .str _ s =>
-    s == "eq_def" || s == "eq_unfold" || (s.startsWith "eq_" && (s.drop 3).all Char.isDigit)
-  | _ => false
-
 structure Finding where
   claim : Name
   issue : String
@@ -80,7 +74,9 @@ def audit (core : Std.HashSet Name) : CoreM (Array (Name × Array Name) × Array
   let isCore := fun c => core.contains (modOf env c)
   let mut claims : Array Name := #[]
   for (n, ci) in env.constants.toList do
-    if isSpecModule (modOf env n) && !n.isInternal && !isEqnLemma n then
+    -- A claim is a definition: generated equation lemmas (`eq_1`, `eq_def`) are theorems, so
+    -- the declaration kind alone separates them; a name filter would hide a user `def eq_1`.
+    if isSpecModule (modOf env n) && !n.isInternal then
       if let .defnInfo d := ci then
         if d.type == .sort .zero then claims := claims.push n
   claims := claims.qsort Name.lt

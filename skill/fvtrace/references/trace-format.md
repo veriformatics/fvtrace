@@ -25,5 +25,5 @@
 - **evidence**: `{"summary", "artifacts": [{"path", "sha256"?, "role"?}], "verifier"?, "statement"?, "statementDigest"?}`. Paths are relative to the project folder, `/`-separated, without `.` or `..`. `fvtrace pin` fills `sha256` and `statementDigest`. A `proved` or `checked` fact needs artifacts, a verifier, a statement and pinned digests.
 - **trusts**: what the verification itself relies on (a compiler, a kernel, a library).
 - **latent** claim: an overlooked direction that becomes possible if its facts hold.
-- **exclusion**: two facts that cannot both hold on one subject; it has its own status and route.
+- **exclusion**: two facts that cannot both hold on one subject; it has its own status and route, and fvtrace uses it only when it is verified or assumed.
 - **requires**: experiments that must run first (listed earlier, same subject).

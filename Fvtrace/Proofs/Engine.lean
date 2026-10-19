@@ -28,6 +28,21 @@ theorem movesExact : Spec.MovesExact := by
     unfold Scenario.moves
     exact List.mem_filterMap.mpr ⟨c, hc, by simp [hne]⟩
 
+/-- A move list whose moves each change state is counted once per move. -/
+theorem counts_partition_list :
+    ∀ ms : List Scenario.Move, (∀ m ∈ ms, m.before ≠ m.after) →
+      Scenario.lights ms + Scenario.clears ms + Scenario.lowers ms = ms.length
+  | [], _ => rfl
+  | m :: rest, h => by
+    have ih := counts_partition_list rest fun x hx => h x (List.mem_cons_of_mem _ hx)
+    have hm := h m List.mem_cons_self
+    unfold Scenario.lights Scenario.clears Scenario.lowers at ih ⊢
+    rcases m with ⟨c, b, a⟩
+    cases b <;> cases a <;> simp_all [List.filter_cons, State.rank] <;> omega
+
+theorem countsPartition : Spec.CountsPartition := fun s after =>
+  counts_partition_list _ fun m hm => ((movesExact s after).1 m hm).elim fun _ h => h.2.2.2.2
+
 theorem countsComplete : Spec.CountsComplete := by
   intro s claims
   induction claims with

@@ -13,7 +13,8 @@
  * @typedef {{ id: string, subject: string, kind: string, text: string, route: string,
  *   recorded: string, effective: string, closable: boolean, supposed: boolean,
  *   derivedFrom: { exclusion: string, source: string }[], trusts: string[],
- *   evidence?: Evidence, receipt?: { current: boolean, reasons: string[] } }} Fact
+ *   instantiates?: string, evidence?: Evidence,
+ *   receipt?: { current: boolean, reasons: string[] } }} Fact
  */
 /**
  * @typedef {{ need: string, experiment: string, status: string }} Alternative
@@ -33,10 +34,10 @@
 /**
  * @typedef {{ id: string, subject: string, kind: "dry" | "wet", effort: string, title: string,
  *   method: string, resources: string, caveat: string, success: Override[],
- *   failure: Override[], requires: string[], closure: string[], applied: boolean,
- *   contingent: boolean, prospective: boolean, creates: boolean, wins: Move[], losses: Move[],
- *   lights: number,
- *   clears: number, breaks: number }} Experiment
+ *   failure: Override[], requires: string[], closure: string[], raises: Override[],
+ *   applied: boolean, contingent: boolean, prospective: boolean, creates: boolean,
+ *   wins: Move[], losses: Move[], lights: number, clears: number, lowers: number,
+ *   breaks: number }} Experiment
  */
 /**
  * @typedef {{ id: string, kind: "suppose" | "success" | "failure" | "plan", target: string,
@@ -205,6 +206,7 @@ function fact(v, path) {
     }),
     trusts: strs(r["trusts"], `${path}/trusts`),
   };
+  if ("instantiates" in r) f.instantiates = str(r["instantiates"], `${path}/instantiates`);
   if ("evidence" in r) f.evidence = evidence(r["evidence"], `${path}/evidence`);
   if ("receipt" in r) {
     const x = obj(r["receipt"], `${path}/receipt`);
@@ -298,6 +300,7 @@ function experiment(v, path) {
     failure: outcome(r["failure"], `${path}/failure`),
     requires: strs(r["requires"], `${path}/requires`),
     closure: strs(r["closure"], `${path}/closure`),
+    raises: overrides(r["raises"], `${path}/raises`),
     applied: bool(r["applied"], `${path}/applied`),
     contingent: bool(r["contingent"], `${path}/contingent`),
     prospective: bool(r["prospective"], `${path}/prospective`),
@@ -306,6 +309,7 @@ function experiment(v, path) {
     losses: moves(r["losses"], `${path}/losses`),
     lights: num(r["lights"], `${path}/lights`),
     clears: num(r["clears"], `${path}/clears`),
+    lowers: num(r["lowers"], `${path}/lowers`),
     breaks: num(r["breaks"], `${path}/breaks`),
   };
 }

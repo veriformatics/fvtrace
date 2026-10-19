@@ -51,6 +51,14 @@ test("switches suppose facts, the engine answers, the address keeps it", async (
   await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
 });
 
+test("a linked what-if goes to the engine as written", async ({ page }) => {
+  await page.goto(`${web.url}#whatif=O2%3Dchecked%2CO2%3Dviolated`);
+  await expect(page.locator("#error")).toBeVisible();
+  await expect(page.locator("#error")).toContainText("O2 appears twice in the what-if");
+  await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
+  expect(new URL(page.url()).hash).not.toContain("whatif=");
+});
+
 test("the inspector shows a fact, a claim's plan and an experiment", async ({ page }) => {
   await page.goto(web.url);
   await circuit(page, "C2").getByRole("button", { name: /^O2 / }).click();

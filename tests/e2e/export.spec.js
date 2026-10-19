@@ -69,7 +69,26 @@ test("the exported page works offline under its own CSP", async ({ page }) => {
   expect(new URL(page.url()).hash).toContain("action=suppose%3AO2");
   await page.getByRole("button", { name: "Restore the recorded evidence" }).click();
   await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
+  // Another action supposes O2: its switch stays put until Reset (actions apply alone).
+  await page.getByRole("button", { name: /Check the result table/ }).click();
+  await page.locator("#inspector").getByRole("button", { name: "Suppose it succeeds" }).click();
+  await expect(page.getByRole("status")).toContainText("What-if: O2 checked");
+  await expect(c2.getByRole("button", { name: "O2: Verified by a checker" })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.getByRole("button", { name: "Restore the recorded evidence" }).click();
+  await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations.map((v) => v.id)).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test("a link to a what-if the page does not hold says so", async ({ page }) => {
+  await page.goto(`${pathToFileURL(fixture.page).href}#action=suppose%3AZZ`);
+  await expect(page.locator("#error")).toBeVisible();
+  await expect(page.locator("#error")).toHaveText(
+    'This page holds no what-if "suppose:ZZ", so it shows the recorded evidence.',
+  );
+  await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
 });

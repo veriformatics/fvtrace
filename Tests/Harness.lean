@@ -5,10 +5,15 @@ structure Outcome where
   ok : Bool
   detail : String
 
-abbrev TestM := StateT (Array Outcome) IO
+structure Run where
+  outcomes : Array Outcome := #[]
+  /-- Wall-clock (ms) per suite area, in run order. -/
+  times : Array (String × Nat) := #[]
+
+abbrev TestM := StateT Run IO
 
 def check (name : String) (ok : Bool) (detail : String := "") : TestM Unit :=
-  modify (·.push { name, ok, detail })
+  modify fun r => { r with outcomes := r.outcomes.push { name, ok, detail } }
 
 def checkEq {α : Type} [BEq α] [Repr α] (name : String) (got want : α) : TestM Unit :=
   check name (got == want) s!"got {repr got}, want {repr want}"
@@ -30,12 +35,22 @@ def symlink (target link : System.FilePath) (dir : Bool) : IO Bool := do
     else IO.Process.output { cmd := "ln", args := #["-s", target.toString, link.toString] }
   return out.exitCode == 0
 
-/-- Prints each failure + a summary; rc 0 iff every check passed. -/
-def report (outcomes : Array Outcome) : IO UInt32 := do
-  let failed := outcomes.filter (!·.ok)
+/-- Runs one suite area + records its wall-clock (the gate prints a suite's slowest parts). -/
+def area (name : String) (suite : TestM Unit) : TestM Unit := do
+  let t0 ← IO.monoMsNow
+  suite
+  let ms := (← IO.monoMsNow) - t0
+  modify fun r => { r with times := r.times.push (name, ms) }
+
+/-- Prints each failure + a summary with the three slowest areas; rc 0 iff every check passed. -/
+def report (r : Run) : IO UInt32 := do
+  let failed := r.outcomes.filter (!·.ok)
   for f in failed do
     IO.eprintln s!"FAIL {f.name}: {f.detail}"
-  IO.println s!"{outcomes.size - failed.size}/{outcomes.size} checks passed"
+  let slow := ((r.times.qsort fun a b => a.2 > b.2).toList.take 3).map fun (n, ms) =>
+    s!"{n} {ms} ms"
+  IO.println s!"{r.outcomes.size - failed.size}/{r.outcomes.size} checks passed \
+    (slowest: {", ".intercalate slow})"
   return if failed.isEmpty then 0 else 1
 
 end Tests

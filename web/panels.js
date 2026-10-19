@@ -103,7 +103,7 @@ function inspectFact(env, id, on) {
   const f = env.facts.find((x) => x.id === id);
   if (!f) return [h("p", {}, `No fact ${id}.`)];
   const neededBy = env.claims.filter((c) => c.needs.includes(id) || c.entailment === id);
-  const raisedBy = env.experiments.filter((e) => e.success.some((o) => o.fact === id));
+  const raisedBy = env.experiments.filter((e) => e.raises.some((o) => o.fact === id));
   const status =
     f.effective === f.recorded
       ? word(statuses, f.effective)
@@ -124,6 +124,9 @@ function inspectFact(env, id, on) {
             ` is verified and exclusion ${d.exclusion} rules out both.`,
           ]),
         )
+      : null,
+    f.instantiates
+      ? h("p", {}, "It carries fact ", ref("fact", f.instantiates, on), " over to this subject.")
       : null,
     h("h3", {}, "How it can be established"),
     h("p", {}, word(routes, f.route)),
@@ -390,8 +393,10 @@ function inspectExperiment(env, id, on) {
     h("h3", {}, "Resources"),
     h("p", {}, e.resources),
     h("h3", {}, e.contingent ? "If it succeeds and the result is observed" : "If it succeeds"),
-    changeList(e.success, env, on),
-    moveList(e.wins, env, on, "No claim changes on its own."),
+    e.raises.length
+      ? changeList(e.raises, env, on)
+      : h("p", {}, "No fact rises: each one already has this status or a stronger one."),
+    moveList(e.wins, env, on, "No claim changes."),
     actionButton("Suppose it succeeds", `success:${e.id}`, on),
     e.failure.length
       ? [
@@ -432,8 +437,9 @@ function impact(e) {
   const parts = [];
   if (e.lights) parts.push(`lights ${count(e.lights, "claim", "claims")}`);
   if (e.clears) parts.push(`clears ${count(e.clears, "block", "blocks")}`);
+  if (e.lowers) parts.push(`lowers ${count(e.lowers, "claim", "claims")}`);
   if (e.breaks) parts.push(`can break ${count(e.breaks, "claim", "claims")}`);
-  const text = parts.length ? parts.join(", ") : "no claim changes on its own";
+  const text = parts.length ? parts.join(", ") : "no claim changes if it succeeds";
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -465,7 +471,15 @@ export function experimentList(env, filter, selected, on) {
 
 /** @param {Envelope} env @param {Handlers} on */
 export function workList(env, on) {
-  if (!env.work.length) return [h("p", {}, "No fact is left to verify.")];
+  if (!env.work.length) {
+    return [
+      h(
+        "p",
+        {},
+        "No fact that a claim needs can rise further: each one is violated or has the strongest status that its route allows.",
+      ),
+    ];
+  }
   return env.work.map((w) =>
     h(
       "button",

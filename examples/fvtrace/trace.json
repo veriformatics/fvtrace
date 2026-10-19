@@ -39,7 +39,7 @@
       "id": "P1",
       "subject": "S",
       "kind": "implementation",
-      "text": "fvtrace check reports no violation exactly when the trace is well-formed.",
+      "text": "The well-formedness check in fvtrace check reports no violation exactly when the decoded trace is well-formed.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -47,7 +47,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "4818288c789f8c6b3c312c5ca36180d0004642c9ed99f4ef2567d06450fed876",
+            "sha256": "b94985c6d4f73579d408662210fe58cc2b7157392b5b329cb6eb5fe773004cde",
             "role": "statement"
           },
           {
@@ -58,7 +58,7 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CheckAcceptsExactlyWellFormed",
-        "statementDigest": "3617525c292b7fce838eb8937ae09fb661bf9b105781c3c125037e7963f6708d"
+        "statementDigest": "901bf7efb23ae22c6d81d48e2e36571ff1e1eb26db14bca6cc169ad3f04f0b1a"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -70,7 +70,7 @@
       "id": "P2",
       "subject": "S",
       "kind": "implementation",
-      "text": "Every violation fvtrace check reports names a rule the trace breaks.",
+      "text": "Every violation that the well-formedness check in fvtrace check reports names a rule that the decoded trace breaks.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -78,7 +78,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "4818288c789f8c6b3c312c5ca36180d0004642c9ed99f4ef2567d06450fed876",
+            "sha256": "b94985c6d4f73579d408662210fe58cc2b7157392b5b329cb6eb5fe773004cde",
             "role": "statement"
           },
           {
@@ -89,7 +89,7 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CheckViolationsSound",
-        "statementDigest": "ae1011b64223b919b79395ed4c4bbde2a667993a4a4deba9fec7d45a58c39849"
+        "statementDigest": "5e76424fc0530855a58507ac84e76dbefc750d7b30217d9fdc9d7885a003e110"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -109,12 +109,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
             "role": "proof"
           }
         ],
@@ -140,12 +140,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
             "role": "proof"
           }
         ],
@@ -163,7 +163,7 @@
       "id": "P5",
       "subject": "S",
       "kind": "implementation",
-      "text": "Cannot claim holds exactly when a need is violated, the claim needs both sides of an exclusion, or a what-if conflicts.",
+      "text": "Cannot claim holds exactly when a need is violated, the claim needs both sides of a verified or assumed exclusion, or both sides of such an exclusion hold on the claim's subject.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -171,18 +171,18 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
             "role": "proof"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CannotExplained",
-        "statementDigest": "454b59d7ae3d7bc9bb7847f9a13cc6b3fd3d2a8fe92354c55ec278db683370d2"
+        "statementDigest": "178afc5d04a095992726a05e699dc3cf47965aa7203a2f7e0f3cf30db48f8fbc"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -202,12 +202,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "e262ceb922db649f3a9f2d1e04f398a6328d91c5ea2faccd526cf58163332784",
+            "sha256": "448bc944556406ab6107d8583b701b4763666a83dad1f464559c14c1e6790334",
             "role": "proof"
           }
         ],
@@ -233,12 +233,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "e262ceb922db649f3a9f2d1e04f398a6328d91c5ea2faccd526cf58163332784",
+            "sha256": "448bc944556406ab6107d8583b701b4763666a83dad1f464559c14c1e6790334",
             "role": "proof"
           }
         ],
@@ -264,12 +264,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "f6a6f600544b142129739c6f196a9f15f319421b6a42b1ee950c8419cee16450",
+            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "b60b2316923ef5786f330eeb26f7d05f2899c6d415379fa3a5f364a0a6c0ac64",
+            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
             "role": "proof"
           }
         ],
@@ -328,7 +328,7 @@
       "id": "T1",
       "subject": "S",
       "kind": "implementation",
-      "text": "fvtrace serve answers only GET requests that carry its own Host and the run's token.",
+      "text": "fvtrace serve sends its page and claims only in answer to GET requests that name an allowed Host and carry the run's token.",
       "status": "tested",
       "route": "lean",
       "evidence": {
@@ -345,7 +345,31 @@
             "role": "tests"
           }
         ],
-        "statementDigest": "5348ab3f1aa592a2fb570c5cbe7db09f0ed42e0caa9d0f7b4d4ee56e98380ae4"
+        "statementDigest": "587ef8fa83aadf486018d31b2803a98226dd702e03fb8918c0739ed05dcd1a43"
+      }
+    },
+    {
+      "id": "T2",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "Without --cached, fvtrace reads every evidence file again and calls a receipt current only when each file has its pinned SHA-256 digest and the fact's wording is unchanged.",
+      "status": "tested",
+      "route": "lean",
+      "evidence": {
+        "summary": "Tests/Receipt.lean checks current, changed, missing and escaping evidence files and reworded facts against real files.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Receipt.lean",
+            "sha256": "4460578eb87f7ca9441ca333dd8a86519d9a8bbb42cbfcbe98fd4a1fac2550ab",
+            "role": "code"
+          },
+          {
+            "path": "Tests/Receipt.lean",
+            "sha256": "820833a6539a103e6196517702af3ecd75c1d4a246dc287a7429e8705d735eb0",
+            "role": "tests"
+          }
+        ],
+        "statementDigest": "f43cd2c3bbbbc4e40c507a7a3c6472cd2410fc79d5179343e0161c69f50af2ad"
       }
     },
     {
@@ -360,7 +384,7 @@
       "id": "E2",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C2 needs say what C2 says in English.",
+      "text": "P3 and T2, with I1 and I2, entail C2 as worded.",
       "status": "assumed",
       "route": "human-ruling"
     },
@@ -400,9 +424,13 @@
       "id": "E7",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C7 needs say what C7 says in English.",
+      "text": "T1 and the browser's same-origin rules entail C7 as worded.",
       "status": "assumed",
-      "route": "human-ruling"
+      "route": "human-ruling",
+      "trusts": [
+        "Browser same-origin policy",
+        "SameSite cookies"
+      ]
     }
   ],
   "claims": [
@@ -411,7 +439,7 @@
       "question": "Q1",
       "subject": "S",
       "level": "descriptive",
-      "text": "fvtrace check accepts a trace exactly when it is well-formed, and each error it reports is real.",
+      "text": "The well-formedness check in fvtrace check accepts a decoded trace exactly when it is well-formed, and each violation it reports is real.",
       "needs": [
         "P1",
         "P2",
@@ -424,9 +452,10 @@
       "question": "Q2",
       "subject": "S",
       "level": "descriptive",
-      "text": "With no what-if, a claim reads Can claim only when every fact it needs is verified with an unchanged receipt.",
+      "text": "With no what-if and without --cached, a claim reads Can claim only when every fact it needs is verified and its evidence is unchanged since it was pinned.",
       "needs": [
         "P3",
+        "T2",
         "I1",
         "I2"
       ],
@@ -449,7 +478,7 @@
       "question": "Q2",
       "subject": "S",
       "level": "descriptive",
-      "text": "Every Cannot claim has a stated reason: a violated fact, an exclusion between two needs, or a conflicting what-if.",
+      "text": "Every Cannot claim has a stated reason: a violated fact, a verified or assumed exclusion between two of its needs, or a conflicting what-if on its subject.",
       "needs": [
         "P5",
         "I1"

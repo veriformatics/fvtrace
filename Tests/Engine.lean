@@ -136,4 +136,118 @@ def tests : TestM Unit := do
   check "engine: duplicate what-if is rejected"
     ((Overrides.parse t "O2=checked,O2=assumed").toOption.isNone)
 
+/-- Contract regression witnesses + acceptance cases (kernel.md) beyond `tests`. -/
+def witnessTests : TestM Unit := do
+  let t ← fixture
+  let s : Scenario := { trace := t, current := fun _ => true }
+  let e1 := (t.experiment? "E1").get!
+  let e3 := (t.experiment? "E3").get!
+  let entail := fun (id claim : String) (st : Status) (r : Route) =>
+    ({ id, subject := "S", kind := .entailment, text := s!"Its needs entail {claim}.",
+       status := st, route := r } : Fact)
+  -- R2-P2b: weaker successes on the verified sources of two exclusions never weaken them.
+  let xa : Exclusion := { id := "XA", subject := "S", between := ("O2", "O4"),
+                          text := "O2 rules out O4.", status := .proved, route := .lean }
+  let xb : Exclusion := { id := "XB", subject := "S", between := ("O1", "O5"),
+                          text := "O1 rules out O5.", status := .proved, route := .lean }
+  let weak := fun (id k : String) => ({ e1 with id, success := [(k, .assumed)], failure := [] } :
+    Experiment)
+  let c10 : Claim := { id := "C10", question := "Q1", subject := "S", level := .descriptive,
+                       text := "Both samplings hold.", needs := ["O4", "O5"], entailment := "EN10" }
+  let base := mapFact t "O2" fun f => { f with status := .checked }
+  let joinT := { base with
+    facts := base.facts ++ [entail "EN10" "C10" .assumed .humanRuling]
+    claims := base.claims ++ [c10], exclusions := [xa, xb]
+    experiments := base.experiments ++ [weak "EA" "O2", weak "EB" "O1"] }
+  let sj : Scenario := { s with trace := joinT }
+  checkEq "engine: verified sources derive both sides violated" (sj.eff "O4", sj.eff "O5")
+    (.violated, .violated)
+  checkEq "engine: C10 reads cannot" (finalOf sj "C10") .cannot
+  let after := sj.applySuccess (sj.closure ["EA", "EB"])
+  checkEq "engine: weaker successes keep both sources verified (R2-P2b)"
+    (after.eff1 "O2", after.eff1 "O1") (.checked, .proved)
+  checkEq "engine: C10 stays cannot after both weaker successes (R2-P2b)" (finalOf after "C10")
+    .cannot
+  checkEq "engine: weaker successes raise nothing" (sj.raised (sj.closure ["EA", "EB"])) []
+  -- R2-C1: a follow-up plans with its subject's creator + the creator's own prerequisites.
+  let e0 : Experiment := { id := "E0", subject := "N", kind := .dry, effort := .hours,
+                           title := "Approve the cohort", method := "m", resources := "r",
+                           success := [("EN3", .assumed)], caveat := "c" }
+  let e4 : Experiment := { e0 with id := "E4", effort := .days, title := "Rule on M1" }
+  let creator := { e3 with requires := ["E0"] }
+  let onS := t.experiments.filter (·.subject == "S")
+  let chain := { t with experiments := onS ++ [e0, creator, e4] }
+  let sc : Scenario := { s with trace := chain }
+  checkEq "engine: the closure holds the creator's own prerequisites (R2-C1)"
+    (sc.closure ["E4"]) ["E0", "E3", "E4"]
+  let n := "engine: the C3 plan runs the creator's prerequisite too (R2-C1)"
+  match sc.plan (claimNamed chain "C3") with
+  | .planned _ exps st .. =>
+    checkEq n exps ["E0", "E3"]
+    checkEq "engine: that plan reaches conditional" st .conditional
+  | other => check n false s!"{repr other}"
+  -- Acceptance (new data): a success on the new subject moves only its claims.
+  let lit := sc.applySuccess (sc.closure ["E4"])
+  checkEq "engine: a new-data success moves only claims on its subject"
+    ((sc.moves lit).map (·.claim)) ["C3"]
+  checkEq "engine: existing claims keep their gaps"
+    (lit.gaps (claimNamed chain "C1"), lit.gaps (claimNamed chain "C2"))
+    (sc.gaps (claimNamed chain "C1"), sc.gaps (claimNamed chain "C2"))
+  -- Acceptance (results): with no experiment for result O2, no plan raises C2.
+  let noResult := { t with experiments := t.experiments.filter (·.subject != "S") }
+  let sr : Scenario := { s with trace := noResult, overrides := [("EN2", .proved)] }
+  let n := "engine: no experiment raises result O2, so no plan raises C2"
+  match sr.plan (claimNamed noResult "C2") with
+  | .noImprovement cov => check n (cov.uncovered.contains "O2") s!"{repr cov.uncovered}"
+  | other => check n false s!"{repr other}"
+  -- R2-E2: noImprovement still lists the experiments for each need.
+  let n := "engine: noImprovement lists E1 for O2 (R2-E2)"
+  match s.plan (claimNamed t "C2") with
+  | .noImprovement cov =>
+    check n (cov.alternatives.any fun a => a.need == "O2" && a.experiment == "E1")
+    check "engine: noImprovement lists EN2 as uncovered (R2-E2)" (cov.uncovered.contains "EN2")
+  | other => check n false s!"{repr other}"
+  -- Acceptance (plan rule): the highest state first, then the lowest cost.
+  let c11 : Claim := { id := "C11", question := "Q1", subject := "S", level := .estimand,
+                       text := "The table is right.", needs := ["O2"], entailment := "EN11" }
+  let quick : Experiment := { weak "E6" "O2" with effort := .hours }
+  let rule := { t with
+    claims := t.claims ++ [c11], facts := t.facts ++ [entail "EN11" "C11" .proved .lean]
+    experiments := t.experiments ++ [quick] }
+  let su : Scenario := { s with trace := rule }
+  let n := "engine: a higher state beats a lower cost"
+  match su.plan (claimNamed rule "C11") with
+  | .planned cov exps st .. =>
+    checkEq n (exps, st) (["E1"], .can)
+    checkEq "engine: the plan lists both experiments for O2"
+      ((cov.alternatives.filter (·.need == "O2")).map (·.experiment)) ["E1", "E6"]
+  | other => check n false s!"{repr other}"
+  let sure := { quick with id := "E7", success := [("O2", .checked)] }
+  let rule2 := { rule with experiments := rule.experiments ++ [sure] }
+  let n := "engine: at the same state the cheaper plan wins"
+  match ({ s with trace := rule2 } : Scenario).plan (claimNamed rule2 "C11") with
+  | .planned _ exps st .. => checkEq n (exps, st) (["E7"], .can)
+  | other => check n false s!"{repr other}"
+  -- Preview counts: a success that derives a violation lowers a claim; each move counts once.
+  let c12 : Claim := { id := "C12", question := "Q1", subject := "S", level := .estimand,
+                       text := "The animal was sampled once.", needs := ["O4"],
+                       entailment := "EN12" }
+  let lowerT := { t with
+    claims := t.claims ++ [c12], exclusions := [xa]
+    facts := t.facts ++ [entail "EN12" "C12" .assumed .humanRuling] }
+  let sl : Scenario := { s with trace := lowerT }
+  let wins := sl.moves (sl.applySuccess (sl.closure ["E1"]))
+  checkEq "engine: a success that derives a violation lowers a claim"
+    (wins.map fun m => (m.claim, m.before, m.after)) [("C12", .«open», .cannot)]
+  checkEq "engine: lights, clears + lowers count each move once"
+    (Scenario.lights wins, Scenario.clears wins, Scenario.lowers wins) (0, 0, 1)
+  checkEq "engine: raises = the facts a success lifts" (sl.raised (sl.closure ["E1"]))
+    [("O2", .checked)]
+  -- Envelope: an instantiation fact keeps its source.
+  let inst : Fact := { id := "I1", subject := "N", kind := .instantiation,
+                       text := "O1 holds for the new cohort.", status := .«open»,
+                       route := .humanRuling, instantiates := some "O1" }
+  check "evaluate: the envelope keeps a fact's instantiation source"
+    (((Evaluate.factJson s [] inst).canonical.splitOn "\"instantiates\":\"O1\"").length == 2)
+
 end Tests.Engine

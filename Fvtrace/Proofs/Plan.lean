@@ -334,7 +334,7 @@ theorem applySuccess_eff1 (ids : List String) (k : String) :
       if k ∈ (s.successPairs ids).map (·.1) ∧ (s.eff1 k).strength < str (top s ids k) then
         .ofStatus (top s ids k)
       else s.eff1 k := by
-  unfold Scenario.applySuccess
+  unfold Scenario.applySuccess Scenario.raised
   rw [withOverrides_eff1_gen]
   have hm : s.merged ids =
       ((s.successPairs ids).map (·.1)).eraseDups.map fun k => (k, top s ids k) := rfl
@@ -710,7 +710,7 @@ theorem best_spec (c : Claim) :
 theorem applySuccess_nil : s.applySuccess [] = s := by
   have hm : s.merged [] = [] := rfl
   cases s
-  simp [Scenario.applySuccess, Scenario.withOverrides, hm]
+  simp [Scenario.applySuccess, Scenario.raised, Scenario.withOverrides, hm]
 
 theorem plan_planned {c : Claim} {cov p st prem gaps ct}
     (h : s.plan c = .planned cov p st prem gaps ct) :
