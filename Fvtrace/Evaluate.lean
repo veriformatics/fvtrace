@@ -24,13 +24,21 @@ variable (s : Scenario)
 
 def factText (id : String) : String := ((s.trace.fact? id).map (·.text)).getD id
 
-/-- Verbatim claim + premise texts: `Assuming “p₁”; “p₂”: text` for a conditional claim. -/
-def sentence (c : Claim) : String :=
-  match s.final c with
-  | .conditional =>
-    "Assuming " ++ "; ".intercalate ((s.premises c).map fun p => "“" ++ s.factText p ++ "”") ++
-      ": " ++ c.text
-  | _ => c.text
+/-- Quoted items with `; ` between them. -/
+def joinParts : List String → List String
+  | [] => []
+  | [q] => [q]
+  | q :: qs => q :: "; " :: joinParts qs
+
+/-- The sentence's pieces: verbatim claim + premise texts (`Assuming “p₁”; “p₂”: text` for a
+conditional claim); the sentence is their concatenation. -/
+def sentenceParts (c : Claim) : List String :=
+  if s.final c == .conditional then
+    ["Assuming "] ++ joinParts ((s.premises c).map fun p => "“" ++ s.factText p ++ "”") ++
+      [": ", c.text]
+  else [c.text]
+
+def sentence (c : Claim) : String := String.join (s.sentenceParts c)
 
 def baseline : Scenario := { s with overrides := [] }
 

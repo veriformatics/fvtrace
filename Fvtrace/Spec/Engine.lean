@@ -48,6 +48,20 @@ def BothSidesCannot : Prop :=
     x ∈ s.trace.exclusions → (s.exclusionEff x).asserted = true →
     x.between.1 ∈ c.needsAll → x.between.2 ∈ c.needsAll → s.final c = .cannot
 
+/-- G6: a sentence is the concatenation of its parts; a conditional claim's parts quote each
+premise verbatim, and every sentence ends with the claim text verbatim. -/
+def SentenceVerbatim : Prop :=
+  ∀ (s : Scenario) (c : Claim),
+    s.sentence c = String.join (s.sentenceParts c) ∧
+    (s.sentenceParts c).getLast? = some c.text ∧
+    (s.final c = .conditional →
+      ∀ p ∈ s.premises c, ("“" ++ s.factText p ++ "”") ∈ s.sentenceParts c)
+
+/-- G11: a review record counts exactly when its digest equals the content's digest. -/
+def ReviewStateExact : Prop :=
+  ∀ (t : Trace) (digest : String),
+    Receipt.reviewStateOf t digest = .reviewed ↔ ∃ r, t.review = some r ∧ r.digest = digest
+
 /-- G6: the verdict "Can claim" is emitted exactly for final state `can`. -/
 def CanVerdictExact : Prop := ∀ st : State, st.verdict = "Can claim" ↔ st = .can
 
