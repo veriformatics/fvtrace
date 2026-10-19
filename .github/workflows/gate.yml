@@ -75,6 +75,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # Lean's Windows toolchain targets the MinGW ABI; the C digest code builds with MinGW gcc.
+      - name: Select the C compiler
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "CC=gcc" >> "$GITHUB_ENV"
+
       - name: Build + test with the Lean toolchain named in lean-toolchain
         uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
         with:

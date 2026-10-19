@@ -12,8 +12,8 @@ source tools/gate.sh
 log="$(mktemp -d)"
 trap 'rm -rf "$log"' EXIT
 pids=()
-names=(lean-style js-format js-lint js-types spec shell meta)
-fns=(lean_style js_format js_lint js_types spec shell meta)
+names=(lean-style js-format js-lint js-types js-test spec shell meta)
+fns=(lean_style js_format js_lint js_types js_test spec shell meta)
 for i in "${!names[@]}"; do
     ("${fns[$i]}" >"$log/${names[$i]}" 2>&1) &
     pids+=($!)
