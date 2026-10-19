@@ -61,7 +61,7 @@ examples() {
 trust() { bash tools/trust.sh; }
 
 prettier_files() {
-    git ls-files -co --exclude-standard -- 'web/*' 'tests/e2e/*' 'tests/schema/*' 'tests/palette/*' 'schema/*' \
+    git ls-files -co --exclude-standard -- 'web/*' 'tests/e2e/*' 'tests/schema/*' 'tests/palette/*' 'tests/renovate/*' 'schema/*' \
         'tools/*.mjs' ':(top,glob)*.json' ':(top,glob)*.mjs' ':(top,glob).*.json' '.github/*' |
         grep -v -e '^lake-manifest.json$'
 }
@@ -70,7 +70,7 @@ js_format() { prettier_files | xargs -r prettier --check; }
 
 js_lint() {
     local rc=0
-    oxlint --type-aware --deny-warnings web tests/e2e tests/schema tests/palette tools ./*.mjs || rc=1
+    oxlint --type-aware --deny-warnings web tests/e2e tests/schema tests/palette tests/renovate tools ./*.mjs || rc=1
     stylelint 'web/**/*.css' || rc=1
     html-validate web || rc=1
     return $rc
@@ -92,8 +92,9 @@ c_analyze() {
 vendor() { bash tools/vendor-hacl.sh --verify; }
 
 # The JSON Schema agrees with the decoder on tests/schema/cases/ (Tests/Schema.lean = other half);
-# the GUI palette meets contrast + color-vision floors (tests/palette/).
-js_test() { node --test tests/schema/ tests/palette/; }
+# the GUI palette meets contrast + color-vision floors (tests/palette/); Renovate's regex managers
+# extract the dependencies of their files (tests/renovate/).
+js_test() { node --test tests/schema/ tests/palette/ tests/renovate/; }
 
 e2e() { playwright test; }
 

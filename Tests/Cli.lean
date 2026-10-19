@@ -43,6 +43,17 @@ def skillTests : TestM Unit := do
     checkEq "skills: a folder fvtrace did not write is refused" rc 1
     check "skills: the refusal names the folder"
       ((err.splitOn "was not written by fvtrace").length == 2) err
+  IO.FS.withTempDir fun dir => do
+    let target := dir / "elsewhere"
+    IO.FS.createDirAll target
+    IO.FS.writeFile (target / ".fvtrace-skill") "planted"
+    IO.FS.writeFile (target / "keep.txt") "the user's file"
+    IO.FS.createDirAll (dir / "skills")
+    let _ ← symlink target (dir / "skills" / "fvtrace") true
+    let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir",
+      (dir / "skills").toString])
+    checkEq "skills: a linked skill folder is refused" rc 1
+    check "skills: the link's target keeps its files" (← (target / "keep.txt").pathExists)
   let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--agent", "vim"])
   checkEq "skills: an unknown agent rc" rc 2
   let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills"])

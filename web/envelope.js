@@ -34,7 +34,8 @@
  * @typedef {{ id: string, subject: string, kind: "dry" | "wet", effort: string, title: string,
  *   method: string, resources: string, caveat: string, success: Override[],
  *   failure: Override[], requires: string[], closure: string[], applied: boolean,
- *   contingent: boolean, prospective: boolean, wins: Move[], losses: Move[], lights: number,
+ *   contingent: boolean, prospective: boolean, creates: boolean, wins: Move[], losses: Move[],
+ *   lights: number,
  *   clears: number, breaks: number }} Experiment
  */
 /**
@@ -300,6 +301,7 @@ function experiment(v, path) {
     applied: bool(r["applied"], `${path}/applied`),
     contingent: bool(r["contingent"], `${path}/contingent`),
     prospective: bool(r["prospective"], `${path}/prospective`),
+    creates: bool(r["creates"], `${path}/creates`),
     wins: moves(r["wins"], `${path}/wins`),
     losses: moves(r["losses"], `${path}/losses`),
     lights: num(r["lights"], `${path}/lights`),

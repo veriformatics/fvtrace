@@ -25,7 +25,7 @@
       "description": "Pinned scanner binaries (tools/tools.lock); the digest column needs a manual update",
       "managerFilePatterns": ["/^tools/tools\\.lock$/"],
       "matchStrings": [
-        "^(?<depName>\\S+) (?<currentValue>\\S+) linux-x86_64 \\S+ https://github\\.com/(?<packageName>[^/]+/[^/]+)/"
+        "(?:^|\\n)(?<depName>\\S+) (?<currentValue>\\S+) linux-x86_64 \\S+ https://github\\.com/(?<packageName>[^/]+/[^/]+)/"
       ],
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v?(?<version>.*)$"

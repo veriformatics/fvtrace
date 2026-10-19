@@ -59,9 +59,10 @@ def resolve (root : System.FilePath) (rel : String) : IO (Except String System.F
   unless ← p.pathExists do return .error s!"missing {rel}"
   let real ← IO.FS.realPath p
   let rootReal ← IO.FS.realPath root
-  if rootReal.components.isPrefixOf real.components && real.components != rootReal.components then
-    return .ok real
-  return .error s!"outside {rel}"
+  unless rootReal.components.isPrefixOf real.components && real.components != rootReal.components do
+    return .error s!"outside {rel}"
+  unless (← real.metadata).type == .file do return .error s!"not a file {rel}"
+  return .ok real
 
 /-- Cached digests keyed by resolved path + size + modification time. -/
 abbrev Cache := Std.HashMap String (UInt64 × Int × UInt32 × String)
@@ -106,7 +107,8 @@ structure Binding where
   /-- Fact or exclusion id. -/
   id : String
   current : Bool
-  /-- `changed <path>` · `missing <path>` · `outside <path>` · `statement-changed`. -/
+  /-- `changed <path>` · `missing <path>` · `outside <path>` · `not a file <path>` ·
+  `statement-changed`. -/
   reasons : List String
   deriving Repr, BEq
 

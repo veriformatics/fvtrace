@@ -83,6 +83,10 @@ def tests : TestM Unit := do
     IO.FS.removeFile (root / "proofs" / "Contrast.lean")
     checkEq "receipt: a deleted artifact is missing" (← reasonsOf pinned root "O1")
       ["missing proofs/Contrast.lean"]
+    IO.FS.createDirAll (root / "proofs" / "Contrast.lean")
+    checkEq "receipt: a folder in place of an artifact is not a file" (← reasonsOf pinned root "O1")
+      ["not a file proofs/Contrast.lean"]
+    IO.FS.removeDirAll (root / "proofs" / "Contrast.lean")
     IO.FS.withTempDir fun outside => do
       IO.FS.writeFile (outside / "secret.txt") "not part of the project\n"
       let _ ← IO.Process.output { cmd := "ln", args := #["-s", (outside / "secret.txt").toString,

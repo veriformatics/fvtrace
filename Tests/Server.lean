@@ -92,6 +92,11 @@ def nativeTests : TestM Unit := do
     let r ← ask (some "O3=proved")
     checkEq "server: a what-if above the route" (r.status.toCode, problemKind r)
       (400, some "what-if")
+    IO.FS.createDirAll (c.target.entry / "cache.json")
+    let r ← ask none
+    checkEq "server: an I/O failure answers a JSON problem, not an empty 500"
+      (r.status.toCode, problemKind r) (500, some "io")
+    IO.FS.removeDirAll (c.target.entry)
     IO.FS.writeFile c.target.trace "{}"
     let r ← ask none
     checkEq "server: a trace that does not decode" (r.status.toCode, problemKind r)

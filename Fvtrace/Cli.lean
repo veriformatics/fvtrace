@@ -32,11 +32,11 @@ def usage : String :=
   "      valid and claims nothing.\n" ++
   "  path\n" ++
   "      Print the location of the trace of the project.\n" ++
-  "  check [--strict] [--rehash] [--json]\n" ++
+  "  check [--strict] [--json]\n" ++
   "      Check the trace, and the receipt of each verified fact against the project\n" ++
   "      folder. With --strict, a warning without a waiver or a stale receipt also\n" ++
   "      fails the check.\n" ++
-  "      With --rehash, read each artifact again instead of the digest cache.\n" ++
+  "      It reads every evidence file again.\n" ++
   "  pin\n" ++
   "      Record the sha256 of each evidence artifact and statement in the trace.\n" ++
   "  review --reviewer NAME [--note TEXT]\n" ++
@@ -58,7 +58,7 @@ def usage : String :=
   "      Share the claims. --html writes one page that opens in any browser, with\n" ++
   "      each one-click what-if computed in advance. --bundle writes the trace and\n" ++
   "      copies of its evidence files for another computer with fvtrace.\n" ++
-  "  serve [--port N] [--host ADDRESS]\n" ++
+  "  serve [--port N] [--host ADDRESS] [--cached]\n" ++
   "      Show the claims in a browser: open the link that the command prints. The\n" ++
   "      port is 8642 by default (0 = any free port). With --host, computers on your\n" ++
   "      network can open the page at ADDRESS. The page is not encrypted: share it\n" ++
@@ -71,8 +71,10 @@ def usage : String :=
   "  skills show\n" ++
   "      Print the skill's instructions.\n\n" ++
   "claims, gaps, experiments, plan and eval accept --whatif FACT=STATUS,... to\n" ++
-  "suppose statuses, and --rehash. check, claims, gaps, experiments and plan accept\n" ++
-  "--json for machine output.\n" ++
+  "suppose statuses, and --cached to reuse the digest of an evidence file that kept\n" ++
+  "its size and modification time (faster for large files, but it misses an edit\n" ++
+  "that keeps both). check, claims, gaps, experiments and plan accept --json for\n" ++
+  "machine output.\n" ++
   "  --version   Print the fvTrace version.\n" ++
   "  --help      Print this help.\n\n" ++
   "Exit status: 0 = success, 1 = an invalid or failing trace, 2 = a usage or read\n" ++
@@ -86,14 +88,6 @@ def usageError (message : String) : IO UInt32 := do
   complain s!"fvtrace: {message}"
   IO.eprint usage
   return 2
-
-def readTrace (file : System.FilePath) :
-    IO (Except UInt32 (Except (Array Decode.Diag) Trace)) := do
-  try
-    return .ok (decodeTrace (← IO.FS.readBinFile file))
-  catch e =>
-    complain s!"fvtrace: cannot read {file}: {(toString e).replace "\n" " "}"
-    return .error 2
 
 /-- Writes `t` to `file` through a sibling temporary file, so a reader never sees half a trace. -/
 def writeTrace (file : System.FilePath) (t : Trace) : IO Unit := do
@@ -173,7 +167,7 @@ def pathCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   | .ok t => say t.trace.toString; return 0
   | .error rc => return rc
 
-def checkSpec : Args.Spec := { valued := located, switches := ["--json", "--rehash", "--strict"] }
+def checkSpec : Args.Spec := { valued := located, switches := ["--json", "--strict"] }
 
 def pinSpec : Args.Spec := { valued := located }
 
@@ -202,7 +196,9 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
     review := some (← Receipt.reviewState t, t.review)
     if errors.isEmpty then
       let cache ← Session.openCache tg
-      receipts ← Receipt.bindings t tg.project cache (p.has "--rehash")
+      -- Every command reads each evidence file by default: the size + mtime cache could miss an
+      -- edit that keeps both. The evaluation commands + serve reuse it on --cached alone.
+      receipts ← Receipt.bindings t tg.project cache true
       Session.closeCache tg cache
   let stale := receipts.filter (!·.current)
   if p.has "--json" then
@@ -282,7 +278,7 @@ def review (env : Store.Env) (args : List String) : IO UInt32 := do
 /-! ## Evaluation commands -/
 
 def evalSpec (positional : Nat) : Args.Spec :=
-  { valued := located ++ ["--whatif", "--question"], switches := ["--json", "--rehash"],
+  { valued := located ++ ["--whatif", "--question"], switches := ["--json", "--cached"],
     positional := [positional] }
 
 abbrev Loaded := Session.Loaded
@@ -294,7 +290,8 @@ def load (env : Store.Env) (p : Args.Parsed) : IO (Except UInt32 Loaded) := do
     | .ok t => pure t
     | .error rc => return .error rc
   let cache ← Session.openCache tg
-  let r ← Session.load tg (p.value? "--trace").isSome (p.value? "--whatif") (p.has "--rehash") cache
+  let r ← Session.load tg (p.value? "--trace").isSome (p.value? "--whatif") (!p.has "--cached")
+    cache
   Session.closeCache tg cache
   match r with
   | .ok l => return .ok l
@@ -403,7 +400,8 @@ def experimentsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     else say "Suggested experiments, most useful first:"
     for e in sc.trace.experiments.mergeSort (Evaluate.experimentBefore sc) do
       let cl := sc.closure [e.id]
-      let created := if sc.prospective e.subject then "; creates new data" else ""
+      let created := if sc.creates e then "; creates new data"
+        else if sc.prospective e.subject then "; on new data" else ""
       say s!"  {e.id} {e.title} ({e.kind.name}, {e.effort.name}{created})"
       let first := cl.filter (· != e.id)
       unless first.isEmpty do say s!"      Runs after: {", ".intercalate first}."
@@ -434,10 +432,14 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
       return 0
     say s!"{c.id} {(sc.final c).verdict}: {sc.sentence c}"
     let uncovered := fun (cov : Coverage) => do
-      unless cov.uncovered.isEmpty do
-        let they := if cov.uncovered.length == 1 then "It needs" else "They need"
-        say s!"  No suggested experiment raises {", ".intercalate cov.uncovered}. \
+      let (open_, settled) := cov.uncovered.partition fun n =>
+        (sc.trace.fact? n).any sc.closable
+      unless open_.isEmpty do
+        let they := if open_.length == 1 then "It needs" else "They need"
+        say s!"  No suggested experiment raises {", ".intercalate open_}. \
           {they} a new experiment or a ruling."
+      unless settled.isEmpty do
+        say s!"  Stays as it is: {", ".intercalate settled} (no route allows a stronger status)."
     match sc.plan c with
     | .planned cov exps st _ _ contingent =>
       say s!"  Plan: {", ".intercalate exps}. If the plan succeeds, the claim reads {st.verdict}."
@@ -482,6 +484,9 @@ def skillMarker : String := ".fvtrace-skill"
 def installSkill (root : System.FilePath) : IO (Except String System.FilePath) := do
   let dir := root / "fvtrace"
   if ← dir.pathExists then
+    -- A link would make the replacement delete the files it points at.
+    if (← dir.symlinkMetadata).type == .symlink then
+      return .error s!"{dir} is a link; remove it or give --dir"
     unless ← (dir / skillMarker).pathExists do
       return .error s!"{dir} exists and was not written by fvtrace; remove it or give --dir"
     IO.FS.removeDirAll dir
@@ -526,7 +531,9 @@ def exportSpec : Args.Spec := { valued := located ++ ["--html", "--bundle"] }
 def outside (tg : Store.Target) (dest : System.FilePath) : IO (Except String System.FilePath) := do
   let some parent := dest.parent | return .error s!"{dest} has no folder"
   unless ← parent.isDir do return .error s!"no folder {parent}"
-  let real := (← IO.FS.realPath parent) / (dest.fileName.getD "")
+  -- An existing destination resolves through its own links too (a link into the project).
+  let real ← if ← dest.pathExists then IO.FS.realPath dest
+    else pure ((← IO.FS.realPath parent) / (dest.fileName.getD ""))
   if Export.within tg.project real then
     return .error s!"{dest} lies in the project folder; fvtrace writes nothing there"
   return .ok real
@@ -546,7 +553,7 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     | .ok r => pure r
     | .error m => complain s!"fvtrace: {m}"; return 2
   let cache ← Session.openCache tg
-  let r ← Session.load tg (p.value? "--trace").isSome none false cache
+  let r ← Session.load tg (p.value? "--trace").isSome none true cache
   Session.closeCache tg cache
   let l ← match r with
     | .ok l => pure l
@@ -570,7 +577,7 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
 
 /-! ## The GUI server -/
 
-def serveSpec : Args.Spec := { valued := located ++ ["--port", "--host"] }
+def serveSpec : Args.Spec := { valued := located ++ ["--port", "--host"], switches := ["--cached"] }
 
 /-- The bind address: loopback, or the one `--host` names (an address others use to reach this
 computer; a wildcard address has no single name to allow as `Host`). -/
@@ -609,7 +616,8 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let token := Digest.hex (← IO.getRandomBytes 16)
   let cache ← Session.openCache tg
   let initial : Server.Config :=
-    { target := tg, explicit := (p.value? "--trace").isSome, token, port, hosts := [] }
+    { target := tg, explicit := (p.value? "--trace").isSome, token, port, hosts := [],
+      cached := p.has "--cached" }
   let cfg ← IO.mkRef initial
   let bound ← try Server.start cfg addr cache catch e =>
     complain s!"fvtrace: cannot serve on {name}:{port}: {e}. Give another --port (0 = any)."
@@ -626,7 +634,7 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   return 0
 
 /-- Exit codes: 0 = success, 1 = an invalid or failing trace, 2 = usage or read error. -/
-def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
+def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
   match args with
   | ["--version"] => IO.println s!"fvtrace {version}"; pure 0
   | ["--help"] | ["-h"] => IO.print usage; pure 0
@@ -646,6 +654,14 @@ def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
   | "skills" :: rest => skillsCmd rest
   | [] => IO.eprint usage; pure 2
   | cmd :: _ => usageError s!"unknown command '{cmd}'"
+
+/-- A command in `env`. An I/O failure that no command anticipated (a permission, a vanished
+file) is a read error: exit 2 with its message. -/
+def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
+  try dispatch env args
+  catch e =>
+    complain s!"fvtrace: {(toString e).replace "\n" " "}"
+    return 2
 
 /-- The process entry: reads the data folder + current folder once. -/
 def run (args : List String) : IO UInt32 := do

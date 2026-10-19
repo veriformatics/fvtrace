@@ -38,7 +38,7 @@ def adds (id : String) : List String :=
 theorem mem_closureStep {ids : List String} {x : String} :
     x ∈ s.closureStep ids ↔ x ∈ ids ∨ ∃ id ∈ ids, x ∈ adds s id := by
   unfold Scenario.closureStep adds
-  simp only [List.mem_append, List.mem_flatMap]
+  simp only [List.mem_eraseDups, List.mem_append, List.mem_flatMap]
   exact Iff.rfl
 
 theorem closureStep_same {a b : List String} (h : ∀ x, x ∈ a ↔ x ∈ b) (x : String) :

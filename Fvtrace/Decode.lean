@@ -167,7 +167,9 @@ def outcome : Field (List (String × Status)) := fun path v =>
       match key, st with
       | some k, some s => out := (k, s) :: out
       | _, _ => ok := false
-    pure (if ok then some out.reverse else none)
+    -- Key order carries no meaning; sorted, a decoded outcome survives the canonical (sorted)
+    -- encoding unchanged (G-codec: decode (encode t) = t).
+    pure (if ok then some (out.mergeSort fun a b => a.1 ≤ b.1) else none)
   | _ => do report "type" path "expected an object of fact id → status"; pure none
 
 def analysis : Field Analysis := fun path v => do
@@ -333,9 +335,16 @@ end Fvtrace.Decode
 
 namespace Fvtrace
 
+/-- D-json: a larger input is refused before parsing. -/
+def maxTraceBytes : Nat := 16 * 1024 * 1024
+
 /-- Bytes → trace: a syntax error stops with its line + column; otherwise every shape error is
-listed. -/
-def decodeTrace (input : ByteArray) : Except (Array Decode.Diag) Trace :=
+listed. Inputs above `limit` bytes are refused unread. -/
+def decodeTraceWithin (limit : Nat) (input : ByteArray) : Except (Array Decode.Diag) Trace :=
+  if input.size > limit then
+    .error #[{ code := "size", path := "",
+                message := s!"the trace has {input.size} bytes; the limit is {limit} bytes" }]
+  else
   match Json.parse input with
   | .error e =>
     let (line, col) := Json.lineCol input e.offset
@@ -346,5 +355,9 @@ def decodeTrace (input : ByteArray) : Except (Array Decode.Diag) Trace :=
     match t with
     | some t => if diags.isEmpty then .ok t else .error diags
     | none => .error diags
+
+/-- D-json: at most 16 MiB. -/
+def decodeTrace (input : ByteArray) : Except (Array Decode.Diag) Trace :=
+  decodeTraceWithin maxTraceBytes input
 
 end Fvtrace

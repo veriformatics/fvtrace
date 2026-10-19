@@ -75,6 +75,19 @@ def tests : TestM Unit := do
     checkEq "engine: the C3 plan includes its creator" exps ["E3", "E4"]
     checkEq "engine: the C3 plan reaches conditional" st .conditional
   | other => check "engine: the C3 plan includes its creator" false s!"{repr other}"
+  -- A creator's closure step re-adds the creator: without dropping duplicates the list doubles
+  -- every step (fuel = experiments + 1 ⇒ 2^28 entries here).
+  let many := { follow with experiments := follow.experiments ++ (List.range 24).map fun i =>
+    { e4 with id := s!"X{i}", subject := "S" } }
+  checkEq "engine: closure stays small with many experiments (no doubling per step)"
+    (({ s with trace := many } : Scenario).closure ["E3"]) ["E3"]
+  checkEq "evaluate: only the creator of a prospective subject creates new data"
+    (((sf.trace.experiments.filter sf.creates).map (·.id)), sf.prospective "N") (["E3"], true)
+  let onNew := sf.withOverrides [("M1", .checked)]
+  check "evaluate: a what-if that changes a new-data claim says so"
+    ((onNew.qualifiers (claimNamed follow "C3") .draft).contains "what-if")
+  check "evaluate: without a what-if, a new-data claim carries no what-if qualifier"
+    (!(sf.qualifiers (claimNamed follow "C3") .draft).contains "what-if")
   let e5 : Experiment := { id := "E5", subject := "S", kind := .wet, effort := .weeks,
                            title := "Assess", method := "m", resources := "r",
                            success := [("O2", .assumed)], caveat := "c" }

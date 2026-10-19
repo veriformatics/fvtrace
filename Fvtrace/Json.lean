@@ -247,8 +247,9 @@ def parse (input : ByteArray) : Except ParseError Value :=
 def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
 
 /-- String escaping of D-canon: `JSON.stringify`'s rules (short escapes, other C0 as `\u00xx`,
-everything else raw). -/
-def escape (s : String) : String :=
+everything else raw). `shown` (printed JSON: CLI, server) also writes DEL + C1 controls as
+`\u00xx`, since a terminal acts on them; digests keep the `JSON.stringify` bytes. -/
+def escape (s : String) (shown : Bool := false) : String :=
   s.foldl (init := "\"") (fun acc c =>
     match c with
     | '"' => acc ++ "\\\""
@@ -259,7 +260,7 @@ def escape (s : String) : String :=
     | '\r' => acc ++ "\\r"
     | '\t' => acc ++ "\\t"
     | c =>
-      if c.toNat < 0x20 then
+      if c.toNat < 0x20 || (shown && 0x7f ≤ c.toNat && c.toNat ≤ 0x9f) then
         acc ++ "\\u00" ++ (hexDigit (c.toNat / 16)).toString ++ (hexDigit c.toNat).toString
       else acc.push c) ++ "\""
 
@@ -296,8 +297,10 @@ where
     | .obj kvs =>
       let pad := "".pushn ' ' (indent + 2)
       "{\n" ++
-        ",\n".intercalate (kvs.map fun (k, x) => pad ++ escape k ++ ": " ++ go (indent + 2) x) ++
+        ",\n".intercalate (kvs.map fun (k, x) =>
+          pad ++ escape k (shown := true) ++ ": " ++ go (indent + 2) x) ++
         "\n" ++ "".pushn ' ' indent ++ "}"
+    | .str s => escape s (shown := true)
     | v => v.canonical
 
 end Fvtrace.Json

@@ -137,6 +137,15 @@ def page (l : Session.Loaded) : IO String := do
     throw (IO.userError "the page no longer links style.css + app.js as the export expects")
   return html.replace linked head
 
+/-- Copies a file in 1 MiB chunks (evidence can be far larger than memory). -/
+def copyFile (src dest : System.FilePath) : IO Unit := do
+  let i ← IO.FS.Handle.mk src .read
+  let o ← IO.FS.Handle.mk dest .write
+  repeat
+    let chunk ← i.read 1048576
+    if chunk.isEmpty then break
+    o.write chunk
+
 /-- `inner` lies inside `outer` (both real paths). -/
 def within (outer inner : System.FilePath) : Bool :=
   outer.components.isPrefixOf inner.components
@@ -153,7 +162,7 @@ def writeBundle (t : Trace) (project dir : System.FilePath) : IO (List String) :
     | .ok real =>
       let dest := dir / "project" / p
       if let some parent := dest.parent then IO.FS.createDirAll parent
-      IO.FS.writeBinFile dest (← IO.FS.readBinFile real)
+      copyFile real dest
   IO.FS.createDirAll (dir / "project")
   IO.FS.writeFile (dir / "trace.json") (Encode.trace t).pretty
   IO.FS.writeFile (dir / "README.txt") <|

@@ -22,6 +22,8 @@ def pure : TestM Unit := do
   Tests.Cli.skillTests
   Tests.Json.tests
   Tests.Decode.tests
+  Tests.Decode.sizeTests
+  Tests.Decode.outcomeOrderTests
   Tests.Schema.tests
   Tests.Assets.tests
   Tests.Check.tests

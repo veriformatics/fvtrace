@@ -32,7 +32,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 - WF-entail: entailment fact has kind `entailment`, ∉ the claim's needs, used by exactly one claim; no `entailment` fact in any `needs`.
 - WF-needs: needs non-empty + duplicate-free.
 - WF-route: every recorded status, every outcome status + every exclusion status `allowed` by its route.
-- WF-outcome: success non-empty, values ∈ asserted; failure values = `violated`; `requires` acyclic + on the experiment's subject.
+- WF-outcome: success non-empty, values ∈ asserted; failure values = `violated`; `requires` names experiments listed earlier on the experiment's subject (acyclic by construction: list prerequisites first).
 - WF-receipt: recorded verified (fact or exclusion) ⇒ evidence with ≥1 artifact, every artifact with sha256, `verifier` + `statement` non-empty, `statementDigest` present.
 - WF-path: artifact path non-empty, relative, `/`-separated, no `.` / `..` / empty segment, no backslash, no NUL.
 - WF-prospective: `prospective` ⇔ `createdBy`; createdBy names an experiment on that subject; ≥1 `existing` subject; every fact on a prospective subject records `open` (its data does not exist yet).

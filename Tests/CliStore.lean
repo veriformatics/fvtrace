@@ -8,14 +8,6 @@ def count (s sub : String) : Nat := (s.splitOn sub).length - 1
 
 def line (s : String) : String := s.trimAscii.toString
 
-/-- Creates `link` → `target` (`ln -s`; `mklink` on Windows, where CI runs as administrator). -/
-def symlink (target link : System.FilePath) (dir : Bool) : IO Bool := do
-  let out ← if System.Platform.isWindows then
-      IO.Process.output { cmd := "cmd", args := #["/c", "mklink"] ++
-        (if dir then #["/D"] else #[]) ++ #[link.toString, target.toString] }
-    else IO.Process.output { cmd := "ln", args := #["-s", target.toString, link.toString] }
-  return out.exitCode == 0
-
 def decoded : IO Trace := do
   match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
   | .ok t => pure t
@@ -81,8 +73,20 @@ def tests : TestM Unit := do
     let (_, out, _) ← run ["check"]
     check "cli: review recorded" (count out "review: reviewed by R. Viewer" == 1) out
     -- Evaluation commands: text + JSON projections of one envelope.
+    -- Evidence is read again unless --cached: a planted cache entry (same size + mtime, another
+    -- digest) is used by --cached alone.
+    let real ← IO.FS.realPath (proj / "proofs" / "Contrast.lean")
+    let m ← real.metadata
+    let planted : Receipt.Cache :=
+      ({} : Receipt.Cache).insert real.toString (m.byteSize, m.modified.sec, m.modified.nsec, "x")
+    planted.save ((System.FilePath.mk trace).parent.get! / "cache.json")
+    let (_, out, _) ← run ["claims", "--cached"]
+    check "cli: claims --cached reuses a digest recorded for the same size + mtime"
+      (count out "C1 Not yet" == 1) out
     let (rc, out, _) ← run ["claims"]
     checkEq "cli: claims rc" rc 0
+    check "cli: claims reads each evidence file again by default"
+      (count out "C1 On assumption" == 1) out
     check "cli: claims prints the engine's sentence" (count out
       "C1 On assumption: Assuming “O1 entails C1.”: The contrast is the treatment effect." == 1)
       out
@@ -111,7 +115,10 @@ def tests : TestM Unit := do
     check "cli: plan names the claim" (count out "C2 Not yet: Treatment raises the marker." == 1)
       out
     check "cli: plan names what no experiment raises"
-      (count out "No suggested experiment raises O3, EN2. They need a new experiment" == 1) out
+      (count out "No suggested experiment raises EN2. It needs a new experiment or a ruling." == 1)
+      out
+    check "cli: plan sets apart a fact at its route's ceiling"
+      (count out "Stays as it is: O3 (no route allows a stronger status)." == 1) out
     let (rc, _, _) ← run ["plan", "C9"]
     checkEq "cli: plan on an unknown claim rc" rc 2
     let (rc, out, _) ← run ["gaps"]

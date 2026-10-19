@@ -138,8 +138,6 @@ namespace Scenario
 
 variable (s : Scenario)
 
-def claimsOf : List Claim := s.trace.claims
-
 /-- A fact verification work could still raise (not violated, below its route's ceiling). -/
 def closable (f : Fact) : Bool :=
   let e := s.eff f.id
@@ -160,8 +158,6 @@ structure Work where
   unlocks : List String
   gates : List String
   deriving Repr, BEq
-
-def workKey (w : Work) : Nat × Nat × String := (w.unlocks.length, w.gates.length, w.fact)
 
 /-- `a` before `b`: more unlocks, then more gates, then smaller id. -/
 def workBefore (a b : Work) : Bool :=
@@ -190,9 +186,10 @@ namespace Scenario
 
 variable (s : Scenario)
 
-/-- One closure step: each member's `requires` + the creator of its subject when prospective. -/
+/-- One closure step: each member's `requires` + the creator of its subject when prospective,
+duplicates dropped (a creator re-adds itself every step: without the drop the list doubles). -/
 def closureStep (ids : List String) : List String :=
-  ids ++ ids.flatMap fun id =>
+  List.eraseDups <| ids ++ ids.flatMap fun id =>
     match s.trace.experiment? id with
     | some e => e.requires ++
         (match s.trace.subject? e.subject with
