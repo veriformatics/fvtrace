@@ -3,7 +3,7 @@ paths:
   - "Fvtrace/**"
   - "Tests/**"
   - "*.lean"
-  - "lakefile.toml"
+  - "lakefile.lean"
   - "lean-toolchain"
 ---
 
@@ -15,3 +15,6 @@ paths:
 - `import Lean` (any `Lean.*`, incl. `Lean.Data.Json`) links all of `Lean` (118 MB); shipped modules import `Init` + `Std` alone. `TrustMain.lean` (dev-only `fvtrace-trust`) is the one exception.
 - Tests: `Tests/<Area>.lean` exposes `tests : TestM Unit`, wired into `Tests.all`; `Tests.capture` runs CLI code with stdout/stderr captured in-process. `lake test` builds + runs `fvtrace-tests` (rc 0 iff every check passed).
 - Lake target names with `-` are written `«fvtrace-tests»` wherever Lake parses a name (`testDriver`, `lake build`).
+- `include_str` reads are invisible to Lake: every embedded file is an `[[input_file]]` named in its library's `needs` (`lakefile.lean`), else an edit leaves the binary carrying the stale copy; `Tests/Assets.lean` holds each embed byte-equal to its file.
+- Lean 4.35 `String` API: `trimAscii` (returns a `Slice`), `String.ofList` (not `String.mk`), `drop`/`take` return slices; `at`, `by`, `open`, `unless` are keywords (fields `date`, `reviewer`; constructor `«open»`).
+- Mutation credit (Lean ships no mutation tool) = `node tools/mutate.mjs <file.lean> [--lines A-B]`: default operators (comparison, boolean, `+`/`-`, `!`, integer literal +1) one site at a time, `.olean` build + interpreted suite (`lake env lean --run TestMain.lean`) per mutant, survivors listed. It rewrites the file in place ⇒ run it in a scratch copy of the tree (`rsync` to `.scratch/<dir>`, own `.lake`), from a shell whose every command names that copy by absolute path; edits to the primary tree go by absolute path too. A proved theorem pins behavior for every input: proved code needs no mutation credit, tested code does.

@@ -93,9 +93,9 @@ probe_lean_style() {
 }
 
 probe_meta() {
-    keep lakefile.toml
-    sed -i 's/^version = ".*"$/version = "9.9.9"/' lakefile.toml
-    expect meta-version 'meta: .* != lakefile.toml version "9.9.9"' meta
+    keep lakefile.lean
+    sed -i 's/^  version := v!".*"$/  version := v!"9.9.9"/' lakefile.lean
+    expect meta-version 'meta: .* != lakefile.lean version "9.9.9"' meta
 }
 
 probe_trust() {
@@ -156,8 +156,17 @@ probe_audit() {
     expect audit-registry-error 'no advisory report' audit_policy <<<'{"error":{"code":"ERR_PNPM_AUDIT_BAD_RESPONSE"}}'
 }
 
+probe_vendor() {
+    keep c/hacl/Hacl_Hash_SHA2.h
+    printf '// planted\n' >>c/hacl/Hacl_Hash_SHA2.h
+    expect vendor-edited-file 'Hacl_Hash_SHA2.h does not match its pinned sha256' vendor
+    keep c/hacl/planted.h
+    printf '// planted\n' >c/hacl/planted.h
+    expect vendor-unpinned-file 'unpinned file in c/hacl: planted.h' vendor
+}
+
 probes=("$@")
-[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit)
+[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"

@@ -42,15 +42,16 @@ lean_test() { lake test; }
 trust() { bash tools/trust.sh; }
 
 prettier_files() {
-    git ls-files -co --exclude-standard -- 'web/*' 'tests/e2e/*' ':(top,glob)*.json' \
-        ':(top,glob)*.mjs' ':(top,glob).*.json' '.github/*' | grep -v -e '^lake-manifest.json$'
+    git ls-files -co --exclude-standard -- 'web/*' 'tests/e2e/*' 'tests/schema/*' 'schema/*' \
+        'tools/*.mjs' ':(top,glob)*.json' ':(top,glob)*.mjs' ':(top,glob).*.json' '.github/*' |
+        grep -v -e '^lake-manifest.json$'
 }
 
 js_format() { prettier_files | xargs -r prettier --check; }
 
 js_lint() {
     local rc=0
-    oxlint --type-aware --deny-warnings web tests/e2e ./*.mjs || rc=1
+    oxlint --type-aware --deny-warnings web tests/e2e tests/schema tools ./*.mjs || rc=1
     stylelint 'web/**/*.css' || rc=1
     html-validate web || rc=1
     return $rc
@@ -61,6 +62,18 @@ js_types() {
     for p in . web tests/e2e; do tsc -p "$p" || rc=1; done
     return $rc
 }
+
+# The FFI shim under clang's static analyzer, findings as errors (HACL* itself is verified upstream
+# and compiled verbatim; `vendor` holds it byte-equal to the pinned release).
+c_analyze() {
+    clang --analyze -Xclang -analyzer-werror -I"$(lean --print-prefix)/include" -Ic/hacl \
+        -Ic/hacl/include -DKRML_VERIFIED_UINT128 c/fvtrace_digest.c -o /dev/null
+}
+
+vendor() { bash tools/vendor-hacl.sh --verify; }
+
+# The JSON Schema agrees with the decoder on tests/schema/cases/ (Tests/Schema.lean = other half).
+js_test() { node --test tests/schema/; }
 
 e2e() { playwright test; }
 
@@ -130,9 +143,9 @@ shell() {
 meta() {
     local lean lake
     lean="$(sed -n 's/^def version : String := "\(.*\)"$/\1/p' Fvtrace/Version.lean)"
-    lake="$(sed -n 's/^version = "\(.*\)"$/\1/p' lakefile.toml)"
+    lake="$(sed -n 's/^  version := v!"\(.*\)"$/\1/p' lakefile.lean)"
     if [[ -z "$lean" || "$lean" != "$lake" ]]; then
-        printf 'meta: Fvtrace/Version.lean version "%s" != lakefile.toml version "%s"\n' "$lean" "$lake" >&2
+        printf 'meta: Fvtrace/Version.lean version "%s" != lakefile.lean version "%s"\n' "$lean" "$lake" >&2
         return 1
     fi
 }
@@ -145,9 +158,12 @@ main() {
     stage lean-build lean_build
     stage lean-test lean_test
     stage trust trust
+    stage c-analyze c_analyze
+    stage vendor vendor
     stage js-format js_format
     stage js-lint js_lint
     stage js-types js_types
+    stage js-test js_test
     stage e2e e2e
     stage audit audit
     stage secrets secrets

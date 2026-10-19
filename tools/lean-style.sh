@@ -9,7 +9,7 @@ cd -- "$root" || exit 1
 mapfile -t files < <(git ls-files -co --exclude-standard -- '*.lean')
 rc=0
 for f in "${files[@]}"; do
-    awk -v f="$f" '
+    LC_ALL=C.UTF-8 awk -v f="$f" '
         /\t/ { printf "%s:%d: tab\n", f, FNR; bad = 1 }
         /[ \t]$/ { printf "%s:%d: trailing whitespace\n", f, FNR; bad = 1 }
         length($0) > 100 { printf "%s:%d: line longer than 100 characters\n", f, FNR; bad = 1 }

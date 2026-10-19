@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fvtrace.dev/schema/trace/1",
+  "title": "fvTrace trace",
+  "description": "Structure of an fvTrace trace (format 1). `fvtrace check` also enforces the cross-reference, route, receipt and consistency rules a schema cannot express.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fvtrace", "analysis", "subjects", "questions", "facts", "claims"],
+  "properties": {
+    "fvtrace": {
+      "const": 1,
+      "description": "Trace format version."
+    },
+    "analysis": {
+      "$ref": "#/$defs/analysis"
+    },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/subject"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/question"
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fact"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "experiments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/experiment"
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/exclusion"
+      }
+    },
+    "waivers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/waiver"
+      }
+    },
+    "review": {
+      "$ref": "#/$defs/review"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+    },
+    "text": {
+      "type": "string",
+      "pattern": "^(?=[\\s\\S]*[^ \\n])[^\\u0000-\\u0009\\u000b-\\u001f]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": ["proved", "checked", "assumed", "tested", "open", "violated"]
+    },
+    "route": {
+      "enum": ["lean", "runtime-checker", "refinement", "human-ruling", "empirical"]
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "summary"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "summary": {
+          "$ref": "#/$defs/text"
+        },
+        "source": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "subject": {
+      "description": "Data a claim is about: the existing analysis, or a dataset an experiment would create.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "kind"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "kind": {
+          "enum": ["existing", "prospective"]
+        },
+        "createdBy": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "text"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/text"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "role": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/text"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "verifier": {
+          "$ref": "#/$defs/text"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        },
+        "statementDigest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "fact": {
+      "description": "One statement a claim needs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "subject", "kind", "text", "status", "route"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "subject": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "entailment",
+            "result",
+            "estimand",
+            "statistical",
+            "numerical",
+            "implementation",
+            "dataflow",
+            "provenance",
+            "interpretation",
+            "release",
+            "spec-review",
+            "instantiation"
+          ]
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "route": {
+          "$ref": "#/$defs/route"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        },
+        "trusts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "instantiates": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "subject", "level", "text", "needs", "entailment"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "question": {
+          "$ref": "#/$defs/id"
+        },
+        "subject": {
+          "$ref": "#/$defs/id"
+        },
+        "level": {
+          "enum": ["estimand", "descriptive", "inferential", "causal", "release"]
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        },
+        "needs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "entailment": {
+          "$ref": "#/$defs/id"
+        },
+        "latent": {
+          "type": "boolean"
+        },
+        "variantOf": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject",
+        "kind",
+        "effort",
+        "title",
+        "method",
+        "resources",
+        "success",
+        "caveat"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "subject": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": ["dry", "wet"]
+        },
+        "effort": {
+          "enum": ["hours", "days", "weeks", "months"]
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "method": {
+          "$ref": "#/$defs/text"
+        },
+        "resources": {
+          "$ref": "#/$defs/text"
+        },
+        "success": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/status"
+          }
+        },
+        "failure": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/status"
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "caveat": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "exclusion": {
+      "description": "Two facts that cannot both hold on one subject.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "subject", "between", "text", "status", "route"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "subject": {
+          "$ref": "#/$defs/id"
+        },
+        "between": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "route": {
+          "$ref": "#/$defs/route"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "waiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "claim", "reason"],
+      "properties": {
+        "rule": {
+          "$ref": "#/$defs/id"
+        },
+        "claim": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "date", "digest"],
+      "properties": {
+        "reviewer": {
+          "$ref": "#/$defs/text"
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "note": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    }
+  }
+}

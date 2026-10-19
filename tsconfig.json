@@ -12,5 +12,5 @@
     "lib": ["es2024", "dom"],
     "types": ["node"]
   },
-  "include": ["*.mjs", "tools/**/*.mjs"]
+  "include": ["*.mjs", "tools/**/*.mjs", "tests/schema/**/*.mjs"]
 }
