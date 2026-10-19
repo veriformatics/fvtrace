@@ -211,4 +211,115 @@ theorem reviewStateExact : Spec.ReviewStateExact := by
   | none => simp
   | some r => by_cases hd : r.digest = d <;> simp [hd]
 
+section Isolation
+
+variable {t : Trace} {current : String → Bool} {o₁ o₂ : Overrides} {T : String}
+
+/-- Scenarios that agree on the overrides of every fact on subject `T`. -/
+abbrev s₁ (t : Trace) (current : String → Bool) (o₁ : Overrides) : Scenario :=
+  { trace := t, current, overrides := o₁ }
+
+theorem factSubject?_of_mem {id : String} (hr : id ∈ t.factIds) :
+    ∃ sub, t.factSubject? id = some sub := by
+  unfold Trace.factIds at hr
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hr
+  unfold Trace.factSubject? Trace.fact?
+  cases h : t.facts.find? (·.id == f.id) with
+  | none => simp [List.find?_eq_none] at h; exact absurd rfl (h f hf)
+  | some g => exact ⟨g.subject, by simp⟩
+
+theorem eff1_agree (hagree : ∀ k, t.factSubject? k = some T → o₁.lookup k = o₂.lookup k)
+    {k : String} (hk : t.factSubject? k = some T) :
+    (s₁ t current o₁).eff1 k = (s₁ t current o₂).eff1 k := by
+  unfold Scenario.eff1
+  rw [hagree k hk]
+  rfl
+
+/-- `filterMap` with functions agreeing on the list's members. -/
+theorem filterMap_congr' {α β : Type} {f g : α → Option β} :
+    ∀ {l : List α}, (∀ x ∈ l, f x = g x) → l.filterMap f = l.filterMap g
+  | [], _ => rfl
+  | x :: xs, h => by
+    simp only [List.filterMap_cons, h x (by simp),
+      filterMap_congr' (l := xs) (fun y hy => h y (by simp [hy]))]
+
+/-- An exclusion endpoint on `T` puts the exclusion + its other endpoint on `T`. -/
+theorem other_on (hwf : WellFormed t) {x : Exclusion} (hx : x ∈ t.exclusions)
+    {k : String} (hk : t.factSubject? k = some T) (hend : x.between.1 = k ∨ x.between.2 = k) :
+    t.factSubject? x.between.1 = some T ∧ t.factSubject? x.between.2 = some T := by
+  have ⟨ha, hb⟩ := hwf.2.2.1.2.2.1 x hx
+  have ⟨_, ra, rb⟩ := hwf.2.1.2.2.2.1 x hx
+  have hT : T = x.subject := by
+    rcases hend with rfl | rfl
+    · exact ha T hk
+    · exact hb T hk
+  obtain ⟨sa, hsa⟩ := factSubject?_of_mem ra
+  obtain ⟨sb, hsb⟩ := factSubject?_of_mem rb
+  exact ⟨by rw [hsa, ha sa hsa, hT], by rw [hsb, hb sb hsb, hT]⟩
+
+theorem derivations_agree (hwf : WellFormed t)
+    (hagree : ∀ k, t.factSubject? k = some T → o₁.lookup k = o₂.lookup k)
+    {k : String} (hk : t.factSubject? k = some T) :
+    (s₁ t current o₁).derivations k = (s₁ t current o₂).derivations k := by
+  unfold Scenario.derivations
+  apply filterMap_congr'
+  intro x hx
+  simp only [Scenario.exclusionEff, eff1_agree hagree hk]
+  by_cases h1 : x.between.1 = k
+  · have ⟨_, hb⟩ := other_on hwf hx hk (Or.inl h1)
+    simp [h1, Scenario.eff0, eff1_agree hagree hb, eff1_agree hagree hk]
+  · by_cases h2 : x.between.2 = k
+    · have ⟨ha, _⟩ := other_on hwf hx hk (Or.inr h2)
+      simp [h1, h2, Scenario.eff0, eff1_agree hagree ha, eff1_agree hagree hk]
+    · simp [h1, h2]
+
+theorem eff_agree (hwf : WellFormed t)
+    (hagree : ∀ k, t.factSubject? k = some T → o₁.lookup k = o₂.lookup k)
+    {k : String} (hk : t.factSubject? k = some T) :
+    (s₁ t current o₁).eff k = (s₁ t current o₂).eff k := by
+  unfold Scenario.eff
+  rw [derivations_agree hwf hagree hk, eff1_agree hagree hk]
+
+theorem valid_agree (hwf : WellFormed t)
+    (hagree : ∀ k, t.factSubject? k = some T → o₁.lookup k = o₂.lookup k) :
+    (s₁ t current o₁).valid T = (s₁ t current o₂).valid T := by
+  unfold Scenario.valid Scenario.conflicts
+  congr 2
+  apply List.filter_congr
+  intro x hx
+  by_cases hs : x.subject = T
+  · have ⟨ha, hb⟩ := hwf.2.2.1.2.2.1 x hx
+    have ⟨_, ra, rb⟩ := hwf.2.1.2.2.2.1 x hx
+    obtain ⟨sa, hsa⟩ := factSubject?_of_mem ra
+    obtain ⟨sb, hsb⟩ := factSubject?_of_mem rb
+    have hsa' : t.factSubject? x.between.1 = some T := by rw [hsa, ha sa hsa, hs]
+    have hsb' : t.factSubject? x.between.2 = some T := by rw [hsb, hb sb hsb, hs]
+    have hact : (s₁ t current o₁).active x = (s₁ t current o₂).active x := by
+      unfold Scenario.active Scenario.exclusionEff
+      rw [eff1_agree hagree hsa', eff1_agree hagree hsb']
+      rfl
+    rw [hact]
+  · have hne : (x.subject == T) = false := by simp [hs]
+    simp [hne]
+
+end Isolation
+
+theorem subjectIsolation : Spec.SubjectIsolation := by
+  intro t current o₁ o₂ c hwf hc hagree
+  have hneeds : ∀ n ∈ c.needsAll, t.factSubject? n = some c.subject := by
+    intro n hn
+    have ⟨_, _, hneedsR, hentR, _⟩ := hwf.2.1.1 c hc
+    have hres : n ∈ t.factIds := by
+      simp only [Claim.needsAll, List.mem_append, List.mem_singleton] at hn
+      rcases hn with hn | rfl
+      · exact hneedsR n hn
+      · exact hentR
+    obtain ⟨sub, hsub⟩ := factSubject?_of_mem hres
+    rw [hsub, hwf.2.2.1.1 c hc n hn sub hsub]
+  have heff : c.needsAll.map (s₁ t current o₁).eff = c.needsAll.map (s₁ t current o₂).eff :=
+    List.map_congr_left fun n hn => eff_agree hwf hagree (hneeds n hn)
+  unfold Scenario.final Scenario.intrinsic
+  rw [valid_agree hwf hagree, heff]
+  rfl
+
 end Fvtrace.Proofs.Engine

@@ -62,6 +62,15 @@ def ReviewStateExact : Prop :=
   ∀ (t : Trace) (digest : String),
     Receipt.reviewStateOf t digest = .reviewed ↔ ∃ r, t.review = some r ∧ r.digest = digest
 
+/-- G7: two what-ifs that agree on every fact of subject `T` give every claim on `T` the same
+state, in a well-formed trace (what happens to other subjects cannot reach it). -/
+def SubjectIsolation : Prop :=
+  ∀ (t : Trace) (current : String → Bool) (o₁ o₂ : Overrides) (c : Claim),
+    WellFormed t → c ∈ t.claims →
+    (∀ k, t.factSubject? k = some c.subject → o₁.lookup k = o₂.lookup k) →
+    ({ trace := t, current, overrides := o₁ } : Scenario).final c =
+      ({ trace := t, current, overrides := o₂ } : Scenario).final c
+
 /-- G6: the verdict "Can claim" is emitted exactly for final state `can`. -/
 def CanVerdictExact : Prop := ∀ st : State, st.verdict = "Can claim" ↔ st = .can
 
