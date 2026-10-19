@@ -40,14 +40,14 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 649f492 U2 Kernel contract: `.agent/contracts/kernel.md` + `Fvtrace/Spec` statements (consultant before code)
 - [ ] U3 JSON codec + trace decoder (all errors, paths) + JSON Schema (code 2467416; mutation credit pending)
 - [ ] U4 Trace checker (proved) + lints/waivers + evidence binding (HACL* SHA-256, digest cache, `pin`) + review digest (code 2467416; mutation credit pending)
-- [ ] RESUME: U5 proofs complete (20 claims incl. G4a/G4b/G9/WorkExact, trust 0 findings @ 2545acf); survivor tests 7ac0bbd (287 checks). Mutation re-runs queued on heavy (.scratch/roster.md: mut-c Render/Args/Check/Receipt, mut-d Json/Evaluate/Engine → .scratch/mut2-*.log) → kill evidence + equivalence rows (Json fuel +2→+3, insertBy `<`→`≤`, Render hex2 `%16`→`%17`; Decode R1–R2) → tick U3/U4/U5. Full trust.sh replay pending (heavy). Now: U6 CLI (draft .scratch/u6-cli-draft.md); Cli campaign after U6
+- [ ] RESUME: U6–U9 landed (8d304c7, d9370d9, 87c479a, 1a63833, 5353708); U10 + U11 public parts landed (5353708). Open: operator-1 re-check of U8 fail rows on 5353708 (.scratch/qa/operator-1/visual-qa.md, marker operator-1-DONE-2); mutation re-runs (.scratch/roster.md: mut-e Render/Args/Check/Json/Evaluate/Engine on heavy; Store + Cli to rerun on the final CLI) → kill evidence + equivalence rows (Json fuel +2→+3, insertBy `<`→`≤`; Decode R1–R2) → tick U3/U4/U5; U10 live skill trial on studies/naoto; U11 private tau × amyloid migration (data folder); full trust.sh replay (heavy)
 - [ ] U5 Engine + proofs: states, entailment, subjects, exclusions, what-if, ranking + blockers, experiments, plans
-- [ ] U6 CLI + data dir + text rendering (phrasing proof)
-- [ ] U7 Server: `Std.Http`, token + Host allowlist + CSP/Trusted Types, API, evidence preview
-- [ ] U8 GUI: claim circuits on the engine's output, e2e + axe + reduced motion + palette, visual QA
-- [ ] U9 Export: HTML + bundle
-- [ ] U10 Agent skill + installer; live trial on veriformatics `studies/naoto`
-- [ ] U11 Examples: self-trace + synthetic study; private tau × amyloid migration + local check
+- [x] 8d304c7 U6 CLI + data dir + text rendering (+ d9370d9 interpreted-suite guard)
+- [x] 87c479a U7 Server: `Std.Http`, token + Host allowlist + CSP/Trusted Types, evaluation API (no file-serving route)
+- [x] 1a63833 U8 GUI: claim circuits on the engine's output, e2e + axe + reduced motion + palette, visual QA (fixes 5353708; re-check pending)
+- [x] 5353708 U9 Export: HTML + bundle
+- [ ] U10 Agent skill + installer (5353708); live trial on veriformatics `studies/naoto`
+- [ ] U11 Examples: self-trace + synthetic study (5353708); private tau × amyloid migration + local check
 - [ ] U12 README + docs; prototype retired (tag `prototype-gui`)
 - [ ] U13 Closing review (per lens + security) → `.agent/review.md`; fixes
 - [ ] U14 Close: Artifacts, Decisions, Tasks, Phase → MAINTAIN
