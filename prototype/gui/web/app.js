@@ -410,8 +410,7 @@ readHash();
 wire();
 void load();
 
-// PROTOTYPE (ITERATE round 1): "How this works" variants — `?how=steps` = numbered steps, else the
-// switch key drawn with the circuits' own switches.
+// "How this works": the switch key, drawn with the circuits' own switches.
 fill(
   byId("how-key"),
   ["proved", "assumed", "open", "violated"].map((st) =>
@@ -434,7 +433,3 @@ fill(
     ),
   ),
 );
-if (new URLSearchParams(location.search).get("how") === "steps") {
-  byId("how-key").hidden = true;
-  byId("how-steps").hidden = false;
-}
