@@ -3,7 +3,7 @@
   "analysis": {
     "id": "synthetic",
     "title": "Synthetic study",
-    "summary": "A small made-up study that shows every part of a trace."
+    "summary": "A small made-up study that shows every feature of fvTrace."
   },
   "subjects": [
     {

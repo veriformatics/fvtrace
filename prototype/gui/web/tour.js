@@ -73,9 +73,9 @@ const steps = [
     title: "Review",
     body: () => [
       p(
-        "A person should check that the trace says what the study actually did. Until someone records a review with fvtrace review, every verdict is provisional.",
+        "A person should check that the claims and facts here match what the study actually did. Until someone records a review (with the command fvtrace review), every verdict is provisional.",
       ),
-      p("If the trace changes after a review, this line says so."),
+      p("One review covers the whole page. If anything here changes after it, this line says so."),
     ],
   },
   {
@@ -125,7 +125,7 @@ const steps = [
       p(
         "Press a switch to suppose its fact were verified. Every verdict on the page is then recomputed under that supposition.",
       ),
-      p("Nothing is written to the trace. Press the switch again to undo."),
+      p("Nothing is recorded. Press the switch again to undo."),
     ],
   },
   {
@@ -133,7 +133,7 @@ const steps = [
     title: "Real or supposed",
     body: () => [
       p(
-        "This bar says whether the verdicts use the statuses recorded in the trace, or a what-if. During a what-if it turns amber and lists what is supposed.",
+        "This bar says whether the verdicts use the statuses on record, or a what-if. During a what-if it turns amber and lists what is supposed.",
       ),
       p("Restore removes every supposition at once."),
     ],
@@ -188,10 +188,10 @@ const steps = [
   },
   {
     target: ["#checks"],
-    title: "What the trace may miss",
+    title: "What may be missing",
     body: () => [
       p(
-        "Kinds of facts that a claim of this level usually needs but this trace does not list. A waiver records why one is absent.",
+        "Kinds of facts that a claim of this level usually needs but this analysis does not list. A waiver records why one is absent.",
       ),
     ],
   },

@@ -258,12 +258,12 @@ function renderScenario(/** @type {Envelope} */ e) {
       ? `Reviewed by ${who} on ${when}.`
       : e.review.state === "stale"
         ? [
-            h("strong", {}, "Changed since its review."),
-            ` ${who} reviewed it on ${when}. Check the changes before you rely on its verdicts.`,
+            h("strong", {}, "Changed since the last review."),
+            ` ${who} reviewed the claims and facts on ${when}. Check the changes before you rely on the verdicts.`,
           ]
         : [
             h("strong", {}, "Not reviewed yet."),
-            " A person should check this trace before you rely on its verdicts.",
+            " A person should check these claims and facts before you rely on the verdicts.",
           ],
   );
 }
