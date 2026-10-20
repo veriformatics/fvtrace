@@ -133,9 +133,9 @@ const steps = [
     title: "Real or supposed",
     body: () => [
       p(
-        "This bar says whether the verdicts use the statuses on record, or a what-if. During a what-if it turns amber and lists what is supposed.",
+        "This bar says whether the verdicts use the facts as recorded, or a what-if. During a what-if it turns amber and lists what is supposed.",
       ),
-      p("Restore removes every supposition at once."),
+      p("Show the facts as recorded removes every supposition at once."),
     ],
   },
   {

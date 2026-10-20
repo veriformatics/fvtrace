@@ -9,7 +9,7 @@ import { byId, byIdAs, fill, h } from "./dom.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
 import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
 import { startTour } from "./tour.js";
-import { count, statuses, verdicts, word } from "./words.js";
+import { count, statuses, supposedAs, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -99,8 +99,8 @@ function loadExported(/** @type {NonNullable<typeof exported>} */ ex) {
     if (raw === undefined || view.spec) {
       showError(
         view.spec
-          ? "This page holds one-click what-ifs only, so it shows the recorded evidence."
-          : `This page holds no what-if "${view.action}", so it shows the recorded evidence.`,
+          ? "This page holds one-click what-ifs only, so it shows the facts as recorded."
+          : `This page holds no what-if "${view.action}", so it shows the facts as recorded.`,
       );
       view.action = undefined;
       view.spec = "";
@@ -136,7 +136,7 @@ async function load() {
         view.spec = "";
         writeHash();
         await load();
-        showError(`${problem.message}. This page shows the recorded evidence instead.`);
+        showError(`${problem.message}. This page shows the facts as recorded instead.`);
       } else showError(problem.message);
       return;
     }
@@ -242,13 +242,17 @@ function renderScenario(/** @type {Envelope} */ e) {
     byId("scenario-text"),
     e.mode === "what-if"
       ? [
-          h("strong", {}, "What-if: "),
-          e.overrides.map((o) => `${o.fact} ${o.status}`).join(", "),
-          ". Supposed, not recorded: no new evidence.",
+          h("strong", { class: "what-if-lead" }, "Showing a what-if: "),
+          "suppose ",
+          e.overrides.map((o) => `${o.fact} ${word(supposedAs, o.status)}`).join(", "),
+          ". Nothing has been recorded.",
         ]
-      : "Recorded evidence.",
+      : [
+          h("strong", {}, "Showing the facts as recorded."),
+          " Press a switch to see what would change if its fact were verified.",
+        ],
   );
-  byIdAs("reset", HTMLButtonElement).disabled = e.mode !== "what-if";
+  byId("reset").hidden = e.mode !== "what-if";
   // The review state, once for the page: it qualifies every verdict alike.
   const who = e.review.reviewer ?? "A reviewer";
   const when = e.review.date ?? "a recorded date";
