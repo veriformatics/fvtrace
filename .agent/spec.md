@@ -11,6 +11,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - `web/` = GUI (claim circuits, no-build ES modules, display-only); `skill/fvtrace/` = the Agent Skill; `schema/trace.schema.json` = trace format; `examples/fvtrace/` (self-trace) + `examples/synthetic/` = pinned examples.
 - `tools/gate.sh` = the one gate (local + CI); `tools/fast-gate.sh` = iteration; `tools/gate-probe.sh` = positive controls; `tools/mutate.mjs` = mutation credit (`--list` sizes a campaign); law = `.claude/rules/ops.md`.
 - `.agent/contracts/kernel.md` = kernel contract (ids cited by proofs + tests); `.agent/contracts/units.md` = unit → tier → evidence; `.agent/review.md` = closing-review ledger.
+- `prototype/gui/` = ITERATE prototype of the GUI: `web/` copy (`prototype/gui/web/`) served by a dev proxy to the real engine. Run: `lake build fvtrace && node prototype/gui/serve.mjs --trace examples/synthetic/trace.json --project examples/synthetic/project` → printed link (loopback, no token). Its edits port into `web/` under the gates in IMPLEMENT.
 - `README.md` = user documentation. Prototype retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-lint` (shelved manuscript check).
 
 ## Decisions
@@ -38,6 +39,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] Round 1: user's UI edits → `prototype/gui/web/`
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT history → `.agent/archive/`
 
 ## Phase
