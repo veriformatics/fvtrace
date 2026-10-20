@@ -107,10 +107,6 @@ code {
   font-weight: 750;
 }
 
-.top-sub {
-  color: var(--conductor);
-}
-
 main {
   max-width: 1560px;
   margin: auto;
