@@ -1,0 +1,222 @@
+{
+  "fvtrace": 1,
+  "analysis": {
+    "id": "synthetic",
+    "title": "Synthetic study",
+    "summary": "A small study exercising every trace feature."
+  },
+  "subjects": [
+    {
+      "id": "S",
+      "title": "Existing analysis",
+      "kind": "existing"
+    },
+    {
+      "id": "N",
+      "title": "New cohort",
+      "kind": "prospective",
+      "createdBy": "E3"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Effect",
+      "text": "Does the treatment change the marker?"
+    }
+  ],
+  "facts": [
+    {
+      "id": "O1",
+      "subject": "S",
+      "kind": "estimand",
+      "text": "The analysis compares the average marker level of treated samples with that of untreated control samples.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "A Lean proof that the comparison is computed as described.",
+        "artifacts": [
+          {
+            "path": "proofs/Contrast.lean",
+            "sha256": "5ece662d699d0c878f3106c3b27d99f889e5acf4811a4aa8521f435d7aff83cf"
+          }
+        ],
+        "verifier": "Lean 4.35.0",
+        "statement": "contrast_correct",
+        "statementDigest": "fd150295de03b65fb6836c3086ac5c467b7b73583250d49883955664e71724fa"
+      },
+      "trusts": [
+        "Lean kernel"
+      ]
+    },
+    {
+      "id": "O2",
+      "subject": "S",
+      "kind": "result",
+      "text": "The marker level is higher in treated samples.",
+      "status": "open",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "O3",
+      "subject": "S",
+      "kind": "statistical",
+      "text": "The assumptions of the statistical model hold for this data.",
+      "status": "assumed",
+      "route": "empirical"
+    },
+    {
+      "id": "O4",
+      "subject": "S",
+      "kind": "provenance",
+      "text": "Each animal was sampled once.",
+      "status": "open",
+      "route": "human-ruling"
+    },
+    {
+      "id": "O5",
+      "subject": "S",
+      "kind": "provenance",
+      "text": "Some animals were sampled twice.",
+      "status": "open",
+      "route": "human-ruling"
+    },
+    {
+      "id": "EN1",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "Comparing treated with control samples is enough to call the difference the effect of the treatment.",
+      "status": "assumed",
+      "route": "human-ruling"
+    },
+    {
+      "id": "EN2",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "The comparison, the higher marker level and the statistical model together show that the treatment raises the marker.",
+      "status": "open",
+      "route": "lean"
+    },
+    {
+      "id": "M1",
+      "subject": "N",
+      "kind": "result",
+      "text": "The marker level is higher in the treated samples of the new cohort.",
+      "status": "open",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "EN3",
+      "subject": "N",
+      "kind": "entailment",
+      "text": "A higher marker level in the treated samples of the new cohort is enough to say that the rise appears there too.",
+      "status": "open",
+      "route": "human-ruling"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "subject": "S",
+      "level": "estimand",
+      "text": "The difference between treated and control samples is the effect of the treatment.",
+      "needs": [
+        "O1"
+      ],
+      "entailment": "EN1"
+    },
+    {
+      "id": "C2",
+      "question": "Q1",
+      "subject": "S",
+      "level": "inferential",
+      "text": "Treatment raises the marker.",
+      "needs": [
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "entailment": "EN2"
+    },
+    {
+      "id": "C3",
+      "question": "Q1",
+      "subject": "N",
+      "level": "descriptive",
+      "text": "The rise also appears in a new cohort.",
+      "needs": [
+        "M1"
+      ],
+      "entailment": "EN3",
+      "variantOf": "C2"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "E1",
+      "subject": "S",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Check the result table",
+      "method": "A proved checker reads the result table.",
+      "resources": "Result table.",
+      "success": {
+        "O2": "checked"
+      },
+      "failure": {
+        "O2": "violated"
+      },
+      "caveat": "Inconclusive when the table is incomplete."
+    },
+    {
+      "id": "E2",
+      "subject": "S",
+      "kind": "dry",
+      "effort": "hours",
+      "title": "Ask the owner",
+      "method": "The data owner rules on sampling.",
+      "resources": "Owner time.",
+      "success": {
+        "O4": "assumed"
+      },
+      "requires": [
+        "E1"
+      ],
+      "caveat": "A ruling is a premise."
+    },
+    {
+      "id": "E3",
+      "subject": "N",
+      "kind": "wet",
+      "effort": "months",
+      "title": "Collect a new cohort",
+      "method": "Sample new animals, then run the proved marker checker on their data.",
+      "resources": "Animals.",
+      "success": {
+        "M1": "checked"
+      },
+      "caveat": "New data only."
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "X1",
+      "subject": "S",
+      "between": [
+        "O4",
+        "O5"
+      ],
+      "text": "An animal cannot be sampled once and twice.",
+      "status": "assumed",
+      "route": "human-ruling"
+    }
+  ],
+  "waivers": [
+    {
+      "rule": "L-result",
+      "claim": "C3",
+      "reason": "M1 is the observed result."
+    }
+  ]
+}
