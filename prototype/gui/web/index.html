@@ -16,6 +16,17 @@
         <div>
           <h1 id="analysis-title">Loading the analysis…</h1>
           <p id="analysis-summary" class="intro-text"></p>
+          <section id="scenario" class="scenario" aria-label="What-if">
+            <p id="review" class="review" role="note"></p>
+            <p id="scenario-text" role="status" aria-live="polite">Recorded evidence.</p>
+            <p id="export-note" class="note" hidden>
+              This page was exported: each what-if applies alone.
+            </p>
+            <button id="reset" class="reset" type="button" disabled>
+              Restore the recorded evidence
+            </button>
+          </section>
+          <section id="overview" class="overview" aria-label="Claims by verdict"></section>
         </div>
         <aside class="how" aria-labelledby="how-title">
           <h2 id="how-title">How this works</h2>
@@ -30,18 +41,7 @@
           </p>
         </aside>
       </section>
-      <p id="review" class="review" role="note"></p>
-      <section id="scenario" class="scenario" aria-label="What-if">
-        <p id="scenario-text" role="status" aria-live="polite">Recorded evidence.</p>
-        <p id="export-note" class="note" hidden>
-          This page was exported: each what-if applies alone.
-        </p>
-        <button id="reset" class="reset" type="button" disabled>
-          Restore the recorded evidence
-        </button>
-      </section>
       <div id="error" class="error-box" role="alert" hidden></div>
-      <section id="overview" class="overview" aria-label="Claims by verdict"></section>
       <nav id="questions" class="question-nav" aria-label="Scientific questions"></nav>
       <label class="mobile-question"
         >Scientific question<select id="question-select"></select

@@ -248,13 +248,20 @@ function renderScenario(/** @type {Envelope} */ e) {
       : "Recorded evidence.",
   );
   byIdAs("reset", HTMLButtonElement).disabled = e.mode !== "what-if";
-  const review = byId("review");
-  review.textContent =
+  // The tag names the review state; each verdict carries it too ("(draft)"), so the why is for
+  // screen readers + the tooltip.
+  const [tag, why] =
     e.review.state === "reviewed"
-      ? `Reviewed by ${e.review.reviewer ?? "a reviewer"} on ${e.review.date ?? "a recorded date"}.`
+      ? [
+          `Reviewed by ${e.review.reviewer ?? "a reviewer"}`,
+          ` on ${e.review.date ?? "a recorded date"}.`,
+        ]
       : e.review.state === "stale"
-        ? "The trace changed since its review: every verdict is provisional."
-        : "Draft: every verdict is provisional until a reviewer signs the trace off.";
+        ? ["Stale review", ": the trace changed since its review, so every verdict is provisional."]
+        : ["Draft", ": every verdict is provisional until a reviewer signs the trace off."];
+  const review = byId("review");
+  fill(review, [tag, h("span", { class: "visually-hidden" }, why)]);
+  review.title = tag + why;
   review.className = `review ${e.review.state}`;
 }
 
