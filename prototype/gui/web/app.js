@@ -4,11 +4,11 @@
 // precomputed envelope per one-click action, so a what-if applies alone. The address hash holds
 // the view, so a scenario can be shared or reloaded.
 
-import { circuit, lamp } from "./circuit.js";
+import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
 import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
-import { count, verdicts, word } from "./words.js";
+import { count, statuses, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -409,3 +409,32 @@ function wire() {
 readHash();
 wire();
 void load();
+
+// PROTOTYPE (ITERATE round 1): "How this works" variants — `?how=steps` = numbered steps, else the
+// switch key drawn with the circuits' own switches.
+fill(
+  byId("how-key"),
+  ["proved", "assumed", "open", "violated"].map((st) =>
+    h(
+      "li",
+      {},
+      h("span", { class: `switch ${st}`, "aria-hidden": "true" }, switchSvg(st)),
+      h("span", {}, st === "proved" ? "Verified" : word(statuses, st)),
+      h(
+        "small",
+        {},
+        st === "proved"
+          ? "Closed: proved, or accepted by a proved checker"
+          : st === "assumed"
+            ? "Closed on condition: the claim reads \u201cAssuming \u2026\u201d"
+            : st === "open"
+              ? "Not closed: a gap that keeps the lamp off"
+              : "Broken: the claim cannot be made as written",
+      ),
+    ),
+  ),
+);
+if (new URLSearchParams(location.search).get("how") === "steps") {
+  byId("how-key").hidden = true;
+  byId("how-steps").hidden = false;
+}

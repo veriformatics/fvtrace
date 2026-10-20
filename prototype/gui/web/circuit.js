@@ -26,7 +26,7 @@ export function lamp(state, size) {
 
 /** The switch drawing: closed (verified), dashed (assumed), open, or broken (violated). */
 /** @param {string} status */
-function switchSvg(status) {
+export function switchSvg(status) {
   const arm =
     status === "violated"
       ? s("path", { d: "M19 21L27 17M33 25L41 21M27 12L34 29M34 12L27 29" })

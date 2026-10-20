@@ -117,18 +117,81 @@ main {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 80px;
-  align-items: end;
+  align-items: start;
   margin-bottom: 24px;
 }
 
-.intro-text,
-.lede {
+.intro-text {
   max-width: 62ch;
   margin-top: 12px;
 }
 
-.lede {
-  border-left: 4px solid var(--conductor);
+.how {
+  max-width: 62ch;
+  padding: 18px 22px;
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--conductor);
+  background: var(--panel);
+}
+
+.how h2 {
+  font-size: 18px;
+}
+
+.how-lead,
+.how-try {
+  margin-top: 8px;
+}
+
+.how-try {
+  font-size: 14px;
+  color: var(--conductor);
+}
+
+.how-key {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how-key li {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  column-gap: 8px;
+  align-items: center;
+}
+
+.how-key .switch,
+.how-key .switch svg {
+  width: 48px;
+  height: 34px;
+  margin: 0;
+}
+
+.how-key .switch {
+  grid-row: span 2;
+}
+
+.how-key .switch svg {
+  transform: none;
+}
+
+.how-key small {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--conductor);
+}
+
+.how-key[hidden],
+.how-steps[hidden] {
+  display: none;
+}
+
+.how-steps {
+  margin: 12px 0 0;
   padding-left: 22px;
 }
 
@@ -941,8 +1004,12 @@ footer {
     display: block;
   }
 
-  .lede {
+  .how {
     margin-top: 20px;
+  }
+
+  .how-key {
+    grid-template-columns: 1fr;
   }
 
   h1 {
