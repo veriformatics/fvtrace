@@ -42,4 +42,5 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Phase
 
-MAINTAIN — whole product
+ITERATE — GUI
+> Route us to ITERATE in the next session, I'd like us to make some quick edits to the UI. When I say we are done, we can go into IMPLEMENT in the session following to make sure they are done robustly.
