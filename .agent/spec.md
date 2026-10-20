@@ -35,7 +35,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - Plans (user ruling): per claim, a coherent experiment set (one subject, prerequisite-closed, no conflict) reaching the highest state the suggestions allow, cheapest by ordinal effort among those (exact search; above 20 relevant experiments the result is `tooLarge`, no plan claimed); alternatives per fact + remaining premises listed; labelled coverage, never scientific priority.
 - Agent instructions (user ruling): portable Agent Skill embedded in the binary; `fvtrace skills install --agent claude|agents` writes the user-level skills dir by default; the host agent drafts the trace, `fvtrace check` validates, the user's review gates final verdicts; fvTrace never calls an LLM.
 - Examples (user ruling): public = fvTrace's own trace (claims about fvTrace backed by its Lean proofs) + a synthetic study; the tau × amyloid trace lives outside the repo as a private local check against the veriformatics `studies/naoto` folder, carrying scientist-2's fixes (O11 split, O20, C6, result facts).
-- GUI = claim circuits (ITERATE approval): verdict grouping per question, "Assuming …" text view, experiments + plans, what-if. Manuscript check shelved (user ruling, round 3; possible separate project): tag `prototype-lint` (`.agent/archive/manuscript-check.md`).
+- GUI = claim circuits (ITERATE approval): verdict grouping per question, "Assuming …" text view, experiments + plans, what-if; header = the `fvTrace` name alone (user ruling, GUI round 1: the "Claim circuits" subtitle removed). Manuscript check shelved (user ruling, round 3; possible separate project): tag `prototype-lint` (`.agent/archive/manuscript-check.md`).
 
 ## Tasks
 
