@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { h, s } from "./dom.js";
-import { kinds, statuses, symbols, word } from "./words.js";
+import { kinds, statuses, symbols, verdictText, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -99,7 +99,6 @@ export function circuit(c, env, on, selected) {
     const f = facts.get(id);
     return f ? [f] : [];
   });
-  const qualifiers = c.qualifiers.length ? ` (${c.qualifiers.join(", ")})` : "";
   return h(
     "article",
     {
@@ -126,7 +125,7 @@ export function circuit(c, env, on, selected) {
           `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`,
         ),
         h("span", { class: "sentence" }, c.text),
-        h("span", { class: `claim-state ${c.final}` }, `${c.verdict}${qualifiers}`),
+        h("span", { class: `claim-state ${c.final}` }, verdictText(c)),
       ),
     ),
     conditions(c, env, on),

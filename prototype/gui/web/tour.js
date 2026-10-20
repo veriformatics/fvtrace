@@ -69,6 +69,16 @@ const steps = [
     ],
   },
   {
+    target: ["#review"],
+    title: "Review",
+    body: () => [
+      p(
+        "A person should check that the trace says what the study actually did. Until someone records a review with fvtrace review, every verdict is provisional.",
+      ),
+      p("If the trace changes after a review, this line says so."),
+    ],
+  },
+  {
     target: ["#questions", ".mobile-question"],
     title: "Scientific questions",
     body: () => [
@@ -84,7 +94,6 @@ const steps = [
       p(
         "Each card is one claim, worded as it would appear in the paper. The round lamp and the words under the sentence give its verdict.",
       ),
-      p("“(draft)” means nobody has reviewed the trace yet, so every verdict is provisional."),
     ],
   },
   {
