@@ -8,6 +8,7 @@ import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
 import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
+import { startTour } from "./tour.js";
 import { count, statuses, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
@@ -440,3 +441,8 @@ fill(
     ),
   ),
 );
+
+for (const id of ["tour-start", "tour-start-how"]) {
+  const b = byId(id);
+  b.addEventListener("click", () => startTour(b));
+}

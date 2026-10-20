@@ -126,64 +126,6 @@ main {
   margin-top: 12px;
 }
 
-.how {
-  padding: 18px 22px;
-  border: 1px solid var(--rule);
-  border-top: 4px solid var(--conductor);
-  background: var(--panel);
-}
-
-.how h2 {
-  font-size: 18px;
-}
-
-.how-lead,
-.how-try {
-  margin-top: 8px;
-}
-
-.how-try {
-  font-size: 14px;
-  color: var(--conductor);
-}
-
-.how-key {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 18px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.how-key li {
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  column-gap: 8px;
-  align-items: center;
-}
-
-.how-key .switch,
-.how-key .switch svg {
-  width: 48px;
-  height: 34px;
-  margin: 0;
-}
-
-.how-key .switch {
-  grid-row: span 2;
-}
-
-.how-key .switch svg {
-  transform: none;
-}
-
-.how-key small {
-  font-size: 13px;
-  line-height: 1.35;
-  color: var(--conductor);
-}
-
 .review {
   flex-shrink: 0;
   padding: 2px 8px;
@@ -959,6 +901,167 @@ footer {
   height: 12px;
 }
 
+.tour-start {
+  align-self: center;
+  margin-left: auto;
+  padding: 6px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.how-tour {
+  margin-top: 14px;
+}
+
+.tour-spot {
+  position: fixed;
+  z-index: 10;
+  border: 3px solid var(--ink);
+  border-radius: 4px;
+  box-shadow: 0 0 0 200vmax rgb(35 53 74 / 40%);
+  pointer-events: none;
+  transition:
+    top 0.2s,
+    left 0.2s,
+    width 0.2s,
+    height 0.2s;
+}
+
+.tour-spot[hidden] {
+  display: none;
+}
+
+.tour-card {
+  position: fixed;
+  z-index: 11;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 18px 22px;
+  border: 1px solid var(--ink);
+  border-top: 4px solid var(--ink);
+  background: var(--panel);
+}
+
+.tour-card.centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 200vmax rgb(35 53 74 / 40%);
+}
+
+.tour-count {
+  font-size: 13px;
+  color: var(--conductor);
+}
+
+.tour-card h2 {
+  font-size: 20px;
+}
+
+.tour-body p,
+.tour-verdicts {
+  margin-top: 8px;
+}
+
+.tour-verdicts {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.tour-verdicts li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tour-buttons {
+  position: sticky;
+  bottom: -18px;
+  padding-bottom: 18px;
+  background: var(--panel);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.tour-buttons .action {
+  width: auto;
+  margin-top: 0;
+}
+
+.tour-close {
+  margin-right: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--conductor);
+  text-decoration: underline;
+}
+
+.how {
+  padding: 18px 22px;
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--conductor);
+  background: var(--panel);
+}
+
+.how h2 {
+  font-size: 18px;
+}
+
+.how-lead,
+.how-try {
+  margin-top: 8px;
+}
+
+.how-try {
+  font-size: 14px;
+  color: var(--conductor);
+}
+
+.how-key {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how-key li {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  column-gap: 8px;
+  align-items: center;
+}
+
+.how-key .switch,
+.how-key .switch svg {
+  width: 48px;
+  height: 34px;
+  margin: 0;
+}
+
+.how-key .switch {
+  grid-row: span 2;
+}
+
+.how-key .switch svg {
+  transform: none;
+}
+
+.how-key small {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--conductor);
+}
+
 @media (width <= 1100px) {
   main {
     padding: 28px 24px;
@@ -1007,6 +1110,13 @@ footer {
 
   .how-key {
     grid-template-columns: 1fr;
+  }
+
+  .tour-card:not(.centered) {
+    inset: auto 12px 12px;
+    width: auto;
+    max-height: 55vh;
+    padding-bottom: 0;
   }
 
   h1 {
