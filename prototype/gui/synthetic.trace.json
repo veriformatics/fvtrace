@@ -45,9 +45,7 @@
         "statement": "contrast_correct",
         "statementDigest": "fd150295de03b65fb6836c3086ac5c467b7b73583250d49883955664e71724fa"
       },
-      "trusts": [
-        "Lean kernel"
-      ]
+      "trusts": ["Lean kernel"]
     },
     {
       "id": "O2",
@@ -121,9 +119,7 @@
       "subject": "S",
       "level": "estimand",
       "text": "The difference between treated and control samples is the effect of the treatment.",
-      "needs": [
-        "O1"
-      ],
+      "needs": ["O1"],
       "entailment": "EN1"
     },
     {
@@ -132,11 +128,7 @@
       "subject": "S",
       "level": "inferential",
       "text": "Treatment raises the marker.",
-      "needs": [
-        "O1",
-        "O2",
-        "O3"
-      ],
+      "needs": ["O1", "O2", "O3"],
       "entailment": "EN2"
     },
     {
@@ -145,9 +137,7 @@
       "subject": "N",
       "level": "descriptive",
       "text": "The rise also appears in a new cohort.",
-      "needs": [
-        "M1"
-      ],
+      "needs": ["M1"],
       "entailment": "EN3",
       "variantOf": "C2"
     }
@@ -180,9 +170,7 @@
       "success": {
         "O4": "assumed"
       },
-      "requires": [
-        "E1"
-      ],
+      "requires": ["E1"],
       "caveat": "A ruling is a premise."
     },
     {
@@ -203,10 +191,7 @@
     {
       "id": "X1",
       "subject": "S",
-      "between": [
-        "O4",
-        "O5"
-      ],
+      "between": ["O4", "O5"],
       "text": "An animal cannot be sampled once and twice.",
       "status": "assumed",
       "route": "human-ruling"
