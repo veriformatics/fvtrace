@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>fvTrace</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <span class="brand">fvTrace</span>
+      <span class="top-sub">Claim circuits</span>
+    </header>
+    <main>
+      <section class="intro" aria-labelledby="analysis-title">
+        <div>
+          <h1 id="analysis-title">Loading the analysis…</h1>
+          <p id="analysis-summary" class="intro-text"></p>
+        </div>
+        <p class="lede">
+          A claim needs every fact in its circuit. A verified fact closes its switch; an assumption
+          closes it only on condition. Press a switch to suppose its fact at the best status that
+          its route allows.
+        </p>
+      </section>
+      <p id="review" class="review" role="note"></p>
+      <section id="scenario" class="scenario" aria-label="What-if">
+        <p id="scenario-text" role="status" aria-live="polite">Recorded evidence.</p>
+        <p id="export-note" class="note" hidden>
+          This page was exported: each what-if applies alone.
+        </p>
+        <button id="reset" class="reset" type="button" disabled>
+          Restore the recorded evidence
+        </button>
+      </section>
+      <div id="error" class="error-box" role="alert" hidden></div>
+      <section id="overview" class="overview" aria-label="Claims by verdict"></section>
+      <nav id="questions" class="question-nav" aria-label="Scientific questions"></nav>
+      <label class="mobile-question"
+        >Scientific question<select id="question-select"></select
+      ></label>
+      <div class="workspace">
+        <section class="board-area" aria-labelledby="question-title">
+          <div class="board-heading">
+            <h2 id="question-title">Loading the question…</h2>
+            <div class="filters" role="group" aria-label="Layout">
+              <button class="filter" type="button" data-layout="circuits">Circuits</button>
+              <button class="filter" type="button" data-layout="text">Text</button>
+            </div>
+          </div>
+          <div id="board" class="board"></div>
+        </section>
+        <aside id="inspector" class="inspector" tabindex="-1" aria-label="Details"></aside>
+      </div>
+      <section class="experiments" aria-labelledby="experiments-heading">
+        <div>
+          <h2 id="experiments-heading">Experiments that fill the gaps</h2>
+          <p>
+            Dry experiments use existing data, code or proofs. Wet experiments need new samples or
+            bench work. The engine ranks each by the claims its success makes available alone.
+          </p>
+          <div class="filters" role="group" aria-label="Experiment kind">
+            <button class="filter" type="button" data-filter="all">All</button>
+            <button class="filter" type="button" data-filter="dry">Dry</button>
+            <button class="filter" type="button" data-filter="wet">Wet</button>
+          </div>
+        </div>
+        <div id="experiment-list" class="card-grid"></div>
+      </section>
+      <section class="work" aria-labelledby="work-heading">
+        <div>
+          <h2 id="work-heading">Facts that make the most claims available</h2>
+          <p>
+            Each count is the claims that verifying this fact alone would make available. Some of
+            them would still rest on assumptions.
+          </p>
+        </div>
+        <div id="work-list" class="card-grid"></div>
+      </section>
+      <section id="blockers" class="work" aria-labelledby="blockers-heading" hidden>
+        <div>
+          <h2 id="blockers-heading">Violated facts</h2>
+          <p>Reword the claims that need them, or collect new data.</p>
+        </div>
+        <ul id="blocker-list" class="plain-list"></ul>
+      </section>
+      <section id="checks" class="work" aria-labelledby="checks-heading" hidden>
+        <div>
+          <h2 id="checks-heading">What the trace may miss</h2>
+          <p>Each claim level needs certain kinds of facts. A waiver records why one is absent.</p>
+        </div>
+        <ul id="check-list" class="plain-list"></ul>
+      </section>
+      <footer>
+        fvTrace checks what a claim needs. It does not establish that the scientific assumptions of
+        the study are true.
+      </footer>
+    </main>
+  </body>
+</html>
