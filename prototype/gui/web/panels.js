@@ -1,6 +1,6 @@
 // The inspector, the ranked lists and the text view: each shows envelope fields as they are.
 
-import { lamp } from "./circuit.js";
+import { conditions, lamp } from "./circuit.js";
 import { h, s } from "./dom.js";
 import { count, efforts, kinds, routes, statuses, verdicts, word } from "./words.js";
 
@@ -312,7 +312,7 @@ function inspectClaim(env, id, on) {
   ];
   return [
     h("span", { class: "reference" }, `Claim ${c.id} / ${c.level}`),
-    h("h2", {}, c.sentence),
+    h("h2", {}, c.text),
     h(
       "span",
       { class: `status-label ${c.final}` },
@@ -565,16 +565,14 @@ export function textView(env, groups, on) {
                   type: "button",
                   onclick: () => on.select("claim", c.id),
                 },
-                c.sentence,
+                c.text,
               ),
               h(
                 "small",
                 { class: "list-meta" },
                 c.qualifiers.length ? `${c.verdict} (${c.qualifiers.join(", ")})` : c.verdict,
               ),
-              c.gaps.length
-                ? h("small", { class: "list-meta" }, "Gaps: ", refs("fact", c.gaps, on))
-                : null,
+              conditions(c, env, on),
             ),
           ),
         ),

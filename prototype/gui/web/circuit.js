@@ -125,10 +125,11 @@ export function circuit(c, env, on, selected) {
           { class: "claim-meta" },
           `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`,
         ),
-        h("span", { class: "sentence" }, c.sentence),
+        h("span", { class: "sentence" }, c.text),
         h("span", { class: `claim-state ${c.final}` }, `${c.verdict}${qualifiers}`),
       ),
     ),
+    conditions(c, env, on),
     h(
       "ul",
       { class: "contacts", "aria-label": `Facts that ${c.id} needs` },
@@ -140,5 +141,56 @@ export function circuit(c, env, on, selected) {
         h("small", { class: "terminal-label" }, c.verdict),
       ),
     ),
+  );
+}
+
+/**
+ * What a claim waits on, from the engine's lists: violated facts, open facts, then assumptions,
+ * one fact per line with its switch drawing. The claim's own words stay the headline.
+ * @param {Claim} c @param {Envelope} env @param {Pick<Handlers, "select">} on
+ */
+export function conditions(c, env, on) {
+  const facts = new Map(env.facts.map((f) => [f.id, f]));
+  /** @type {[string, string[]][]} */
+  const parts = [
+    ["Cannot stand because", c.blockers],
+    ["Still open", c.gaps],
+    [c.final === "conditional" ? "Holds only if" : "Also assumes", c.premises],
+  ];
+  const shown = parts.filter(([, ids]) => ids.length);
+  if (!shown.length) return null;
+  return h(
+    "div",
+    { class: "conditions" },
+    shown.map(([label, ids]) => [
+      h("p", { class: "conditions-label" }, label),
+      h(
+        "ul",
+        { class: "conditions-list" },
+        ids.map((id) => {
+          const f = facts.get(id);
+          return h(
+            "li",
+            {},
+            h(
+              "span",
+              { class: `switch ${f?.effective ?? "open"}`, "aria-hidden": "true" },
+              switchSvg(f?.effective ?? "open"),
+            ),
+            h(
+              "button",
+              {
+                class: "ref",
+                type: "button",
+                "data-key": `cond:${c.id}:${id}`,
+                onclick: () => on.select("fact", id),
+              },
+              id,
+            ),
+            h("span", {}, f?.text ?? id),
+          );
+        }),
+      ),
+    ]),
   );
 }
