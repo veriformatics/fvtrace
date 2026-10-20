@@ -433,7 +433,7 @@ fill(
         st === "proved"
           ? "Closed: proved, or accepted by a proved checker"
           : st === "assumed"
-            ? "Closed on condition: the claim reads \u201cAssuming \u2026\u201d"
+            ? "Closed on condition: the claim holds only if this is true"
             : st === "open"
               ? "Not closed: a gap that keeps the lamp off"
               : "Broken: the claim cannot be made as written",

@@ -45,7 +45,7 @@ const steps = [
             "span",
             {},
             h("strong", {}, "On assumption: "),
-            "the rest are assumptions, so it can only be written as “Assuming …”.",
+            "the rest are assumptions, so it holds only if they are true.",
           ),
         ),
         h(
