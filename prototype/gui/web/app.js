@@ -249,21 +249,23 @@ function renderScenario(/** @type {Envelope} */ e) {
       : "Recorded evidence.",
   );
   byIdAs("reset", HTMLButtonElement).disabled = e.mode !== "what-if";
-  // The tag names the review state; each verdict carries it too ("(draft)"), so the why is for
-  // screen readers + the tooltip.
-  const [tag, why] =
+  // The review state, once for the page: it qualifies every verdict alike.
+  const who = e.review.reviewer ?? "A reviewer";
+  const when = e.review.date ?? "a recorded date";
+  fill(
+    byId("review"),
     e.review.state === "reviewed"
-      ? [
-          `Reviewed by ${e.review.reviewer ?? "a reviewer"}`,
-          ` on ${e.review.date ?? "a recorded date"}.`,
-        ]
+      ? `Reviewed by ${who} on ${when}.`
       : e.review.state === "stale"
-        ? ["Stale review", ": the trace changed since its review, so every verdict is provisional."]
-        : ["Draft", ": every verdict is provisional until a reviewer signs the trace off."];
-  const review = byId("review");
-  fill(review, [tag, h("span", { class: "visually-hidden" }, why)]);
-  review.title = tag + why;
-  review.className = `review ${e.review.state}`;
+        ? [
+            h("strong", {}, "Changed since its review."),
+            ` ${who} reviewed it on ${when}. Check the changes before you rely on its verdicts.`,
+          ]
+        : [
+            h("strong", {}, "Not reviewed yet."),
+            " A person should check this trace before you rely on its verdicts.",
+          ],
+  );
 }
 
 /** The focused re-rendered control, so a render can hand focus back to its successor. */

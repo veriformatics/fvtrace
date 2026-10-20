@@ -2,7 +2,7 @@
 
 import { conditions, lamp } from "./circuit.js";
 import { h, s } from "./dom.js";
-import { count, efforts, kinds, routes, statuses, verdicts, word } from "./words.js";
+import { count, efforts, kinds, routes, statuses, verdictText, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -313,11 +313,7 @@ function inspectClaim(env, id, on) {
   return [
     h("span", { class: "reference" }, `Claim ${c.id} / ${c.level}`),
     h("h2", {}, c.text),
-    h(
-      "span",
-      { class: `status-label ${c.final}` },
-      c.qualifiers.length ? `${c.verdict} (${c.qualifiers.join(", ")})` : c.verdict,
-    ),
+    h("span", { class: `status-label ${c.final}` }, verdictText(c)),
     h(
       "dl",
       { class: "breakdown" },
@@ -567,11 +563,7 @@ export function textView(env, groups, on) {
                 },
                 c.text,
               ),
-              h(
-                "small",
-                { class: "list-meta" },
-                c.qualifiers.length ? `${c.verdict} (${c.qualifiers.join(", ")})` : c.verdict,
-              ),
+              h("small", { class: "list-meta" }, verdictText(c)),
               conditions(c, env, on),
             ),
           ),

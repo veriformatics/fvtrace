@@ -127,16 +127,11 @@ main {
 }
 
 .review {
-  flex-shrink: 0;
-  padding: 2px 8px;
-  border: 1px solid currentcolor;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--verified);
+  margin-top: 12px;
+  font-size: 15px;
 }
 
-.review.draft,
-.review.stale {
+.review strong {
   color: var(--assumption);
 }
 

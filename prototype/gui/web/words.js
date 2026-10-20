@@ -61,3 +61,12 @@ export function word(table, code) {
 export function count(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+/**
+ * A verdict + its qualifiers, minus the review state (shown once per page, not per verdict).
+ * @param {{ verdict: string, qualifiers: string[] }} c
+ */
+export function verdictText(c) {
+  const q = c.qualifiers.filter((x) => x !== "draft" && x !== "stale review");
+  return q.length ? `${c.verdict} (${q.join(", ")})` : c.verdict;
+}
