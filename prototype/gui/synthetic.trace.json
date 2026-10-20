@@ -3,7 +3,7 @@
   "analysis": {
     "id": "synthetic",
     "title": "Synthetic study",
-    "summary": "A small study exercising every trace feature."
+    "summary": "A small made-up study that shows every part of a trace."
   },
   "subjects": [
     {
@@ -83,15 +83,28 @@
       "id": "EN1",
       "subject": "S",
       "kind": "entailment",
-      "text": "Comparing treated with control samples is enough to call the difference the effect of the treatment.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "When samples are randomly assigned and do not affect each other, the difference between the group averages measures the average effect of the treatment, up to chance.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "A Lean proof of the randomization result.",
+        "artifacts": [
+          {
+            "path": "proofs/Randomization.lean",
+            "sha256": "6e3c7e096e97d53a5445e4ad2c9bced88ad7c70fdd9b54702bf62b9a767f3e5e"
+          }
+        ],
+        "verifier": "Lean 4.35.0",
+        "statement": "randomization_effect",
+        "statementDigest": "2085acc32a53dc13ddc3f90bf1c09a57e22cb18d0efa335cd03b48f8b1fcc621"
+      },
+      "trusts": ["Lean kernel"]
     },
     {
       "id": "EN2",
       "subject": "S",
       "kind": "entailment",
-      "text": "The comparison, the higher marker level and the statistical model together show that the treatment raises the marker.",
+      "text": "The comparison, random assignment, independent samples, the higher marker level and the statistical model together show that the treatment raises the marker.",
       "status": "open",
       "route": "lean"
     },
@@ -110,6 +123,22 @@
       "text": "A higher marker level in the treated samples of the new cohort is enough to say that the rise appears there too.",
       "status": "open",
       "route": "human-ruling"
+    },
+    {
+      "id": "R1",
+      "subject": "S",
+      "kind": "provenance",
+      "text": "Samples were randomly assigned to treatment or control.",
+      "status": "assumed",
+      "route": "runtime-checker"
+    },
+    {
+      "id": "R2",
+      "subject": "S",
+      "kind": "interpretation",
+      "text": "Treating one sample does not affect another sample.",
+      "status": "assumed",
+      "route": "human-ruling"
     }
   ],
   "claims": [
@@ -118,8 +147,8 @@
       "question": "Q1",
       "subject": "S",
       "level": "estimand",
-      "text": "The difference between treated and control samples is the effect of the treatment.",
-      "needs": ["O1"],
+      "text": "The difference between treated and control samples measures the average effect of the treatment.",
+      "needs": ["O1", "R1", "R2"],
       "entailment": "EN1"
     },
     {
@@ -128,7 +157,7 @@
       "subject": "S",
       "level": "inferential",
       "text": "Treatment raises the marker.",
-      "needs": ["O1", "O2", "O3"],
+      "needs": ["O1", "R1", "R2", "O2", "O3"],
       "entailment": "EN2"
     },
     {
@@ -185,6 +214,22 @@
         "M1": "checked"
       },
       "caveat": "New data only."
+    },
+    {
+      "id": "E4",
+      "subject": "S",
+      "kind": "dry",
+      "effort": "days",
+      "title": "Check the random assignment",
+      "method": "A proved checker repeats the random allocation from the recorded seed and confirms the group of every sample.",
+      "resources": "Allocation log and its random seed.",
+      "success": {
+        "R1": "checked"
+      },
+      "failure": {
+        "R1": "violated"
+      },
+      "caveat": "Shows that the recorded procedure was followed, not that the log is complete."
     }
   ],
   "exclusions": [
