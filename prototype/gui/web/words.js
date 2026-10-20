@@ -24,6 +24,17 @@ export const statuses = {
   stale: "Changed since it was pinned",
 };
 
+/** A supposed status, as the end of "suppose O2 …". */
+/** @type {Record<string, string>} */
+export const supposedAs = {
+  proved: "is proved",
+  checked: "is verified by a checker",
+  assumed: "is assumed",
+  tested: "is tested",
+  open: "is open",
+  violated: "is false",
+};
+
 /** @type {Record<string, string>} */
 export const routes = {
   lean: "Lean proof",
