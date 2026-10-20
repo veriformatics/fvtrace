@@ -176,11 +176,16 @@ main {
   margin-left: auto;
 }
 
+/* Verdict counts: two by two, in aligned columns. */
 .overview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 12px 36px;
+  width: fit-content;
   margin-top: 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
 }
 
 .stat {
