@@ -140,13 +140,11 @@ main {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 16px;
-  margin-top: 24px;
-  padding: 12px 16px;
-  border: 1px solid var(--rule);
-  background: var(--panel);
+  margin-top: 20px;
 }
 
 .scenario.hypothetical {
+  padding: 12px 16px;
   border: 2px solid var(--assumption);
   background: var(--assumption-wash);
 }
