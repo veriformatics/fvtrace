@@ -39,7 +39,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] Round 1: user's UI edits → `prototype/gui/web/`
+- [ ] Round 1: user's UI edits → `prototype/gui/web/`; open: "How this works" panel, finalists switch key (default) | numbered steps (`?how=steps`)
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT history → `.agent/archive/`
 
 ## Phase
