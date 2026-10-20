@@ -185,16 +185,6 @@ main {
   color: var(--conductor);
 }
 
-.how-key[hidden],
-.how-steps[hidden] {
-  display: none;
-}
-
-.how-steps {
-  margin: 12px 0 0;
-  padding-left: 22px;
-}
-
 .review {
   font-size: 14px;
   margin-bottom: 12px;
