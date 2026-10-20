@@ -115,8 +115,8 @@ main {
 
 .intro {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 80px;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
   align-items: start;
   margin-bottom: 24px;
 }
@@ -127,7 +127,6 @@ main {
 }
 
 .how {
-  max-width: 62ch;
   padding: 18px 22px;
   border: 1px solid var(--rule);
   border-top: 4px solid var(--conductor);
@@ -186,9 +185,12 @@ main {
 }
 
 .review {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid currentcolor;
   font-size: 14px;
-  margin-bottom: 12px;
-  color: var(--conductor);
+  font-weight: 600;
+  color: var(--verified);
 }
 
 .review.draft,
@@ -198,9 +200,10 @@ main {
 
 .scenario {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
+  margin-top: 24px;
   padding: 12px 16px;
   border: 1px solid var(--rule);
   background: var(--panel);
@@ -234,11 +237,15 @@ main {
   margin: 16px 0;
 }
 
+.scenario .reset {
+  margin-left: auto;
+}
+
 .overview {
   display: flex;
   flex-wrap: wrap;
-  gap: 32px;
-  margin: 24px 0;
+  gap: 12px 24px;
+  margin-top: 20px;
 }
 
 .stat {
