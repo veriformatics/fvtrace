@@ -653,15 +653,33 @@ main {
   text-underline-offset: 2px;
 }
 
-/* The claim's verdict symbol + id stand out at the right end of its label row. */
+/* The claim's verdict symbol + id stand out at the right end of its label row, its level under them. */
 .claim-id {
+  display: grid;
+  flex-shrink: 0;
+  align-self: flex-start;
+  justify-items: end;
+  margin-left: auto;
+  color: var(--ink);
+}
+
+.claim-head-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.claim-id-top {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  margin-left: auto;
   font-size: 20px;
   font-weight: 700;
-  color: var(--ink);
+}
+
+.claim-level {
+  font-size: 14px;
+  color: var(--conductor);
 }
 
 .moves,

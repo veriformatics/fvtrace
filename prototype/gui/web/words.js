@@ -57,7 +57,7 @@ export const routes = {
 export const kinds = {
   entailment: "Reasoning",
   result: "Result",
-  estimand: "Measure",
+  estimand: "Measurement",
   statistical: "Statistics",
   numerical: "Calculation",
   implementation: "Implementation",
@@ -72,7 +72,7 @@ export const kinds = {
 /** Claim levels, shown under a claim's end of its diagram as a fact's kind is under its own. */
 /** @type {Record<string, string>} */
 export const levels = {
-  estimand: "Measure",
+  estimand: "Measurement",
   descriptive: "Description",
   inferential: "Inference",
   causal: "Causality",
