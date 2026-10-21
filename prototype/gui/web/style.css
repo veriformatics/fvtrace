@@ -384,26 +384,7 @@ main {
   font-weight: 650;
 }
 
-/* Finalist A: one tag filled in the verdict's color. */
-.tag-fill.can {
-  background: var(--verified);
-}
-
-.tag-fill.conditional {
-  background: var(--assumption);
-}
-
-.tag-fill.open {
-  background: var(--conductor);
-}
-
-.tag-fill.can,
-.tag-fill.conditional,
-.tag-fill.open {
-  color: var(--panel);
-}
-
-/* Finalist B: the ink "Claim" joined to the verdict on its wash, in the verdict's color. */
+/* The ink "Claim" joined to the verdict on its wash, in the verdict's color. */
 .tag-pair {
   display: inline-flex;
   border: 1px solid var(--ink);

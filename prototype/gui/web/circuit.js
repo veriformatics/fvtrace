@@ -89,9 +89,6 @@ function contact(f, on, claim) {
   );
 }
 
-// Prototype finalists for the claim label: one filled tag (default) | ?tag=pair.
-const pairTag = new URLSearchParams(location.search).get("tag") === "pair";
-
 /**
  * The standout label over a claim's words: "Claim" + its verdict in the verdict's color, then its
  * qualifiers + id/level, quiet.
@@ -102,14 +99,12 @@ export const claimTag = (c) => {
   return h(
     "span",
     { class: "claim-tag" },
-    pairTag
-      ? h(
-          "span",
-          { class: "tag-pair" },
-          h("strong", {}, "Claim"),
-          h("span", { class: `tag-soft ${c.final}` }, c.verdict),
-        )
-      : h("strong", { class: `tag-fill ${c.final}` }, claimLabel(c.verdict)),
+    h(
+      "span",
+      { class: "tag-pair" },
+      h("strong", {}, "Claim"),
+      h("span", { class: `tag-soft ${c.final}` }, c.verdict),
+    ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
     h("span", {}, `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`),
   );
