@@ -364,11 +364,23 @@ main {
   text-align: left;
 }
 
-.claim-meta {
-  display: block;
-  margin-bottom: 5px;
+/* "Claim" stands out over every claim's words: ink label, id + level quiet beside it. */
+.claim-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
   font-size: 12px;
   color: var(--conductor);
+}
+
+.claim-tag strong {
+  padding: 1px 8px;
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--panel);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .sentence {
