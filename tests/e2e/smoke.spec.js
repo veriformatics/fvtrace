@@ -11,6 +11,8 @@ async function axeIds(page) {
 }
 
 test("the GUI loads through fvtrace serve without errors and passes axe", async ({ page }) => {
+  // Six axe passes over the full page outrun the default 30 s on a loaded machine.
+  test.setTimeout(120_000);
   const web = await serveFvtrace();
   /** @type {string[]} */
   const errors = [];
@@ -22,7 +24,7 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     await page.goto(web.url);
     expect(page.url()).toBe(`${web.base}/`);
     await expect(page).toHaveTitle("fvTrace");
-    await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
+    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
     await page.locator("article.circuit").first().waitFor();
     const evaluation = await page.evaluate(async () => {
       const res = await fetch("/api/evaluation");
@@ -33,16 +35,15 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     expect(evaluation.status).toBe(200);
     expect(evaluation.body).toMatchObject({ schema: "fvtrace.evaluation/1", mode: "recorded" });
     expect(await axeIds(page)).toEqual([]);
-    await page
-      .locator("article.circuit")
-      .filter({ hasText: "C2 /" })
-      .getByRole("button", { name: /^O2 / })
-      .click();
-    await page.getByRole("button", { name: "Suppose it is checked" }).click();
-    await expect(page.getByRole("status")).toContainText("What-if");
+    await page.getByRole("button", { name: "Suppose O2 checked" }).first().click();
+    await expect(page.getByRole("status")).toContainText("Showing a what-if");
     expect(await axeIds(page)).toEqual([]);
-    await page.getByRole("button", { name: "Text" }).click();
+    await page.getByRole("button", { name: "Text", exact: true }).click();
     expect(await axeIds(page)).toEqual([]);
+    await page.locator("#tour-start").click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    expect(await axeIds(page)).toEqual([]);
+    await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await axeIds(page)).toEqual([]);
     expect(errors).toEqual([]);

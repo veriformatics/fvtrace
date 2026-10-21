@@ -4,6 +4,8 @@ import Tests.Harness
 namespace Tests.Assets
 open Tests
 
+def count (s sub : String) : Nat := (s.splitOn sub).length - 1
+
 def tests : TestM Unit := do
   let onDisk ← IO.FS.readFile "schema/trace.schema.json"
   check "assets: embedded schema = schema/trace.schema.json" (Fvtrace.Assets.traceSchema == onDisk)
@@ -28,6 +30,11 @@ def tests : TestM Unit := do
     ((field "description").any fun d => 13 < d.length && d.length ≤ 13 + 1024)
   check "skill: the compatibility note fits its limit (1-500 characters)"
     ((field "compatibility").any fun d => d.length ≤ 15 + 500)
+  -- The GUI's verdict words (legend, moves, plans) = the engine's labels, one word per state.
+  let words := ((FvtraceWeb.files.find? (·.1 == "/words.js")).map (·.2.2)).getD ""
+  for st in [Fvtrace.State.can, .conditional, .«open», .cannot] do
+    check s!"assets: web/words.js names {st.name} as the engine does"
+      (count words s!"  {st.name}: \"{st.verdict}\",\n" == 1) words
   checkEq "assets: every GUI file in web/ is embedded"
     (shipped.mergeSort (· ≤ ·)) ((FvtraceWeb.files.map (fileOf ·.1)).mergeSort (· ≤ ·))
 

@@ -35,7 +35,7 @@ const okDistance = differenceEuclidean("oklab");
 /** Text color → the surfaces it is drawn on. */
 const text = {
   ink: ["paper", "panel", "wash", "assumption-wash", "verified-wash"],
-  conductor: ["paper", "panel", "assumption-wash"],
+  conductor: ["paper", "panel", "assumption-wash", "wash"],
   verified: ["paper", "panel", "verified-wash"],
   assumption: ["paper", "panel", "assumption-wash"],
   panel: ["ink", "verified"],
