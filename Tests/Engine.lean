@@ -344,4 +344,38 @@ def kindTests : TestM Unit := do
   checkEq "engine: the what-if may assume a background condition"
     (Overrides.parse t "O3=assumed").toOption (some [("O3", .assumed)])
 
+/-- Contract acceptance rows (03fe522) the unit tests had not reached: valid actions, mixed work
+rows, the self-trace's stated verdicts. -/
+def acceptanceTests : TestM Unit := do
+  let t ← fixture
+  let s : Scenario := { trace := t, current := fun _ => true }
+  -- Actions: every emitted action's overrides form a valid what-if, from the recorded view and
+  -- from a what-if (E1's success touches the result O2; E2's the background condition O4).
+  for sc in [s, s.withOverrides [("EN2", .proved)]] do
+    check "evaluate: every action is a valid what-if"
+      ((Evaluate.actions sc).all fun (_, _, _, o) => Overrides.valid t o)
+  -- Work rows: a fact that makes one claim available alone + is needed by another with more.
+  let en : Fact := { id := "ENY", subject := "S", kind := .entailment, text := "O2 gives CY.",
+                     status := .proved, route := .lean }
+  let cy : Claim := { id := "CY", question := "Q1", subject := "S", level := .descriptive,
+                      text := "The marker rises.", needs := ["O2"], entailment := some "ENY" }
+  let mixed := { t with facts := t.facts ++ [en], claims := t.claims ++ [cy] }
+  let sm : Scenario := { s with trace := mixed }
+  match sm.work.find? (·.fact == "O2") with
+  | some w =>
+    checkEq "cli: a mixed work row makes one claim available + names what the other needs"
+      (w.unlocks, Cli.neededBy sm w) (["CY"], ["Needed by C2, together with EN2."])
+  | none => check "cli: a mixed work row makes one claim available" false
+  -- Self-trace (user rulings): its stated verdicts, receipts taken as current.
+  match decodeTrace (← IO.FS.readBinFile "examples/fvtrace/trace.json") with
+  | .ok self =>
+    let ss : Scenario := { trace := self, current := fun _ => true }
+    checkEq "examples: the self-trace's verdicts (C1, C3–C6, C8 can; C2 + C7 open)"
+      (self.claims.map fun c => (c.id, ss.final c))
+      [("C1", .can), ("C2", .«open»), ("C3", .can), ("C4", .can), ("C5", .can), ("C6", .can),
+       ("C8", .can), ("C7", .«open»)]
+    check "examples: no self-trace claim needs I1 (a universal premise)"
+      (self.claims.all fun c => !c.needs.contains "I1")
+  | .error _ => check "examples: the self-trace decodes" false
+
 end Tests.Engine

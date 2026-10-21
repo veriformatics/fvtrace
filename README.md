@@ -22,11 +22,13 @@ fvTrace checks the trace and decides every verdict. fvTrace never calls a langua
 | **Claim not possible** | A fact is violated, the claim needs two facts that a verified or assumed exclusion rules out together, or a what-if conflicts. |
 
 Each claim also needs one *entailment* fact, its reasoning: "these facts entail the claim as
-worded". Only background conditions can be assumed, for example how the samples were collected,
+worded". A claim that only restates one result needs no entailment fact. Only background conditions can be assumed, for example how the samples were collected,
 or that they are independent. A reasoning, result, measurement, calculation, implementation or
 data-flow fact must be verified: if the trace records one as `assumed`, `fvtrace check` reports
 an error. Thus a claim whose reasoning is a person's judgment reads **Pending verification** at
-best. Until a reviewer signs off the trace, every verdict is provisional.
+best. Some conditions hold for every claim: the records are honest, the instruments work, and the
+labels are correct. Do not list these universal premises as facts of each claim: the review
+vouches for them once. Until a reviewer signs off the trace, every verdict is provisional.
 
 ## Install
 
@@ -52,8 +54,27 @@ fvTrace is one program, `fvtrace`. To build it from source:
    the link that it prints.
 7. When the trace is correct, sign it off: `fvtrace review --reviewer "Your Name"`.
 
-The folder `examples/synthetic` holds a small study that uses every part of a trace. To see it,
-go to `examples/synthetic/project` and run `fvtrace serve --trace ../trace.json`.
+The folder `examples/synthetic` holds a small made-up study: three claims about a treatment and a
+marker. To see it, go to `examples/synthetic/project` and run `fvtrace serve --trace ../trace.json`.
+
+## The browser view
+
+`fvtrace serve` shows the claims of each scientific question in a browser. To learn the page,
+press **Take the tour**.
+
+- Each claim shows a plain headline. To read the exact statement that the proofs cover, open
+  **Show the exact statement**.
+- Below the headline, each line names a fact that holds the claim back or that the claim
+  assumes, with the reason that the claim needs it.
+- A diagram under the claim shows each fact that the claim needs, one symbol for each fact. To
+  suppose that a fact has the best status that its route allows, press its symbol. fvTrace then
+  shows every verdict under that supposition, and the address of the page keeps it. To return,
+  press **Show the facts as recorded**.
+- To see the details of a claim, a fact or an experiment, press its name. You can select and
+  copy any text: a drag selects the text and does not open the details.
+- **Text** shows the same claims as plain sentences.
+- Below the claims, the page shows the suggested experiments, the facts whose verification makes
+  the most claims available, the violated facts, and what each claim may be missing.
 
 ## Commands
 
@@ -63,7 +84,7 @@ go to `examples/synthetic/project` and run `fvtrace serve --trace ../trace.json`
 | `fvtrace path` | Prints the location of the trace. |
 | `fvtrace check [--strict]` | Checks the trace and the evidence of each verified fact. With `--strict`, a warning without a waiver or changed evidence also fails. |
 | `fvtrace pin` | Records the SHA-256 of each evidence file and statement. |
-| `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. |
+| `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. The review vouches that the claims and facts match the study, that each headline says no more than its exact statement, and that the universal premises hold. |
 | `fvtrace claims` | Shows each claim with its verdict, by question. |
 | `fvtrace gaps` | Shows the facts whose verification makes the most claims available. |
 | `fvtrace experiments` | Shows the suggested experiments and what each one changes. |
