@@ -9,7 +9,7 @@ import { byId, byIdAs, fill, h } from "./dom.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
 import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
 import { startTour } from "./tour.js";
-import { count, statuses, supposedAs, verdicts, word } from "./words.js";
+import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -307,7 +307,12 @@ function draw(e) {
         { class: "stat" },
         lamp(st),
         h("b", { class: "stat-count" }, String(e.counts[st])),
-        h("span", { class: "stat-label" }, word(verdicts, st)),
+        h(
+          "span",
+          { class: "stat-text" },
+          h("span", { class: "stat-label" }, word(verdicts, st)),
+          h("span", { class: "stat-meaning" }, word(verdictMeanings, st)),
+        ),
       ),
     ),
   );

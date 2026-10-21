@@ -13,6 +13,8 @@ const csp =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; " +
   "require-trusted-types-for 'script'; trusted-types 'none'";
+// Stub: per-fact "why it is needed" text the trace format lacks yet, merged into the envelope.
+const why = JSON.parse(await readFile(join(import.meta.dirname, "why.json"), "utf8"));
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
 const up = spawn(
@@ -42,7 +44,9 @@ createServer(async (req, res) => {
   if (url.pathname === "/api/evaluation") {
     const r = await fetch(origin + url.pathname + url.search, { headers: { cookie } });
     res.writeHead(r.status, { ...head, "Content-Type": "application/json" });
-    res.end(await r.text());
+    const body = await r.json();
+    for (const f of body.facts ?? []) if (why[f.id]) f.why = why[f.id];
+    res.end(JSON.stringify(body));
     return;
   }
   const name = url.pathname === "/" ? "index.html" : url.pathname.slice(1);

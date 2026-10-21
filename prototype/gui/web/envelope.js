@@ -13,7 +13,7 @@
  * @typedef {{ id: string, subject: string, kind: string, text: string, route: string,
  *   recorded: string, effective: string, closable: boolean, supposed: boolean,
  *   derivedFrom: { exclusion: string, source: string }[], trusts: string[],
- *   instantiates?: string, evidence?: Evidence,
+ *   instantiates?: string, why?: string, evidence?: Evidence,
  *   receipt?: { current: boolean, reasons: string[] } }} Fact
  */
 /**
@@ -206,6 +206,7 @@ function fact(v, path) {
     }),
     trusts: strs(r["trusts"], `${path}/trusts`),
   };
+  if ("why" in r) f.why = str(r["why"], `${path}/why`);
   if ("instantiates" in r) f.instantiates = str(r["instantiates"], `${path}/instantiates`);
   if ("evidence" in r) f.evidence = evidence(r["evidence"], `${path}/evidence`);
   if ("receipt" in r) {
