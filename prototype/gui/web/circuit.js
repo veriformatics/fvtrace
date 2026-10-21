@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { h, s } from "./dom.js";
-import { kinds, statuses, symbols, verdictText, word } from "./words.js";
+import { claimLabel, kinds, statuses, symbols, verdictText, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -155,7 +155,7 @@ export function circuit(c, env, on, selected) {
         "li",
         { class: "terminal", "aria-hidden": "true" },
         lamp(c.final),
-        h("small", { class: "terminal-label" }, c.verdict),
+        h("small", { class: "terminal-label" }, claimLabel(c.verdict)),
       ),
     ),
   );

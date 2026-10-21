@@ -531,6 +531,12 @@ export function checkList(env, on) {
   );
 }
 
+/** A group's heading + count; an untitled group has none. @param {string} title @param {Claim[]} cs */
+export const groupTitle = (title, cs) =>
+  title
+    ? h("h3", { class: "group-title" }, title, h("span", { class: "group-count" }, ` ${cs.length}`))
+    : null;
+
 /**
  * The text view of one question: each group's sentences, then each open fact once.
  * @param {Envelope} env @param {[string, Claim[]][]} groups @param {Handlers} on
@@ -540,12 +546,7 @@ export function textView(env, groups, on) {
   const open = [...new Set(claims.flatMap((c) => c.gaps.concat(c.premises)))];
   return [
     groups.map(([title, cs]) => [
-      h(
-        "h3",
-        { class: "group-title" },
-        title,
-        h("span", { class: "group-count" }, ` ${cs.length}`),
-      ),
+      groupTitle(title, cs),
       h(
         "ul",
         { class: "text-list" },
