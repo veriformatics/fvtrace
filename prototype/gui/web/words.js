@@ -69,6 +69,16 @@ export const kinds = {
   instantiation: "Instantiation",
 };
 
+/** Claim levels, shown under a claim's end of its diagram as a fact's kind is under its own. */
+/** @type {Record<string, string>} */
+export const levels = {
+  estimand: "Estimand",
+  descriptive: "Descriptive",
+  inferential: "Inferential",
+  causal: "Causal",
+  release: "Release",
+};
+
 /** @type {Record<string, string>} */
 export const efforts = { hours: "Hours", days: "Days", weeks: "Weeks", months: "Months" };
 
@@ -81,9 +91,6 @@ export function word(table, code) {
 export function count(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
 }
-
-/** A verdict as a label, "Claim: …" (user ruling: names what the word grades). @param {string} v */
-export const claimLabel = (v) => `Claim: ${v}`;
 
 /**
  * A verdict's qualifiers, minus the review state (shown once per page, not per verdict).
