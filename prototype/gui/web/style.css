@@ -373,7 +373,7 @@ main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 8px;
   font-size: 12px;
   color: var(--conductor);
@@ -392,33 +392,41 @@ main {
 
 .tag-pair {
   display: inline-flex;
-  gap: 6px;
+  gap: 8px;
   font-size: 12.5px;
-  line-height: 1.5;
+}
+
+/* Chip text trimmed to its capitals (text-box), so a chip's symbol + its words center on the
+   letters and both chips keep one height in any font. */
+.tag-kind,
+.tag-soft {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.cap-trim {
+  text-box: trim-both cap alphabetic;
 }
 
 .tag-kind {
-  padding: 2px 9px;
-  border-radius: 4px;
   background: var(--ink);
   color: var(--panel);
 }
 
 .tag-soft {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 8px;
-  border: 1px solid currentcolor;
-  border-radius: 4px;
+  border-color: currentcolor;
   font-weight: 650;
 }
 
 .lamp.mini {
-  width: 14px;
-  height: 14px;
-  margin-right: 5px;
+  width: 1.55em;
+  height: 1.55em;
+  margin-right: 0.55em;
   border-width: 1.5px;
-  font-size: 9px;
+  font-size: 0.72em;
 }
 
 /* The ink "Claim" joined to the verdict on its wash, in the verdict's color. */
