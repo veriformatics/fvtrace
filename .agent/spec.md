@@ -8,11 +8,10 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - `lakefile.lean` = Lake package `fvtrace` (Lean 4.35, `lean-toolchain`): library `Fvtrace` (`Fvtrace/Spec*` = human-read claims, `Fvtrace/Proofs*` = their proofs, the rest = shipped code), embedded-file libraries `FvtraceWeb` (`web/`) + `FvtraceSkill` (`skill/fvtrace/`), binary `fvtrace` (`Main.lean`), tests `fvtrace-tests` (`TestMain.lean` + `Tests/`; FFI-free half `TestPure.lean`), dev-only audit `fvtrace-trust` (`TrustMain.lean`). Run: `lake build fvtrace && .lake/build/bin/fvtrace --help`; tests: `lake test`.
 - `fvtrace` commands: `init`, `path`, `check`, `pin`, `review`, `claims`, `gaps`, `experiments`, `plan`, `eval`, `serve` (GUI: `fvtrace serve` → printed token link), `export --html|--bundle`, `skills install|show`, `schema`; usage = `README.md`.
-- `web/` = GUI (claim circuits, no-build ES modules, display-only); `skill/fvtrace/` = the Agent Skill; `schema/trace.schema.json` = trace format; `examples/fvtrace/` (self-trace) + `examples/synthetic/` = pinned examples.
+- `web/` = GUI (claim diagrams, key table, guided tour; no-build ES modules, display-only); `skill/fvtrace/` = the Agent Skill; `schema/trace.schema.json` = trace format; `examples/fvtrace/` (self-trace) + `examples/synthetic/` = pinned examples.
 - `tools/gate.sh` = the one gate (local + CI); `tools/fast-gate.sh` = iteration; `tools/gate-probe.sh` = positive controls; `tools/mutate.mjs` = mutation credit (`--list` sizes a campaign); law = `.claude/rules/ops.md`.
 - `.agent/contracts/kernel.md` = kernel contract (ids cited by proofs + tests); `.agent/contracts/units.md` = unit → tier → evidence; `.agent/review.md` = closing-review ledger.
-- `prototype/gui/` = ITERATE prototype of the GUI: `web/` copy (`prototype/gui/web/`) served by a dev proxy to the real engine. Run: `lake build fvtrace && node prototype/gui/serve.mjs --trace prototype/gui/synthetic.trace.json --project prototype/gui/project` → printed link (loopback, no token); `prototype/gui/synthetic.trace.json` + `prototype/gui/project/` = the synthetic study, rewritten for honesty (round 2, scientist-3; pinned, `check --strict` rc=0; proofs = placeholder stubs proving `True`, said in the study summary). The dev proxy also renames the engine's verdict words (`verdictWords` in `prototype/gui/serve.mjs`) until IMPLEMENT moves them into the engine. `prototype/gui/why.json` = stub for the fact field `why`; `prototype/gui/claims.json` = stub for the claim fields `headline` + `restates` (the proxy drops a restating claim's entailment fact from every list it passes on); the trace schema lacks all three, the dev proxy merges them into the engine's envelope. Its edits port into `web/` under the gates in IMPLEMENT.
-- `README.md` = user documentation. Prototype retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-lint` (shelved manuscript check).
+- `README.md` = user documentation. Prototypes retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-gui-iterate` (the GUI's ITERATE prototype: `web/` copy, dev proxy, field stubs), tag `prototype-lint` (shelved manuscript check).
 
 ## Decisions
 
@@ -47,7 +46,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 08eaeef U3 trace fields `why`, `headline`, `restates`: model, codec, schema, checker + proofs, receipts, envelope, tests
 - [x] 971f42c U4 export bundler: multi-line imports
 - [ ] U5 GUI: prototype → `web/` (tour, key, label row, headline + exact statement, why lines, waivers in details, work rows), decoder, e2e + axe + palette; operator visual QA
-- [ ] U6 examples + docs: honest synthetic study, self-trace rebuild + re-pin, skill, README
+- [x] 26e8c2a U6 examples + docs: honest synthetic study, self-trace rebuild + re-pin, skill, README
 - [ ] U7 prototype retired (tag `prototype-gui-iterate`) + rules upkeep
 - [ ] U8 closing review: reviewer per lens + MAIN L-SEC → `.agent/review.md`
 - [ ] U9 close: `spec.md` current, `Phase: MAINTAIN`
