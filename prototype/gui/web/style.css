@@ -203,13 +203,6 @@ main {
   font-weight: 750;
 }
 
-.lamp.large {
-  width: 32px;
-  height: 32px;
-  margin-top: 4px;
-  font-size: 20px;
-}
-
 .lamp.small {
   width: 20px;
   height: 20px;
@@ -660,8 +653,11 @@ main {
   text-underline-offset: 2px;
 }
 
-/* The claim id stands out at the right end of its label row. */
+/* The claim's verdict symbol + id stand out at the right end of its label row. */
 .claim-id {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
   margin-left: auto;
   font-size: 20px;
   font-weight: 700;
@@ -1105,7 +1101,7 @@ footer {
 
 /* The exact statement behind a claim's headline, folded until asked for. */
 .exact {
-  padding: 0 22px 4px 70px;
+  padding: 0 22px 4px;
   font-size: 14px;
 }
 
@@ -1130,7 +1126,7 @@ footer {
 
 /* What a claim waits on: one fact per line, drawn with its switch. */
 .conditions {
-  padding: 0 22px 6px 70px;
+  padding: 0 22px 6px;
 }
 
 .conditions-label {
@@ -1233,11 +1229,6 @@ footer {
 
   .how-key {
     grid-template-columns: 1fr;
-  }
-
-  .conditions,
-  .exact {
-    padding-left: 22px;
   }
 
   .tour-card:not(.centered) {

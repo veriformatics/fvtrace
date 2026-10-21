@@ -107,7 +107,12 @@ export const claimTag = (c, open, key, pressed) => {
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
     h("span", {}, `${word(levels, c.level)}${c.latent ? " / overlooked direction" : ""}`),
-    h("span", { class: "claim-id" }, open && key ? idButton(c.id, key, open, pressed) : c.id),
+    h(
+      "span",
+      { class: "claim-id" },
+      lamp(c.final),
+      open && key ? idButton(c.id, key, open, pressed) : c.id,
+    ),
   );
 };
 
@@ -149,7 +154,6 @@ export function circuit(c, env, on, selected) {
     h(
       "div",
       { class: "claim-head", onclick: clickToOpen(open) },
-      lamp(c.final, "large"),
       h(
         "span",
         { class: "claim-words" },

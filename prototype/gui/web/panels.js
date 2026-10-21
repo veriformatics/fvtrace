@@ -555,7 +555,6 @@ export function textView(env, groups, on) {
           h(
             "li",
             { class: "text-row", onclick: clickToOpen(() => on.select("claim", c.id)) },
-            lamp(c.final, "small"),
             h(
               "span",
               { class: "claim-words" },
