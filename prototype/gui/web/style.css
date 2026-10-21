@@ -1126,6 +1126,31 @@ footer {
   display: none;
 }
 
+/* The exact statement behind a claim's headline, folded until asked for. */
+.exact {
+  padding: 0 22px 4px 70px;
+  font-size: 14px;
+}
+
+.exact summary {
+  width: fit-content;
+  color: var(--conductor);
+  cursor: pointer;
+}
+
+.exact p {
+  max-width: 64ch;
+  margin: 4px 0 0;
+}
+
+.text-list .exact {
+  padding: 2px 0;
+}
+
+.exact-text {
+  font-size: 14px;
+}
+
 /* What a claim waits on: one fact per line, drawn with its switch. */
 .conditions {
   padding: 0 22px 6px 70px;
@@ -1233,7 +1258,8 @@ footer {
     grid-template-columns: 1fr;
   }
 
-  .conditions {
+  .conditions,
+  .exact {
     padding-left: 22px;
   }
 

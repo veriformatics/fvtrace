@@ -29,7 +29,7 @@
  *   sentence: string, verdict: string, qualifiers: string[], verified: string[],
  *   premises: string[], gaps: string[], blockers: string[], incompatible: string[],
  *   conflicts: string[], hypothetical: boolean, provisional: boolean, plan: Plan,
- *   variantOf?: string }} Claim
+ *   variantOf?: string, headline?: string }} Claim
  */
 /**
  * @typedef {{ id: string, subject: string, kind: "dry" | "wet", effort: string, title: string,
@@ -282,6 +282,7 @@ function claim(v, path) {
     plan: plan(r["plan"], `${path}/plan`),
   };
   if ("variantOf" in r) c.variantOf = str(r["variantOf"], `${path}/variantOf`);
+  if ("headline" in r) c.headline = str(r["headline"], `${path}/headline`);
   return c;
 }
 

@@ -1,13 +1,11 @@
 {
-  "O1": "The claim is about this comparison, so the analysis must make it.",
-  "O2": "The claim says the marker goes up, so the data must show a higher level.",
-  "O3": "Otherwise the difference could be chance.",
-  "O4": "If an animal gave two samples, those samples are not independent.",
-  "O5": "If an animal gave two samples, those samples are not independent.",
-  "EN1": "It is the reason the difference can be read as the effect of the treatment.",
-  "EN2": "It is the reason these facts together are enough to say that the treatment raises the marker.",
-  "M1": "The claim says the rise appears in the new cohort, so its data must show a higher level.",
-  "EN3": "It is the reason a higher level in the new cohort is enough to say that the rise appears there.",
+  "O1": "The claim uses this difference, so the calculation must match it.",
+  "O2": "The claim says chance rarely gives this difference, so the data must show it.",
+  "O3": "Otherwise the samples may not have been split the way the records say.",
   "R1": "Otherwise another difference between the groups could explain the result.",
-  "R2": "Otherwise the treated samples could change the control samples, and the comparison would be wrong."
+  "R2": "Otherwise the treated samples could change the control samples, and the comparison would be wrong.",
+  "EN1": "It is the reason the difference can be read as the effect of the treatment.",
+  "EN2": "It is the reason the data can say how rarely chance gives this difference.",
+  "M1": "The claim says the treated average is higher, so the new data must show that.",
+  "EN3": "It is the arithmetic reason the checked difference supports the claim."
 }
