@@ -9,6 +9,15 @@ export const verdicts = {
   cannot: "Cannot claim",
 };
 
+/** One-line meanings beside the verdict counts. */
+/** @type {Record<string, string>} */
+export const verdictMeanings = {
+  can: "Every fact it needs is verified.",
+  conditional: "Holds only if its assumptions are true.",
+  open: "A fact it needs is neither verified nor assumed.",
+  cannot: "A fact it needs is shown to be false.",
+};
+
 /** Lamp symbols: each state has its own shape + symbol, never color alone. */
 /** @type {Record<string, string>} */
 export const symbols = { can: "✓", conditional: "≈", open: "○", cannot: "×" };

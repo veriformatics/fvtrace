@@ -187,6 +187,7 @@ export function conditions(c, env, on) {
               id,
             ),
             h("span", {}, f?.text ?? id),
+            f?.why ? h("span", { class: "conditions-why" }, `Why it is needed: ${f.why}`) : null,
           );
         }),
       ),

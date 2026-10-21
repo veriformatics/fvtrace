@@ -112,6 +112,7 @@ function inspectFact(env, id, on) {
     h("span", { class: "reference" }, `Fact ${f.id} / ${word(kinds, f.kind)}`),
     h("h2", { class: "fact" }, f.text),
     h("span", { class: `status-label ${f.effective}` }, status),
+    f.why ? h("p", {}, `Why it is needed: ${f.why}`) : null,
     f.supposed ? h("p", { class: "note" }, "Supposed in the current what-if, not recorded.") : null,
     f.derivedFrom.length
       ? h(

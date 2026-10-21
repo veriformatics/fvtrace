@@ -199,8 +199,18 @@ main {
   font-weight: 650;
 }
 
+.stat-text {
+  display: grid;
+}
+
 .stat-label {
   font-size: 14px;
+}
+
+.stat-meaning {
+  max-width: 24ch;
+  font-size: 12.5px;
+  color: var(--conductor);
 }
 
 /* Lamps: can = filled circle + ✓; conditional = dashed ring + ≈; open = ring + ○;
@@ -1104,6 +1114,13 @@ footer {
   padding: 0 0 4px;
 }
 
+.conditions-why {
+  grid-column: 3;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--conductor);
+}
+
 .conditions-list .ref {
   justify-self: start;
   margin-top: 1px;
@@ -1286,6 +1303,13 @@ footer {
   .card-grid {
     grid-template-columns: 1fr;
     margin-top: 18px;
+  }
+}
+
+/* Verdict counts with meanings outgrow two columns on phones. */
+@media (width <= 560px) {
+  .overview {
+    grid-template-columns: max-content;
   }
 }
 
