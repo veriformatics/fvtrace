@@ -71,9 +71,13 @@ def tests : TestM Unit := do
     expect s!"check: kind {k.name} is never recorded assumed"
       (mapFact t "O5" fun f => { f with kind := k, status := .assumed })
       [("WF-route", "/facts/4/status")]
-  expect "check: an outcome never assumes a must-verify fact"
-    (mapExperiment t "E1" fun e => { e with success := [("O2", .assumed)] })
+  let assumedOutcome := mapExperiment t "E1" fun e => { e with success := [("O2", .assumed)] }
+  expect "check: an outcome never assumes a must-verify fact" assumedOutcome
     [("WF-route", "/experiments/0")]
+  checkEq "check: the outcome message names a repair a success can take"
+    ((Check.violations assumedOutcome).map (·.message))
+    ["outcome \"O2\": a success cannot assume O2: facts of kind result must be verified; set \
+      a verified status that its route allows, or leave O2 out"]
   expect "check: background conditions may be assumed"
     (mapFact (mapFact t "O4" fun f => { f with kind := .interpretation, status := .assumed })
       "O5" fun f => { f with kind := .specReview })

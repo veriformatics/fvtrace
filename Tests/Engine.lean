@@ -366,6 +366,14 @@ def acceptanceTests : TestM Unit := do
     checkEq "cli: a mixed work row makes one claim available + names what the other needs"
       (w.unlocks, Cli.neededBy sm w) (["CY"], ["Needed by C2, together with EN2."])
   | none => check "cli: a mixed work row makes one claim available" false
+  -- Work rows: a claim that cannot stand still names the facts it needs with the row's fact.
+  let blocked := s.withOverrides [("O1", .violated)]
+  match blocked.work.find? (·.fact == "O2") with
+  | some w =>
+    checkEq "cli: a work row names what a blocked claim needs too"
+      (Cli.neededBy blocked w)
+      ["Needed by C2, together with EN2, but C2 is not possible as worded."]
+  | none => check "cli: a work row names what a blocked claim needs too" false
   -- Self-trace (user rulings): its stated verdicts, receipts taken as current.
   match decodeTrace (← IO.FS.readBinFile "examples/fvtrace/trace.json") with
   | .ok self =>

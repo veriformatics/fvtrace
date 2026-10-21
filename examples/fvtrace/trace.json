@@ -3,7 +3,7 @@
   "analysis": {
     "id": "fvtrace",
     "title": "fvTrace",
-    "summary": "What fvTrace itself can claim about its checker and engine: each claim rests on Lean proofs of the code fvTrace runs. Like every analysis, it takes its instruments on trust without listing them per claim: here the Lean and C compilers that build that code."
+    "summary": "What fvTrace itself can claim about its checker and engine. Six claims rest on Lean proofs of the code fvTrace runs; two wait on code that is tested, not proved. Like every analysis, it takes its instruments on trust without listing them per claim: here the Lean and C compilers that build that code."
   },
   "subjects": [
     {

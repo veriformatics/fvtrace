@@ -24,7 +24,7 @@
 - **claim level**: `estimand`, `descriptive`, `inferential`, `causal`, `release`. `fvtrace check` warns when a level lacks the facts it usually needs (for example, a causal claim without an `interpretation` fact); a waiver records why one is absent.
 - **evidence**: `{"summary", "artifacts": [{"path", "sha256"?, "role"?}], "verifier"?, "statement"?, "statementDigest"?}`. Paths are relative to the project folder, `/`-separated, without `.` or `..`. `fvtrace pin` fills `sha256` and `statementDigest`. A `proved` or `checked` fact needs artifacts, a verifier, a statement and pinned digests.
 - **trusts**: what the verification itself relies on (a compiler, a kernel, a library).
-- **claim text + headline**: `text` is the exact statement, the sentence the proofs cover. `headline` is an optional plain form for readers; it never says more than `text` (the user confirms that at review). It stays outside every digest.
+- **claim text + headline**: `text` is the exact statement, the sentence the proofs cover. `headline` is an optional plain form for readers; it never says more than `text` (the user confirms that at review). It stays outside every statement digest; the review digest covers it.
 - **entailment + restates**: every claim names one `entailment` fact, except a claim that restates one result: `"restates": true`, `needs` = that one `result` fact, no `entailment`. Pinning that result binds the claim's text, so rewording the claim makes the receipt stale.
 - **why**: optional on a fact: why a claim needs it, in plain words (what goes wrong without it). Display text, outside the statement digest.
 - **latent** claim: an overlooked direction that becomes possible if its facts hold.

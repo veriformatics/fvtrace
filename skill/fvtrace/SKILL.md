@@ -23,7 +23,7 @@ fvTrace takes one stance: a claim can be made only when every fact it needs is f
 
 1. Check the tool: `fvtrace --version`. In the project folder, run `fvtrace path`. If that file does not exist, run `fvtrace init` (it writes a valid starter trace).
 2. Read the analysis: code, notebooks, data descriptions, manuscript drafts, figures. Collect the scientific questions and the sentences the user wants to claim. Ask the user when the intended claims are unclear.
-3. Draft the trace in the file that `fvtrace path` printed. Follow `references/trace-format.md`; `assets/example.trace.json` shows a small study (a Conditional claim, a pending inference with a waiver, a claim that restates one result on new data). For each claim:
+3. Draft the trace in the file that `fvtrace path` printed. Follow `references/trace-format.md`; `assets/example.trace.json` shows a small study before pinning: a measurement claim, an inference with a waiver, and a claim that restates one result on new data. Its verified facts start `open` (evidence named, no digests), so every claim reads Pending verification until `fvtrace pin` and that evidence raise them. For each claim:
    - write its `text` as the exact statement that a proof or checker can cover; when that sentence is long or technical, add a plain `headline` that says no more than the `text`;
    - list the facts it needs (`needs`): what the data are, what the code computes, which statistical or numerical conditions hold, how the result is interpreted;
    - give each fact a short `why` in plain words: what goes wrong for the claim without it;

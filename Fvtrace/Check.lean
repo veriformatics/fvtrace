@@ -196,10 +196,19 @@ def disallowed (f : Fact) (st : Status) : String :=
       tested or a verified status"
   else s!"{st.name} exceeds route {f.route.name}"
 
+/-- Why an outcome may not set `st` on fact `f`: a success only asserts, so its repair is a verified
+status or no entry at all. -/
+def disallowedOutcome (f : Fact) (st : Status) : String :=
+  if f.route.allows st then
+    s!"a success cannot assume {f.id}: facts of kind {f.kind.name} must be verified; set a \
+      verified status that its route allows, or leave {f.id} out"
+  else s!"{st.name} exceeds route {f.route.name}"
+
 def outcomeRoutes (t : Trace) (e : Experiment) (i : Nat) : Found :=
   (e.success ++ e.failure).flatMap fun q =>
     match t.fact? q.1 with
-    | some f => ensure (f.allows q.2) s!"/experiments/{i}" s!"outcome \"{q.1}\": {disallowed f q.2}"
+    | some f =>
+      ensure (f.allows q.2) s!"/experiments/{i}" s!"outcome \"{q.1}\": {disallowedOutcome f q.2}"
     | none => []
 
 def route (t : Trace) : Found :=
