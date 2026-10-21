@@ -18,7 +18,7 @@ const why = JSON.parse(await readFile(join(import.meta.dirname, "why.json"), "ut
 // Stub: verdict words under review (round 2); the engine still emits the old ones.
 const verdictWords = {
   "Can claim": "Fully supported",
-  "On assumption": "Rests on assumptions",
+  "On assumption": "Assumed",
   "Not yet": "Pending verification",
   "Cannot claim": "Claim not possible",
 };
