@@ -1,8 +1,18 @@
 // The inspector, the ranked lists and the text view: each shows envelope fields as they are.
 
-import { lamp } from "./circuit.js";
-import { h, s } from "./dom.js";
-import { count, efforts, kinds, routes, statuses, verdicts, word } from "./words.js";
+import { claimTag, conditions, exactStatement, headline, lamp } from "./circuit.js";
+import { clickToOpen, h, idButton, s } from "./dom.js";
+import {
+  andList,
+  count,
+  efforts,
+  kinds,
+  lintNeeds,
+  routes,
+  statuses,
+  verdicts,
+  word,
+} from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -74,7 +84,7 @@ function moveList(ms, env, on, none) {
           {},
           ref("claim", m.claim, on),
           ` changes from ${word(verdicts, m.from)} to ${word(verdicts, m.to)}`,
-          c ? h("small", { class: "move-text" }, c.text) : null,
+          c ? h("small", { class: "move-text" }, headline(c)) : null,
         ),
       );
     }),
@@ -112,6 +122,7 @@ function inspectFact(env, id, on) {
     h("span", { class: "reference" }, `Fact ${f.id} / ${word(kinds, f.kind)}`),
     h("h2", { class: "fact" }, f.text),
     h("span", { class: `status-label ${f.effective}` }, status),
+    f.why ? h("p", {}, `Why it is needed: ${f.why}`) : null,
     f.supposed ? h("p", { class: "note" }, "Supposed in the current what-if, not recorded.") : null,
     f.derivedFrom.length
       ? h(
@@ -303,6 +314,7 @@ function planSection(c, on, env) {
 function inspectClaim(env, id, on) {
   const c = env.claims.find((x) => x.id === id);
   if (!c) return [h("p", {}, `No claim ${id}.`)];
+  const waivers = env.lints.filter((l) => l.claim === c.id && l.waived !== undefined);
   /** @type {[string, string[]][]} */
   const parts = [
     ["Verified", c.verified],
@@ -311,13 +323,11 @@ function inspectClaim(env, id, on) {
     ["Violated", c.blockers],
   ];
   return [
-    h("span", { class: "reference" }, `Claim ${c.id} / ${c.level}`),
-    h("h2", {}, c.sentence),
-    h(
-      "span",
-      { class: `status-label ${c.final}` },
-      c.qualifiers.length ? `${c.verdict} (${c.qualifiers.join(", ")})` : c.verdict,
-    ),
+    claimTag(c),
+    h("h2", {}, headline(c)),
+    c.headline && c.headline !== c.text
+      ? h("p", { class: "exact-text" }, h("strong", {}, "Exact statement: "), c.text)
+      : null,
     h(
       "dl",
       { class: "breakdown" },
@@ -334,6 +344,19 @@ function inspectClaim(env, id, on) {
           { class: "warning" },
           `The what-if conflicts on this subject (${c.conflicts.join(", ")}).`,
         )
+      : null,
+    waivers.length
+      ? [
+          h("h3", {}, "Not needed"),
+          waivers.map((l) =>
+            h(
+              "p",
+              {},
+              h("strong", {}, lintNeeds[l.rule] ? `Not needed: ${lintNeeds[l.rule]}.` : l.message),
+              ` Reason: ${l.waived ?? ""}`,
+            ),
+          ),
+        ]
       : null,
     c.final === "can" ? null : [h("h3", {}, "Plan"), planSection(c, on, env)],
   ];
@@ -423,7 +446,7 @@ export function inspector(env, sel, on) {
       h(
         "p",
         {},
-        "A switch supposes its fact at the best status that its route allows. Its label shows the fact, its evidence and how it can be established.",
+        "Pressing a fact's symbol supposes it at the best status that its route allows. Pressing its name shows the fact, its evidence and how it can be established.",
       ),
     ];
   }
@@ -449,20 +472,23 @@ export function experimentList(env, filter, selected, on) {
   if (!shown.length) return [h("p", {}, "No suggested experiment of this kind.")];
   return shown.map((e) =>
     h(
-      "button",
+      "div",
       {
-        class: "experiment-row",
-        "data-key": `experiment:${e.id}`,
-        type: "button",
-        "aria-pressed": selected === e.id ? "true" : "false",
-        onclick: () => on.select("experiment", e.id),
+        class: `experiment-row${selected === e.id ? " selected" : ""}`,
+        onclick: clickToOpen(() => on.select("experiment", e.id)),
       },
       kindTag(e),
       h("span", { class: "experiment-title" }, e.title),
       h(
         "small",
         { class: "experiment-meta" },
-        `${e.id} / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
+        idButton(
+          e.id,
+          `experiment:${e.id}`,
+          () => on.select("experiment", e.id),
+          selected === e.id,
+        ),
+        ` / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
       ),
       h("span", { class: `impact${e.lights ? " lit" : ""}` }, impact(e)),
     ),
@@ -480,29 +506,62 @@ export function workList(env, on) {
       ),
     ];
   }
+  // A count shows only above 0; a zero row keeps the column when another row has a count.
+  const counted = env.work.some((w) => w.unlocks.length > 0);
   return env.work.map((w) =>
     h(
-      "button",
-      {
-        class: "work-item",
-        "data-key": `work:${w.fact}`,
-        type: "button",
-        onclick: () => on.select("fact", w.fact),
-      },
-      h("span", { class: "work-count", "aria-hidden": "true" }, String(w.unlocks.length)),
+      "div",
+      { class: "work-item", onclick: clickToOpen(() => on.select("fact", w.fact)) },
+      counted
+        ? h(
+            "span",
+            { class: `work-count${w.unlocks.length ? "" : " none"}`, "aria-hidden": "true" },
+            w.unlocks.length ? String(w.unlocks.length) : "",
+          )
+        : null,
       h(
         "span",
         {},
-        h("strong", {}, w.fact),
+        h(
+          "strong",
+          {},
+          idButton(w.fact, `work:${w.fact}`, () => on.select("fact", w.fact)),
+        ),
         ` ${factText(env, w.fact)}`,
         h(
           "small",
           { class: "list-meta" },
-          `Makes ${count(w.unlocks.length, "claim", "claims")} available alone. Needed by ${count(w.gates.length, "claim", "claims")}.`,
+          w.unlocks.length
+            ? `Makes ${count(w.unlocks.length, "claim", "claims")} available alone.`
+            : null,
+          togetherWith(env, w, on),
         ),
       ),
     ),
   );
+}
+
+/**
+ * Each claim that needs a work fact without being made available by it alone, with what that
+ * claim needs together with it (its other gaps, from the engine's lists).
+ * @param {Envelope} env @param {Envelope["work"][number]} w @param {Handlers} on
+ */
+function togetherWith(env, w, on) {
+  return w.gates
+    .filter((id) => !w.unlocks.includes(id))
+    .map((id, i) => {
+      const c = env.claims.find((x) => x.id === id);
+      const others = (c?.gaps ?? []).filter((f) => f !== w.fact);
+      const tail =
+        c?.final === "cannot"
+          ? ", which is not possible as worded"
+          : c?.final === "conditional"
+            ? ", which holds only if it is true"
+            : others.length
+              ? [", together with ", andList(others.map((f) => ref("fact", f, on)))]
+              : null;
+      return [i || w.unlocks.length ? " " : "", "Needed by ", ref("claim", id, on), tail, "."];
+    });
 }
 
 /** @param {Envelope} env @param {Handlers} on */
@@ -520,16 +579,16 @@ export function blockerList(env, on) {
 
 /** @param {Envelope} env @param {Handlers} on */
 export function checkList(env, on) {
-  return env.lints.map((l) =>
-    h(
-      "li",
-      { class: "plain-row" },
-      ref("claim", l.claim, on),
-      ` ${l.message}`,
-      l.waived ? h("small", { class: "list-meta" }, `Waived: ${l.waived}`) : null,
-    ),
-  );
+  return env.lints
+    .filter((l) => l.waived === undefined)
+    .map((l) => h("li", { class: "plain-row" }, ref("claim", l.claim, on), ` ${l.message}`));
 }
+
+/** A group's heading + count; an untitled group has none. @param {string} title @param {Claim[]} cs */
+export const groupTitle = (title, cs) =>
+  title
+    ? h("h3", { class: "group-title" }, title, h("span", { class: "group-count" }, ` ${cs.length}`))
+    : null;
 
 /**
  * The text view of one question: each group's sentences, then each open fact once.
@@ -540,41 +599,21 @@ export function textView(env, groups, on) {
   const open = [...new Set(claims.flatMap((c) => c.gaps.concat(c.premises)))];
   return [
     groups.map(([title, cs]) => [
-      h(
-        "h3",
-        { class: "group-title" },
-        title,
-        h("span", { class: "group-count" }, ` ${cs.length}`),
-      ),
+      groupTitle(title, cs),
       h(
         "ul",
         { class: "text-list" },
         cs.map((c) =>
           h(
             "li",
-            { class: "text-row" },
-            lamp(c.final, "small"),
+            { class: "text-row", onclick: clickToOpen(() => on.select("claim", c.id)) },
             h(
               "span",
-              {},
-              h(
-                "button",
-                {
-                  class: "text-claim",
-                  "data-key": `text:${c.id}`,
-                  type: "button",
-                  onclick: () => on.select("claim", c.id),
-                },
-                c.sentence,
-              ),
-              h(
-                "small",
-                { class: "list-meta" },
-                c.qualifiers.length ? `${c.verdict} (${c.qualifiers.join(", ")})` : c.verdict,
-              ),
-              c.gaps.length
-                ? h("small", { class: "list-meta" }, "Gaps: ", refs("fact", c.gaps, on))
-                : null,
+              { class: "claim-words" },
+              claimTag(c, () => on.select("claim", c.id), `text:${c.id}`),
+              h("span", { class: "text-sentence" }, headline(c)),
+              exactStatement(c),
+              conditions(c, env, on),
             ),
           ),
         ),
@@ -598,16 +637,15 @@ export function textView(env, groups, on) {
               ).length;
               return h(
                 "li",
-                { class: "text-row stacked" },
+                {
+                  class: "text-row stacked",
+                  onclick: clickToOpen(() => on.select("fact", id)),
+                },
                 h(
-                  "button",
-                  {
-                    class: "text-claim",
-                    "data-key": `text:${id}`,
-                    type: "button",
-                    onclick: () => on.select("fact", id),
-                  },
-                  `${id} ${f?.text ?? ""}`,
+                  "span",
+                  { class: "text-sentence" },
+                  idButton(id, `text:${id}`, () => on.select("fact", id)),
+                  ` ${f?.text ?? ""}`,
                 ),
                 h(
                   "small",

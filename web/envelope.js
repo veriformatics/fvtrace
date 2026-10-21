@@ -13,7 +13,7 @@
  * @typedef {{ id: string, subject: string, kind: string, text: string, route: string,
  *   recorded: string, effective: string, closable: boolean, supposed: boolean,
  *   derivedFrom: { exclusion: string, source: string }[], trusts: string[],
- *   instantiates?: string, evidence?: Evidence,
+ *   instantiates?: string, why?: string, evidence?: Evidence,
  *   receipt?: { current: boolean, reasons: string[] } }} Fact
  */
 /**
@@ -25,11 +25,12 @@
  */
 /**
  * @typedef {{ id: string, question: string, subject: string, level: string, text: string,
- *   latent: boolean, needs: string[], entailment: string, final: State, intrinsic: State,
+ *   latent: boolean, needs: string[], entailment?: string, restates: boolean, final: State,
+ *   intrinsic: State,
  *   sentence: string, verdict: string, qualifiers: string[], verified: string[],
  *   premises: string[], gaps: string[], blockers: string[], incompatible: string[],
  *   conflicts: string[], hypothetical: boolean, provisional: boolean, plan: Plan,
- *   variantOf?: string }} Claim
+ *   variantOf?: string, headline?: string }} Claim
  */
 /**
  * @typedef {{ id: string, subject: string, kind: "dry" | "wet", effort: string, title: string,
@@ -206,6 +207,7 @@ function fact(v, path) {
     }),
     trusts: strs(r["trusts"], `${path}/trusts`),
   };
+  if ("why" in r) f.why = str(r["why"], `${path}/why`);
   if ("instantiates" in r) f.instantiates = str(r["instantiates"], `${path}/instantiates`);
   if ("evidence" in r) f.evidence = evidence(r["evidence"], `${path}/evidence`);
   if ("receipt" in r) {
@@ -264,7 +266,7 @@ function claim(v, path) {
     text: str(r["text"], `${path}/text`),
     latent: bool(r["latent"], `${path}/latent`),
     needs: strs(r["needs"], `${path}/needs`),
-    entailment: str(r["entailment"], `${path}/entailment`),
+    restates: bool(r["restates"], `${path}/restates`),
     final: state(r["final"], `${path}/final`),
     intrinsic: state(r["intrinsic"], `${path}/intrinsic`),
     sentence: str(r["sentence"], `${path}/sentence`),
@@ -280,7 +282,9 @@ function claim(v, path) {
     provisional: bool(r["provisional"], `${path}/provisional`),
     plan: plan(r["plan"], `${path}/plan`),
   };
+  if ("entailment" in r) c.entailment = str(r["entailment"], `${path}/entailment`);
   if ("variantOf" in r) c.variantOf = str(r["variantOf"], `${path}/variantOf`);
+  if ("headline" in r) c.headline = str(r["headline"], `${path}/headline`);
   return c;
 }
 

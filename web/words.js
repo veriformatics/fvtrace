@@ -9,6 +9,15 @@ export const verdicts = {
   cannot: "Claim not possible",
 };
 
+/** One-line meanings beside the verdict counts. */
+/** @type {Record<string, string>} */
+export const verdictMeanings = {
+  can: "Every fact it needs is verified.",
+  conditional: "Holds only if its assumptions are true.",
+  open: "A fact it needs is still open.",
+  cannot: "A fact it needs is shown to be false.",
+};
+
 /** Lamp symbols: each state has its own shape + symbol, never color alone. */
 /** @type {Record<string, string>} */
 export const symbols = { can: "✓", conditional: "≈", open: "○", cannot: "×" };
@@ -17,11 +26,22 @@ export const symbols = { can: "✓", conditional: "≈", open: "○", cannot: "�
 export const statuses = {
   proved: "Verified by proof",
   checked: "Verified by a checker",
-  assumed: "Assumption",
+  assumed: "Assumed",
   tested: "Tested, not verified",
   open: "Open",
   violated: "Violated",
   stale: "Changed since it was pinned",
+};
+
+/** A supposed status, as the end of "suppose O2 …". */
+/** @type {Record<string, string>} */
+export const supposedAs = {
+  proved: "is proved",
+  checked: "is verified by a checker",
+  assumed: "is assumed",
+  tested: "is tested",
+  open: "is open",
+  violated: "is false",
 };
 
 /** @type {Record<string, string>} */
@@ -35,18 +55,38 @@ export const routes = {
 
 /** @type {Record<string, string>} */
 export const kinds = {
-  entailment: "Entailment",
+  entailment: "Reasoning",
   result: "Result",
-  estimand: "Estimand",
+  estimand: "Measurement",
   statistical: "Statistics",
-  numerical: "Numerics",
+  numerical: "Calculation",
   implementation: "Implementation",
   dataflow: "Data flow",
   provenance: "Provenance",
   interpretation: "Interpretation",
-  release: "Release",
-  "spec-review": "Question review",
-  instantiation: "Instantiation",
+  release: "Publication",
+  "spec-review": "Question check",
+  instantiation: "Reused fact",
+};
+
+/** Claim levels, shown under a claim's end of its diagram as a fact's kind is under its own. */
+/** @type {Record<string, string>} */
+export const levels = {
+  estimand: "Measurement",
+  descriptive: "Description",
+  inferential: "Inference",
+  causal: "Causality",
+  release: "Publication",
+};
+
+/** The kind of fact a waived check found missing, as a claim's details name it. */
+/** @type {Record<string, string>} */
+export const lintNeeds = {
+  "L-result": "a result fact",
+  "L-statistical": "a statistics fact",
+  "L-interpretation": "an interpretation fact",
+  "L-release": "a publication fact",
+  "L-estimand": "a measurement fact",
 };
 
 /** @type {Record<string, string>} */
@@ -61,3 +101,20 @@ export function word(table, code) {
 export function count(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+/**
+ * Items joined as English prose: `a`, `a and b`, `a, b and c`.
+ * @template T @param {T[]} items @returns {(T | string)[]}
+ */
+export function andList(items) {
+  return items.flatMap((x, i) => {
+    if (i === 0) return [x];
+    return [i === items.length - 1 ? " and " : ", ", x];
+  });
+}
+
+/**
+ * A verdict's qualifiers, minus the review state (shown once per page, not per verdict).
+ * @param {{ qualifiers: string[] }} c
+ */
+export const qualifiers = (c) => c.qualifiers.filter((x) => x !== "draft" && x !== "stale review");

@@ -4,14 +4,24 @@
 // precomputed envelope per one-click action, so a what-if applies alone. The address hash holds
 // the view, so a scenario can be shared or reloaded.
 
-import { circuit, lamp } from "./circuit.js";
+import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
-import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
-import { count, verdicts, word } from "./words.js";
+import {
+  blockerList,
+  checkList,
+  experimentList,
+  groupTitle,
+  inspector,
+  textView,
+  workList,
+} from "./panels.js";
+import { startTour } from "./tour.js";
+import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
+/** @typedef {import("./envelope.js").State} State */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 
 /** The view: what-if (served: the spec sent to the engine + the overrides it accepted) or action
@@ -98,8 +108,8 @@ function loadExported(/** @type {NonNullable<typeof exported>} */ ex) {
     if (raw === undefined || view.spec) {
       showError(
         view.spec
-          ? "This page holds one-click what-ifs only, so it shows the recorded evidence."
-          : `This page holds no what-if "${view.action}", so it shows the recorded evidence.`,
+          ? "This page holds one-click what-ifs only, so it shows the facts as recorded."
+          : `This page holds no what-if "${view.action}", so it shows the facts as recorded.`,
       );
       view.action = undefined;
       view.spec = "";
@@ -135,7 +145,7 @@ async function load() {
         view.spec = "";
         writeHash();
         await load();
-        showError(`${problem.message}. This page shows the recorded evidence instead.`);
+        showError(`${problem.message}. This page shows the facts as recorded instead.`);
       } else showError(problem.message);
       return;
     }
@@ -216,17 +226,22 @@ const on = {
   },
 };
 
-/** Claims of the question, grouped by the engine's verdict; overlooked + new-data apart. */
+/** Claims of the question in the engine's verdict order, untitled (each card names its verdict);
+ * overlooked + new-data apart, titled. */
 /** @param {Envelope} e @returns {[string, Claim[]][]} */
 function groups(e) {
   const prospective = new Set(e.subjects.filter((s) => s.kind === "prospective").map((s) => s.id));
   const mine = e.claims.filter((c) => c.question === view.question);
   const existing = mine.filter((c) => !prospective.has(c.subject));
   /** @type {[string, Claim[]][]} */
-  const out = ["can", "conditional", "open", "cannot"].map((st) => {
-    const cs = existing.filter((c) => !c.latent && c.final === st);
-    return [cs[0]?.verdict ?? st, cs];
-  });
+  const out = [
+    [
+      "",
+      ["can", "conditional", "open", "cannot"].flatMap((st) =>
+        existing.filter((c) => !c.latent && c.final === st),
+      ),
+    ],
+  ];
   out.push(["Overlooked directions", existing.filter((c) => c.latent)]);
   for (const s of e.subjects.filter((x) => prospective.has(x.id))) {
     out.push([`On new data: ${s.title}`, mine.filter((c) => c.subject === s.id)]);
@@ -241,21 +256,34 @@ function renderScenario(/** @type {Envelope} */ e) {
     byId("scenario-text"),
     e.mode === "what-if"
       ? [
-          h("strong", {}, "What-if: "),
-          e.overrides.map((o) => `${o.fact} ${o.status}`).join(", "),
-          ". Supposed, not recorded: no new evidence.",
+          h("strong", { class: "what-if-lead" }, "Showing a what-if: "),
+          "suppose ",
+          e.overrides
+            .filter((o) => e.facts.some((f) => f.id === o.fact))
+            .map((o) => `${o.fact} ${word(supposedAs, o.status)}`)
+            .join(", "),
+          ". Nothing has been recorded.",
         ]
-      : "Recorded evidence.",
+      : [
+          h("strong", { class: "scenario-head" }, "Showing the facts as recorded."),
+          " Press a fact's symbol to see what would change if it were verified.",
+        ],
   );
-  byIdAs("reset", HTMLButtonElement).disabled = e.mode !== "what-if";
-  const review = byId("review");
-  review.textContent =
+  byId("reset").hidden = e.mode !== "what-if";
+  // The review state, once for the page: it qualifies every verdict alike.
+  const who = e.review.reviewer ?? "A reviewer";
+  const when = e.review.date ?? "a recorded date";
+  fill(
+    byId("review"),
     e.review.state === "reviewed"
-      ? `Reviewed by ${e.review.reviewer ?? "a reviewer"} on ${e.review.date ?? "a recorded date"}.`
+      ? `Reviewed by ${who} on ${when}.`
       : e.review.state === "stale"
-        ? "The trace changed since its review: every verdict is provisional."
-        : "Draft: every verdict is provisional until a reviewer signs the trace off.";
-  review.className = `review ${e.review.state}`;
+        ? [
+            h("strong", {}, "Changed since the last review."),
+            ` ${who} reviewed the claims and facts on ${when}. Check the changes before you rely on the verdicts.`,
+          ]
+        : h("strong", {}, "Not reviewed yet."),
+  );
 }
 
 /** The focused re-rendered control, so a render can hand focus back to its successor. */
@@ -288,18 +316,7 @@ function draw(e) {
   byId("analysis-title").textContent = e.analysis.title;
   byId("analysis-summary").textContent = e.analysis.summary;
   renderScenario(e);
-  fill(
-    byId("overview"),
-    /** @type {const} */ (["can", "conditional", "open", "cannot"]).map((st) =>
-      h(
-        "div",
-        { class: "stat" },
-        lamp(st),
-        h("b", { class: "stat-count" }, String(e.counts[st])),
-        h("span", { class: "stat-label" }, word(verdicts, st)),
-      ),
-    ),
-  );
+  fill(byId("how-key"), factKey(e.counts));
   fill(
     byId("questions"),
     e.questions.map((q) =>
@@ -345,12 +362,7 @@ function draw(e) {
           h(
             "section",
             { class: "group" },
-            h(
-              "h3",
-              { class: "group-title" },
-              title,
-              h("span", { class: "group-count" }, ` ${cs.length}`),
-            ),
+            groupTitle(title, cs),
             cs.map((c) => circuit(c, e, on, sel?.kind === "claim" && sel.id === c.id)),
           ),
         ),
@@ -406,6 +418,82 @@ function wire() {
   });
 }
 
+/** @type {[string, State][]} */
+const pairs = [
+  ["proved", "can"],
+  ["assumed", "conditional"],
+  ["open", "open"],
+  ["violated", "cannot"],
+];
+
+/** @type {Record<string, string>} */
+const factMeanings = {
+  proved: "Proved, or accepted by a proved checker",
+  assumed: "Taken as true: the claim holds only if it is",
+  open: "Neither verified nor assumed yet",
+  violated: "Shown to be false",
+};
+
+/** @param {string} st */
+const factCell = (st) => [
+  h("span", { class: `switch ${st}`, "aria-hidden": "true" }, switchSvg(st)),
+  h(
+    "span",
+    { class: "key-text" },
+    h("span", {}, st === "proved" ? "Verified" : word(statuses, st)),
+    h("small", {}, word(factMeanings, st)),
+  ),
+];
+
+/** @param {Record<State, number>} counts @param {State} st */
+const verdictCell = (counts, st) => [
+  lamp(st),
+  h("b", { class: "stat-count" }, String(counts[st])),
+  h(
+    "span",
+    { class: "key-text" },
+    h("span", {}, word(verdicts, st)),
+    h("small", { class: "verdict-meaning" }, word(verdictMeanings, st)),
+  ),
+];
+
+/** The key: each kind of fact beside the verdict it gives as a claim's weakest + its count. */
+/** @param {Record<State, number>} counts */
+const factKey = (counts) =>
+  h(
+    "table",
+    { class: "key-pairs" },
+    h(
+      "thead",
+      {},
+      h(
+        "tr",
+        {},
+        h("th", { scope: "col", colspan: "2" }, "Facts"),
+        h("th", { scope: "col", colspan: "3" }, "Claims"),
+      ),
+    ),
+    h(
+      "tbody",
+      {},
+      pairs.map(([sw, st]) =>
+        h(
+          "tr",
+          {},
+          factCell(sw).map((c) => h("td", {}, c)),
+          verdictCell(counts, st).map((c) => h("td", {}, c)),
+        ),
+      ),
+    ),
+  );
+
+for (const id of ["tour-start", "tour-start-how"]) {
+  const b = byId(id);
+  b.addEventListener("click", () => startTour(b));
+}
+
+// Start last: an exported page renders during this module's evaluation, so everything `draw`
+// reads (the key table above) must already be initialized.
 readHash();
 wire();
 void load();

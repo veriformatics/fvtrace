@@ -1,42 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
-import { spawnSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-
-const root = join(import.meta.dirname, "..", "..");
-const bin = join(root, ".lake", "build", "bin", "fvtrace");
-
-/**
- * @param {string[]} args @param {string} cwd @param {NodeJS.ProcessEnv} env
- * @returns {string}
- */
-function fvtrace(args, cwd, env) {
-  const run = spawnSync(bin, args, { cwd, env, encoding: "utf8" });
-  if (run.status !== 0) throw new Error(`fvtrace ${args.join(" ")}: ${run.stderr}`);
-  return run.stdout.trim();
-}
+import { fvtrace, prepareStudy } from "./fvtrace-server.js";
 
 /** @type {{ dir: string, page: string }} */
 let fixture;
 
 test.beforeAll(async () => {
-  const dir = await mkdtemp(join(tmpdir(), "fvtrace-export-"));
-  const project = join(dir, "proj");
-  await mkdir(join(project, "proofs"), { recursive: true });
-  await writeFile(
-    join(project, "proofs", "Contrast.lean"),
-    "theorem contrast_correct : True := trivial\n",
-  );
-  const env = { ...process.env, FVTRACE_HOME: join(dir, "home") };
-  fvtrace(["init"], project, env);
-  await copyFile(
-    join(root, "tests", "fixtures", "synthetic.trace.json"),
-    fvtrace(["path"], project, env),
-  );
-  fvtrace(["pin"], project, env);
+  const { dir, project, env } = await prepareStudy("synthetic");
   const page = join(dir, "claims.html");
   fvtrace(["export", "--html", page], project, env);
   fixture = { dir, page };
@@ -45,6 +18,12 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await rm(fixture.dir, { recursive: true, force: true });
 });
+
+/** @param {import("@playwright/test").Page} page */
+const c2 = (page) =>
+  page
+    .locator("article.circuit")
+    .filter({ has: page.locator(".tag-id").getByText("C2", { exact: true }) });
 
 test("the exported page works offline under its own CSP", async ({ page }) => {
   /** @type {string[]} */
@@ -56,29 +35,30 @@ test("the exported page works offline under its own CSP", async ({ page }) => {
   await page.goto(pathToFileURL(fixture.page).href);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Synthetic study");
   await expect(page.getByText("This page was exported: each what-if applies alone.")).toBeVisible();
-  const c2 = page.locator("article.circuit").filter({ hasText: "C2 /" });
-  await expect(c2.locator(".claim-state")).toHaveText("Pending verification (draft)");
-  await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
-  await expect(page.getByRole("status")).toContainText("What-if: EN2 proved");
+  await expect(c2(page).locator(".tag-soft .cap-trim")).toHaveText("Pending verification");
+  await c2(page).getByRole("button", { name: "Suppose EN2 proved" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Showing a what-if: suppose EN2 is proved. Nothing has been recorded.",
+  );
   await expect(
-    c2.getByRole("button", { name: "Restore the recorded status of EN2" }),
+    c2(page).getByRole("button", { name: "Restore the recorded status of EN2" }),
   ).toBeVisible();
-  await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.getByRole("status")).toContainText("What-if: O2 checked");
+  await c2(page).getByRole("button", { name: "Suppose O2 checked" }).click();
+  await expect(page.getByRole("status")).toContainText("suppose O2 is verified by a checker");
   await expect(page.getByRole("status")).not.toContainText("EN2");
   expect(new URL(page.url()).hash).toContain("action=suppose%3AO2");
-  await page.getByRole("button", { name: "Restore the recorded evidence" }).click();
-  await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
-  // Another action supposes O2: its switch stays put until Reset (actions apply alone).
-  await page.getByRole("button", { name: /Check the result table/ }).click();
+  await page.getByRole("button", { name: "Show the facts as recorded" }).click();
+  await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+  // Another action supposes O2: its symbol stays put until the reset (actions apply alone).
+  await page.locator(".experiment-row").filter({ hasText: "Check the result" }).click();
   await page.locator("#inspector").getByRole("button", { name: "Suppose it succeeds" }).click();
-  await expect(page.getByRole("status")).toContainText("What-if: O2 checked");
-  await expect(c2.getByRole("button", { name: "O2: Verified by a checker" })).toHaveAttribute(
+  await expect(page.getByRole("status")).toContainText("O2 is verified by a checker");
+  await expect(c2(page).getByRole("button", { name: "O2: Verified by a checker" })).toHaveAttribute(
     "aria-disabled",
     "true",
   );
-  await page.getByRole("button", { name: "Restore the recorded evidence" }).click();
-  await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
+  await page.getByRole("button", { name: "Show the facts as recorded" }).click();
+  await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations.map((v) => v.id)).toEqual([]);
   expect(errors).toEqual([]);
@@ -86,9 +66,8 @@ test("the exported page works offline under its own CSP", async ({ page }) => {
 
 test("a link to a what-if the page does not hold says so", async ({ page }) => {
   await page.goto(`${pathToFileURL(fixture.page).href}#action=suppose%3AZZ`);
-  await expect(page.locator("#error")).toBeVisible();
   await expect(page.locator("#error")).toHaveText(
-    'This page holds no what-if "suppose:ZZ", so it shows the recorded evidence.',
+    'This page holds no what-if "suppose:ZZ", so it shows the facts as recorded.',
   );
-  await expect(page.getByRole("status")).toHaveText("Recorded evidence.");
+  await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
 });
