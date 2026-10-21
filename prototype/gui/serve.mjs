@@ -17,9 +17,10 @@ const csp =
 const why = JSON.parse(await readFile(join(import.meta.dirname, "why.json"), "utf8"));
 // Stub: verdict words under review (round 2); the engine still emits the old ones.
 const verdictWords = {
-  "Can claim": "Verified",
-  "On assumption": "Conditional",
-  "Not yet": "Unverified",
+  "Can claim": "Fully supported",
+  "On assumption": "Rests on assumptions",
+  "Not yet": "Pending verification",
+  "Cannot claim": "Claim not possible",
 };
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
