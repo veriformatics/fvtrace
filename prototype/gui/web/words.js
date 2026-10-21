@@ -55,28 +55,28 @@ export const routes = {
 
 /** @type {Record<string, string>} */
 export const kinds = {
-  entailment: "Entailment",
+  entailment: "Reasoning",
   result: "Result",
-  estimand: "Estimand",
+  estimand: "Measure",
   statistical: "Statistics",
-  numerical: "Numerics",
+  numerical: "Calculation",
   implementation: "Implementation",
   dataflow: "Data flow",
   provenance: "Provenance",
   interpretation: "Interpretation",
-  release: "Release",
-  "spec-review": "Question review",
-  instantiation: "Instantiation",
+  release: "Publication",
+  "spec-review": "Question check",
+  instantiation: "Reused fact",
 };
 
 /** Claim levels, shown under a claim's end of its diagram as a fact's kind is under its own. */
 /** @type {Record<string, string>} */
 export const levels = {
-  estimand: "Estimand",
-  descriptive: "Descriptive",
-  inferential: "Inferential",
-  causal: "Causal",
-  release: "Release",
+  estimand: "Measure",
+  descriptive: "Description",
+  inferential: "Inference",
+  causal: "Causality",
+  release: "Publication",
 };
 
 /** @type {Record<string, string>} */

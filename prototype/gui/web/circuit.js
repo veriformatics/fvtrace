@@ -106,7 +106,7 @@ export const claimTag = (c) => {
       h("span", { class: `tag-soft ${c.final}` }, c.verdict),
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
-    h("span", {}, `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`),
+    h("span", {}, `${c.id} / ${word(levels, c.level)}${c.latent ? " / overlooked direction" : ""}`),
   );
 };
 
