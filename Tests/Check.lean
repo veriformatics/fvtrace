@@ -28,6 +28,9 @@ def expect (name : String) (t : Trace) (want : List (String × String)) : TestM 
 def tests : TestM Unit := do
   let t ← fixture
   expect "check: the synthetic fixture is well-formed" t []
+  match decodeTrace (← IO.FS.readBinFile "skill/fvtrace/assets/example.trace.json") with
+  | .ok ex => expect "check: the skill's example trace is well-formed" ex []
+  | .error ds => check "check: the skill's example trace decodes" false s!"{repr ds}"
   let roundTrip := fun (x : Trace) => (decodeTrace (Encode.trace x).pretty.toUTF8).toOption
   checkEq "encode: the synthetic fixture round-trips" (roundTrip t) (some t)
   let latent := mapClaim t "C2" fun c => { c with latent := true }

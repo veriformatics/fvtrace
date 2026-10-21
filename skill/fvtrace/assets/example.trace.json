@@ -3,7 +3,7 @@
   "analysis": {
     "id": "synthetic",
     "title": "Synthetic study",
-    "summary": "A small study exercising every trace feature."
+    "summary": "A made-up study that shows how fvTrace works. Its proofs are placeholders, so its verdicts are an illustration, not evidence."
   },
   "subjects": [
     {
@@ -30,11 +30,11 @@
       "id": "O1",
       "subject": "S",
       "kind": "estimand",
-      "text": "The contrast measures treatment minus control.",
+      "text": "The analysis subtracts the control group's average marker level from the treated group's average.",
       "status": "open",
       "route": "lean",
       "evidence": {
-        "summary": "Contrast proof.",
+        "summary": "A placeholder Lean proof that stands in for the calculation.",
         "artifacts": [
           {
             "path": "proofs/Contrast.lean"
@@ -43,73 +43,80 @@
         "verifier": "Lean 4.35.0",
         "statement": "contrast_correct"
       },
-      "trusts": [
-        "Lean kernel"
-      ]
+      "why": "The claim uses this difference, so the calculation must match it."
     },
     {
       "id": "O2",
       "subject": "S",
       "kind": "result",
-      "text": "The marker rises in treated samples.",
+      "text": "Treated samples have a higher average marker level, and chance alone rarely gives a difference this large.",
       "status": "open",
-      "route": "runtime-checker"
+      "route": "runtime-checker",
+      "why": "The claim says chance rarely gives this difference, so the data must show it."
     },
     {
       "id": "O3",
       "subject": "S",
-      "kind": "statistical",
-      "text": "The model assumptions hold.",
+      "kind": "provenance",
+      "text": "Rerunning the randomization gives the recorded groups.",
+      "status": "open",
+      "route": "runtime-checker",
+      "why": "Otherwise the samples may not have been split the way the records say."
+    },
+    {
+      "id": "R1",
+      "subject": "S",
+      "kind": "provenance",
+      "text": "The samples were split into the two groups at random, before anything was known about their marker levels.",
       "status": "assumed",
-      "route": "empirical"
+      "route": "human-ruling",
+      "why": "Otherwise another difference between the groups could explain the result."
     },
     {
-      "id": "O4",
+      "id": "R2",
       "subject": "S",
-      "kind": "provenance",
-      "text": "Each animal was sampled once.",
-      "status": "open",
-      "route": "human-ruling"
-    },
-    {
-      "id": "O5",
-      "subject": "S",
-      "kind": "provenance",
-      "text": "Some animals were sampled twice.",
-      "status": "open",
-      "route": "human-ruling"
+      "kind": "interpretation",
+      "text": "The samples are independent: treating one sample does not change another sample's marker level.",
+      "status": "assumed",
+      "route": "human-ruling",
+      "why": "Otherwise the treated samples could change the control samples, and the comparison would be wrong."
     },
     {
       "id": "EN1",
       "subject": "S",
       "kind": "entailment",
-      "text": "O1 entails C1.",
+      "text": "When samples are split at random and do not affect each other, the group difference matches the average effect of the treatment, on average across all possible splits.",
       "status": "open",
-      "route": "lean"
+      "route": "lean",
+      "evidence": {
+        "summary": "A placeholder Lean proof that stands in for the randomization result.",
+        "artifacts": [
+          {
+            "path": "proofs/Randomization.lean"
+          }
+        ],
+        "verifier": "Lean 4.35.0",
+        "statement": "randomization_effect"
+      },
+      "why": "It is the reason the difference can be read as the effect of the treatment."
     },
     {
       "id": "EN2",
       "subject": "S",
       "kind": "entailment",
-      "text": "O1, O2 and O3 entail C2.",
+      "text": "If the treatment did nothing, checking every possible split of the samples shows how often chance alone gives a difference this large.",
       "status": "open",
-      "route": "lean"
+      "route": "lean",
+      "why": "It is the reason the data can say how rarely chance gives this difference."
     },
     {
       "id": "M1",
       "subject": "N",
       "kind": "result",
-      "text": "The marker rises in the new cohort.",
+      "text": "In the new cohort's table, the treated group's average marker level is higher.",
       "status": "open",
-      "route": "runtime-checker"
-    },
-    {
-      "id": "EN3",
-      "subject": "N",
-      "kind": "entailment",
-      "text": "M1 entails C3.",
-      "status": "open",
-      "route": "human-ruling"
+      "route": "runtime-checker",
+      "why": "The claim says the treated average is higher, so the new data must show that."
     }
   ],
   "claims": [
@@ -118,9 +125,12 @@
       "question": "Q1",
       "subject": "S",
       "level": "estimand",
-      "text": "The contrast is the treatment effect.",
+      "text": "On average over all fair random assignments, the difference between treated and control samples equals the treatment's average effect on these samples.",
+      "headline": "The difference between treated and control samples measures the average effect of the treatment.",
       "needs": [
-        "O1"
+        "O1",
+        "R1",
+        "R2"
       ],
       "entailment": "EN1"
     },
@@ -129,9 +139,12 @@
       "question": "Q1",
       "subject": "S",
       "level": "inferential",
-      "text": "Treatment raises the marker.",
+      "text": "If the treatment did nothing, a difference this large would arise by chance in fewer than 1 in 20 random assignments.",
+      "headline": "Treated samples show a rise that chance alone rarely produces.",
       "needs": [
         "O1",
+        "R1",
+        "R2",
         "O2",
         "O3"
       ],
@@ -142,11 +155,12 @@
       "question": "Q1",
       "subject": "N",
       "level": "descriptive",
-      "text": "The new cohort shows the rise.",
+      "text": "In the new cohort's data table, the treated samples' average marker level is higher than the controls'.",
+      "headline": "In the new cohort, treated samples show a higher average marker level.",
       "needs": [
         "M1"
       ],
-      "entailment": "EN3",
+      "restates": true,
       "variantOf": "C2"
     }
   ],
@@ -156,32 +170,17 @@
       "subject": "S",
       "kind": "dry",
       "effort": "days",
-      "title": "Check the result table",
-      "method": "A proved checker reads the result table.",
-      "resources": "Result table.",
+      "title": "Check the result",
+      "method": "Finish the proof that counting every possible split gives the chance of this difference, then run its proved checker on the result table.",
+      "resources": "Result table and the records of the groups.",
       "success": {
+        "EN2": "proved",
         "O2": "checked"
       },
       "failure": {
         "O2": "violated"
       },
-      "caveat": "Inconclusive when the table is incomplete."
-    },
-    {
-      "id": "E2",
-      "subject": "S",
-      "kind": "dry",
-      "effort": "hours",
-      "title": "Ask the owner",
-      "method": "The data owner rules on sampling.",
-      "resources": "Owner time.",
-      "success": {
-        "O4": "assumed"
-      },
-      "requires": [
-        "E1"
-      ],
-      "caveat": "A ruling is a premise."
+      "caveat": "Inconclusive when the table is incomplete or the proof is not finished."
     },
     {
       "id": "E3",
@@ -189,32 +188,38 @@
       "kind": "wet",
       "effort": "months",
       "title": "Collect a new cohort",
-      "method": "Sample new animals, then run the proved marker checker on their data.",
+      "method": "Sample new animals and run the proved checker on their data.",
       "resources": "Animals.",
       "success": {
         "M1": "checked"
       },
+      "failure": {
+        "M1": "violated"
+      },
       "caveat": "New data only."
-    }
-  ],
-  "exclusions": [
+    },
     {
-      "id": "X1",
+      "id": "E4",
       "subject": "S",
-      "between": [
-        "O4",
-        "O5"
-      ],
-      "text": "An animal cannot be sampled once and twice.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "kind": "dry",
+      "effort": "days",
+      "title": "Rerun the randomization",
+      "method": "A proved checker reruns the randomization program with its recorded settings and compares its groups with the records.",
+      "resources": "The randomization program, its settings and the records.",
+      "success": {
+        "O3": "checked"
+      },
+      "failure": {
+        "O3": "violated"
+      },
+      "caveat": "Shows that the records match the program, not that the samples were handled as recorded."
     }
   ],
   "waivers": [
     {
-      "rule": "L-result",
-      "claim": "C3",
-      "reason": "M1 is the observed result."
+      "rule": "L-statistical",
+      "claim": "C2",
+      "reason": "The test counts every possible split of the samples, so it needs no statistical model."
     }
   ]
 }
