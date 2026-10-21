@@ -369,6 +369,12 @@ main {
   padding: 20px 22px 12px;
 }
 
+/* The words column fills the row, so the label row (and the claim id at its end) spans it. */
+.claim-words {
+  flex: 1;
+  min-width: 0;
+}
+
 /* "Claim" stands out over every claim's words: ink label, id + level quiet beside it. */
 .claim-tag {
   display: flex;
@@ -654,15 +660,12 @@ main {
   text-underline-offset: 2px;
 }
 
-/* The claim id: in the ink tag (default) it keeps the tag's white; ?id=lead sets it before the words. */
-.tag-pair .ref {
-  color: inherit;
+/* The claim id stands out at the right end of its label row. */
+.claim-id {
+  margin-left: auto;
+  font-size: 20px;
   font-weight: 700;
-}
-
-.id-lead {
-  margin-right: 0.45em;
-  font-weight: 700;
+  color: var(--ink);
 }
 
 .moves,
