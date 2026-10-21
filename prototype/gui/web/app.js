@@ -248,8 +248,8 @@ function renderScenario(/** @type {Envelope} */ e) {
           ". Nothing has been recorded.",
         ]
       : [
-          h("strong", {}, "Showing the facts as recorded."),
-          " Press a switch to see what would change if its fact were verified.",
+          h("strong", { class: "scenario-head" }, "Showing the facts as recorded."),
+          "Press a switch to see what would change if its fact were verified.",
         ],
   );
   byId("reset").hidden = e.mode !== "what-if";

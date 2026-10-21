@@ -149,6 +149,10 @@ main {
   background: var(--assumption-wash);
 }
 
+.scenario-head {
+  display: block;
+}
+
 .what-if-lead {
   color: var(--assumption);
 }
