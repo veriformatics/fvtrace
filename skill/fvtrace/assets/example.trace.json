@@ -84,8 +84,8 @@
       "subject": "S",
       "kind": "entailment",
       "text": "O1 entails C1.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "status": "open",
+      "route": "lean"
     },
     {
       "id": "EN2",

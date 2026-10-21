@@ -57,7 +57,8 @@ theorem breakdownPartitions : Spec.BreakdownPartitions := by
   refine ⟨fun n hn => ?_, ?_⟩
   · simp only [Scenario.verifiedNeeds, Scenario.premises, Scenario.gaps, Scenario.blockers,
       List.mem_filter, hn, true_and]
-    cases h : s.eff n <;> simp [h, EStatus.verified, EStatus.strength]
+    cases h : s.eff n <;> cases hm : s.mustVerify n <;>
+      simp [h, hm, EStatus.verified, EStatus.strength]
   · simp only [List.mem_cons, List.mem_nil_iff, or_false]
     rintro l (rfl | rfl | rfl | rfl) <;> exact List.filter_sublist
 
@@ -174,28 +175,115 @@ theorem ruling_not_verified {r : Route} {st : Status} (hr : r = .humanRuling ∨
     (ha : r.allows st = true) : st.verified = false := by
   rcases hr with rfl | rfl <;> cases st <;> simp_all [Route.allows, Route.ceiling, Status.verified]
 
+theorem final_conditional {s : Scenario} {c : Claim} (h : s.final c = .conditional) :
+    s.intrinsic c = .conditional := by
+  unfold Scenario.final at h
+  split at h
+  · exact h
+  · cases h
+
+theorem conditionalNeedsVerified : Spec.ConditionalNeedsVerified := by
+  intro s c hcond n hn hmv
+  have hi := final_conditional hcond
+  unfold Scenario.intrinsic at hi
+  simp only at hi
+  split at hi
+  · cases hi
+  · split at hi
+    · cases hi
+    · split at hi
+      · rename_i hall
+        have hr := List.all_eq_true.mp hall n hn
+        simp only [Scenario.restsOn, hmv, Bool.not_true, Bool.false_or, Bool.and_eq_true] at hr
+        exact hr.2
+      · cases hi
+
+/-- A fact's allowed status is allowed by its route. -/
+theorem allows_route {f : Fact} {st : Status} (h : f.allows st = true) :
+    f.route.allows st = true := by
+  unfold Fact.allows at h
+  simp only [Bool.and_eq_true] at h
+  exact h.1
+
 theorem rulingCeiling : Spec.RulingCeiling := by
-  intro s c f hwf hvalid hf hroute hcan
+  intro s c f hwf hc hvalid hf hroute
   have hent : c.entailment ∈ c.needsAll := by simp [Claim.needsAll]
-  have h1 := eff_verified (intrinsic_can (final_can hcan) c.entailment hent)
-  have ⟨hmem, hid⟩ := fact?_mem hf
+  have ⟨hmem, _⟩ := fact?_mem hf
+  -- The entailment never reads verified: a ruling route allows no verified status.
+  have hnv : (s.eff c.entailment).verified = false := by
+    cases hv : (s.eff c.entailment).verified
+    · rfl
+    · have h1 := eff_verified hv
+      unfold Scenario.eff1 at h1
+      cases hl : s.overrides.lookup c.entailment with
+      | some st =>
+        simp only [hl] at h1
+        have hpair := lookup_mem hl
+        unfold Overrides.valid at hvalid
+        simp only [Bool.and_eq_true, List.all_eq_true] at hvalid
+        have := hvalid.2 _ hpair
+        simp only [hf, Option.any_some] at this
+        have := ruling_not_verified hroute (allows_route this)
+        simp [ofStatus_verified, this] at h1
+      | none =>
+        simp only [hl, hf] at h1
+        unfold Scenario.eff0 at h1
+        have hallow : f.allows f.status = true := hwf.2.2.2.2.2.1.1 f hmem
+        have := ruling_not_verified hroute (allows_route hallow)
+        simp [this, ofStatus_verified] at h1
+  -- WF-entail: the entailment is a must-verify (reasoning) fact.
+  have hmv : s.mustVerify c.entailment = true := by
+    have hk := (hwf.2.2.2.1 c hc).1 f hf
+    simp [Scenario.mustVerify, hf, hk, Kind.mustVerify]
+  cases hfin : s.final c with
+  | cannot => simp [State.rank]
+  | «open» => simp [State.rank]
+  | conditional =>
+    have := conditionalNeedsVerified s c hfin c.entailment hent hmv
+    simp [hnv] at this
+  | can =>
+    have := intrinsic_can (final_can hfin) c.entailment hent
+    simp [hnv] at this
+
+theorem assumedNeedsArePremises : Spec.AssumedNeedsArePremises := by
+  intro s n hwf hvalid ha
+  have h1 : s.eff1 n = .assumed := by
+    unfold Scenario.eff at ha
+    split at ha
+    · exact ha
+    · cases ha
+  unfold Scenario.mustVerify
   unfold Scenario.eff1 at h1
-  cases hl : s.overrides.lookup c.entailment with
+  cases hl : s.overrides.lookup n with
   | some st =>
     simp only [hl] at h1
+    have hst : st = .assumed := by cases st <;> simp_all [EStatus.ofStatus]
     have hpair := lookup_mem hl
     unfold Overrides.valid at hvalid
     simp only [Bool.and_eq_true, List.all_eq_true] at hvalid
-    have := hvalid.2 _ hpair
-    simp only [hf, Option.any_some] at this
-    have := ruling_not_verified hroute this
-    simp [ofStatus_verified, this] at h1
+    have hok := hvalid.2 _ hpair
+    cases hf : s.trace.fact? n with
+    | none => simp [hf] at hok
+    | some f =>
+      simp only [hf, Option.any_some] at hok
+      subst hst
+      simp [Fact.allows] at hok
+      simpa using hok.2
   | none =>
-    simp only [hl, hf] at h1
-    unfold Scenario.eff0 at h1
-    have hallow : f.route.allows f.status = true := hwf.2.2.2.2.2.1.1 f hmem
-    have := ruling_not_verified hroute hallow
-    simp [this, ofStatus_verified] at h1
+    simp only [hl] at h1
+    cases hf : s.trace.fact? n with
+    | none => simp [hf] at h1
+    | some f =>
+      simp only [hf] at h1
+      have hst : f.status = .assumed := by
+        unfold Scenario.eff0 at h1
+        split at h1
+        · cases h1
+        · cases hs : f.status <;> simp_all [EStatus.ofStatus]
+      have hallow : f.allows f.status = true := hwf.2.2.2.2.2.1.1 f (fact?_mem hf).1
+      rw [hst] at hallow
+      simp [Fact.allows] at hallow
+      simpa using hallow.2
 
 theorem exclusionDerives : Spec.ExclusionDerives := by
   intro s x b hx hxv hb ha hnb
@@ -290,6 +378,13 @@ theorem eff1_agree (hagree : ∀ k, t.factSubject? k = some T → o₁.lookup k 
   rw [hagree k hk]
   rfl
 
+/-- `all` with predicates agreeing on the list's members. -/
+theorem all_congr' {α : Type} {f g : α → Bool} :
+    ∀ {l : List α}, (∀ x ∈ l, f x = g x) → l.all f = l.all g
+  | [], _ => rfl
+  | x :: xs, h => by
+    simp only [List.all_cons, h x (by simp), all_congr' (l := xs) (fun y hy => h y (by simp [hy]))]
+
 /-- `filterMap` with functions agreeing on the list's members. -/
 theorem filterMap_congr' {α β : Type} {f g : α → Option β} :
     ∀ {l : List α}, (∀ x ∈ l, f x = g x) → l.filterMap f = l.filterMap g
@@ -375,13 +470,17 @@ theorem subjectIsolation : Spec.SubjectIsolation := by
     fun n hn => eff_agree hwf hagree (hneeds n hn)
   have heff : c.needsAll.map (s₁ t current o₁).eff = c.needsAll.map (s₁ t current o₂).eff :=
     List.map_congr_left hn
+  have hrest :
+      c.needsAll.all (s₁ t current o₁).restsOn = c.needsAll.all (s₁ t current o₂).restsOn :=
+    all_congr' fun n h => by simp only [Scenario.restsOn, Scenario.mustVerify, hn n h]
   dsimp only
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · unfold Scenario.final Scenario.intrinsic
-    rw [valid_agree hwf hagree, heff]
+    rw [valid_agree hwf hagree, heff, hrest]
     rfl
   all_goals
-    simp only [Scenario.verifiedNeeds, Scenario.premises, Scenario.gaps, Scenario.blockers]
+    simp only [Scenario.verifiedNeeds, Scenario.premises, Scenario.gaps, Scenario.blockers,
+      Scenario.mustVerify]
     exact List.filter_congr fun n h => by rw [hn n h]
 
 theorem recordedCanIsExisting : Spec.RecordedCanIsExisting := by
@@ -450,7 +549,8 @@ theorem rank_ladder_mono {a a' v v' p p' : Bool} (ha : a' = true → a = true)
 theorem intrinsic_rank_mono {s s' : Scenario} {c : Claim}
     (hinc : s'.incompatible c = s.incompatible c)
     (hle : ∀ n ∈ c.needsAll, (s.eff n).strength ≤ (s'.eff n).strength)
-    (hviol : ∀ n ∈ c.needsAll, s'.eff n = .violated → s.eff n = .violated) :
+    (hviol : ∀ n ∈ c.needsAll, s'.eff n = .violated → s.eff n = .violated)
+    (htr : s'.trace = s.trace) :
     (s.intrinsic c).rank ≤ (s'.intrinsic c).rank := by
   simp only [Scenario.intrinsic, hinc]
   apply rank_ladder_mono
@@ -464,11 +564,13 @@ theorem intrinsic_rank_mono {s s' : Scenario} {c : Claim}
     intro h n hn
     have := hle n hn; have := h n hn; have := strength_le_three (s'.eff n)
     omega
-  · simp only [List.all_map, List.all_eq_true, Function.comp_apply, EStatus.asserted,
-      decide_eq_true_eq]
+  · simp only [List.all_eq_true, Scenario.restsOn, Scenario.mustVerify, htr, Bool.and_eq_true,
+      Bool.or_eq_true, Bool.not_eq_true', EStatus.asserted, EStatus.verified, decide_eq_true_eq,
+      beq_iff_eq]
     intro h n hn
-    have := hle n hn; have := h n hn
-    omega
+    have := hle n hn; have := strength_le_three (s'.eff n)
+    obtain ⟨ha, hm⟩ := h n hn
+    exact ⟨by omega, hm.imp id fun hv => by omega⟩
 
 theorem derivations_nil {s : Scenario} {k : String}
     (hx : ∀ x ∈ s.trace.exclusions, x.between.1 ≠ k ∧ x.between.2 ≠ k) :
@@ -528,6 +630,7 @@ theorem raisingMonotone : Spec.RaisingMonotone := by
       by_cases hn : n = k
       · subst hn; rw [heffk] at hv; exact absurd hv hnv
       · rwa [heff n hn] at hv
+    · rfl
   · exact Nat.le_refl _
 
 end Monotone

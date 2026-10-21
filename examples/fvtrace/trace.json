@@ -3,7 +3,7 @@
   "analysis": {
     "id": "fvtrace",
     "title": "fvTrace",
-    "summary": "What fvTrace itself can claim about its checker and engine: each claim rests on Lean proofs of the code fvTrace runs."
+    "summary": "What fvTrace itself can claim about its checker and engine: each claim rests on Lean proofs of the code fvTrace runs. Like every analysis, it takes its instruments on trust without listing them per claim: here the Lean and C compilers that build that code."
   },
   "subjects": [
     {
@@ -47,12 +47,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "b94985c6d4f73579d408662210fe58cc2b7157392b5b329cb6eb5fe773004cde",
+            "sha256": "7f8f1e402b3309c719b3f37a68ec2792baf2889e19166922f558851b27e68800",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "392cbef5cd3b8eb50601e1fcdb68f1f94159d5f0b0b96cfa2e4823390298a6f9",
+            "sha256": "b776a9cfaad93bec3b3025ec3562daf6a80e3886aa5e719dfc4bf33cbc38c8e1",
             "role": "proof"
           }
         ],
@@ -63,7 +63,10 @@
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
@@ -78,12 +81,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "b94985c6d4f73579d408662210fe58cc2b7157392b5b329cb6eb5fe773004cde",
+            "sha256": "7f8f1e402b3309c719b3f37a68ec2792baf2889e19166922f558851b27e68800",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "392cbef5cd3b8eb50601e1fcdb68f1f94159d5f0b0b96cfa2e4823390298a6f9",
+            "sha256": "b776a9cfaad93bec3b3025ec3562daf6a80e3886aa5e719dfc4bf33cbc38c8e1",
             "role": "proof"
           }
         ],
@@ -94,14 +97,17 @@
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
       "id": "P3",
       "subject": "S",
       "kind": "implementation",
-      "text": "With no what-if, Can claim implies every need is recorded verified with a current receipt.",
+      "text": "With no what-if, Fully supported implies every need is recorded verified with a current receipt.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -109,30 +115,33 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
             "role": "proof"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.RecordedCanIsVerified",
-        "statementDigest": "1745821eb24bb0fa30cfff0eda98395d20a866c2eeee7b3a19367586bfb44bc9"
+        "statementDigest": "d3c5f036e217492c01a0f82b2c0650db62d58622ef698e830d5856ec7fd60756"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
       "id": "P4",
       "subject": "S",
       "kind": "implementation",
-      "text": "A claim whose entailment is human-ruled or empirical never reads Can claim.",
+      "text": "In a well-formed trace under a valid what-if, a claim whose reasoning fact is only human-ruled or empirical reads neither Fully supported nor Conditional.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -140,30 +149,33 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
             "role": "proof"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.RulingCeiling",
-        "statementDigest": "f64465bd084c8f204010b75abffc45bd4008f61e5de280bf35a37f350aef1d5f"
+        "statementDigest": "bebc353e93e00d1ad00e5a3d3e3197590cf019c5aa157b8a8c11f5652c1be379"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
       "id": "P5",
       "subject": "S",
       "kind": "implementation",
-      "text": "Cannot claim holds exactly when a need is violated, the claim needs both sides of a verified or assumed exclusion, or both sides of such an exclusion hold on the claim's subject.",
+      "text": "Claim not possible holds exactly when a need is violated, the claim needs both sides of a verified or assumed exclusion, or both sides of such an exclusion hold on the claim's subject.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -171,23 +183,26 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
             "role": "proof"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CannotExplained",
-        "statementDigest": "178afc5d04a095992726a05e699dc3cf47965aa7203a2f7e0f3cf30db48f8fbc"
+        "statementDigest": "29830cd15cc7a4424f148679778fb513ef93fcc44bd265c5990edff9be37e475"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
@@ -202,12 +217,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "448bc944556406ab6107d8583b701b4763666a83dad1f464559c14c1e6790334",
+            "sha256": "f204beb597584aeb8dc48ac35cd0275b127287db5ecdfdc1ea79da9129b66c27",
             "role": "proof"
           }
         ],
@@ -218,7 +233,10 @@
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
@@ -233,12 +251,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "448bc944556406ab6107d8583b701b4763666a83dad1f464559c14c1e6790334",
+            "sha256": "f204beb597584aeb8dc48ac35cd0275b127287db5ecdfdc1ea79da9129b66c27",
             "role": "proof"
           }
         ],
@@ -249,7 +267,10 @@
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
@@ -264,12 +285,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "baeade63fb8ada09d0f5995f6a915ccac0f8424ecaf7f703a40d20202436fbbe",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "0325733c7dc8db83d23b6920b4251ac82e1da412cce98cdb61fc025b6b3f47c5",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
             "role": "proof"
           }
         ],
@@ -280,17 +301,39 @@
       "trusts": [
         "Lean 4.35.0 kernel",
         "lean4lean",
-        "nanoda"
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     },
     {
-      "id": "I1",
+      "id": "P9",
       "subject": "S",
       "kind": "implementation",
-      "text": "The fvtrace binary runs the Lean definitions that the proofs are about.",
-      "status": "assumed",
-      "route": "human-ruling",
+      "text": "A claim reads Conditional only when every reasoning, result, measurement, calculation, code and data-flow fact it needs is verified.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.ConditionalNeedsVerified.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.ConditionalNeedsVerified",
+        "statementDigest": "54943c653ad53fb6ed7598583347e5d9d8c06d122220e96c63a86518f86a23ea"
+      },
       "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
         "Lean compiler",
         "C compiler",
         "Lean runtime"
@@ -301,8 +344,8 @@
       "subject": "S",
       "kind": "implementation",
       "text": "fvtrace hashes evidence files with the verified HACL* SHA-256, called unchanged.",
-      "status": "assumed",
-      "route": "human-ruling",
+      "status": "tested",
+      "route": "refinement",
       "evidence": {
         "summary": "HACL* is verified in F*; tools/vendor-hacl.sh holds the vendored files byte-equal to the pinned release.",
         "artifacts": [
@@ -317,7 +360,7 @@
             "role": "FFI shim"
           }
         ],
-        "statementDigest": "3556a2b17f97c653199b54dce86bace03746ee28daa16097c6b097e6ea932986"
+        "statementDigest": "6a8b93473c733eb2afcbf2722833b74df4e5b00164b474ff18a7b3df22a81a3a"
       },
       "trusts": [
         "HACL* proofs (F*, upstream)",
@@ -376,60 +419,212 @@
       "id": "E1",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C1 needs say what C1 says in English.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "C1's sentence joins the statements of P1 and P2, both proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.CheckAcceptsExactlyWellFormed ∧ Fvtrace.Spec.CheckViolationsSound.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/WellFormed.lean",
+            "sha256": "7f8f1e402b3309c719b3f37a68ec2792baf2889e19166922f558851b27e68800"
+          },
+          {
+            "path": "Fvtrace/Proofs/Check.lean",
+            "sha256": "b776a9cfaad93bec3b3025ec3562daf6a80e3886aa5e719dfc4bf33cbc38c8e1"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.CheckAcceptsExactlyWellFormed ∧ Fvtrace.Spec.CheckViolationsSound",
+        "statementDigest": "df11de475ad6e115d8204559f9a1dedb0734c9092694995d0e47408930bffcdf"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
     },
     {
       "id": "E2",
       "subject": "S",
       "kind": "entailment",
-      "text": "P3 and T2, with I1 and I2, entail C2 as worded.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "P3, T2 and I2 together give C2's sentence.",
+      "status": "open",
+      "route": "lean"
     },
     {
       "id": "E3",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C3 needs say what C3 says in English.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "C3's sentence is the statement of P4, proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.RulingCeiling.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.RulingCeiling",
+        "statementDigest": "4a851385441ae2fab7c9966dcb136d2808c9aab6878e62e428087950fe080660"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
     },
     {
       "id": "E4",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C4 needs say what C4 says in English.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "C4's sentence is the statement of P5, proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.CannotExplained.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.CannotExplained",
+        "statementDigest": "1c8f07b3326640acee30daa9e7d1915772fa00a4ffe9cb77f237631ded72535f"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
     },
     {
       "id": "E5",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C5 needs say what C5 says in English.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "C5's sentence joins the statements of P6 and P7, both proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.PlanSound ∧ Fvtrace.Spec.PlanOptimal.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+          },
+          {
+            "path": "Fvtrace/Proofs/Plan.lean",
+            "sha256": "f204beb597584aeb8dc48ac35cd0275b127287db5ecdfdc1ea79da9129b66c27"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.PlanSound ∧ Fvtrace.Spec.PlanOptimal",
+        "statementDigest": "766940c3d4610ba27bd690da0008080cb46a77e9ed4dd063c34870e6108cd442"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
     },
     {
       "id": "E6",
       "subject": "S",
       "kind": "entailment",
-      "text": "The Lean statements that C6 needs say what C6 says in English.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "text": "C6's sentence is the statement of P8, proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.SubjectIsolation.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.SubjectIsolation",
+        "statementDigest": "8a0998c317dbe3630bae076812e5ef82cf23aaeef9b301bd2369aa0a727d7a01"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
     },
     {
       "id": "E7",
       "subject": "S",
       "kind": "entailment",
-      "text": "T1 and the browser's same-origin rules entail C7 as worded.",
-      "status": "assumed",
-      "route": "human-ruling",
+      "text": "T1 and the browser's same-origin rules give C7's sentence.",
+      "status": "open",
+      "route": "lean",
       "trusts": [
         "Browser same-origin policy",
         "SameSite cookies"
+      ]
+    },
+    {
+      "id": "E8",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "C8's sentence is the statement of P9, proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.ConditionalNeedsVerified.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Engine.lean",
+            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+          },
+          {
+            "path": "Fvtrace/Proofs/Engine.lean",
+            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.ConditionalNeedsVerified",
+        "statementDigest": "f54a7a301c5b15bfdb17638cc663b931bc6113a10ff02036afd8df67fac1af98"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
       ]
     }
   ],
@@ -439,11 +634,10 @@
       "question": "Q1",
       "subject": "S",
       "level": "descriptive",
-      "text": "The well-formedness check in fvtrace check accepts a decoded trace exactly when it is well-formed, and each violation it reports is real.",
+      "text": "The well-formedness check in fvtrace check reports no violation exactly when the decoded trace is well-formed, and every violation it reports names a rule that the decoded trace breaks.",
       "needs": [
         "P1",
-        "P2",
-        "I1"
+        "P2"
       ],
       "entailment": "E1"
     },
@@ -452,11 +646,10 @@
       "question": "Q2",
       "subject": "S",
       "level": "descriptive",
-      "text": "With no what-if and without --cached, a claim reads Can claim only when every fact it needs is verified and its evidence is unchanged since it was pinned.",
+      "text": "With no what-if and without --cached, a claim reads Fully supported only when every fact it needs is verified and its evidence is unchanged since it was pinned.",
       "needs": [
         "P3",
         "T2",
-        "I1",
         "I2"
       ],
       "entailment": "E2"
@@ -466,10 +659,9 @@
       "question": "Q2",
       "subject": "S",
       "level": "descriptive",
-      "text": "A claim whose entailment rests on a human ruling or on empirical evidence never reads Can claim.",
+      "text": "In a well-formed trace under a valid what-if, a claim whose reasoning fact is only human-ruled or empirical reads neither Fully supported nor Conditional.",
       "needs": [
-        "P4",
-        "I1"
+        "P4"
       ],
       "entailment": "E3"
     },
@@ -478,10 +670,9 @@
       "question": "Q2",
       "subject": "S",
       "level": "descriptive",
-      "text": "Every Cannot claim has a stated reason: a violated fact, a verified or assumed exclusion between two of its needs, or a conflicting what-if on its subject.",
+      "text": "Claim not possible holds exactly when a need is violated, the claim needs both sides of a verified or assumed exclusion, or both sides of such an exclusion hold on the claim's subject.",
       "needs": [
-        "P5",
-        "I1"
+        "P5"
       ],
       "entailment": "E4"
     },
@@ -490,11 +681,10 @@
       "question": "Q3",
       "subject": "S",
       "level": "descriptive",
-      "text": "A suggested plan includes its prerequisites, and no other consistent set of suggested experiments reaches a higher verdict or the same verdict at lower effort.",
+      "text": "A planned set of experiments is prerequisite-closed, keeps the subject consistent and reports the state it reaches, and no prerequisite-closed, consistent set of experiments beats that state or matches it at strictly lower cost.",
       "needs": [
         "P6",
-        "P7",
-        "I1"
+        "P7"
       ],
       "entailment": "E5"
     },
@@ -503,12 +693,22 @@
       "question": "Q4",
       "subject": "S",
       "level": "descriptive",
-      "text": "A what-if on the facts of one subject leaves the claims on other subjects unchanged.",
+      "text": "Two what-ifs that agree on a subject's facts give each claim on that subject the same state and breakdown.",
       "needs": [
-        "P8",
-        "I1"
+        "P8"
       ],
       "entailment": "E6"
+    },
+    {
+      "id": "C8",
+      "question": "Q2",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "A claim reads Conditional only when every reasoning, result, measurement, calculation, code and data-flow fact it needs is verified.",
+      "needs": [
+        "P9"
+      ],
+      "entailment": "E8"
     },
     {
       "id": "C7",
@@ -517,8 +717,7 @@
       "level": "descriptive",
       "text": "A page from another site can never read the claims that fvtrace serve shows.",
       "needs": [
-        "T1",
-        "I1"
+        "T1"
       ],
       "entailment": "E7",
       "latent": true
@@ -573,6 +772,11 @@
     {
       "rule": "L-result",
       "claim": "C7",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C8",
       "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
     }
   ]

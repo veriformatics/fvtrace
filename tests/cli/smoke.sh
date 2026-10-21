@@ -57,8 +57,14 @@ expect "check --strict rc" 0 $?
 out="$(fv FVTRACE_HOME="$tmp/fv" "$bin" claims)"
 expect "claims rc" 0 $?
 # The engine's curly quotes, as the claims command prints them.
-want='C1 On assumption [draft]: Assuming “O1 entails C1.”: The contrast is the treatment effect.'
+want='C1 Conditional [draft]: Assuming “The model assumptions hold.”: The contrast is the treatment effect.'
 [[ "$out" == *"$want"* ]] || expect "claims prints C1's sentence" "$want" "$out"
+# A must-verify fact (here the result O2) is never recorded assumed: check fails, naming it.
+jq '(.facts[] | select(.id == "O2") | .status) = "assumed"' "$trace" >"$tmp/assumed.json"
+out="$(fv FVTRACE_HOME="$tmp/fv" "$bin" check --trace "$tmp/assumed.json" 2>&1)"
+expect "check on an assumed result rc" 1 $?
+[[ "$out" == *"error WF-route /facts/1/status: O2 cannot be assumed"* ]] ||
+    expect "check names the assumed result" "WF-route on O2" "$out"
 fv FVTRACE_HOME="$tmp/fv" "$bin" plan C9 >/dev/null 2>&1
 expect "plan on an unknown claim rc" 2 $?
 fv FVTRACE_HOME="$tmp/fv" "$bin" bogus >/dev/null 2>&1

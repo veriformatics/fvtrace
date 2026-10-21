@@ -12,16 +12,16 @@ binding of each id (`current`), and what-if overrides.
 namespace Fvtrace.Spec
 open Fvtrace
 
-/-- G1: with no what-if, "Can claim" means the claim's subject is consistent and every need,
-the claim's own entailment fact included, is recorded verified with a current receipt. -/
+/-- G1: with no what-if, "Fully supported" means the claim's subject is consistent and every
+need, the claim's own entailment fact included, is recorded verified with a current receipt. -/
 def RecordedCanIsVerified : Prop :=
   ∀ (t : Trace) (current : String → Bool) (c : Claim),
     (({ trace := t, current } : Scenario).final c = .can) →
       ({ trace := t, current } : Scenario).valid c.subject = true ∧
       ∀ n ∈ c.needsAll, ∃ f, t.fact? n = some f ∧ f.status.verified = true ∧ current n = true
 
-/-- G1b: in a well-formed trace, a recorded "Can claim" sits on an existing subject (facts on a
-subject that does not exist yet record `open`). -/
+/-- G1b: in a well-formed trace, a recorded "Fully supported" sits on an existing subject (facts on
+a subject that does not exist yet record `open`). -/
 def RecordedCanIsExisting : Prop :=
   ∀ (t : Trace) (current : String → Bool) (c : Claim), WellFormed t → c ∈ t.claims →
     ({ trace := t, current } : Scenario).final c = .can →
@@ -36,20 +36,35 @@ def BreakdownPartitions : Prop :=
         decide (n ∈ s.blockers c)].count true = 1) ∧
     ∀ l ∈ [s.verifiedNeeds c, s.premises c, s.gaps c, s.blockers c], l.Sublist c.needsAll
 
-/-- G2b: "Cannot claim" always has a stated reason: a violated need or an asserted exclusion
+/-- G2b: "Claim not possible" always has a stated reason: a violated need or an asserted exclusion
 between two needs (intrinsic), or a conflicting what-if on the subject. -/
 def CannotExplained : Prop :=
   ∀ (s : Scenario) (c : Claim),
     (s.intrinsic c = .cannot ↔ s.blockers c ≠ [] ∨ s.incompatible c ≠ []) ∧
     (s.final c = .cannot ↔ s.intrinsic c = .cannot ∨ s.conflicts c.subject ≠ [])
 
-/-- G5: a claim whose entailment is only human-ruled or empirical never reads "Can claim", in a
-well-formed trace under any valid what-if. -/
+/-- G5: in a well-formed trace under any valid what-if, a claim of the trace whose entailment
+(its reasoning) is only human-ruled or empirical reads neither "Fully supported" nor
+"Conditional": its reasoning can never be verified. -/
 def RulingCeiling : Prop :=
   ∀ (s : Scenario) (c : Claim) (f : Fact),
-    WellFormed s.trace → Overrides.valid s.trace s.overrides = true →
+    WellFormed s.trace → c ∈ s.trace.claims → Overrides.valid s.trace s.overrides = true →
     s.trace.fact? c.entailment = some f → (f.route = .humanRuling ∨ f.route = .empirical) →
-      s.final c ≠ .can
+      (s.final c).rank ≤ 1
+
+/-- G12: a claim reads "Conditional" only when every need of a must-verify kind (its reasoning,
+results, measurements, calculations, code, data flow) is verified: its assumptions are
+background conditions alone. Holds for every scenario, valid or not. -/
+def ConditionalNeedsVerified : Prop :=
+  ∀ (s : Scenario) (c : Claim), s.final c = .conditional →
+    ∀ n ∈ c.needsAll, s.mustVerify n = true → (s.eff n).verified = true
+
+/-- G13: in a well-formed trace under a valid what-if, a fact that reads "assumed" is a background
+condition: no must-verify fact is ever assumed. -/
+def AssumedNeedsArePremises : Prop :=
+  ∀ (s : Scenario) (n : String),
+    WellFormed s.trace → Overrides.valid s.trace s.overrides = true →
+    s.eff n = .assumed → s.mustVerify n = false
 
 /-- G8a: a verified exclusion with a current receipt makes the unasserted side of a verified
 fact violated. -/
@@ -99,8 +114,8 @@ def RaisingMonotone : Prop :=
     (s.eff1 k).strength ≤ (EStatus.ofStatus st).strength →
       (s.final c).rank ≤ ((s.withOverrides [(k, st)]).final c).rank
 
-/-- G6: the verdict "Can claim" is emitted exactly for final state `can`. -/
-def CanVerdictExact : Prop := ∀ st : State, st.verdict = "Can claim" ↔ st = .can
+/-- G6: the verdict "Fully supported" is emitted exactly for final state `can`. -/
+def CanVerdictExact : Prop := ∀ st : State, st.verdict = "Fully supported" ↔ st = .can
 
 /-- G10: every claim is counted under exactly one state. -/
 def CountsComplete : Prop :=

@@ -373,6 +373,24 @@ def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
 
 def claimList (ids : List String) : String := if ids.isEmpty then "none" else ", ".intercalate ids
 
+/-- `a`, `a and b`, `a, b and c`. -/
+def andList : List String → String
+  | [] => ""
+  | [a] => a
+  | [a, b] => s!"{a} and {b}"
+  | a :: rest => s!"{a}, {andList rest}"
+
+/-- A work row's claims beyond those it makes available alone, each with the facts it needs
+together with this one (its gaps, minus the row's fact). -/
+def neededBy (sc : Scenario) (w : Scenario.Work) : List String :=
+  (w.gates.filter (!w.unlocks.contains ·)).filterMap fun id => (sc.trace.claim? id).map fun c =>
+    let others := (sc.gaps c).filter (· != w.fact)
+    match sc.final c with
+    | .cannot => s!"Needed by {id}, which is not possible as worded."
+    | .conditional => s!"Needed by {id}, which holds only if it is true."
+    | _ => if others.isEmpty then s!"Needed by {id}."
+      else s!"Needed by {id}, together with {andList others}."
+
 def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 0 fun p l => do
     let sc := l.scenario
@@ -385,7 +403,9 @@ def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     else say "Facts to verify, most useful first:"
     for w in sc.work do
       say s!"  {w.fact} {sc.factText w.fact}"
-      say s!"      Makes available alone: {claimList w.unlocks}. Needed by: {claimList w.gates}."
+      let alone := if w.unlocks.isEmpty then []
+        else [s!"Makes available alone: {", ".intercalate w.unlocks}."]
+      say s!"      {" ".intercalate (alone ++ neededBy sc w)}"
     unless sc.blockerFacts.isEmpty do
       say "Violated facts (reword the claims or collect new data):"
       for (f, cs) in sc.blockerFacts do
@@ -394,7 +414,8 @@ def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     footer l
     return 0
 
-/-- One line per claim whose state changes: `C2 changes from Not yet to On assumption`. -/
+/-- One line per claim whose state changes: `C2 changes from Pending verification to
+Conditional`. -/
 def movesText (ms : List Scenario.Move) : String :=
   if ms.isEmpty then "no claim changes."
   else "; ".intercalate (ms.map fun m =>

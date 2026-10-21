@@ -109,21 +109,32 @@ def incompatible (c : Claim) : List String :=
     (s.exclusionEff x).asserted && c.needsAll.contains x.between.1 &&
       c.needsAll.contains x.between.2).map (·.id)
 
-/-- S-state, ignoring the subject's validity. -/
+/-- The need names a fact of a must-verify kind (an id naming no fact: no). -/
+def mustVerify (id : String) : Bool := (s.trace.fact? id).any (·.kind.mustVerify)
+
+/-- A need a Conditional claim may rest on: verified, or assumed when it is a background
+condition. -/
+def restsOn (id : String) : Bool :=
+  (s.eff id).asserted && (!s.mustVerify id || (s.eff id).verified)
+
+/-- S-state, ignoring the subject's validity. The gate on must-verify needs holds for any input;
+valid input never assumes one (G13), so it never fires there. -/
 def intrinsic (c : Claim) : State :=
   let sts := c.needsAll.map s.eff
   if sts.any (· == .violated) || !(s.incompatible c).isEmpty then .cannot
   else if sts.all (·.verified) then .can
-  else if sts.all (·.asserted) then .conditional
+  else if c.needsAll.all s.restsOn then .conditional
   else .«open»
 
 /-- What a surface shows: a conflicting what-if on the claim's subject makes it cannot. -/
 def final (c : Claim) : State := if s.valid c.subject then s.intrinsic c else .cannot
 
 def verifiedNeeds (c : Claim) : List String := c.needsAll.filter fun n => (s.eff n).verified
-def premises (c : Claim) : List String := c.needsAll.filter fun n => s.eff n == .assumed
+def premises (c : Claim) : List String :=
+  c.needsAll.filter fun n => s.eff n == .assumed && !s.mustVerify n
+/-- Open, tested or stale needs, and any assumed need that must be verified. -/
 def gaps (c : Claim) : List String :=
-  c.needsAll.filter fun n => (s.eff n).strength == 1
+  c.needsAll.filter fun n => (s.eff n).strength == 1 || (s.eff n == .assumed && s.mustVerify n)
 def blockers (c : Claim) : List String := c.needsAll.filter fun n => s.eff n == .violated
 
 /-- The same scenario under extra overrides (later keys replace earlier ones). -/
@@ -138,10 +149,10 @@ namespace Scenario
 
 variable (s : Scenario)
 
-/-- A fact verification work could still raise (not violated, below its route's ceiling). -/
+/-- A fact verification work could still raise (not violated, below its ceiling). -/
 def closable (f : Fact) : Bool :=
   let e := s.eff f.id
-  e != .violated && e.strength < (EStatus.ofStatus f.route.ceiling).strength
+  e != .violated && e.strength < (EStatus.ofStatus f.ceiling).strength
 
 def gates (f : Fact) : List String :=
   (s.trace.claims.filter fun c => c.needsAll.contains f.id).map (·.id)
@@ -149,7 +160,7 @@ def gates (f : Fact) : List String :=
 /-- Claims that verifying `f` to its ceiling alone would move from open/cannot to
 can/conditional. -/
 def unlocks (f : Fact) : List String :=
-  let raised := s.withOverrides [(f.id, f.route.ceiling)]
+  let raised := s.withOverrides [(f.id, f.ceiling)]
   (s.trace.claims.filter fun c =>
     c.needsAll.contains f.id && (s.final c).rank ≤ 1 && (raised.final c).rank ≥ 2).map (·.id)
 
@@ -352,9 +363,9 @@ end Scenario
 
 /-! ## What-if input -/
 
-/-- S-override validity: each key names a fact, once, with a status its route allows. -/
+/-- S-override validity: each key names a fact, once, with a status the fact allows. -/
 def Overrides.valid (t : Trace) (o : Overrides) : Bool :=
-  (o.map (·.1)).Nodup && o.all fun (k, st) => (t.fact? k).any fun f => f.route.allows st
+  (o.map (·.1)).Nodup && o.all fun (k, st) => (t.fact? k).any fun f => f.allows st
 
 /-- Keys in ascending order (one normalized form per what-if). -/
 def Overrides.normalize (o : Overrides) : Overrides := o.mergeSort fun a b => a.1 ≤ b.1
@@ -371,6 +382,8 @@ def Overrides.parse (t : Trace) (spec : String) : Except String Overrides := do
       let some f := t.fact? k | throw s!"the trace has no fact \"{k}\""
       unless f.route.allows st do
         throw s!"{k} cannot reach {v} by route {f.route.name}"
+      unless f.allows st do
+        throw s!"{k} cannot be assumed: facts of kind {f.kind.name} must be verified"
       if out.any (·.1 == k) then throw s!"{k} appears twice in the what-if"
       out := out ++ [(k, st)]
     | _ => throw s!"a what-if entry reads FACT=STATUS, got \"{e}\""

@@ -552,6 +552,7 @@ theorem pruning (hwf : WellFormed s.trace) {c : Claim} (hc : c ∈ s.trace.claim
       have := eff_le_of s hle (hneq n hn)
       rw [hv] at this
       exact strength_zero (Nat.le_zero.mp this)
+    · rfl
 
 end Pruning
 
