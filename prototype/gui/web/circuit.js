@@ -110,6 +110,9 @@ export const claimTag = (c) => {
   );
 };
 
+// Prototype finalists for the level label: outlined (default) | ?level=soft = filled on a wash.
+const softLevel = new URLSearchParams(location.search).get("level") === "soft";
+
 /**
  * The claim's corner block: verdict symbol + id (its button when `open` + `key` are given), its
  * level under them.
@@ -127,9 +130,8 @@ export const claimId = (c, open, key, pressed) =>
     ),
     h(
       "span",
-      { class: "claim-level" },
-      article(word(levels, c.level)),
-      h("b", {}, word(levels, c.level)),
+      { class: `claim-level${softLevel ? " soft" : ""}` },
+      `${article(word(levels, c.level))}${word(levels, c.level)}`,
     ),
   );
 
