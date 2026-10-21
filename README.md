@@ -16,14 +16,17 @@ fvTrace checks the trace and decides every verdict. fvTrace never calls a langua
 
 | Verdict | Meaning |
 |---|---|
-| **Can claim** | Every fact that the claim needs is verified, and its evidence is unchanged since it was pinned. |
-| **On assumption** | No fact is violated, and each fact is verified or assumed. You can state the claim only with its assumptions: "Assuming …: claim". |
-| **Not yet** | At least one fact is open, only tested, or its evidence changed. |
-| **Cannot claim** | A fact is violated, the claim needs two facts that a verified or assumed exclusion rules out together, or a what-if conflicts. |
+| **Fully supported** | Every fact that the claim needs is verified, and its evidence is unchanged since it was pinned. |
+| **Conditional** | No fact is violated, and the facts that must be verified are verified. Each other fact is verified or assumed. You can state the claim only with its assumptions: "Assuming …: claim". |
+| **Pending verification** | At least one fact is open, only tested, or its evidence changed. |
+| **Claim not possible** | A fact is violated, the claim needs two facts that a verified or assumed exclusion rules out together, or a what-if conflicts. |
 
-Each claim also needs one *entailment* fact: "these facts entail the claim as worded". If a
-person rules on the entailment, the claim can read **On assumption** at best. Until a reviewer
-signs off the trace, every verdict is provisional.
+Each claim also needs one *entailment* fact, its reasoning: "these facts entail the claim as
+worded". Only background conditions can be assumed, for example how the samples were collected,
+or that they are independent. A reasoning, result, measurement, calculation, implementation or
+data-flow fact must be verified: if the trace records one as `assumed`, `fvtrace check` reports
+an error. Thus a claim whose reasoning is a person's judgment reads **Pending verification** at
+best. Until a reviewer signs off the trace, every verdict is provisional.
 
 ## Install
 
@@ -91,7 +94,8 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 - **Facts**: one statement each. A fact has a **status** (`proved`, `checked`, `assumed`,
   `tested`, `open`, `violated`) and a **route**: how it could be verified (`lean`,
   `refinement`, `runtime-checker`, `human-ruling`, `empirical`). A route limits the status: a
-  human ruling or empirical evidence makes a fact `assumed` at best.
+  human ruling or empirical evidence makes a fact `assumed` at best, or `tested` at best when
+  the fact must be verified.
 - **Evidence**: the files behind a verified fact (a proof, a checker log). `fvtrace pin` records
   their digests. If a file or the wording of the fact changes later, the fact is no longer
   verified until you pin again. fvTrace checks that the files are unchanged, not that they prove
@@ -115,7 +119,7 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
   be made. If the exclusion is verified and one side is verified, fvTrace marks the other side
   violated, unless that side is verified or assumed too. Two sides that are both verified or
   assumed contradict each other: `fvtrace check` reports an error for the recorded trace, and a
-  what-if that supposes both sides makes every claim on that subject **Cannot claim**.
+  what-if that supposes both sides makes every claim on that subject **Claim not possible**.
 - A **violated** fact is false as worded. fvTrace lists it apart, with the claims that it
   blocks: reword those claims, or collect new data.
 
@@ -156,26 +160,30 @@ signs off the trace: the review is yours.
 
 The rules that decide each verdict are Lean 4 definitions. The guarantees that the verdicts
 rely on are Lean theorems, stated in `Fvtrace/Spec` and proved in `Fvtrace/Proofs`. Examples:
-"Can claim" holds only when every fact is verified with current evidence; a claim with a human
-ruling for its entailment never reads "Can claim"; a suggested plan is the best that the
-suggested experiments allow. `bash tools/trust.sh` checks every proof again with independent
+"Fully supported" holds only when every fact is verified with current evidence; "Conditional"
+holds only when the facts that must be verified are verified; a claim with a human ruling for its
+entailment reads neither of the two; a suggested plan is the best that the suggested experiments
+allow. `bash tools/trust.sh` checks every proof again with independent
 kernels (lean4lean and nanoda). The well-formedness check that `fvtrace check` applies to a
 decoded trace is proved to accept exactly the well-formed traces; the JSON decoding before it is
 tested, not proved.
 
-`examples/fvtrace/trace.json` applies fvTrace to itself. Five of its claims read **On
-assumption**. The assumptions are that the compiled program runs the proved definitions, and
-that each Lean statement says what its English claim says. Two claims read **Not yet**, because
-a fact that they need is tested but not proved:
+`examples/fvtrace/trace.json` applies fvTrace to itself. Six of its claims read **Fully
+supported**: each claim says what one or two Lean theorems prove, and its entailment fact is that
+proof. Two claims read **Pending verification**, because facts that they need are tested but not
+proved:
 
-- The receipt claim ("Can claim" means unchanged evidence) needs the file check of the receipts.
-  This claim also assumes that fvTrace calls the verified HACL* SHA-256 code unchanged.
+- The receipt claim ("Fully supported" means unchanged evidence) needs the file check of the
+  receipts and the call of the verified HACL* SHA-256 code.
 - An overlooked direction (no other site can read what `fvtrace serve` shows) needs the access
   check of the server.
 
-fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C compiler,
-the proofs of the HACL* SHA-256 code that fvTrace uses, the evidence files that you pin (fvTrace
-checks their digests, not their content), and every human ruling in the trace.
+Like every analysis, the self-trace takes its instruments on trust: it does not list them for each
+claim. fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C
+compiler, the proofs of the HACL* SHA-256 code that fvTrace uses, the evidence files that you pin
+(fvTrace checks their digests, not their content), every human ruling in the trace, and the
+reading of each proved Lean statement in English. A reviewer checks that each sentence says what
+its theorem proves.
 
 ## Limits
 

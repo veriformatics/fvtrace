@@ -166,17 +166,22 @@ def needs (t : Trace) : Found :=
     ensure (!c.needs.isEmpty) s!"/claims/{i}/needs" "a claim needs at least one fact" ++
     ensure (decide c.needs.Nodup) s!"/claims/{i}/needs" "a fact is listed twice"
 
+/-- Why fact `f` may not hold `st`: above its route, or an assumed must-verify fact. -/
+def disallowed (f : Fact) (st : Status) : String :=
+  if f.route.allows st then
+    s!"{f.id} cannot be assumed: facts of kind {f.kind.name} must be verified, so record open, \
+      tested or a verified status"
+  else s!"{st.name} exceeds route {f.route.name}"
+
 def outcomeRoutes (t : Trace) (e : Experiment) (i : Nat) : Found :=
   (e.success ++ e.failure).flatMap fun q =>
     match t.fact? q.1 with
-    | some f => ensure (f.route.allows q.2) s!"/experiments/{i}"
-        s!"\"{q.1}\" cannot reach {q.2.name} by route {f.route.name}"
+    | some f => ensure (f.allows q.2) s!"/experiments/{i}" s!"outcome \"{q.1}\": {disallowed f q.2}"
     | none => []
 
 def route (t : Trace) : Found :=
   (t.facts.zipIdx.flatMap fun (f, i) =>
-    ensure (f.route.allows f.status) s!"/facts/{i}/status"
-      s!"{f.status.name} exceeds route {f.route.name}") ++
+    ensure (f.allows f.status) s!"/facts/{i}/status" (disallowed f f.status)) ++
   (t.experiments.zipIdx.flatMap fun (e, i) => outcomeRoutes t e i) ++
   (t.exclusions.zipIdx.flatMap fun (x, i) =>
     ensure (x.route.allows x.status) s!"/exclusions/{i}/status"

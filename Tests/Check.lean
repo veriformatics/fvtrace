@@ -41,7 +41,7 @@ def tests : TestM Unit := do
     [("WF-refs", "/claims/0/question")]
   expect "check: need on another subject" (mapClaim t "C1" fun c => { c with needs := ["M1"] })
     [("WF-subject", "/claims/0")]
-  expect "check: entailment of wrong kind" (mapClaim t "C1" fun c => { c with entailment := "O3" })
+  expect "check: entailment of wrong kind" (mapClaim t "C1" fun c => { c with entailment := "O2" })
     [("WF-entail", "/claims/0/entailment")]
   expect "check: shared entailment"
     (mapClaim t "C2" fun c => { c with entailment := "EN1" })
@@ -60,6 +60,20 @@ def tests : TestM Unit := do
   expect "check: outcome above its route"
     (mapExperiment t "E2" fun e => { e with success := [("O4", .checked)] })
     [("WF-route", "/experiments/1")]
+  expect "check: a result is never recorded assumed (must-verify kind)"
+    (mapFact t "O2" fun f => { f with status := .assumed })
+    [("WF-route", "/facts/1/status")]
+  for k in [Kind.entailment, .estimand, .numerical, .implementation, .dataflow] do
+    expect s!"check: kind {k.name} is never recorded assumed"
+      (mapFact t "O5" fun f => { f with kind := k, status := .assumed })
+      [("WF-route", "/facts/4/status")]
+  expect "check: an outcome never assumes a must-verify fact"
+    (mapExperiment t "E1" fun e => { e with success := [("O2", .assumed)] })
+    [("WF-route", "/experiments/0")]
+  expect "check: background conditions may be assumed"
+    (mapFact (mapFact t "O4" fun f => { f with kind := .interpretation, status := .assumed })
+      "O5" fun f => { f with kind := .specReview })
+    []
   expect "check: success must assert"
     (mapExperiment t "E1" fun e => { e with success := [("O2", .tested)] })
     [("WF-outcome", "/experiments/0/success")]
@@ -92,9 +106,9 @@ def tests : TestM Unit := do
     (mapFact t "O1" fun f => { f with evidence := f.evidence.map fun ev =>
       { ev with artifacts := ev.artifacts.map fun a => { a with path := "proofs/A\x00.lean" } } })
     [("WF-path", "")]
-  expect "check: prospective fact must record open"
+  expect "check: prospective fact must record open (an assumed result breaks WF-route too)"
     (mapFact t "M1" fun f => { f with status := .assumed })
-    [("WF-prospective", "/facts/7/status")]
+    [("WF-route", "/facts/7/status"), ("WF-prospective", "/facts/7/status")]
   expect "check: creator must be on its subject"
     (mapExperiment t "E3" fun e => { e with subject := "S", success := [("O2", .checked)] })
     [("WF-prospective", "/subjects/1/createdBy")]

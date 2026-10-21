@@ -19,7 +19,7 @@ def finalOf (s : Scenario) (id : String) : State := s.final (claimNamed s.trace 
 def tests : TestM Unit := do
   let t ← fixture
   let s : Scenario := { trace := t, current := fun _ => true }
-  checkEq "engine: C1 rests on an assumed entailment" (finalOf s "C1") .conditional
+  checkEq "engine: C1 rests on a background condition" (finalOf s "C1") .conditional
   checkEq "engine: C2 has gaps" (finalOf s "C2") .«open»
   checkEq "engine: prospective C3 is open" (finalOf s "C3") .«open»
   checkEq "engine: breakdown partitions needs"
@@ -38,7 +38,7 @@ def tests : TestM Unit := do
     if c.id == "C1" then { c with text := "RNA is quantified." } else c }
   checkEq "engine: verbatim capitals (R1-P7)"
     (({ s with trace := rna } : Scenario).sentence (claimNamed rna "C1"))
-    "Assuming “O1 entails C1.”: RNA is quantified."
+    "Assuming “The model assumptions hold.”: RNA is quantified."
   -- Exclusions: X1 (assumed) relates O4 + O5 on S.
   let c9 : Claim := { id := "C9", question := "Q1", subject := "S", level := .descriptive,
                       text := "Both hold.", needs := ["O4", "O5"], entailment := "EN9" }
@@ -65,7 +65,7 @@ def tests : TestM Unit := do
   checkEq "engine: closure adds requires" (s.closure ["E2"]) ["E1", "E2"]
   let e4 : Experiment := { id := "E4", subject := "N", kind := .dry, effort := .days,
                            title := "Rule on M1", method := "m", resources := "r",
-                           success := [("EN3", .assumed)], caveat := "c" }
+                           success := [("EN3", .proved)], caveat := "c" }
   let follow := { t with experiments := t.experiments ++ [e4] }
   let sf : Scenario := { s with trace := follow }
   checkEq "engine: closure adds the creator of a prospective subject (R1-P1)" (sf.closure ["E4"])
@@ -73,7 +73,7 @@ def tests : TestM Unit := do
   match sf.plan (claimNamed follow "C3") with
   | .planned _ exps st .. =>
     checkEq "engine: the C3 plan includes its creator" exps ["E3", "E4"]
-    checkEq "engine: the C3 plan reaches conditional" st .conditional
+    checkEq "engine: the C3 plan reaches can" st .can
   | other => check "engine: the C3 plan includes its creator" false s!"{repr other}"
   -- A creator's closure step re-adds the creator: without dropping duplicates the list doubles
   -- every step (fuel = experiments + 1 ⇒ 2^28 entries here).
@@ -90,11 +90,13 @@ def tests : TestM Unit := do
     (!(sf.qualifiers (claimNamed follow "C3") .draft).contains "what-if")
   let e5 : Experiment := { id := "E5", subject := "S", kind := .wet, effort := .weeks,
                            title := "Assess", method := "m", resources := "r",
-                           success := [("O2", .assumed)], caveat := "c" }
-  let support := { t with experiments := t.experiments ++ [e5] }
+                           success := [("O4", .assumed)], caveat := "c" }
+  let e6 : Experiment := { e5 with id := "E6", kind := .dry, success := [("O4", .checked)] }
+  let checkable := mapFact t "O4" fun f => { f with route := .runtimeChecker }
+  let support := { checkable with experiments := checkable.experiments ++ [e5, e6] }
   let ss : Scenario := { s with trace := support }
-  checkEq "engine: assumed + checked outcomes merge to checked (R1-P4)" (ss.merged ["E1", "E5"])
-    [("O2", .checked)]
+  checkEq "engine: assumed + checked outcomes merge to checked (R1-P4)" (ss.merged ["E6", "E5"])
+    [("O4", .checked)]
   let weaken := s.withOverrides [("O1", .proved)]
   checkEq "engine: a weaker success never lowers a fact (R2-P2b)"
     ((weaken.applySuccess ["E5"]).eff "O1") .proved
@@ -106,7 +108,7 @@ def tests : TestM Unit := do
   | other => check "engine: C2 plan = E1" false s!"{repr other}"
   match s.plan (claimNamed t "C1") with
   | .noImprovement cov =>
-    checkEq "engine: noImprovement still lists coverage (R2-E2)" cov.uncovered ["EN1"]
+    checkEq "engine: noImprovement still lists coverage (R2-E2)" cov.uncovered ["O3"]
   | other => check "engine: noImprovement still lists coverage (R2-E2)" false s!"{repr other}"
   match clash.plan (claimNamed t "C2") with
   | .inconsistent _ => check "engine: an invalid what-if yields inconsistent (R1-P3)" true
@@ -154,7 +156,10 @@ def witnessTests : TestM Unit := do
     Experiment)
   let c10 : Claim := { id := "C10", question := "Q1", subject := "S", level := .descriptive,
                        text := "Both samplings hold.", needs := ["O4", "O5"], entailment := "EN10" }
-  let base := mapFact t "O2" fun f => { f with status := .checked }
+  -- Sources + targets are background conditions: an assumed success on a must-verify fact is
+  -- invalid input.
+  let base := mapFact (mapFact t "O2" fun f => { f with status := .checked, kind := .provenance })
+    "O1" fun f => { f with kind := .provenance }
   let joinT := { base with
     facts := base.facts ++ [entail "EN10" "C10" .assumed .humanRuling]
     claims := base.claims ++ [c10], exclusions := [xa, xb]
@@ -171,8 +176,9 @@ def witnessTests : TestM Unit := do
   checkEq "engine: weaker successes raise nothing" (sj.raised (sj.closure ["EA", "EB"])) []
   -- R2-C1: a follow-up plans with its subject's creator + the creator's own prerequisites.
   let e0 : Experiment := { id := "E0", subject := "N", kind := .dry, effort := .hours,
-                           title := "Approve the cohort", method := "m", resources := "r",
-                           success := [("EN3", .assumed)], caveat := "c" }
+                           title := "Prove the cohort's arithmetic", method := "m",
+                           resources := "r",
+                           success := [("EN3", .proved)], caveat := "c" }
   let e4 : Experiment := { e0 with id := "E4", effort := .days, title := "Rule on M1" }
   let creator := { e3 with requires := ["E0"] }
   let onS := t.experiments.filter (·.subject == "S")
@@ -184,7 +190,7 @@ def witnessTests : TestM Unit := do
   match sc.plan (claimNamed chain "C3") with
   | .planned _ exps st .. =>
     checkEq n exps ["E0", "E3"]
-    checkEq "engine: that plan reaches conditional" st .conditional
+    checkEq "engine: that plan reaches can" st .can
   | other => check n false s!"{repr other}"
   -- Acceptance (new data): a success on the new subject moves only its claims.
   let lit := sc.applySuccess (sc.closure ["E4"])
@@ -287,7 +293,7 @@ def witnessTests : TestM Unit := do
   -- conditional; a claim that is already conditional is not unlocked.
   let sE := s.withOverrides [("EN2", .proved)]
   checkEq "engine: verifying O2 alone unlocks C2" (sE.unlocks (t.fact? "O2").get!) ["C2"]
-  let a : Fact := { id := "A", subject := "S", kind := .numerical, text := "A holds.",
+  let a : Fact := { id := "A", subject := "S", kind := .statistical, text := "A holds.",
                     status := .assumed, route := .lean }
   let ck : Claim := { id := "CK", question := "Q1", subject := "S", level := .estimand,
                       text := "A is so.", needs := ["O1", "A"], entailment := "EK" }
@@ -303,5 +309,38 @@ def witnessTests : TestM Unit := do
                        route := .humanRuling, instantiates := some "O1" }
   check "evaluate: the envelope keeps a fact's instantiation source"
     (((Evaluate.factJson s [] inst).canonical.splitOn "\"instantiates\":\"O1\"").length == 2)
+
+/-- Must-verify kinds + verdict words (contract § Model `allows` + `ceiling f`, S-state gate). -/
+def kindTests : TestM Unit := do
+  let t ← fixture
+  let s : Scenario := { trace := t, current := fun _ => true }
+  checkEq "evaluate: verdict words"
+    ([State.can, .conditional, .«open», .cannot].map State.verdict)
+    ["Fully supported", "Conditional", "Pending verification", "Claim not possible"]
+  -- R3-K1: a scenario that assumes a must-verify need (built directly, past the input checks)
+  -- never reads conditional; the need lists under gaps, not premises.
+  let g := s.withOverrides [("EN2", .assumed), ("O2", .checked)]
+  let c2 := claimNamed t "C2"
+  checkEq "engine: an assumed reasoning fact keeps C2 open (R3-K1)" (finalOf g "C2") .«open»
+  checkEq "engine: the assumed reasoning fact is a gap, the background condition a premise"
+    (g.gaps c2, g.premises c2) (["EN2"], ["O3"])
+  -- R3-K2: a result on an empirical route tops out at tested: never closable, never supposed.
+  let emp := mapFact t "O2" fun f => { f with route := .empirical }
+  let se : Scenario := { s with trace := emp }
+  check "engine: a result on an empirical route is not closable (R3-K2)"
+    (!se.closable (emp.fact? "O2").get!)
+  check "evaluate: no suppose action for it"
+    (!((Evaluate.actions se).any fun (id, _) => id == "suppose:O2"))
+  check "engine: no work row for it" (!(se.work.any (·.fact == "O2")))
+  let lean := mapFact t "O3" fun f => { f with route := .lean }
+  check "engine: a background condition on a lean route stays closable"
+    (({ s with trace := lean } : Scenario).closable (lean.fact? "O3").get!)
+  check "engine: the what-if refuses an assumed result"
+    ((Overrides.parse t "O2=assumed").toOption.isNone)
+  checkEq "engine: the refusal says the fact must be verified"
+    (match Overrides.parse t "O2=assumed" with | .error m => m | .ok _ => "")
+    "O2 cannot be assumed: facts of kind result must be verified"
+  checkEq "engine: the what-if may assume a background condition"
+    (Overrides.parse t "O3=assumed").toOption (some [("O3", .assumed)])
 
 end Tests.Engine

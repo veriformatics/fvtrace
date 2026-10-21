@@ -15,8 +15,8 @@ namespace Fvtrace
 open Fvtrace.Json
 
 def State.verdict : State → String
-  | .can => "Can claim" | .conditional => "On assumption" | .«open» => "Not yet"
-  | .cannot => "Cannot claim"
+  | .can => "Fully supported" | .conditional => "Conditional" | .«open» => "Pending verification"
+  | .cannot => "Claim not possible"
 
 namespace Scenario
 
@@ -168,7 +168,7 @@ success or failure, a claim's plan. A recorded scenario gives the export's finit
 def actions (sc : Scenario) : List (String × String × String × Overrides) :=
   (sc.trace.facts.filter sc.closable).map (fun f =>
       (s!"suppose:{f.id}", "suppose", f.id,
-        (sc.withOverrides [(f.id, f.route.ceiling)]).overrides)) ++
+        (sc.withOverrides [(f.id, f.ceiling)]).overrides)) ++
   sc.trace.experiments.map (fun e =>
       (s!"success:{e.id}", "success", e.id, (sc.applySuccess (sc.closure [e.id])).overrides)) ++
   (sc.trace.experiments.filter (!·.failure.isEmpty)).map (fun e =>

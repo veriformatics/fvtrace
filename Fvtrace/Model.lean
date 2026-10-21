@@ -245,6 +245,22 @@ def Route.allows (r : Route) (s : Status) : Bool :=
   | .«open» | .tested | .violated | .assumed => true
   | .proved | .checked => s == r.ceiling
 
+/-- Kinds a claim may never assume (user ruling): its reasoning, results, measurements,
+calculations, code + data flow. Every other kind is a background condition. -/
+def Kind.mustVerify : Kind → Bool
+  | .entailment | .result | .estimand | .numerical | .implementation | .dataflow => true
+  | _ => false
+
+/-- A status the fact may hold (recorded, in an outcome or a what-if): its route allows it, and a
+must-verify fact is never `assumed`. -/
+def Fact.allows (f : Fact) (s : Status) : Bool :=
+  f.route.allows s && (s != .assumed || !f.kind.mustVerify)
+
+/-- The strongest status the fact may reach: its route's ceiling, or `tested` where that ceiling is
+`assumed` and the fact must be verified. -/
+def Fact.ceiling (f : Fact) : Status :=
+  if f.kind.mustVerify && f.route.ceiling == .assumed then .tested else f.route.ceiling
+
 /-! ## Lookups -/
 
 namespace Trace

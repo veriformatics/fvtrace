@@ -14,7 +14,7 @@ def decoded : IO Trace := do
   | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
 
 def releaseWaiver : Waiver :=
-  { rule := "L-release", claim := "C1",
+  { rule := "L-release", claim := "C2",
     reason := "Released through the journal, recorded elsewhere." }
 
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
@@ -54,12 +54,13 @@ def tests : TestM Unit := do
     check "cli: pinned receipt reads current" (count out "receipt O1: current" == 1) out
     check "store: the digest cache persists beside the trace"
       (← ((System.FilePath.mk trace).parent.getD "." / "cache.json").pathExists)
-    -- --strict: a warning fails the check until a waiver records why it does not apply.
+    -- --strict: a warning fails the check until a waiver records why it does not apply (on C2:
+    -- C1's level is bound into EN1's pinned statement, so changing it stales EN1's receipt).
     let pinned ← match decodeTrace (← IO.FS.readBinFile trace) with
       | .ok t => pure t
       | .error _ => throw (IO.userError "the pinned trace does not decode")
     let release := { pinned with claims := pinned.claims.map fun c =>
-      if c.id == "C1" then { c with level := .release } else c }
+      if c.id == "C2" then { c with level := .release } else c }
     let variant := (dir / "release.json").toString
     Cli.writeTrace variant release
     let (rc, _, _) ← run ["check", "--strict", "--trace", variant]
@@ -83,7 +84,7 @@ def tests : TestM Unit := do
     plant
     let (_, out, _) ← run ["claims", "--cached"]
     check "cli: claims --cached reuses a digest recorded for the same size + mtime"
-      (count out "C1 Not yet" == 1) out
+      (count out "C1 Pending verification" == 1) out
     let (_, out, _) ← run ["check"]
     check "cli: check reads each evidence file again (no cache)"
       (count out "receipt O1: current" == 1) out
@@ -91,15 +92,16 @@ def tests : TestM Unit := do
     let (rc, out, _) ← run ["claims"]
     checkEq "cli: claims rc" rc 0
     check "cli: claims reads each evidence file again by default"
-      (count out "C1 On assumption" == 1) out
+      (count out "C1 Conditional" == 1) out
     check "cli: claims prints the engine's sentence" (count out
-      "C1 On assumption: Assuming “O1 entails C1.”: The contrast is the treatment effect." == 1)
+      "C1 Conditional: Assuming “The model assumptions hold.”: The contrast is the treatment \
+        effect." == 1)
       out
     check "cli: claims names the project" (count out s!"(project: {projReal})" == 1) out
     check "cli: a claim that is not conditional lists its premises"
       (count out "      gaps: O2, EN2; assumes: O3\n" == 1) out
-    check "cli: a conditional claim's premises sit in its sentence alone"
-      (count out "assumes: EN1" == 0) out
+    check "cli: a conditional claim's premises sit in its sentence alone (C2's line alone)"
+      (count out "assumes: O3" == 1) out
     let (_, out, _) ← run ["claims", "--question", "Z9"]
     check "cli: --question shows that question alone" (count out "Q1 " == 0) out
     let latentPath := (dir / "latent.json").toString
@@ -111,7 +113,7 @@ def tests : TestM Unit := do
     let (rc, out, _) ← run ["claims", "--whatif", "O2=checked,EN2=proved"]
     checkEq "cli: claims --whatif rc" rc 0
     check "cli: a what-if raises C2 + says so" (count out
-      "C2 On assumption [what-if]: Assuming “The model assumptions hold.”: \
+      "C2 Conditional [what-if]: Assuming “The model assumptions hold.”: \
         Treatment raises the marker." == 1) out
     let (rc, _, err) ← run ["claims", "--whatif", "O3=proved"]
     checkEq "cli: a what-if above the route rc" rc 2
@@ -135,8 +137,8 @@ def tests : TestM Unit := do
         Cli.projectionKeys) ++ [("claim", (claimOf envelope "C2").getD .null)]))) out
     let (rc, out, _) ← run ["plan", "C2"]
     checkEq "cli: plan rc" rc 0
-    check "cli: plan names the claim" (count out "C2 Not yet: Treatment raises the marker." == 1)
-      out
+    check "cli: plan names the claim"
+      (count out "C2 Pending verification: Treatment raises the marker." == 1) out
     check "cli: plan names what no experiment raises"
       (count out "No suggested experiment raises EN2. It needs a new experiment or a ruling." == 1)
       out
@@ -154,15 +156,16 @@ def tests : TestM Unit := do
       (rc == 2 && count err "cannot serve on 192.0.2.1:8642" == 1) err
     let (rc, out, _) ← run ["gaps"]
     checkEq "cli: gaps rc" rc 0
-    check "cli: gaps lists closable facts" (count out
-      "  EN2 O1, O2 and O3 entail C2.\n      Makes available alone: none. Needed by: C2.\n" == 1)
+    check "cli: gaps lists closable facts, each with what its claims need together with it"
+      (count out "  EN2 O1, O2 and O3 entail C2.\n      Needed by C2, together with O2.\n" == 1)
       out
     let (rc, out, _) ← run ["experiments"]
     checkEq "cli: experiments rc" rc 0
     check "cli: experiments shows what E1's failure does" (count out
       ("  E1 Check the result table (dry, days)\n" ++
         "      If it succeeds and the result is observed: no claim changes.\n" ++
-        "      If it fails: C2 changes from Not yet to Cannot claim.\n") == 1) out
+        "      If it fails: C2 changes from Pending verification to Claim not possible.\n")
+          == 1) out
     -- A changed artifact stales its receipt.
     IO.FS.writeFile (proj / "proofs" / "Contrast.lean")
       "theorem contrast_correct : False := sorry\n"
@@ -171,7 +174,7 @@ def tests : TestM Unit := do
     -- R1-P5: supposing a stale fact verified is a what-if; the review digest stays the recorded
     -- trace's.
     let (_, recorded, _) ← run ["claims", "--json"]
-    let (rc, supposed, _) ← run ["claims", "--json", "--whatif", "O1=proved"]
+    let (rc, supposed, _) ← run ["claims", "--json", "--whatif", "O1=proved,EN1=proved"]
     checkEq "cli: a what-if on a stale fact rc" rc 0
     match (Json.parse recorded.toUTF8).toOption, (Json.parse supposed.toUTF8).toOption with
     | some r, some w =>
@@ -255,6 +258,7 @@ def tests : TestM Unit := do
       (s!"{repo.cwd / "tests/fixtures/synthetic.trace.json"}: valid\n" ++
         s!"  project: {← IO.FS.realPath repo.cwd}\n" ++
         "  receipt O1: stale (missing proofs/Contrast.lean, statement-changed)\n" ++
+        "  receipt EN1: stale (missing proofs/Contrast.lean, statement-changed)\n" ++
         "  review: draft\n")
     let (rc, out, _) ← capture (Cli.runIn repo
       ["check", "--json", "--trace", "tests/schema/cases/invalid-status.json"])

@@ -3,10 +3,10 @@
 
 /** @type {Record<string, string>} */
 export const verdicts = {
-  can: "Can claim",
-  conditional: "On assumption",
-  open: "Not yet",
-  cannot: "Cannot claim",
+  can: "Fully supported",
+  conditional: "Conditional",
+  open: "Pending verification",
+  cannot: "Claim not possible",
 };
 
 /** Lamp symbols: each state has its own shape + symbol, never color alone. */

@@ -57,7 +57,7 @@ test("the exported page works offline under its own CSP", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Synthetic study");
   await expect(page.getByText("This page was exported: each what-if applies alone.")).toBeVisible();
   const c2 = page.locator("article.circuit").filter({ hasText: "C2 /" });
-  await expect(c2.locator(".claim-state")).toHaveText("Not yet (draft)");
+  await expect(c2.locator(".claim-state")).toHaveText("Pending verification (draft)");
   await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
   await expect(page.getByRole("status")).toContainText("What-if: EN2 proved");
   await expect(

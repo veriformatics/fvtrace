@@ -28,7 +28,7 @@ def pure : TestM Unit := do
   area "assets" Tests.Assets.tests
   area "check" Tests.Check.tests
   area "args" Tests.Args.tests
-  area "engine" do Tests.Engine.tests; Tests.Engine.witnessTests
+  area "engine" do Tests.Engine.tests; Tests.Engine.witnessTests; Tests.Engine.kindTests
   area "evaluate" Tests.Evaluate.tests
   area "server" Tests.Server.pureTests
   area "export" Tests.Export.pureTests

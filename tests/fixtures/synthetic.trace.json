@@ -86,8 +86,20 @@
       "subject": "S",
       "kind": "entailment",
       "text": "O1 entails C1.",
-      "status": "assumed",
-      "route": "human-ruling"
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Entailment proof.",
+        "artifacts": [
+          {
+            "path": "proofs/Contrast.lean",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "verifier": "Lean 4.35.0",
+        "statement": "contrast_entails",
+        "statementDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
     },
     {
       "id": "EN2",
@@ -111,7 +123,7 @@
       "kind": "entailment",
       "text": "M1 entails C3.",
       "status": "open",
-      "route": "human-ruling"
+      "route": "lean"
     }
   ],
   "claims": [
@@ -122,7 +134,8 @@
       "level": "estimand",
       "text": "The contrast is the treatment effect.",
       "needs": [
-        "O1"
+        "O1",
+        "O3"
       ],
       "entailment": "EN1"
     },

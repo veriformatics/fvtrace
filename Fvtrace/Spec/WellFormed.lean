@@ -50,11 +50,13 @@ def EntailmentsProper (t : Trace) : Prop :=
 /-- WF-needs: a claim needs at least one fact, each listed once. -/
 def NeedsProper (t : Trace) : Prop := ∀ c ∈ t.claims, c.needs ≠ [] ∧ c.needs.Nodup
 
-/-- WF-route: no recorded status, outcome status or exclusion status exceeds its route. -/
+/-- WF-route: no recorded status or outcome status exceeds its fact's route or assumes a
+must-verify fact (reasoning, result, measurement, calculation, code, data flow); no exclusion
+status exceeds its route. -/
 def RoutesRespected (t : Trace) : Prop :=
-  (∀ f ∈ t.facts, f.route.allows f.status = true) ∧
+  (∀ f ∈ t.facts, f.allows f.status = true) ∧
   (∀ e ∈ t.experiments, ∀ p ∈ e.success ++ e.failure, ∀ f, t.fact? p.1 = some f →
-    f.route.allows p.2 = true) ∧
+    f.allows p.2 = true) ∧
   (∀ x ∈ t.exclusions, x.route.allows x.status = true)
 
 /-- WF-outcome: a success asserts at least one fact and only asserts; a failure only violates;
