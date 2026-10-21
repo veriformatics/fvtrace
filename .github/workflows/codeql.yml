@@ -1,0 +1,71 @@
+# Code scanning: CodeQL `security-extended` over the GUI's JavaScript, the C digest shim and these
+# workflows. Lean has no CodeQL extractor; the gate's proofs + tests cover it.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Query packs change without commits; a weekly run applies new queries to unchanged code.
+  schedule:
+    - cron: "41 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # uploads the results to code scanning
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: c-cpp
+            build-mode: manual
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The shim includes lean.h, which ships with the toolchain named in lean-toolchain.
+      - name: Install the Lean toolchain named in lean-toolchain
+        if: matrix.language == 'c-cpp'
+        uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
+        with:
+          auto-config: "false"
+          use-github-cache: "false"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+
+      # CodeQL analyzes the C that this step compiles: the FFI shim, as the gate's c-analyze
+      # stage sees it (HACL* is verified upstream; the gate's vendor stage pins its release).
+      - name: Build the C digest shim
+        if: matrix.language == 'c-cpp'
+        run: >-
+          cc -O2 -fPIC -DKRML_VERIFIED_UINT128 -Wall -Wextra -Werror
+          -I"$(lean --print-prefix)/include" -Ic/hacl -Ic/hacl/include
+          -c c/fvtrace_digest.c -o "$RUNNER_TEMP/fvtrace_digest.o"
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: /language:${{ matrix.language }}
