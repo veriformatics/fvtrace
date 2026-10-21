@@ -74,3 +74,32 @@ export function byIdAs(id, cls) {
 export function fill(el, ...children) {
   el.replaceChildren(...flatten(children));
 }
+
+/**
+ * A container's click handler that opens its details, except when the click ends a text selection
+ * or lands on a control inside it: text stays selectable for copying, the id button is the
+ * keyboard + screen-reader route.
+ * @param {() => void} open @returns {(e: Event) => void}
+ */
+export const clickToOpen = (open) => (e) => {
+  if (document.getSelection()?.toString()) return;
+  if (e.target instanceof Element && e.target.closest("button, summary, a")) return;
+  open();
+};
+
+/**
+ * An underlined id that opens its details; the readable text beside it stays plain.
+ * @param {string} id @param {string} key @param {() => void} open @param {boolean} [pressed]
+ */
+export const idButton = (id, key, open, pressed) =>
+  h(
+    "button",
+    {
+      class: "ref",
+      "data-key": key,
+      type: "button",
+      "aria-pressed": pressed === undefined ? undefined : String(pressed),
+      onclick: open,
+    },
+    id,
+  );

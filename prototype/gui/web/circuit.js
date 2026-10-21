@@ -1,7 +1,7 @@
 // Claim circuits: a claim is a lamp fed through one switch per fact it needs, in series. Every
 // switch must close for the lamp to light; one broken switch blocks it.
 
-import { h, s } from "./dom.js";
+import { clickToOpen, h, idButton, s } from "./dom.js";
 import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
@@ -91,10 +91,10 @@ function contact(f, on, claim) {
 
 /**
  * The standout label over a claim's words: "Claim" + its verdict in the verdict's color, then its
- * qualifiers + id/level, quiet.
- * @param {Claim} c
+ * qualifiers + id/level, quiet. With `open` + `key`, the id is the button that opens the claim.
+ * @param {Claim} c @param {() => void} [open] @param {string} [key] @param {boolean} [pressed]
  */
-export const claimTag = (c) => {
+export const claimTag = (c, open, key, pressed) => {
   const q = qualifiers(c);
   return h(
     "span",
@@ -106,7 +106,12 @@ export const claimTag = (c) => {
       h("span", { class: `tag-soft ${c.final}` }, c.verdict),
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
-    h("span", {}, `${c.id} / ${word(levels, c.level)}${c.latent ? " / overlooked direction" : ""}`),
+    h(
+      "span",
+      {},
+      open && key ? idButton(c.id, key, open, pressed) : c.id,
+      ` / ${word(levels, c.level)}${c.latent ? " / overlooked direction" : ""}`,
+    ),
   );
 };
 
@@ -133,6 +138,7 @@ export function exactStatement(c) {
  */
 export function circuit(c, env, on, selected) {
   const facts = new Map(env.facts.map((f) => [f.id, f]));
+  const open = () => on.select("claim", c.id);
   const needs = [...c.needs, c.entailment].flatMap((id) => {
     const f = facts.get(id);
     return f ? [f] : [];
@@ -145,16 +151,15 @@ export function circuit(c, env, on, selected) {
       }`,
     },
     h(
-      "button",
-      {
-        class: "claim-head",
-        "data-key": `claim:${c.id}`,
-        type: "button",
-        "aria-pressed": selected ? "true" : "false",
-        onclick: () => on.select("claim", c.id),
-      },
+      "div",
+      { class: "claim-head", onclick: clickToOpen(open) },
       lamp(c.final, "large"),
-      h("span", {}, claimTag(c), h("span", { class: "sentence" }, headline(c))),
+      h(
+        "span",
+        {},
+        claimTag(c, open, `claim:${c.id}`, selected),
+        h("span", { class: "sentence" }, headline(c)),
+      ),
     ),
     exactStatement(c),
     conditions(c, env, on),
