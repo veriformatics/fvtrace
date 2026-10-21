@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { h, s } from "./dom.js";
-import { claimLabel, kinds, qualifiers, statuses, symbols, word } from "./words.js";
+import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -164,9 +164,19 @@ export function circuit(c, env, on, selected) {
       needs.map((f) => contact(f, on, c.id)),
       h(
         "li",
-        { class: "terminal", "aria-hidden": "true" },
+        { class: "terminal" },
         lamp(c.final),
-        h("small", { class: "terminal-label" }, claimLabel(c.verdict)),
+        h(
+          "button",
+          {
+            class: "contact-label",
+            "data-key": `terminal:${c.id}`,
+            type: "button",
+            onclick: () => on.select("claim", c.id),
+          },
+          h("strong", {}, c.id),
+          h("span", { class: "contact-kind" }, word(levels, c.level)),
+        ),
       ),
     ),
   );
