@@ -89,9 +89,6 @@ function contact(f, on, claim) {
   );
 }
 
-// Prototype finalists for the label row: refined (default) | ?row=badge = id badge + split chips.
-const badgeRow = new URLSearchParams(location.search).get("row") === "badge";
-
 /**
  * The label row over a claim's words: its id (the button that opens it, given `open` + `key`), then
  * its kind joined to its verdict in the verdict's color, then its qualifiers, quiet.
@@ -102,21 +99,12 @@ export const claimTag = (c, open, key, pressed) => {
   return h(
     "span",
     { class: "claim-tag" },
+    h("span", { class: "tag-id" }, open && key ? idButton(c.id, key, open, pressed) : c.id),
     h(
       "span",
-      { class: `tag-id${badgeRow ? " badge" : ""}` },
-      open && key ? idButton(c.id, key, open, pressed) : c.id,
-    ),
-    h(
-      "span",
-      { class: `tag-pair${badgeRow ? " split" : ""}` },
-      h("strong", {}, word(levels, c.level)),
-      h(
-        "span",
-        { class: `tag-soft ${c.final}` },
-        badgeRow ? lamp(c.final, "mini") : null,
-        c.verdict,
-      ),
+      { class: "tag-pair" },
+      h("span", { class: "tag-kind" }, word(levels, c.level)),
+      h("span", { class: `tag-soft ${c.final}` }, lamp(c.final, "mini"), c.verdict),
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
     c.latent ? h("span", {}, "Overlooked direction") : null,
