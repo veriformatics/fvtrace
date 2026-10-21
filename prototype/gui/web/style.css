@@ -181,25 +181,9 @@ main {
 }
 
 .stat-count {
-  font-size: 23px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   text-align: right;
-}
-
-.stat-text {
-  display: grid;
-}
-
-.stat-label {
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.stat-meaning {
-  max-width: 24ch;
-  font-size: 12.5px;
-  color: var(--conductor);
 }
 
 /* Lamps: can = filled circle + ✓; conditional = dashed ring + ≈; open = ring + ○;
@@ -1023,6 +1007,7 @@ footer {
 }
 
 .how-key {
+  container-type: inline-size;
   margin: 12px 0 0;
 }
 
@@ -1067,6 +1052,14 @@ footer {
 
 .key-pairs td:nth-child(3) {
   padding-left: 18px;
+}
+
+/* Claim meanings stay on one line while the key is wide enough (≥ 440px measured: below it the
+   fact meanings crush to a word per line); the fact meanings take the wrapping. */
+@container (width >= 440px) {
+  .verdict-meaning {
+    white-space: nowrap;
+  }
 }
 
 /* The exact statement behind a claim's headline, folded until asked for. */

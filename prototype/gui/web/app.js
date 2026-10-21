@@ -447,9 +447,9 @@ const verdictCell = (counts, st) => [
   h("b", { class: "stat-count" }, String(counts[st])),
   h(
     "span",
-    { class: "stat-text" },
-    h("span", { class: "stat-label" }, word(verdicts, st)),
-    h("span", { class: "stat-meaning" }, word(verdictMeanings, st)),
+    { class: "key-text" },
+    h("span", {}, word(verdicts, st)),
+    h("small", { class: "verdict-meaning" }, word(verdictMeanings, st)),
   ),
 ];
 
