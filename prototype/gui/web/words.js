@@ -3,10 +3,10 @@
 
 /** @type {Record<string, string>} */
 export const verdicts = {
-  can: "Verified",
-  conditional: "Conditional",
-  open: "Unverified",
-  cannot: "Cannot claim",
+  can: "Fully supported",
+  conditional: "Rests on assumptions",
+  open: "Pending verification",
+  cannot: "Claim not possible",
 };
 
 /** One-line meanings beside the verdict counts. */

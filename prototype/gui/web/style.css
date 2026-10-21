@@ -217,6 +217,7 @@ main {
 
 .stat-label {
   font-size: 14px;
+  white-space: nowrap;
 }
 
 .stat-meaning {
