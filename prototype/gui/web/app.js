@@ -7,7 +7,15 @@
 import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
-import { blockerList, checkList, experimentList, inspector, textView, workList } from "./panels.js";
+import {
+  blockerList,
+  checkList,
+  experimentList,
+  groupTitle,
+  inspector,
+  textView,
+  workList,
+} from "./panels.js";
 import { startTour } from "./tour.js";
 import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./words.js";
 
@@ -218,17 +226,22 @@ const on = {
   },
 };
 
-/** Claims of the question, grouped by the engine's verdict; overlooked + new-data apart. */
+/** Claims of the question in the engine's verdict order, untitled (each card names its verdict);
+ * overlooked + new-data apart, titled. */
 /** @param {Envelope} e @returns {[string, Claim[]][]} */
 function groups(e) {
   const prospective = new Set(e.subjects.filter((s) => s.kind === "prospective").map((s) => s.id));
   const mine = e.claims.filter((c) => c.question === view.question);
   const existing = mine.filter((c) => !prospective.has(c.subject));
   /** @type {[string, Claim[]][]} */
-  const out = ["can", "conditional", "open", "cannot"].map((st) => {
-    const cs = existing.filter((c) => !c.latent && c.final === st);
-    return [cs[0]?.verdict ?? st, cs];
-  });
+  const out = [
+    [
+      "",
+      ["can", "conditional", "open", "cannot"].flatMap((st) =>
+        existing.filter((c) => !c.latent && c.final === st),
+      ),
+    ],
+  ];
   out.push(["Overlooked directions", existing.filter((c) => c.latent)]);
   for (const s of e.subjects.filter((x) => prospective.has(x.id))) {
     out.push([`On new data: ${s.title}`, mine.filter((c) => c.subject === s.id)]);
@@ -349,12 +362,7 @@ function draw(e) {
           h(
             "section",
             { class: "group" },
-            h(
-              "h3",
-              { class: "group-title" },
-              title,
-              h("span", { class: "group-count" }, ` ${cs.length}`),
-            ),
+            groupTitle(title, cs),
             cs.map((c) => circuit(c, e, on, sel?.kind === "claim" && sel.id === c.id)),
           ),
         ),
