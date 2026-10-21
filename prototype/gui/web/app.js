@@ -501,3 +501,8 @@ else {
   );
   byId("how-key").append(byId("overview"));
 }
+
+for (const id of ["tour-start", "tour-start-how"]) {
+  const b = byId(id);
+  b.addEventListener("click", () => startTour(b));
+}

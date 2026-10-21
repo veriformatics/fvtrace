@@ -15,6 +15,12 @@ const csp =
   "require-trusted-types-for 'script'; trusted-types 'none'";
 // Stub: per-fact "why it is needed" text the trace format lacks yet, merged into the envelope.
 const why = JSON.parse(await readFile(join(import.meta.dirname, "why.json"), "utf8"));
+// Stub: verdict words under review (round 2); the engine still emits the old ones.
+const verdictWords = {
+  "Can claim": "Verified",
+  "On assumption": "Conditional",
+  "Not yet": "Unverified",
+};
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
 const up = spawn(
@@ -46,6 +52,8 @@ createServer(async (req, res) => {
     res.writeHead(r.status, { ...head, "Content-Type": "application/json" });
     const body = await r.json();
     for (const f of body.facts ?? []) if (why[f.id]) f.why = why[f.id];
+    for (const c of body.claims ?? [])
+      c.label.verdict = verdictWords[c.label.verdict] ?? c.label.verdict;
     res.end(JSON.stringify(body));
     return;
   }

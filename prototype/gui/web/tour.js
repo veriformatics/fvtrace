@@ -4,6 +4,7 @@
 
 import { lamp } from "./circuit.js";
 import { fill, h } from "./dom.js";
+import { verdictMeanings, verdicts, word } from "./words.js";
 
 /** @typedef {{ target: string[], title: string, body: () => (Node | string)[] }} Step */
 
@@ -31,38 +32,12 @@ const steps = [
       h(
         "ul",
         { class: "tour-verdicts" },
-        h(
-          "li",
-          {},
-          lamp("can"),
-          h("span", {}, h("strong", {}, "Can claim: "), "every fact it needs is verified."),
-        ),
-        h(
-          "li",
-          {},
-          lamp("conditional"),
+        /** @type {const} */ (["can", "conditional", "open", "cannot"]).map((st) =>
           h(
-            "span",
+            "li",
             {},
-            h("strong", {}, "On assumption: "),
-            "the rest are assumptions, so it holds only if they are true.",
-          ),
-        ),
-        h(
-          "li",
-          {},
-          lamp("open"),
-          h("span", {}, h("strong", {}, "Not yet: "), "some fact it needs is still open."),
-        ),
-        h(
-          "li",
-          {},
-          lamp("cannot"),
-          h(
-            "span",
-            {},
-            h("strong", {}, "Cannot claim: "),
-            "a fact it needs is shown to be false, so the claim cannot stand as written.",
+            lamp(st),
+            h("span", {}, h("strong", {}, `${word(verdicts, st)}: `), word(verdictMeanings, st)),
           ),
         ),
       ),
