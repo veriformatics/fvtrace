@@ -196,47 +196,80 @@ export function circuit(c, env, on, selected) {
  */
 export function conditions(c, env, on) {
   const facts = new Map(env.facts.map((f) => [f.id, f]));
-  /** @type {[string, string[]][]} */
+  /** @param {string} id */
+  const factRef = (id) =>
+    h(
+      "button",
+      {
+        class: "ref",
+        type: "button",
+        "data-key": `cond:${c.id}:${id}`,
+        onclick: () => on.select("fact", id),
+      },
+      id,
+    );
+  /** @param {string} id */
+  const factLine = (id) => {
+    const f = facts.get(id);
+    return h(
+      "li",
+      {},
+      h(
+        "span",
+        { class: `switch ${f?.effective ?? "open"}`, "aria-hidden": "true" },
+        switchSvg(f?.effective ?? "open"),
+      ),
+      factRef(id),
+      h("span", {}, f?.text ?? id),
+      f?.why ? h("span", { class: "conditions-why" }, `Why it is needed: ${f.why}`) : null,
+    );
+  };
+  // A claim is also not possible with no false fact: the engine names the exclusions it needs both
+  // sides of (`incompatible`) and the ones a what-if supposes both sides of (`conflicts`).
+  const exclusions = new Map(env.exclusions.map((x) => [x.id, x]));
+  /** @param {string} id @param {string} who */
+  const exclusionLine = (id, who) => {
+    const x = exclusions.get(id);
+    const [a = "", b = ""] = x?.between ?? [];
+    return h(
+      "li",
+      {},
+      h("span", { class: "switch", "aria-hidden": "true" }),
+      h("strong", { class: "exclusion-id" }, id),
+      h("span", {}, x?.text ?? id),
+      h(
+        "span",
+        { class: "conditions-why" },
+        `${who} `,
+        factRef(a),
+        " and ",
+        factRef(b),
+        ", which exclude each other.",
+      ),
+    );
+  };
+  const reasons = c.blockers
+    .map(factLine)
+    .concat(c.incompatible.map((id) => exclusionLine(id, `${c.id} needs`)))
+    .concat(
+      c.conflicts
+        .filter((id) => !c.incompatible.includes(id))
+        .map((id) => exclusionLine(id, "The what-if supposes")),
+    );
+  /** @type {[string, HTMLLIElement[]][]} */
   const parts = [
-    ["Cannot stand because", c.blockers],
-    ["Still open", c.gaps],
-    [c.final === "conditional" ? "Holds only if" : "Also assumes", c.premises],
+    ["Cannot stand because", reasons],
+    ["Still open", c.gaps.map(factLine)],
+    [c.final === "conditional" ? "Holds only if" : "Also assumes", c.premises.map(factLine)],
   ];
-  const shown = parts.filter(([, ids]) => ids.length);
+  const shown = parts.filter(([, lines]) => lines.length);
   if (!shown.length) return null;
   return h(
     "div",
     { class: "conditions" },
-    shown.map(([label, ids]) => [
+    shown.map(([label, lines]) => [
       h("p", { class: "conditions-label" }, label),
-      h(
-        "ul",
-        { class: "conditions-list" },
-        ids.map((id) => {
-          const f = facts.get(id);
-          return h(
-            "li",
-            {},
-            h(
-              "span",
-              { class: `switch ${f?.effective ?? "open"}`, "aria-hidden": "true" },
-              switchSvg(f?.effective ?? "open"),
-            ),
-            h(
-              "button",
-              {
-                class: "ref",
-                type: "button",
-                "data-key": `cond:${c.id}:${id}`,
-                onclick: () => on.select("fact", id),
-              },
-              id,
-            ),
-            h("span", {}, f?.text ?? id),
-            f?.why ? h("span", { class: "conditions-why" }, `Why it is needed: ${f.why}`) : null,
-          );
-        }),
-      ),
+      h("ul", { class: "conditions-list" }, lines),
     ]),
   );
 }

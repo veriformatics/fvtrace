@@ -43,6 +43,9 @@ const steps = [
           ),
         ),
       ),
+      p(
+        "A claim is also not possible when two facts exclude each other: when it needs both, or when a what-if supposes both. Its card names them.",
+      ),
     ],
   },
   {
@@ -94,7 +97,7 @@ const steps = [
     title: "Ask “what if?”",
     body: () => [
       p(
-        "Press a fact’s symbol to suppose it were verified. Every verdict on the page is then recomputed under that supposition.",
+        "Press a fact’s symbol to suppose it reaches the best status that its route allows: verified, where a proof or a checker can reach it. Every verdict on the page is then recomputed under that supposition.",
       ),
       p("Nothing is recorded. Press the symbol again to undo."),
     ],
@@ -144,7 +147,7 @@ const steps = [
     title: "Where verification pays",
     body: () => [
       p(
-        "Facts ranked by how many claims verifying each one alone would make available. This is where formal verification work pays most.",
+        "Facts ranked by how many claims each one would make available alone, at the best status that its route allows. This is where formal verification work pays most.",
       ),
     ],
   },

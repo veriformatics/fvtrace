@@ -1063,13 +1063,20 @@ footer {
 }
 
 .how-lead,
+.how-note,
 .how-try {
   margin-top: 8px;
 }
 
+.how-note,
 .how-try {
   font-size: 14px;
   color: var(--conductor);
+}
+
+.exclusion-id {
+  margin-top: 1px;
+  font-size: 14px;
 }
 
 .how-key {
