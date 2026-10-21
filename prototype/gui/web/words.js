@@ -4,7 +4,7 @@
 /** @type {Record<string, string>} */
 export const verdicts = {
   can: "Fully supported",
-  conditional: "Assumed",
+  conditional: "Conditional",
   open: "Pending verification",
   cannot: "Claim not possible",
 };
@@ -26,7 +26,7 @@ export const symbols = { can: "✓", conditional: "≈", open: "○", cannot: "�
 export const statuses = {
   proved: "Verified by proof",
   checked: "Verified by a checker",
-  assumed: "Assumption",
+  assumed: "Assumed",
   tested: "Tested, not verified",
   open: "Open",
   violated: "Violated",

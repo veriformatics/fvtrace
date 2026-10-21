@@ -21,7 +21,7 @@ const claimNotes = JSON.parse(await readFile(join(import.meta.dirname, "claims.j
 // Stub: verdict words under review (round 2); the engine still emits the old ones.
 const verdictWords = {
   "Can claim": "Fully supported",
-  "On assumption": "Assumed",
+  "On assumption": "Conditional",
   "Not yet": "Pending verification",
   "Cannot claim": "Claim not possible",
 };
