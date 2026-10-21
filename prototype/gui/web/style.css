@@ -226,17 +226,6 @@ main {
   color: var(--ink);
 }
 
-/* A lamp's mark: SVG centered in the ring, sized to it, stroked in the lamp's color. */
-.mark {
-  width: 78%;
-  height: 78%;
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .lamp.can {
   background: var(--verified);
   border-color: var(--verified);
