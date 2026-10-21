@@ -39,7 +39,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] Round 1: user's UI edits → `prototype/gui/web/`; open: the evidence bar ("Draft" + "Recorded evidence." + Restore) = drop or show only during a what-if, user to rule after the tour
+- [x] 54eae70 Round 1: user's UI edits → `prototype/gui/web/` (evidence bar ruled: kept, reworded)
+- [ ] Round 2: user's feedback from the live prototype → `prototype/gui/web/` + `Decisions`
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT history → `.agent/archive/`
 
 ## Phase
