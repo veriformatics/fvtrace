@@ -86,10 +86,7 @@ export function count(n, one, many) {
 export const claimLabel = (v) => `Claim: ${v}`;
 
 /**
- * A verdict label + its qualifiers, minus the review state (shown once per page, not per verdict).
- * @param {{ verdict: string, qualifiers: string[] }} c
+ * A verdict's qualifiers, minus the review state (shown once per page, not per verdict).
+ * @param {{ qualifiers: string[] }} c
  */
-export function verdictText(c) {
-  const q = c.qualifiers.filter((x) => x !== "draft" && x !== "stale review");
-  return q.length ? `${claimLabel(c.verdict)} (${q.join(", ")})` : claimLabel(c.verdict);
-}
+export const qualifiers = (c) => c.qualifiers.filter((x) => x !== "draft" && x !== "stale review");
