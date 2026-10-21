@@ -103,8 +103,13 @@ export const claimTag = (c, open, key, pressed) => {
     h(
       "span",
       { class: "tag-pair" },
-      h("span", { class: "tag-kind" }, word(levels, c.level)),
-      h("span", { class: `tag-soft ${c.final}` }, lamp(c.final, "mini"), c.verdict),
+      h("span", { class: "tag-kind" }, h("span", { class: "cap-trim" }, word(levels, c.level))),
+      h(
+        "span",
+        { class: `tag-soft ${c.final}` },
+        lamp(c.final, "mini"),
+        h("span", { class: "cap-trim" }, c.verdict),
+      ),
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
     c.latent ? h("span", {}, "Overlooked direction") : null,
