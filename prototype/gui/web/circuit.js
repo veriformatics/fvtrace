@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { h, s } from "./dom.js";
-import { claimLabel, kinds, statuses, symbols, verdictText, word } from "./words.js";
+import { claimLabel, kinds, qualifiers, statuses, symbols, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -89,14 +89,31 @@ function contact(f, on, claim) {
   );
 }
 
-/** The standout "Claim" label over a claim's words, with its id + level. @param {Claim} c */
-export const claimTag = (c) =>
-  h(
+// Prototype finalists for the claim label: one filled tag (default) | ?tag=pair.
+const pairTag = new URLSearchParams(location.search).get("tag") === "pair";
+
+/**
+ * The standout label over a claim's words: "Claim" + its verdict in the verdict's color, then its
+ * qualifiers + id/level, quiet.
+ * @param {Claim} c
+ */
+export const claimTag = (c) => {
+  const q = qualifiers(c);
+  return h(
     "span",
     { class: "claim-tag" },
-    h("strong", {}, "Claim"),
+    pairTag
+      ? h(
+          "span",
+          { class: "tag-pair" },
+          h("strong", {}, "Claim"),
+          h("span", { class: `tag-soft ${c.final}` }, c.verdict),
+        )
+      : h("strong", { class: `tag-fill ${c.final}` }, claimLabel(c.verdict)),
+    q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
     h("span", {}, `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`),
   );
+};
 
 /** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
 export const headline = (c) => c.headline ?? c.text;
@@ -142,13 +159,7 @@ export function circuit(c, env, on, selected) {
         onclick: () => on.select("claim", c.id),
       },
       lamp(c.final, "large"),
-      h(
-        "span",
-        {},
-        claimTag(c),
-        h("span", { class: "sentence" }, headline(c)),
-        h("span", { class: `claim-state ${c.final}` }, verdictText(c)),
-      ),
+      h("span", {}, claimTag(c), h("span", { class: "sentence" }, headline(c))),
     ),
     exactStatement(c),
     conditions(c, env, on),

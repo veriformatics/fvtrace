@@ -367,6 +367,7 @@ main {
 /* "Claim" stands out over every claim's words: ink label, id + level quiet beside it. */
 .claim-tag {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
@@ -383,18 +384,63 @@ main {
   font-weight: 650;
 }
 
+/* Finalist A: one tag filled in the verdict's color. */
+.tag-fill.can {
+  background: var(--verified);
+}
+
+.tag-fill.conditional {
+  background: var(--assumption);
+}
+
+.tag-fill.open {
+  background: var(--conductor);
+}
+
+.tag-fill.can,
+.tag-fill.conditional,
+.tag-fill.open {
+  color: var(--panel);
+}
+
+/* Finalist B: the ink "Claim" joined to the verdict on its wash, in the verdict's color. */
+.tag-pair {
+  display: inline-flex;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.tag-pair strong {
+  border-radius: 0;
+}
+
+.tag-soft {
+  padding: 1px 8px;
+}
+
+.tag-soft.can {
+  background: var(--verified-wash);
+}
+
+.tag-soft.conditional {
+  background: var(--assumption-wash);
+}
+
+.tag-soft.open {
+  background: var(--wash);
+}
+
+.tag-qualifier {
+  font-weight: 650;
+}
+
 .sentence {
   display: block;
   max-width: 64ch;
   font-size: 18px;
   font-weight: 550;
-}
-
-.claim-state {
-  display: block;
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 650;
 }
 
 /* A circuit: the wire runs through every contact into the lamp. */
