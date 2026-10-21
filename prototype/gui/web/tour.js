@@ -25,10 +25,12 @@ const steps = [
     ],
   },
   {
-    target: ["#overview", ".how-key"],
+    target: [".how-key"],
     title: "Four verdicts",
     body: () => [
-      p("Every claim gets one of four verdicts. These counts cover the whole analysis."),
+      p(
+        "Every claim gets one of four verdicts, set by its weakest fact. The key pairs each kind of fact with the verdict it gives and counts the claims in the whole analysis.",
+      ),
       h(
         "ul",
         { class: "tour-verdicts" },
@@ -67,7 +69,7 @@ const steps = [
     title: "A claim",
     body: () => [
       p(
-        "Each card is one claim, worded as it would appear in the paper. The round lamp and the words under the sentence give its verdict.",
+        "Each card is one claim. The symbol beside it and the words under its headline give its verdict.",
       ),
     ],
   },
@@ -76,21 +78,10 @@ const steps = [
     title: "The facts it needs",
     body: () => [
       p(
-        "The claim is a lamp at the end of a wire. Each switch on the wire is one fact that the claim needs. The lamp lights only when every switch is closed.",
+        "The diagram under a claim shows each fact that the claim needs, one symbol for each. The claim's verdict comes from its weakest fact.",
       ),
-      p(
-        "The last fact always says that the facts before it really support the sentence as worded.",
-      ),
-      p("Press a fact’s name under its switch to read the fact and its evidence."),
-    ],
-  },
-  {
-    target: [".how-key"],
-    title: "Reading a switch",
-    body: () => [
-      p(
-        "A verified fact closes its switch. An assumption closes it only on condition. An open fact leaves a gap, and a violated fact breaks the wire.",
-      ),
+      p("The last fact says that the facts before it really support the claim as worded."),
+      p("Press a fact’s name to read the fact and its evidence."),
     ],
   },
   {
@@ -98,9 +89,9 @@ const steps = [
     title: "Ask “what if?”",
     body: () => [
       p(
-        "Press a switch to suppose its fact were verified. Every verdict on the page is then recomputed under that supposition.",
+        "Press a fact’s symbol to suppose it were verified. Every verdict on the page is then recomputed under that supposition.",
       ),
-      p("Nothing is recorded. Press the switch again to undo."),
+      p("Nothing is recorded. Press the symbol again to undo."),
     ],
   },
   {
@@ -124,7 +115,7 @@ const steps = [
   },
   {
     target: [".board-heading .filters"],
-    title: "Circuits or text",
+    title: "Diagrams or text",
     body: () => [
       p(
         "Text shows the same claims as plain sentences, with the facts that still need work listed below them.",

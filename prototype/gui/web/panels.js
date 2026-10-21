@@ -423,7 +423,7 @@ export function inspector(env, sel, on) {
       h(
         "p",
         {},
-        "A switch supposes its fact at the best status that its route allows. Its label shows the fact, its evidence and how it can be established.",
+        "Pressing a fact's symbol supposes it at the best status that its route allows. Pressing its name shows the fact, its evidence and how it can be established.",
       ),
     ];
   }

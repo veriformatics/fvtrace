@@ -180,30 +180,6 @@ main {
   margin-left: auto;
 }
 
-/* Verdict counts: two by two; lamp, count + words each share one column across rows (subgrid),
-   so a wider digit or font never shifts a row. */
-.overview {
-  display: grid;
-  grid-template-columns: repeat(2, max-content max-content max-content);
-  gap: 12px 9px;
-  width: fit-content;
-  margin-top: 20px;
-  padding: 14px 18px;
-  border: 1px solid var(--rule);
-  background: var(--panel);
-}
-
-.stat {
-  display: grid;
-  grid-column: span 3;
-  grid-template-columns: subgrid;
-  align-items: center;
-}
-
-.stat:nth-child(even) {
-  margin-left: 27px;
-}
-
 .stat-count {
   font-size: 23px;
   font-weight: 650;
@@ -1071,7 +1047,7 @@ footer {
   color: var(--conductor);
 }
 
-/* Variant A: one table, each weakest switch beside the verdict it gives. */
+/* The key: each kind of fact beside the verdict it gives as a claim's weakest + the count. */
 .key-pairs {
   border-collapse: collapse;
 }
@@ -1091,39 +1067,6 @@ footer {
 
 .key-pairs td:nth-child(3) {
   padding-left: 18px;
-}
-
-/* Variant B: two labelled keys in one panel. */
-.key-head {
-  margin: 14px 0 6px;
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.key-switches {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 18px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.key-switches li {
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  column-gap: 8px;
-  align-items: center;
-}
-
-.how-key .overview {
-  margin-top: 0;
-  padding: 0;
-  border: 0;
-}
-
-.overview[hidden] {
-  display: none;
 }
 
 /* The exact statement behind a claim's headline, folded until asked for. */
@@ -1388,13 +1331,8 @@ footer {
   }
 }
 
-/* Verdict counts with meanings outgrow two columns on phones; each key pair stacks its switch
-   over its verdict. */
+/* On phones each key row stacks its fact over its verdict. */
 @media (width <= 560px) {
-  .key-switches {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .key-pairs thead {
     display: none;
   }
@@ -1419,14 +1357,6 @@ footer {
   .key-pairs td:nth-child(3) {
     justify-self: center;
     padding: 0;
-  }
-
-  .overview {
-    grid-template-columns: max-content max-content max-content;
-  }
-
-  .stat:nth-child(even) {
-    margin-left: 0;
   }
 }
 
