@@ -682,6 +682,11 @@ main {
   color: var(--conductor);
 }
 
+.claim-level b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .moves,
 .changes {
   margin: 8px 0 0;
