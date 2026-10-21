@@ -683,14 +683,20 @@ main {
   font-weight: 700;
 }
 
+/* The level as a small label in the claim tag's family, one color throughout. */
 .claim-level {
-  font-size: 14px;
-  color: var(--conductor);
+  margin-top: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
 }
 
-.claim-level b {
-  font-weight: 600;
-  color: var(--ink);
+.claim-level.soft {
+  border-color: transparent;
+  background: var(--wash);
 }
 
 .moves,
