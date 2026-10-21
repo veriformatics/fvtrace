@@ -16,3 +16,14 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | U10 skill + installer | docs (skill) + kernel (installer) | Decisions agent instructions | Tests Cli skillTests + Assets; trial-1 blind live trial |
 | U11 examples | data | `.claude/rules/examples.md` | gate `examples` stage + probe; private migration `check --strict` |
 | U12 README | docs | `CLAUDE.md` Authoring (human-facing) | L-CLAIM consistency pass |
+
+# Units → tier → contract → evidence (IMPLEMENT — GUI)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| U1 contract delta | kernel | `kernel.md` (must-verify kinds, gate, restates, fields, verdict words, G12, G13) | consultant-2 before code |
+| U2 must-verify kinds + verdict words | kernel | § Model `allows` + `ceiling f`, WF-route, S-override, S-state gate, G5, G6, G12, G13 | Spec claims proved + replayed (`fvtrace-trust`); Tests Engine/Check/Cli + CLI smoke red on the unfixed engine; mutation credit for tested changes (`Overrides.parse`, CLI text) |
+| U3 `why` / `headline` / `restates` | kernel | § Model shapes, WF-entail, Receipts (`restatedBy`), envelope | WF proofs (`CheckAcceptsExactlyWellFormed`, `CheckViolationsSound`) + schema corpus (Node + Lean halves) + Tests Decode/Receipt/Evaluate; mutation credit (Decode, Encode, Receipt, Evaluate) |
+| U4 export bundler | kernel (shell, security) | export page = the GUI's modules bundled, imports resolved, nothing else | Tests/Export red on the ported `app.js`; mutation credit (Export) |
+| U5 GUI | data | Decisions GUI; `.claude/rules/web.md` | `web/envelope.js` decoder; e2e + axe + reduced motion + palette; operator visual QA |
+| U6 examples + docs | data (examples) + docs | `.claude/rules/examples.md`; `CLAUDE.md` Authoring | gate `examples`; consistency pass (L-CLAIM) |
