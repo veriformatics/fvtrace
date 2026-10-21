@@ -87,6 +87,9 @@ export function word(table, code) {
   return table[code] ?? code;
 }
 
+/** "A " or "An " before a word, by its first letter. @param {string} w */
+export const article = (w) => (/^[aeiou]/i.test(w) ? "An " : "A ");
+
 /** `1 claim`, `2 claims`. @param {number} n @param {string} one @param {string} many */
 export function count(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;

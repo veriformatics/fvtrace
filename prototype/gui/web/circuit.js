@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { clickToOpen, h, idButton, s } from "./dom.js";
-import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
+import { article, kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -125,7 +125,12 @@ export const claimId = (c, open, key, pressed) =>
       lamp(c.final),
       open && key ? idButton(c.id, key, open, pressed) : c.id,
     ),
-    h("span", { class: "claim-level" }, word(levels, c.level)),
+    h(
+      "span",
+      { class: "claim-level" },
+      article(word(levels, c.level)),
+      h("b", {}, word(levels, c.level)),
+    ),
   );
 
 /** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
