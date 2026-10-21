@@ -42,7 +42,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 ## Tasks
 
 - [x] 54eae70 Round 1: user's UI edits → `prototype/gui/web/` (evidence bar ruled: kept, reworded)
-- [ ] Round 2: user's feedback from the live prototype → `prototype/gui/web/` + `Decisions`; done: plain reasons per fact + verdict meanings; open: the waived L-statistical lint on C2 shows as "What may be missing"; assumed `result` facts = forbid | warn | allow
+- [ ] Round 2: user's feedback from the live prototype → `prototype/gui/web/` + `Decisions`; done: plain reasons per fact + verdict meanings; open: label-row polish finalists A `/` = refined (16px id, thin underline, borderless rounded tag) | B `/?row=badge` = outlined id badge + kind and verdict as two chips, the verdict with its symbol; the waived L-statistical lint on C2 shows as "What may be missing"; assumed `result` facts = forbid | warn | allow
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT history → `.agent/archive/`
 
 ## Phase

@@ -373,38 +373,71 @@ main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 8px;
   font-size: 12px;
   color: var(--conductor);
 }
 
-.claim-tag strong {
-  padding: 1px 8px;
-  border-radius: 3px;
-  background: var(--ink);
-  color: var(--panel);
-  font-size: 13px;
-  font-weight: 650;
+/* The id leads, a step above the tag; the tag = the kind in ink joined to the verdict on its wash. */
+.tag-id {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
 }
 
-/* The ink "Claim" joined to the verdict on its wash, in the verdict's color. */
 .tag-pair {
   display: inline-flex;
-  border: 1px solid var(--ink);
-  border-radius: 3px;
-  font-size: 13px;
+  overflow: hidden;
+  border-radius: 4px;
+  font-size: 12.5px;
   font-weight: 650;
+  line-height: 1.5;
 }
 
-.tag-pair strong {
-  border-radius: 0;
+.claim-tag strong {
+  padding: 2px 9px;
+  background: var(--ink);
+  color: var(--panel);
 }
 
 .tag-soft {
-  padding: 1px 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
 }
 
+.tag-soft.cannot {
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+/* Finalist B: the id in an outlined badge; kind + verdict as two chips, the verdict with its symbol. */
+.tag-id.badge {
+  padding: 0 7px;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+.tag-pair.split {
+  gap: 6px;
+  overflow: visible;
+  border-radius: 0;
+}
+
+.tag-pair.split > * {
+  border-radius: 4px;
+}
+
+.lamp.mini {
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+  border-width: 1.5px;
+  font-size: 9px;
+}
+
+/* The ink "Claim" joined to the verdict on its wash, in the verdict's color. */
 .tag-soft.can {
   background: var(--verified-wash);
 }
@@ -659,13 +692,16 @@ main {
   text-underline-offset: 2px;
 }
 
-/* The claim id leads its label row, larger than the tag beside it. */
-.tag-id {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ink);
+.tag-id .ref {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
+.badge .ref {
+  text-decoration: none;
+}
+
+/* The claim id leads its label row, larger than the tag beside it. */
 .moves,
 .changes {
   margin: 8px 0 0;
