@@ -18,10 +18,6 @@ export const verdictMeanings = {
   cannot: "A fact it needs is shown to be false.",
 };
 
-/** Lamp symbols: each state has its own shape + symbol, never color alone. */
-/** @type {Record<string, string>} */
-export const symbols = { can: "✓", conditional: "≈", open: "○", cannot: "×" };
-
 /** @type {Record<string, string>} */
 export const statuses = {
   proved: "Verified by proof",
