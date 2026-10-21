@@ -654,6 +654,17 @@ main {
   text-underline-offset: 2px;
 }
 
+/* The claim id: in the ink tag (default) it keeps the tag's white; ?id=lead sets it before the words. */
+.tag-pair .ref {
+  color: inherit;
+  font-weight: 700;
+}
+
+.id-lead {
+  margin-right: 0.45em;
+  font-weight: 700;
+}
+
 .moves,
 .changes {
   margin: 8px 0 0;
