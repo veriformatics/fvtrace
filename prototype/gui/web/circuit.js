@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { clickToOpen, h, idButton, s } from "./dom.js";
-import { kinds, levels, qualifiers, statuses, word } from "./words.js";
+import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -15,31 +15,12 @@ import { kinds, levels, qualifiers, statuses, word } from "./words.js";
  *   supposeStatus: (fact: string) => string | undefined }} Handlers
  */
 
-/**
- * Each verdict's mark, drawn as geometry on a 20-unit grid centered on (10, 10): a font glyph
- * (✓ ≈ ○ ×) sat off-center by an amount that varied with the browser's fallback symbol font.
- * @type {Record<string, string[]>}
- */
-const marks = {
-  can: ["M5.5 10.5 8.8 13.8 14.8 6.6"],
-  conditional: [
-    "M4.5 7.7c1.8-1.8 3.7-1.8 5.5 0s3.7 1.8 5.5 0",
-    "M4.5 12.3c1.8-1.8 3.7-1.8 5.5 0s3.7 1.8 5.5 0",
-  ],
-  open: ["M14.2 10a4.2 4.2 0 1 1-8.4 0 4.2 4.2 0 1 1 8.4 0"],
-  cannot: ["M6 6 14 14", "M14 6 6 14"],
-};
-
 /** @param {string} state @param {string} [size] */
 export function lamp(state, size) {
   return h(
     "span",
     { class: `lamp ${state}${size ? ` ${size}` : ""}`, "aria-hidden": "true" },
-    s(
-      "svg",
-      { viewBox: "0 0 20 20", class: "mark" },
-      ...(marks[state] ?? []).map((d) => s("path", { d })),
-    ),
+    symbols[state] ?? "",
   );
 }
 
