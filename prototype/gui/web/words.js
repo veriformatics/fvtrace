@@ -14,7 +14,7 @@ export const verdicts = {
 export const verdictMeanings = {
   can: "Every fact it needs is verified.",
   conditional: "Holds only if its assumptions are true.",
-  open: "A fact it needs is neither verified nor assumed.",
+  open: "A fact it needs is still open.",
   cannot: "A fact it needs is shown to be false.",
 };
 
