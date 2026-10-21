@@ -4,7 +4,7 @@
 /** @type {Record<string, string>} */
 export const verdicts = {
   can: "Fully supported",
-  conditional: "Rests on assumptions",
+  conditional: "Assumed",
   open: "Pending verification",
   cannot: "Claim not possible",
 };
