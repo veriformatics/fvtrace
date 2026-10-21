@@ -69,7 +69,7 @@ const steps = [
     title: "A claim",
     body: () => [
       p(
-        "Each card is one claim. The symbol beside it and the label above its headline give its verdict.",
+        "Each card is one claim. The label above its headline gives its verdict, and the symbol beside its id repeats it.",
       ),
     ],
   },
