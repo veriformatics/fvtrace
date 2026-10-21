@@ -3,9 +3,9 @@
 
 /** @type {Record<string, string>} */
 export const verdicts = {
-  can: "Can claim",
-  conditional: "On assumption",
-  open: "Not yet",
+  can: "Verified",
+  conditional: "Conditional",
+  open: "Unverified",
   cannot: "Cannot claim",
 };
 
