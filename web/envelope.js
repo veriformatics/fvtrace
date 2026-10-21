@@ -45,6 +45,10 @@
  *   overrides: Override[] }} Action
  */
 /**
+ * @typedef {{ id: string, subject: string, between: string[], text: string, recorded: string,
+ *   effective: string, active: boolean }} Exclusion
+ */
+/**
  * @typedef {{ mode: "recorded" | "what-if", overrides: Override[],
  *   review: { state: "draft" | "stale" | "reviewed", reviewer?: string, date?: string },
  *   analysis: { id: string, title: string, summary: string },
@@ -52,6 +56,7 @@
  *   counts: Record<State, number>, questions: { id: string, title: string, text: string }[],
  *   facts: Fact[], claims: Claim[], work: { fact: string, unlocks: string[], gates: string[] }[],
  *   blockers: { fact: string, claims: string[] }[], experiments: Experiment[],
+ *   exclusions: Exclusion[],
  *   lints: { rule: string, claim: string, message: string, waived?: string }[],
  *   actions: Action[] }} Envelope
  */
@@ -379,6 +384,18 @@ export function decodeEnvelope(json) {
       return { fact: str(x["fact"], `${at}/fact`), claims: strs(x["claims"], `${at}/claims`) };
     }),
     experiments: arr(r["experiments"], "/experiments", experiment),
+    exclusions: arr(r["exclusions"], "/exclusions", (x, at) => {
+      const e = obj(x, at);
+      return {
+        id: str(e["id"], `${at}/id`),
+        subject: str(e["subject"], `${at}/subject`),
+        between: strs(e["between"], `${at}/between`),
+        text: str(e["text"], `${at}/text`),
+        recorded: str(e["recorded"], `${at}/recorded`),
+        effective: str(e["effective"], `${at}/effective`),
+        active: bool(e["active"], `${at}/active`),
+      };
+    }),
     lints: arr(r["lints"], "/lints", (l, at) => {
       const x = obj(l, at);
       /** @type {{ rule: string, claim: string, message: string, waived?: string }} */

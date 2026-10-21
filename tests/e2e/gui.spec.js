@@ -272,7 +272,48 @@ test.describe("the feature fixture", () => {
     const c1 = card(page, "C1");
     await expect(verdict(c1)).toHaveText("Claim not possible");
     await expect(c1.locator(".tag-qualifier")).toHaveText("what-if, conflicting what-if");
+    // The card names the cause: no fact is false, the what-if supposes both sides (user ruling).
+    await expect(c1.locator(".conditions-label").first()).toHaveText("Cannot stand because");
+    await expect(c1.locator(".conditions-list").first()).toContainText(
+      "X1An animal cannot be sampled once and twice.The what-if supposes O4 and O5, which exclude each other.",
+    );
+    await expect(page.locator(".how-note")).toHaveText(
+      "A claim is also not possible when two facts exclude each other: when it needs both, or when a what-if supposes both.",
+    );
     await expect(verdict(card(page, "C3"))).toHaveText("Pending verification");
+  });
+
+  test("a claim that needs both sides of an exclusion names it as its reason", async ({ page }) => {
+    web = await serveFvtrace("fixture", (t) => {
+      const facts = t["facts"];
+      const claims = t["claims"];
+      if (Array.isArray(facts) && Array.isArray(claims)) {
+        facts.push({
+          id: "EN9",
+          subject: "S",
+          kind: "entailment",
+          text: "O4 and O5 entail C9.",
+          status: "open",
+          route: "lean",
+        });
+        claims.push({
+          id: "C9",
+          question: "Q1",
+          subject: "S",
+          level: "descriptive",
+          text: "Both samplings hold.",
+          needs: ["O4", "O5"],
+          entailment: "EN9",
+        });
+      }
+    });
+    await page.goto(web.url);
+    const c9 = card(page, "C9");
+    await expect(verdict(c9)).toHaveText("Claim not possible");
+    await expect(c9.locator(".conditions-label").first()).toHaveText("Cannot stand because");
+    await expect(c9.locator(".conditions-list").first()).toContainText(
+      "C9 needs O4 and O5, which exclude each other.",
+    );
   });
 
   test("a violated fact lists apart with the claims it blocks", async ({ page }) => {
