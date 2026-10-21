@@ -52,7 +52,9 @@ const steps = [
       p(
         "A person should check that the claims and facts here match what the study actually did. Until someone records a review (with the command fvtrace review), every verdict is provisional.",
       ),
-      p("One review covers the whole page. If anything here changes after it, this line says so."),
+      p(
+        "One review covers the claims and facts on record. If they change after it, this line says so.",
+      ),
     ],
   },
   {
@@ -87,7 +89,8 @@ const steps = [
     ],
   },
   {
-    target: ["article.circuit .switch.open", "article.circuit .switch.assumed"],
+    // The diagram's buttons: the lines above the diagram repeat each symbol as an inert mark.
+    target: ['article.circuit .contacts button.switch:not([aria-disabled="true"])'],
     title: "Ask “what if?”",
     body: () => [
       p(

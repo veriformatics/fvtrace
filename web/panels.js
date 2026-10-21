@@ -552,14 +552,17 @@ function togetherWith(env, w, on) {
     .map((id, i) => {
       const c = env.claims.find((x) => x.id === id);
       const others = (c?.gaps ?? []).filter((f) => f !== w.fact);
+      const together = others.length
+        ? [", together with ", andList(others.map((f) => ref("fact", f, on)))]
+        : null;
       const tail =
         c?.final === "cannot"
-          ? ", which is not possible as worded"
+          ? together
+            ? [together, `, but ${id} is not possible as worded`]
+            : ", which is not possible as worded"
           : c?.final === "conditional"
             ? ", which holds only if it is true"
-            : others.length
-              ? [", together with ", andList(others.map((f) => ref("fact", f, on)))]
-              : null;
+            : together;
       return [i || w.unlocks.length ? " " : "", "Needed by ", ref("claim", id, on), tail, "."];
     });
 }

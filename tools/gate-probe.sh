@@ -193,6 +193,22 @@ probe_palette() {
     expect palette-contrast 'conductor on --paper' env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
 }
 
+# The GUI's verdict words held equal to the engine's (Tests/Assets) + the skill's example trace held
+# well-formed (Tests/Check): both run in the native suite, rebuilt after each plant.
+assets_test() { lake build «fvtrace-tests» >/dev/null 2>&1; .lake/build/bin/fvtrace-tests; }
+
+probe_assets() {
+    keep web/words.js
+    sed -i 's/^  open: "Pending verification",$/  open: "Not yet",/' web/words.js
+    expect assets-verdict-words 'web/words.js names open as the engine does' assets_test
+    keep skill/fvtrace/assets/example.trace.json
+    jq '(.facts[] | select(.id == "O2") | .status) = "assumed"' \
+        skill/fvtrace/assets/example.trace.json >"$backup/example.json" &&
+        cp "$backup/example.json" skill/fvtrace/assets/example.trace.json
+    expect assets-skill-example "the skill's example trace is well-formed" assets_test
+    lake build «fvtrace-tests» >/dev/null 2>&1
+}
+
 probe_examples() {
     keep Fvtrace/Proofs/Plan.lean
     printf '\n-- planted\n' >>Fvtrace/Proofs/Plan.lean
@@ -200,7 +216,8 @@ probe_examples() {
 }
 
 probes=("$@")
-[[ ${#probes[@]} -gt 0 ]] || probes=(lean_style meta trust replay_policy audit vendor cli lean_pure palette examples)
+[[ ${#probes[@]} -gt 0 ]] ||
+    probes=(lean_style meta trust replay_policy audit vendor cli lean_pure palette assets examples)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"

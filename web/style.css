@@ -368,7 +368,7 @@ main {
   min-width: 0;
 }
 
-/* "Claim" stands out over every claim's words: ink label, id + level quiet beside it. */
+/* The label row over every claim's words: id badge, then the kind + verdict chips. */
 .claim-tag {
   display: flex;
   flex-wrap: wrap;
@@ -429,7 +429,7 @@ main {
   font-size: 0.72em;
 }
 
-/* The ink "Claim" joined to the verdict on its wash, in the verdict's color. */
+/* The verdict chip: outlined in its verdict's color on that verdict's wash. */
 .tag-soft.can {
   background: var(--verified-wash);
 }
@@ -1260,11 +1260,14 @@ footer {
     grid-template-columns: 1fr;
   }
 
-  .tour-card:not(.centered) {
+  /* Every card docks at the bottom on phones, the untargeted welcome + end included. */
+  .tour-card,
+  .tour-card.centered {
     inset: auto 12px 12px;
     width: auto;
     max-height: 55vh;
     padding-bottom: 0;
+    transform: none;
   }
 
   h1 {

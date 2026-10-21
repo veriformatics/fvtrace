@@ -384,15 +384,16 @@ def andList : List String → String
   | a :: rest => s!"{a}, {andList rest}"
 
 /-- A work row's claims beyond those it makes available alone, each with the facts it needs
-together with this one (its gaps, minus the row's fact). -/
+together with this one (its gaps, minus the row's fact), a blocked one also flagged. -/
 def neededBy (sc : Scenario) (w : Scenario.Work) : List String :=
   (w.gates.filter (!w.unlocks.contains ·)).filterMap fun id => (sc.trace.claim? id).map fun c =>
     let others := (sc.gaps c).filter (· != w.fact)
+    let together := if others.isEmpty then "" else s!", together with {andList others}"
     match sc.final c with
-    | .cannot => s!"Needed by {id}, which is not possible as worded."
+    | .cannot => if others.isEmpty then s!"Needed by {id}, which is not possible as worded."
+      else s!"Needed by {id}{together}, but {id} is not possible as worded."
     | .conditional => s!"Needed by {id}, which holds only if it is true."
-    | _ => if others.isEmpty then s!"Needed by {id}."
-      else s!"Needed by {id}, together with {andList others}."
+    | _ => s!"Needed by {id}{together}."
 
 def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 0 fun p l => do

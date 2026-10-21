@@ -121,7 +121,8 @@ structure Claim where
   level : Level
   /-- The exact statement: what the proofs cover. -/
   text : String
-  /-- Its plain display form, never stronger (the reviewer's call; outside every digest). -/
+  /-- Its plain display form, never stronger (the reviewer's call): outside every statement
+  digest, inside the review digest. -/
   headline : Option String := none
   needs : List String
   /-- The reasoning fact; absent exactly for a restating claim. -/

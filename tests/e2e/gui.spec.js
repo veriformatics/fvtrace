@@ -157,6 +157,11 @@ test.describe("the synthetic study", () => {
     const o2 = page.locator('.work-item:has([data-key="work:O2"])');
     await expect(o2.locator(".list-meta")).toHaveText("Needed by C2, together with O3 and EN2.");
     await expect(o2.locator(".work-count")).toBeHidden();
+    // A blocked claim still names what it needs with the row's fact.
+    await page.goto(`${web.url}#whatif=O1%3Dviolated`);
+    await expect(o2.locator(".list-meta")).toHaveText(
+      "Needed by C2, together with O3 and EN2, but C2 is not possible as worded.",
+    );
   });
 
   test("the text view lists headlines and the facts to verify", async ({ page }) => {
@@ -182,7 +187,20 @@ test.describe("the synthetic study", () => {
     expect(total).toBe(13);
     await page.keyboard.press("ArrowRight");
     await expect(tour.locator(".tour-count")).toHaveText(`2 of ${total}`);
-    await pressTimes(page, "ArrowRight", total - 2);
+    // The what-if step spotlights a diagram button a reader can press, not an inert mark.
+    await pressTimes(page, "ArrowRight", 5);
+    await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Ask “what if?”");
+    await page.waitForFunction(() => {
+      const spot = document.querySelector(".tour-spot")?.getBoundingClientRect();
+      const button = document
+        .querySelector('.contacts button.switch:not([aria-disabled="true"])')
+        ?.getBoundingClientRect();
+      if (!spot || !button) return false;
+      const x = button.x + button.width / 2;
+      const y = button.y + button.height / 2;
+      return x > spot.left && x < spot.right && y > spot.top && y < spot.bottom;
+    });
+    await pressTimes(page, "ArrowRight", total - 7);
     await expect(tour.locator(".tour-count")).toHaveText(`${total} of ${total}`);
     await expect(tour.getByRole("heading", { level: 2 })).toHaveText("End of the tour");
     await page.keyboard.press("ArrowLeft");
@@ -190,6 +208,17 @@ test.describe("the synthetic study", () => {
     await page.keyboard.press("Escape");
     await expect(tour).toHaveCount(0);
     await expect(opener).toBeFocused();
+  });
+
+  test("on a phone every tour card docks at the bottom", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(web.url);
+    await page.locator("article.circuit").first().waitFor();
+    await page.locator("#tour-start").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { level: 2 })).toHaveText("Welcome to fvTrace");
+    const box = await dialog.boundingBox();
+    expect(box && box.y + box.height).toBeGreaterThan(844 - 16);
   });
 
   test("a claim's words select for copying; a plain click opens its details", async ({ page }) => {
