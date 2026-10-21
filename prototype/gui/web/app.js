@@ -253,7 +253,7 @@ function renderScenario(/** @type {Envelope} */ e) {
         ]
       : [
           h("strong", { class: "scenario-head" }, "Showing the facts as recorded."),
-          "Press a switch to see what would change if its fact were verified.",
+          "Press a fact's symbol to see what would change if it were verified.",
         ],
   );
   byId("reset").hidden = e.mode !== "what-if";
@@ -303,8 +303,7 @@ function draw(e) {
   byId("analysis-title").textContent = e.analysis.title;
   byId("analysis-summary").textContent = e.analysis.summary;
   renderScenario(e);
-  if (keyVariant === "pairs") fill(byId("how-key"), pairsKey(e.counts));
-  else fill(byId("overview"), countRows(e.counts));
+  fill(byId("how-key"), factKey(e.counts));
   fill(
     byId("questions"),
     e.questions.map((q) =>
@@ -411,7 +410,6 @@ function wire() {
   });
 }
 
-const keyVariant = new URLSearchParams(location.search).get("key") === "split" ? "split" : "pairs";
 readHash();
 wire();
 void load();
@@ -425,21 +423,21 @@ const pairs = [
 ];
 
 /** @type {Record<string, string>} */
-const switchMeanings = {
-  proved: "Closed: proved, or accepted by a proved checker",
-  assumed: "Closed on condition: the claim holds only if this is true",
-  open: "Not closed: a gap that keeps the lamp off",
-  violated: "Broken: the claim cannot be made as written",
+const factMeanings = {
+  proved: "Proved, or accepted by a proved checker",
+  assumed: "Taken as true: the claim holds only if it is",
+  open: "Neither verified nor assumed yet",
+  violated: "Shown to be false",
 };
 
 /** @param {string} st */
-const switchCell = (st) => [
+const factCell = (st) => [
   h("span", { class: `switch ${st}`, "aria-hidden": "true" }, switchSvg(st)),
   h(
     "span",
     { class: "key-text" },
     h("span", {}, st === "proved" ? "Verified" : word(statuses, st)),
-    h("small", {}, word(switchMeanings, st)),
+    h("small", {}, word(factMeanings, st)),
   ),
 ];
 
@@ -455,13 +453,9 @@ const verdictCell = (counts, st) => [
   ),
 ];
 
-/** Variant B: the verdict counts, one lamp each. @param {Record<State, number>} counts */
-const countRows = (counts) =>
-  pairs.map(([, st]) => h("div", { class: "stat" }, verdictCell(counts, st)));
-
-/** Variant A: one key, each weakest switch beside the verdict it gives + its count. */
+/** The key: each kind of fact beside the verdict it gives as a claim's weakest + its count. */
 /** @param {Record<State, number>} counts */
-const pairsKey = (counts) =>
+const factKey = (counts) =>
   h(
     "table",
     { class: "key-pairs" },
@@ -471,7 +465,7 @@ const pairsKey = (counts) =>
       h(
         "tr",
         {},
-        h("th", { scope: "col", colspan: "2" }, "Weakest switch"),
+        h("th", { scope: "col", colspan: "2" }, "Facts"),
         h("th", { scope: "col", colspan: "3" }, "Claims"),
       ),
     ),
@@ -482,28 +476,12 @@ const pairsKey = (counts) =>
         h(
           "tr",
           {},
-          switchCell(sw).map((c) => h("td", {}, c)),
+          factCell(sw).map((c) => h("td", {}, c)),
           verdictCell(counts, st).map((c) => h("td", {}, c)),
         ),
       ),
     ),
   );
-
-// "How this works": prototype variants of the key (?key=pairs default | ?key=split).
-if (keyVariant === "pairs") byId("overview").hidden = true;
-else {
-  fill(
-    byId("how-key"),
-    h("h3", { class: "key-head" }, "Facts are switches"),
-    h(
-      "ul",
-      { class: "key-switches" },
-      pairs.map(([sw]) => h("li", {}, switchCell(sw))),
-    ),
-    h("h3", { class: "key-head" }, "Claims are lamps"),
-  );
-  byId("how-key").append(byId("overview"));
-}
 
 for (const id of ["tour-start", "tour-start-how"]) {
   const b = byId(id);
