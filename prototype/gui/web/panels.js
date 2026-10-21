@@ -1,6 +1,6 @@
 // The inspector, the ranked lists and the text view: each shows envelope fields as they are.
 
-import { conditions, exactStatement, headline, lamp } from "./circuit.js";
+import { claimTag, conditions, exactStatement, headline, lamp } from "./circuit.js";
 import { h, s } from "./dom.js";
 import { count, efforts, kinds, routes, statuses, verdictText, verdicts, word } from "./words.js";
 
@@ -312,7 +312,7 @@ function inspectClaim(env, id, on) {
     ["Violated", c.blockers],
   ];
   return [
-    h("span", { class: "reference" }, `Claim ${c.id} / ${c.level}`),
+    claimTag(c),
     h("h2", {}, headline(c)),
     c.headline && c.headline !== c.text
       ? h("p", { class: "exact-text" }, h("strong", {}, "Exact statement: "), c.text)
@@ -558,6 +558,7 @@ export function textView(env, groups, on) {
             h(
               "span",
               {},
+              claimTag(c),
               h(
                 "button",
                 {

@@ -89,6 +89,15 @@ function contact(f, on, claim) {
   );
 }
 
+/** The standout "Claim" label over a claim's words, with its id + level. @param {Claim} c */
+export const claimTag = (c) =>
+  h(
+    "span",
+    { class: "claim-tag" },
+    h("strong", {}, "Claim"),
+    h("span", {}, `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`),
+  );
+
 /** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
 export const headline = (c) => c.headline ?? c.text;
 
@@ -136,11 +145,7 @@ export function circuit(c, env, on, selected) {
       h(
         "span",
         {},
-        h(
-          "span",
-          { class: "claim-meta" },
-          `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`,
-        ),
+        claimTag(c),
         h("span", { class: "sentence" }, headline(c)),
         h("span", { class: `claim-state ${c.final}` }, verdictText(c)),
       ),
