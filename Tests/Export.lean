@@ -42,6 +42,15 @@ def pureTests : TestM Unit := do
     check "export: modules come after the modules they import"
       (pos "words" < pos "circuit" && pos "dom" < pos "circuit" && pos "circuit" < pos "panels" &&
         pos "panels" < pos "app" && pos "envelope" < pos "app")
+  let wrapped := "export: an import over several lines resolves (Prettier wraps long ones)"
+  match bundle [("a", "export const x = 1;\nexport const y = 2;"),
+      ("b", "import {\n  x,\n  y,\n} from \"./a.js\";\nexport const z = x + y;")] with
+  | .error m => check wrapped false m
+  | .ok script =>
+    check wrapped (count script "  const { x, y } = __a;\n" == 1 && count script "import" == 0)
+      script
+  checkEq "export: an import that never names its source is refused"
+    ((bundle [("b", "import {\n  x,\nexport const z = x;")]).toOption) none
   checkEq "export: an unsupported export is refused"
     ((bundle [("m", "export default 1;")]).toOption) none
   checkEq "export: a cycle is refused"

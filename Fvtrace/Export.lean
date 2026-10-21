@@ -33,15 +33,22 @@ def exportName (line : String) : Option String := do
   let rest := (line.drop decl.length).toString
   return String.ofList (rest.toList.takeWhile fun c => c.isAlphanum || c == '_' || c == '$')
 
-/-- One module as a block: its imports read from earlier blocks, its exports returned. -/
+/-- One module as a block: its imports read from earlier blocks, its exports returned. An import
+may span lines (Prettier wraps a long one): it ends on the line that names its source. -/
 def block (name src : String) : Except String (List String × String) := do
   let mut out := #[]
   let mut deps := #[]
   let mut exports := #[]
+  let mut pending := ""
   for line in src.splitOn "\n" do
-    if line.startsWith "import" then
-      let some (names, m) := parseImport line
-        | throw s!"{name}.js: unsupported import: {line}"
+    if !pending.isEmpty || line.startsWith "import" then
+      let stmt := pending ++ line
+      if (stmt.splitOn " from ").length < 2 then
+        pending := stmt
+        continue
+      pending := ""
+      let some (names, m) := parseImport stmt
+        | throw s!"{name}.js: unsupported import: {stmt}"
       deps := deps.push m
       out := out.push s!"  const \{ {", ".intercalate names} } = __{m};"
     else if line.startsWith "export" then
@@ -49,6 +56,7 @@ def block (name src : String) : Except String (List String × String) := do
       exports := exports.push n
       out := out.push ("  " ++ (line.drop "export ".length).toString)
     else out := out.push (if line.isEmpty then "" else "  " ++ line)
+  unless pending.isEmpty do throw s!"{name}.js: an import never names its source: {pending}"
   let body := "\n".intercalate out.toList
   let ret := if exports.isEmpty then "" else s!"  return \{ {", ".intercalate exports.toList} };\n"
   return (deps.toList, s!"const __{name} = (() => \{\n{body}\n{ret}})();\n")
