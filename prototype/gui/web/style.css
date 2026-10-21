@@ -176,11 +176,12 @@ main {
   margin-left: auto;
 }
 
-/* Verdict counts: two by two, in aligned columns. */
+/* Verdict counts: two by two; lamp, count + words each share one column across rows (subgrid),
+   so a wider digit or font never shifts a row. */
 .overview {
   display: grid;
-  grid-template-columns: repeat(2, max-content);
-  gap: 12px 36px;
+  grid-template-columns: repeat(2, max-content max-content max-content);
+  gap: 12px 9px;
   width: fit-content;
   margin-top: 20px;
   padding: 14px 18px;
@@ -189,14 +190,21 @@ main {
 }
 
 .stat {
-  display: flex;
+  display: grid;
+  grid-column: span 3;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: 9px;
+}
+
+.stat:nth-child(even) {
+  margin-left: 27px;
 }
 
 .stat-count {
   font-size: 23px;
   font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .stat-text {
@@ -1309,7 +1317,11 @@ footer {
 /* Verdict counts with meanings outgrow two columns on phones. */
 @media (width <= 560px) {
   .overview {
-    grid-template-columns: max-content;
+    grid-template-columns: max-content max-content max-content;
+  }
+
+  .stat:nth-child(even) {
+    margin-left: 0;
   }
 }
 
