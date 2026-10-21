@@ -245,7 +245,10 @@ function renderScenario(/** @type {Envelope} */ e) {
       ? [
           h("strong", { class: "what-if-lead" }, "Showing a what-if: "),
           "suppose ",
-          e.overrides.map((o) => `${o.fact} ${word(supposedAs, o.status)}`).join(", "),
+          e.overrides
+            .filter((o) => e.facts.some((f) => f.id === o.fact))
+            .map((o) => `${o.fact} ${word(supposedAs, o.status)}`)
+            .join(", "),
           ". Nothing has been recorded.",
         ]
       : [
