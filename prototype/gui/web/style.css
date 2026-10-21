@@ -354,14 +354,19 @@ main {
   border: 2px solid var(--ink);
 }
 
+/* Card heads, experiment cards + list rows open their details on click, yet their text stays
+   plain (selectable for copying); each one's id button is the keyboard route. */
+.claim-head,
+.experiment-row,
+.work-item,
+.text-row {
+  cursor: pointer;
+}
+
 .claim-head {
   display: flex;
   gap: 16px;
-  width: 100%;
   padding: 20px 22px 12px;
-  border: 0;
-  background: transparent;
-  text-align: left;
 }
 
 /* "Claim" stands out over every claim's words: ink label, id + level quiet beside it. */
@@ -743,10 +748,9 @@ main {
   border: 1px solid var(--rule);
   border-radius: 4px;
   background: var(--panel);
-  text-align: left;
 }
 
-.experiment-row[aria-pressed="true"] {
+.experiment-row.selected {
   border: 2px solid var(--ink);
   padding: 11px 13px;
 }
@@ -774,10 +778,7 @@ main {
   display: flex;
   gap: 14px;
   padding: 0 0 12px;
-  border: 0;
   border-bottom: 1px solid var(--rule);
-  background: transparent;
-  text-align: left;
 }
 
 .work-count {
@@ -840,14 +841,8 @@ main {
   gap: 3px;
 }
 
-.text-claim {
-  padding: 0;
-  border: 0;
-  background: none;
-  text-align: left;
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-  text-underline-offset: 3px;
+.text-sentence {
+  display: block;
 }
 
 footer {

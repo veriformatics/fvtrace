@@ -1,7 +1,7 @@
 // The inspector, the ranked lists and the text view: each shows envelope fields as they are.
 
 import { claimTag, conditions, exactStatement, headline, lamp } from "./circuit.js";
-import { h, s } from "./dom.js";
+import { clickToOpen, h, idButton, s } from "./dom.js";
 import { count, efforts, kinds, routes, statuses, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
@@ -448,20 +448,23 @@ export function experimentList(env, filter, selected, on) {
   if (!shown.length) return [h("p", {}, "No suggested experiment of this kind.")];
   return shown.map((e) =>
     h(
-      "button",
+      "div",
       {
-        class: "experiment-row",
-        "data-key": `experiment:${e.id}`,
-        type: "button",
-        "aria-pressed": selected === e.id ? "true" : "false",
-        onclick: () => on.select("experiment", e.id),
+        class: `experiment-row${selected === e.id ? " selected" : ""}`,
+        onclick: clickToOpen(() => on.select("experiment", e.id)),
       },
       kindTag(e),
       h("span", { class: "experiment-title" }, e.title),
       h(
         "small",
         { class: "experiment-meta" },
-        `${e.id} / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
+        idButton(
+          e.id,
+          `experiment:${e.id}`,
+          () => on.select("experiment", e.id),
+          selected === e.id,
+        ),
+        ` / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
       ),
       h("span", { class: `impact${e.lights ? " lit" : ""}` }, impact(e)),
     ),
@@ -481,18 +484,17 @@ export function workList(env, on) {
   }
   return env.work.map((w) =>
     h(
-      "button",
-      {
-        class: "work-item",
-        "data-key": `work:${w.fact}`,
-        type: "button",
-        onclick: () => on.select("fact", w.fact),
-      },
+      "div",
+      { class: "work-item", onclick: clickToOpen(() => on.select("fact", w.fact)) },
       h("span", { class: "work-count", "aria-hidden": "true" }, String(w.unlocks.length)),
       h(
         "span",
         {},
-        h("strong", {}, w.fact),
+        h(
+          "strong",
+          {},
+          idButton(w.fact, `work:${w.fact}`, () => on.select("fact", w.fact)),
+        ),
         ` ${factText(env, w.fact)}`,
         h(
           "small",
@@ -552,22 +554,13 @@ export function textView(env, groups, on) {
         cs.map((c) =>
           h(
             "li",
-            { class: "text-row" },
+            { class: "text-row", onclick: clickToOpen(() => on.select("claim", c.id)) },
             lamp(c.final, "small"),
             h(
               "span",
               {},
-              claimTag(c),
-              h(
-                "button",
-                {
-                  class: "text-claim",
-                  "data-key": `text:${c.id}`,
-                  type: "button",
-                  onclick: () => on.select("claim", c.id),
-                },
-                headline(c),
-              ),
+              claimTag(c, () => on.select("claim", c.id), `text:${c.id}`),
+              h("span", { class: "text-sentence" }, headline(c)),
               exactStatement(c),
               conditions(c, env, on),
             ),
@@ -593,16 +586,15 @@ export function textView(env, groups, on) {
               ).length;
               return h(
                 "li",
-                { class: "text-row stacked" },
+                {
+                  class: "text-row stacked",
+                  onclick: clickToOpen(() => on.select("fact", id)),
+                },
                 h(
-                  "button",
-                  {
-                    class: "text-claim",
-                    "data-key": `text:${id}`,
-                    type: "button",
-                    onclick: () => on.select("fact", id),
-                  },
-                  `${id} ${f?.text ?? ""}`,
+                  "span",
+                  { class: "text-sentence" },
+                  idButton(id, `text:${id}`, () => on.select("fact", id)),
+                  ` ${f?.text ?? ""}`,
                 ),
                 h(
                   "small",
