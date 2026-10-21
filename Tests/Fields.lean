@@ -60,6 +60,17 @@ def tests : TestM Unit := do
     (violationsOf ((text.replace "\n  ],\n  \"claims\"" en).replace c2needs
       "\"needs\": [\"M2\"],\n      \"entailment\": \"EN\",\n      \"restates\": true"))
     [("WF-entail", "/claims/1")]
+  -- Each restated result binds its own restating claim; a result that a claim with an
+  -- entailment needs alone binds none (its claim's text sits in the entailment's statement).
+  let manifest := fun (tr : Trace) (id : String) =>
+    (Receipt.factManifest tr ((tr.fact? id).get!)).canonical
+  check "fields: each restated result binds its own claim (restatedBy)"
+    (count (manifest t "M1") "\"restatedBy\":{\"id\":\"C1\"" == 1 &&
+      count (manifest t "M2") "\"restatedBy\":{\"id\":\"C2\"" == 1)
+    s!"{manifest t "M1"} {manifest t "M2"}"
+  let main ← Tests.Engine.fixture
+  check "fields: a result needed alone by a claim with an entailment binds no claim"
+    (count (manifest main "M1") "restatedBy" == 0) (manifest main "M1")
   -- A restating claim reads as its result's effective state.
   let s : Scenario := { trace := t, current := fun _ => true }
   let finalOf := fun (sc : Scenario) (id : String) => sc.final ((t.claim? id).get!)
@@ -90,7 +101,6 @@ def tests : TestM Unit := do
   checkEq "fields: the envelope carries why"
     ((recordOf env "facts" "M1").bind (field · "why"))
     (some (.str "The claim says the treated mean is higher, so the table must show it."))
-  let main ← Tests.Engine.fixture
   let envMain := Evaluate.envelope { trace := main, current := fun _ => true } [] "d" .draft
   checkEq "fields: a claim with an entailment does not restate"
     ((claimOf envMain "C1").bind (field · "restates"), (claimOf envMain "C1").bind
