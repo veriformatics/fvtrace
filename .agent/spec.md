@@ -34,7 +34,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - Results + lints (user ruling): kind `result` = the observed value/pattern a claim asserts; `fvtrace check` warns per claim level (estimand, descriptive, inferential, causal, release) on missing roles, suppressed only by a recorded waiver with reason.
 - Where FV pays = per closable fact (not violated): claims it gates + claims verifying it alone unlocks, ranked by unlocks; violated facts list apart as blockers (reword or new data). `latent` claims = overlooked directions.
 - Experiments: `kind` `dry` | `wet`, `effort` hours < days < weeks < months, `success` (asserting statuses only) + `failure` (`violated` only) replayed as what-ifs on the experiment's subject, closed over `requires` + the creator of a prospective subject; per experiment `lights` (claims raised into can | conditional), `clears` (cannot → open), `breaks` (failure → cannot); ranked lights > clears > cheaper. A success touching a `result` fact reads "if this result is observed".
-- Experiment outcome honesty (scientist-1 rulings): `checked` only via a proved checker on the actual data, `proved` only via a completed proof; empirical support → `assumed` at most (`tested` for a must-verify kind); failure = established counterexample, inconclusive → `{}`.
+- Experiment outcome honesty (scientist-1 rulings): `checked` only via a proved checker on the actual data, `proved` only via a completed proof; empirical support → `assumed` at most for a background condition, nothing for a must-verify fact (no success outcome reaches it; record `tested`); failure = established counterexample, inconclusive → `{}`.
 - Plans (user ruling): per claim, a coherent experiment set (one subject, prerequisite-closed, no conflict) reaching the highest state the suggestions allow, cheapest by ordinal effort among those (exact search; above 20 relevant experiments the result is `tooLarge`, no plan claimed); alternatives per fact + remaining premises listed; labelled coverage, never scientific priority.
 - Agent instructions (user ruling): portable Agent Skill embedded in the binary; `fvtrace skills install --agent claude|agents` writes the user-level skills dir by default; the host agent drafts the trace, `fvtrace check` validates, the user's review gates final verdicts; fvTrace never calls an LLM.
 - Examples (user ruling): public = fvTrace's own trace (claims about fvTrace backed by its Lean proofs) + a synthetic study. Self-trace (user rulings, IMPLEMENT GUI): each claim worded as what its Lean theorems prove, its reasoning fact proved by them (the English ↔ Lean reading sits in the receipt's trust boundary, as for every proved fact); I1 (the binary runs the proved code) = universal premise: off the claims, the compilers + runtime named in the trusted base; I2 (HACL* called unchanged) = tested. The tau × amyloid trace lives outside the repo as a private local check against the veriformatics `studies/naoto` folder, carrying scientist-2's fixes (O11 split, O20, C6, result facts).
@@ -42,10 +42,10 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] U1 contract delta: `.agent/contracts/kernel.md` (must-verify kinds, verdict words, `why` / `headline` / `restates`, receipts, envelope) + `units.md` rows; consultant-1 before code
+- [ ] U1 contract delta: `.agent/contracts/kernel.md` (must-verify kinds, verdict words, `why` / `headline` / `restates`, receipts, envelope) + `units.md` rows; consultant-2 before code
 - [ ] U2 must-verify kinds + verdict words: model, checker + proofs, what-if, engine gate + proofs, CLI text, tests
 - [ ] U3 trace fields `why`, `headline`, `restates`: model, codec, schema, checker + proofs, receipts, envelope, tests
-- [ ] U4 export bundler: multi-line imports
+- [x] 971f42c U4 export bundler: multi-line imports
 - [ ] U5 GUI: prototype → `web/` (tour, key, label row, headline + exact statement, why lines, waivers in details, work rows), decoder, e2e + axe + palette; operator visual QA
 - [ ] U6 examples + docs: honest synthetic study, self-trace rebuild + re-pin, skill, README
 - [ ] U7 prototype retired (tag `prototype-gui-iterate`) + rules upkeep
