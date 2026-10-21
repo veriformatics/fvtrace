@@ -13,6 +13,7 @@ import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
+/** @typedef {import("./envelope.js").State} State */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 
 /** The view: what-if (served: the spec sent to the engine + the overrides it accepted) or action
@@ -299,23 +300,8 @@ function draw(e) {
   byId("analysis-title").textContent = e.analysis.title;
   byId("analysis-summary").textContent = e.analysis.summary;
   renderScenario(e);
-  fill(
-    byId("overview"),
-    /** @type {const} */ (["can", "conditional", "open", "cannot"]).map((st) =>
-      h(
-        "div",
-        { class: "stat" },
-        lamp(st),
-        h("b", { class: "stat-count" }, String(e.counts[st])),
-        h(
-          "span",
-          { class: "stat-text" },
-          h("span", { class: "stat-label" }, word(verdicts, st)),
-          h("span", { class: "stat-meaning" }, word(verdictMeanings, st)),
-        ),
-      ),
-    ),
-  );
+  if (keyVariant === "pairs") fill(byId("how-key"), pairsKey(e.counts));
+  else fill(byId("overview"), countRows(e.counts));
   fill(
     byId("questions"),
     e.questions.map((q) =>
@@ -422,35 +408,96 @@ function wire() {
   });
 }
 
+const keyVariant = new URLSearchParams(location.search).get("key") === "split" ? "split" : "pairs";
 readHash();
 wire();
 void load();
 
-// "How this works": the switch key, drawn with the circuits' own switches.
-fill(
-  byId("how-key"),
-  ["proved", "assumed", "open", "violated"].map((st) =>
+/** @type {[string, State][]} */
+const pairs = [
+  ["proved", "can"],
+  ["assumed", "conditional"],
+  ["open", "open"],
+  ["violated", "cannot"],
+];
+
+/** @type {Record<string, string>} */
+const switchMeanings = {
+  proved: "Closed: proved, or accepted by a proved checker",
+  assumed: "Closed on condition: the claim holds only if this is true",
+  open: "Not closed: a gap that keeps the lamp off",
+  violated: "Broken: the claim cannot be made as written",
+};
+
+/** @param {string} st */
+const switchCell = (st) => [
+  h("span", { class: `switch ${st}`, "aria-hidden": "true" }, switchSvg(st)),
+  h(
+    "span",
+    { class: "key-text" },
+    h("span", {}, st === "proved" ? "Verified" : word(statuses, st)),
+    h("small", {}, word(switchMeanings, st)),
+  ),
+];
+
+/** @param {Record<State, number>} counts @param {State} st */
+const verdictCell = (counts, st) => [
+  lamp(st),
+  h("b", { class: "stat-count" }, String(counts[st])),
+  h(
+    "span",
+    { class: "stat-text" },
+    h("span", { class: "stat-label" }, word(verdicts, st)),
+    h("span", { class: "stat-meaning" }, word(verdictMeanings, st)),
+  ),
+];
+
+/** Variant B: the verdict counts, one lamp each. @param {Record<State, number>} counts */
+const countRows = (counts) =>
+  pairs.map(([, st]) => h("div", { class: "stat" }, verdictCell(counts, st)));
+
+/** Variant A: one key, each weakest switch beside the verdict it gives + its count. */
+/** @param {Record<State, number>} counts */
+const pairsKey = (counts) =>
+  h(
+    "table",
+    { class: "key-pairs" },
     h(
-      "li",
+      "thead",
       {},
-      h("span", { class: `switch ${st}`, "aria-hidden": "true" }, switchSvg(st)),
-      h("span", {}, st === "proved" ? "Verified" : word(statuses, st)),
       h(
-        "small",
+        "tr",
         {},
-        st === "proved"
-          ? "Closed: proved, or accepted by a proved checker"
-          : st === "assumed"
-            ? "Closed on condition: the claim holds only if this is true"
-            : st === "open"
-              ? "Not closed: a gap that keeps the lamp off"
-              : "Broken: the claim cannot be made as written",
+        h("th", { scope: "col", colspan: "2" }, "Weakest switch"),
+        h("th", { scope: "col", colspan: "3" }, "Claims"),
       ),
     ),
-  ),
-);
+    h(
+      "tbody",
+      {},
+      pairs.map(([sw, st]) =>
+        h(
+          "tr",
+          {},
+          switchCell(sw).map((c) => h("td", {}, c)),
+          verdictCell(counts, st).map((c) => h("td", {}, c)),
+        ),
+      ),
+    ),
+  );
 
-for (const id of ["tour-start", "tour-start-how"]) {
-  const b = byId(id);
-  b.addEventListener("click", () => startTour(b));
+// "How this works": prototype variants of the key (?key=pairs default | ?key=split).
+if (keyVariant === "pairs") byId("overview").hidden = true;
+else {
+  fill(
+    byId("how-key"),
+    h("h3", { class: "key-head" }, "Facts are switches"),
+    h(
+      "ul",
+      { class: "key-switches" },
+      pairs.map(([sw]) => h("li", {}, switchCell(sw))),
+    ),
+    h("h3", { class: "key-head" }, "Claims are lamps"),
+  );
+  byId("how-key").append(byId("overview"));
 }

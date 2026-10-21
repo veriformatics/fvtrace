@@ -24,7 +24,7 @@ const steps = [
     ],
   },
   {
-    target: ["#overview"],
+    target: ["#overview", ".how-key"],
     title: "Four verdicts",
     body: () => [
       p("Every claim gets one of four verdicts. These counts cover the whole analysis."),

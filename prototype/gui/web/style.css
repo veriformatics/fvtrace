@@ -1046,19 +1046,7 @@ footer {
 }
 
 .how-key {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 18px;
   margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.how-key li {
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  column-gap: 8px;
-  align-items: center;
 }
 
 .how-key .switch,
@@ -1068,18 +1056,73 @@ footer {
   margin: 0;
 }
 
-.how-key .switch {
-  grid-row: span 2;
-}
-
 .how-key .switch svg {
   transform: none;
+}
+
+.key-text {
+  display: grid;
 }
 
 .how-key small {
   font-size: 13px;
   line-height: 1.35;
   color: var(--conductor);
+}
+
+/* Variant A: one table, each weakest switch beside the verdict it gives. */
+.key-pairs {
+  border-collapse: collapse;
+}
+
+.key-pairs th {
+  padding: 0 8px 4px 0;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  color: var(--conductor);
+}
+
+.key-pairs td {
+  padding: 5px 8px 5px 0;
+  vertical-align: middle;
+}
+
+.key-pairs td:nth-child(3) {
+  padding-left: 18px;
+}
+
+/* Variant B: two labelled keys in one panel. */
+.key-head {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.key-switches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.key-switches li {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  column-gap: 8px;
+  align-items: center;
+}
+
+.how-key .overview {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+}
+
+.overview[hidden] {
+  display: none;
 }
 
 /* What a claim waits on: one fact per line, drawn with its switch. */
@@ -1318,8 +1361,39 @@ footer {
   }
 }
 
-/* Verdict counts with meanings outgrow two columns on phones. */
+/* Verdict counts with meanings outgrow two columns on phones; each key pair stacks its switch
+   over its verdict. */
 @media (width <= 560px) {
+  .key-switches {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .key-pairs thead {
+    display: none;
+  }
+
+  .key-pairs tr {
+    display: grid;
+    grid-template-columns: 48px max-content minmax(0, 1fr);
+    column-gap: 8px;
+    align-items: center;
+    padding: 6px 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .key-pairs td {
+    padding: 0;
+  }
+
+  .key-pairs td:nth-child(2) {
+    grid-column: 2 / 4;
+  }
+
+  .key-pairs td:nth-child(3) {
+    justify-self: center;
+    padding: 0;
+  }
+
   .overview {
     grid-template-columns: max-content max-content max-content;
   }
