@@ -206,16 +206,16 @@ theorem allows_route {f : Fact} {st : Status} (h : f.allows st = true) :
   exact h.1
 
 theorem rulingCeiling : Spec.RulingCeiling := by
-  intro s c f hwf hc hvalid hf hroute
-  have hent : c.entailment ∈ c.needsAll := by simp [Claim.needsAll]
+  intro s c e f hwf hc hvalid hce hf hroute
+  have hent : e ∈ c.needsAll := by simp [Claim.needsAll, hce]
   have ⟨hmem, _⟩ := fact?_mem hf
   -- The entailment never reads verified: a ruling route allows no verified status.
-  have hnv : (s.eff c.entailment).verified = false := by
-    cases hv : (s.eff c.entailment).verified
+  have hnv : (s.eff e).verified = false := by
+    cases hv : (s.eff e).verified
     · rfl
     · have h1 := eff_verified hv
       unfold Scenario.eff1 at h1
-      cases hl : s.overrides.lookup c.entailment with
+      cases hl : s.overrides.lookup e with
       | some st =>
         simp only [hl] at h1
         have hpair := lookup_mem hl
@@ -232,17 +232,17 @@ theorem rulingCeiling : Spec.RulingCeiling := by
         have := ruling_not_verified hroute (allows_route hallow)
         simp [this, ofStatus_verified] at h1
   -- WF-entail: the entailment is a must-verify (reasoning) fact.
-  have hmv : s.mustVerify c.entailment = true := by
-    have hk := (hwf.2.2.2.1 c hc).1 f hf
+  have hmv : s.mustVerify e = true := by
+    have hk := ((hwf.2.2.2.1 c hc).2.1 e hce).1 f hf
     simp [Scenario.mustVerify, hf, hk, Kind.mustVerify]
   cases hfin : s.final c with
   | cannot => simp [State.rank]
   | «open» => simp [State.rank]
   | conditional =>
-    have := conditionalNeedsVerified s c hfin c.entailment hent hmv
+    have := conditionalNeedsVerified s c hfin e hent hmv
     simp [hnv] at this
   | can =>
-    have := intrinsic_can (final_can hfin) c.entailment hent
+    have := intrinsic_can (final_can hfin) e hent
     simp [hnv] at this
 
 theorem assumedNeedsArePremises : Spec.AssumedNeedsArePremises := by
@@ -460,10 +460,10 @@ theorem subjectIsolation : Spec.SubjectIsolation := by
     intro n hn
     have ⟨_, _, hneedsR, hentR, _⟩ := hwf.2.1.1 c hc
     have hres : n ∈ t.factIds := by
-      simp only [Claim.needsAll, List.mem_append, List.mem_singleton] at hn
-      rcases hn with hn | rfl
+      simp only [Claim.needsAll, List.mem_append, Option.mem_toList] at hn
+      rcases hn with hn | hn
       · exact hneedsR n hn
-      · exact hentR
+      · exact hentR n hn
     obtain ⟨sub, hsub⟩ := factSubject?_of_mem hres
     rw [hsub, hwf.2.2.1.1 c hc n hn sub hsub]
   have hn : ∀ n ∈ c.needsAll, (s₁ t current o₁).eff n = (s₁ t current o₂).eff n :=
@@ -485,11 +485,13 @@ theorem subjectIsolation : Spec.SubjectIsolation := by
 
 theorem recordedCanIsExisting : Spec.RecordedCanIsExisting := by
   intro t current c hwf hc hcan
-  have hent : c.entailment ∈ c.needsAll := by simp [Claim.needsAll]
-  obtain ⟨f, hf, hv, _⟩ := (recordedCanIsVerified t current c hcan).2 c.entailment hent
+  -- WF-needs: the claim needs some fact (an entailment exists only for a non-restating claim).
+  obtain ⟨n, hn⟩ := List.exists_mem_of_ne_nil c.needs (hwf.2.2.2.2.1 c hc).1
+  have hent : n ∈ c.needsAll := List.mem_append_left _ hn
+  obtain ⟨f, hf, hv, _⟩ := (recordedCanIsVerified t current c hcan).2 n hent
   have hfm := (fact?_mem hf).1
   have hfs : f.subject = c.subject :=
-    hwf.2.2.1.1 c hc c.entailment hent f.subject (by simp [Trace.factSubject?, hf])
+    hwf.2.2.1.1 c hc n hent f.subject (by simp [Trace.factSubject?, hf])
   have ⟨_, hsubR, _⟩ := hwf.2.1.1 c hc
   have hsome : (t.subject? c.subject).isSome := by
     unfold Trace.subject?

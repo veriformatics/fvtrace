@@ -43,7 +43,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 ## Tasks
 
 - [x] 03fe522 U1 contract delta: `.agent/contracts/kernel.md` (must-verify kinds, verdict words, `why` / `headline` / `restates`, receipts, envelope) + `units.md` rows; consultant-2 before code
-- [ ] U2 must-verify kinds + verdict words: model, checker + proofs, what-if, engine gate + proofs, CLI text, tests
+- [x] fe75832 U2 must-verify kinds + verdict words: model, checker + proofs, what-if, engine gate + proofs, CLI text, tests
 - [ ] U3 trace fields `why`, `headline`, `restates`: model, codec, schema, checker + proofs, receipts, envelope, tests
 - [x] 971f42c U4 export bundler: multi-line imports
 - [ ] U5 GUI: prototype → `web/` (tour, key, label row, headline + exact statement, why lines, waivers in details, work rows), decoder, e2e + axe + palette; operator visual QA

@@ -51,7 +51,7 @@ def tests : TestM Unit := do
   let env' : Fact := { id := "ENV", subject := "S", kind := .entailment,
                        text := "V and G entail CV.", status := .assumed, route := .humanRuling }
   let cv : Claim := { id := "CV", question := "Q1", subject := "S", level := .estimand,
-                      text := "V and G hold.", needs := ["V", "G"], entailment := "ENV" }
+                      text := "V and G hold.", needs := ["V", "G"], entailment := some "ENV" }
   let x : Experiment := { id := "XA", subject := "S", kind := .dry, effort := .months,
                           title := "x", method := "m", resources := "r", caveat := "c",
                           success := [("O2", .checked), ("EN2", .proved)] }

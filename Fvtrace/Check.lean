@@ -67,7 +67,9 @@ def claimRefs (t : Trace) (c : Claim) (i : Nat) : Found :=
   ensure (t.questionIds.contains c.question) (p ++ "/question") s!"no question \"{c.question}\"" ++
   ensure (t.subjectIds.contains c.subject) (p ++ "/subject") s!"no subject \"{c.subject}\"" ++
   (c.needs.flatMap fun n => ensure (t.factIds.contains n) (p ++ "/needs") s!"no fact \"{n}\"") ++
-  ensure (t.factIds.contains c.entailment) (p ++ "/entailment") s!"no fact \"{c.entailment}\"" ++
+  (match c.entailment with
+   | some e => ensure (t.factIds.contains e) (p ++ "/entailment") s!"no fact \"{e}\""
+   | none => []) ++
   (match c.variantOf with
    | some v => ensure (t.claimIds.contains v) (p ++ "/variantOf") s!"no claim \"{v}\""
    | none => [])
@@ -148,14 +150,35 @@ def needNotEntailment (t : Trace) (id : String) : Bool :=
   | some f => f.kind != .entailment
   | none => true
 
+def resultKind (t : Trace) (id : String) : Bool :=
+  match t.fact? id with
+  | some f => f.kind == .result
+  | none => true
+
+/-- The entailment fact's own rules (kind, not a need, one claim each). -/
+def entailmentFact (t : Trace) (c : Claim) (p e : String) : Found :=
+  ensure (entailmentKind t e) (p ++ "/entailment")
+    "the entailment fact must have kind entailment" ++
+  ensure (!c.needs.contains e) (p ++ "/needs") "the entailment fact is listed as a need" ++
+  ensure (t.claims.all fun d => d.entailment != some e || d.id == c.id) (p ++ "/entailment")
+    "another claim uses the same entailment fact"
+
+/-- A restating claim's shape: one result need, restated by no other claim. -/
+def restating (t : Trace) (c : Claim) (p : String) : Found :=
+  ensure (c.needs.length == 1 && c.needs.all (resultKind t)) (p ++ "/needs")
+    "a restating claim needs exactly one fact, of kind result" ++
+  ensure (t.claims.all fun d => !d.restates || d.needs != c.needs || d.id == c.id) (p ++ "/needs")
+    "another claim restates the same result"
+
 def claimEntail (t : Trace) (c : Claim) (i : Nat) : Found :=
   let p := s!"/claims/{i}"
-  ensure (entailmentKind t c.entailment) (p ++ "/entailment")
-    "the entailment fact must have kind entailment" ++
-  ensure (!c.needs.contains c.entailment) (p ++ "/needs")
-    "the entailment fact is listed as a need" ++
-  ensure (t.claims.all fun d => d.entailment != c.entailment || d.id == c.id) (p ++ "/entailment")
-    "another claim uses the same entailment fact" ++
+  ensure (c.restates == c.entailment.isNone) p
+    (if c.restates then "a restating claim names no entailment fact"
+     else "a claim names an entailment fact unless it restates one result (\"restates\": true)") ++
+  (match c.entailment with
+   | some e => entailmentFact t c p e
+   | none => []) ++
+  (if c.restates then restating t c p else []) ++
   (c.needs.flatMap fun n =>
     ensure (needNotEntailment t n) (p ++ "/needs") s!"\"{n}\" is an entailment fact")
 

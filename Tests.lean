@@ -13,6 +13,7 @@ import Tests.Engine
 import Tests.Evaluate
 import Tests.Server
 import Tests.Export
+import Tests.Fields
 
 namespace Tests
 
@@ -32,6 +33,7 @@ def pure : TestM Unit := do
   area "evaluate" Tests.Evaluate.tests
   area "server" Tests.Server.pureTests
   area "export" Tests.Export.pureTests
+  area "fields" Tests.Fields.tests
 
 /-- Suites that call the C digest code: native binary alone (`lake test`). -/
 def native : TestM Unit := do
@@ -40,6 +42,7 @@ def native : TestM Unit := do
   area "cli-store" Tests.CliStore.tests
   area "server-native" Tests.Server.nativeTests
   area "export-native" Tests.Export.nativeTests
+  area "fields-native" Tests.Fields.nativeTests
 
 /-- Every suite, in run order (`lake test`). -/
 def all : TestM Unit := do

@@ -110,6 +110,8 @@ structure Fact where
   evidence : Option Evidence := none
   trusts : List String := []
   instantiates : Option String := none
+  /-- Why a claim needs the fact (display text, outside its statement digest). -/
+  why : Option String := none
   deriving DecidableEq, Repr, Inhabited
 
 structure Claim where
@@ -117,15 +119,21 @@ structure Claim where
   question : String
   subject : String
   level : Level
+  /-- The exact statement: what the proofs cover. -/
   text : String
+  /-- Its plain display form, never stronger (the reviewer's call; outside every digest). -/
+  headline : Option String := none
   needs : List String
-  entailment : String
+  /-- The reasoning fact; absent exactly for a restating claim. -/
+  entailment : Option String := none
+  /-- The claim restates its one `result` need, so it names no reasoning fact. -/
+  restates : Bool := false
   latent : Bool := false
   variantOf : Option String := none
   deriving DecidableEq, Repr, Inhabited
 
-/-- `needs ++ [entailment]`: everything the claim's state depends on. -/
-def Claim.needsAll (c : Claim) : List String := c.needs ++ [c.entailment]
+/-- `needs` + the entailment fact: everything the claim's state depends on. -/
+def Claim.needsAll (c : Claim) : List String := c.needs ++ c.entailment.toList
 
 structure Experiment where
   id : String

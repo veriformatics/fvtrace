@@ -48,13 +48,15 @@ def fact (f : Fact) : Value :=
     field "kind" (str f.kind.name) ++
     field "text" (str f.text) ++ field "status" (str f.status.name) ++
     field "route" (str f.route.name) ++ optField "evidence" evidence f.evidence ++
-    listField "trusts" str f.trusts ++ optField "instantiates" str f.instantiates)
+    listField "trusts" str f.trusts ++ optField "instantiates" str f.instantiates ++
+    optField "why" str f.why)
 
 def claim (c : Claim) : Value :=
   .obj (field "id" (str c.id) ++ field "question" (str c.question) ++
     field "subject" (str c.subject) ++ field "level" (str c.level.name) ++
-    field "text" (str c.text) ++ field "needs" (.arr (c.needs.map str)) ++
-    field "entailment" (str c.entailment) ++
+    field "text" (str c.text) ++ optField "headline" str c.headline ++
+    field "needs" (.arr (c.needs.map str)) ++ optField "entailment" str c.entailment ++
+    (if c.restates then field "restates" (.bool true) else []) ++
     (if c.latent then field "latent" (.bool true) else []) ++
     optField "variantOf" str c.variantOf)
 

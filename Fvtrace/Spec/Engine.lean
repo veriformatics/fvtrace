@@ -47,10 +47,10 @@ def CannotExplained : Prop :=
 (its reasoning) is only human-ruled or empirical reads neither "Fully supported" nor
 "Conditional": its reasoning can never be verified. -/
 def RulingCeiling : Prop :=
-  ∀ (s : Scenario) (c : Claim) (f : Fact),
+  ∀ (s : Scenario) (c : Claim) (e : String) (f : Fact),
     WellFormed s.trace → c ∈ s.trace.claims → Overrides.valid s.trace s.overrides = true →
-    s.trace.fact? c.entailment = some f → (f.route = .humanRuling ∨ f.route = .empirical) →
-      (s.final c).rank ≤ 1
+    c.entailment = some e → s.trace.fact? e = some f →
+    (f.route = .humanRuling ∨ f.route = .empirical) → (s.final c).rank ≤ 1
 
 /-- G12: a claim reads "Conditional" only when every need of a must-verify kind (its reasoning,
 results, measurements, calculations, code, data flow) is verified: its assumptions are

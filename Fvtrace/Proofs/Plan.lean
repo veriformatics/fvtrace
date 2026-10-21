@@ -515,10 +515,10 @@ theorem pruning (hwf : WellFormed s.trace) {c : Claim} (hc : c ∈ s.trace.claim
     intro n hn
     have ⟨_, _, hneedsR, hentR, _⟩ := hwf.2.1.1 c hc
     have hres : n ∈ s.trace.factIds := by
-      simp only [Claim.needsAll, List.mem_append, List.mem_singleton] at hn
-      rcases hn with hn | rfl
+      simp only [Claim.needsAll, List.mem_append, Option.mem_toList] at hn
+      rcases hn with hn | hn
       · exact hneedsR n hn
-      · exact hentR
+      · exact hentR n hn
     obtain ⟨sub, hsub⟩ := factSubject?_of_mem hres
     rw [hsub, hwf.2.2.1.1 c hc n hn sub hsub]
   have hcov : ∀ n ∈ c.needsAll, ∀ id ∈ q, ∀ e, s.trace.experiment? id = some e →

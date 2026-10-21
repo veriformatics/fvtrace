@@ -44,7 +44,8 @@
         "verifier": "Lean 4.35.0",
         "statement": "contrast_correct",
         "statementDigest": "335c129e67e50c08288cafb03b049aaf354263a519d312cd3e4127d69f0e9253"
-      }
+      },
+      "why": "The claim uses this difference, so the calculation must match it."
     },
     {
       "id": "O2",
@@ -52,7 +53,8 @@
       "kind": "result",
       "text": "Treated samples have a higher average marker level, and chance alone rarely gives a difference this large.",
       "status": "open",
-      "route": "runtime-checker"
+      "route": "runtime-checker",
+      "why": "The claim says chance rarely gives this difference, so the data must show it."
     },
     {
       "id": "O3",
@@ -60,7 +62,8 @@
       "kind": "provenance",
       "text": "Rerunning the randomization gives the recorded groups.",
       "status": "open",
-      "route": "runtime-checker"
+      "route": "runtime-checker",
+      "why": "Otherwise the samples may not have been split the way the records say."
     },
     {
       "id": "R1",
@@ -68,7 +71,8 @@
       "kind": "provenance",
       "text": "The samples were split into the two groups at random, before anything was known about their marker levels.",
       "status": "assumed",
-      "route": "human-ruling"
+      "route": "human-ruling",
+      "why": "Otherwise another difference between the groups could explain the result."
     },
     {
       "id": "R2",
@@ -76,7 +80,8 @@
       "kind": "interpretation",
       "text": "The samples are independent: treating one sample does not change another sample's marker level.",
       "status": "assumed",
-      "route": "human-ruling"
+      "route": "human-ruling",
+      "why": "Otherwise the treated samples could change the control samples, and the comparison would be wrong."
     },
     {
       "id": "EN1",
@@ -96,7 +101,8 @@
         "verifier": "Lean 4.35.0",
         "statement": "randomization_effect",
         "statementDigest": "26d85ecdefa910b0f1b9991bbd7d172efbd37b72b176ef03d7d946d8b9309b0d"
-      }
+      },
+      "why": "It is the reason the difference can be read as the effect of the treatment."
     },
     {
       "id": "EN2",
@@ -104,7 +110,8 @@
       "kind": "entailment",
       "text": "If the treatment did nothing, checking every possible split of the samples shows how often chance alone gives a difference this large.",
       "status": "open",
-      "route": "lean"
+      "route": "lean",
+      "why": "It is the reason the data can say how rarely chance gives this difference."
     },
     {
       "id": "M1",
@@ -112,15 +119,8 @@
       "kind": "result",
       "text": "In the new cohort's table, the treated group's average marker level is higher.",
       "status": "open",
-      "route": "runtime-checker"
-    },
-    {
-      "id": "EN3",
-      "subject": "N",
-      "kind": "entailment",
-      "text": "If the treated average minus the control average is above zero, the treated average is higher.",
-      "status": "open",
-      "route": "lean"
+      "route": "runtime-checker",
+      "why": "The claim says the treated average is higher, so the new data must show that."
     }
   ],
   "claims": [
@@ -130,7 +130,12 @@
       "subject": "S",
       "level": "estimand",
       "text": "On average over all fair random assignments, the difference between treated and control samples equals the treatment's average effect on these samples.",
-      "needs": ["O1", "R1", "R2"],
+      "headline": "The difference between treated and control samples measures the average effect of the treatment.",
+      "needs": [
+        "O1",
+        "R1",
+        "R2"
+      ],
       "entailment": "EN1"
     },
     {
@@ -139,7 +144,14 @@
       "subject": "S",
       "level": "inferential",
       "text": "If the treatment did nothing, a difference this large would arise by chance in fewer than 1 in 20 random assignments.",
-      "needs": ["O1", "R1", "R2", "O2", "O3"],
+      "headline": "Treated samples show a rise that chance alone rarely produces.",
+      "needs": [
+        "O1",
+        "R1",
+        "R2",
+        "O2",
+        "O3"
+      ],
       "entailment": "EN2"
     },
     {
@@ -148,8 +160,11 @@
       "subject": "N",
       "level": "descriptive",
       "text": "In the new cohort's data table, the treated samples' average marker level is higher than the controls'.",
-      "needs": ["M1"],
-      "entailment": "EN3",
+      "headline": "In the new cohort, treated samples show a higher average marker level.",
+      "needs": [
+        "M1"
+      ],
+      "restates": true,
       "variantOf": "C2"
     }
   ],
@@ -177,10 +192,9 @@
       "kind": "wet",
       "effort": "months",
       "title": "Collect a new cohort",
-      "method": "Sample new animals, run the proved checker on their data and finish the arithmetic proof.",
+      "method": "Sample new animals and run the proved checker on their data.",
       "resources": "Animals.",
       "success": {
-        "EN3": "proved",
         "M1": "checked"
       },
       "failure": {

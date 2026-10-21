@@ -1,0 +1,78 @@
+{
+  "fvtrace": 1,
+  "analysis": {
+    "id": "restates",
+    "title": "Restating claims",
+    "summary": "Claims that each restate one result, with display fields."
+  },
+  "subjects": [
+    {
+      "id": "S",
+      "title": "Existing analysis",
+      "kind": "existing"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Means",
+      "text": "Is the treated mean higher?"
+    }
+  ],
+  "facts": [
+    {
+      "id": "M1",
+      "subject": "S",
+      "kind": "result",
+      "text": "In the table, the treated mean is higher than the control mean.",
+      "status": "checked",
+      "route": "runtime-checker",
+      "evidence": {
+        "summary": "Checker log.",
+        "artifacts": [
+          {
+            "path": "proofs/Contrast.lean",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "verifier": "Proved table checker 1.0",
+        "statement": "treated_mean_higher",
+        "statementDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "why": "The claim says the treated mean is higher, so the table must show it."
+    },
+    {
+      "id": "M2",
+      "subject": "S",
+      "kind": "result",
+      "text": "In the table, the treated median is higher than the control median.",
+      "status": "open",
+      "route": "runtime-checker"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "In the table, the treated mean is higher than the control mean.",
+      "headline": "Treated samples read higher on average.",
+      "needs": [
+        "M1"
+      ],
+      "restates": true
+    },
+    {
+      "id": "C2",
+      "question": "Q1",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "In the table, the treated median is higher than the control median.",
+      "needs": [
+        "M2"
+      ],
+      "restates": true
+    }
+  ]
+}
