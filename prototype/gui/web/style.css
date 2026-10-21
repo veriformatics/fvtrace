@@ -527,7 +527,8 @@ main {
 .terminal {
   position: relative;
   display: flex;
-  flex: 0 0 64px;
+  flex: 0 0 auto;
+  min-width: 64px;
   flex-direction: column;
   align-items: center;
   gap: 9px;
@@ -540,6 +541,11 @@ main {
 
 .terminal .lamp {
   position: relative;
+}
+
+/* The claim's level stays one line ("Measurement", "Description"): the end column grows to fit. */
+.terminal .contact-kind {
+  white-space: nowrap;
 }
 
 .inspector {
