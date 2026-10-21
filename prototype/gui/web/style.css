@@ -379,24 +379,27 @@ main {
   color: var(--conductor);
 }
 
-/* The id leads, a step above the tag; the tag = the kind in ink joined to the verdict on its wash. */
+/* The id in an outlined badge, then two chips: the claim's kind on ink, its verdict outlined in the
+   verdict's color on its wash, with its symbol. */
 .tag-id {
-  font-size: 16px;
+  padding: 0 7px;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink);
 }
 
 .tag-pair {
   display: inline-flex;
-  overflow: hidden;
-  border-radius: 4px;
+  gap: 6px;
   font-size: 12.5px;
-  font-weight: 650;
   line-height: 1.5;
 }
 
-.claim-tag strong {
+.tag-kind {
   padding: 2px 9px;
+  border-radius: 4px;
   background: var(--ink);
   color: var(--panel);
 }
@@ -404,29 +407,10 @@ main {
 .tag-soft {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
-}
-
-.tag-soft.cannot {
-  box-shadow: inset 0 0 0 1px var(--ink);
-}
-
-/* Finalist B: the id in an outlined badge; kind + verdict as two chips, the verdict with its symbol. */
-.tag-id.badge {
-  padding: 0 7px;
-  border: 1.5px solid var(--ink);
-  border-radius: 6px;
-  font-size: 15px;
-}
-
-.tag-pair.split {
-  gap: 6px;
-  overflow: visible;
-  border-radius: 0;
-}
-
-.tag-pair.split > * {
+  padding: 1px 8px;
+  border: 1px solid currentcolor;
   border-radius: 4px;
+  font-weight: 650;
 }
 
 .lamp.mini {
@@ -693,11 +677,6 @@ main {
 }
 
 .tag-id .ref {
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-.badge .ref {
   text-decoration: none;
 }
 
