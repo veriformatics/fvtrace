@@ -1,0 +1,43 @@
+{
+  "fvtrace": 1,
+  "analysis": {
+    "id": "demo",
+    "title": "Demo",
+    "summary": "A demo analysis."
+  },
+  "subjects": [
+    {
+      "id": "S",
+      "title": "Existing data",
+      "kind": "existing"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Effect",
+      "text": "Is there an effect?"
+    }
+  ],
+  "facts": [
+    {
+      "id": "O1",
+      "subject": "S",
+      "kind": "result",
+      "text": "The effect is positive.",
+      "status": "open",
+      "route": "runtime-checker"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "The effect is positive.",
+      "needs": ["O1"],
+      "restates": true
+    }
+  ]
+}

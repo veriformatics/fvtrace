@@ -51,9 +51,10 @@ theorem kind_iff (t : Trace) : Check.kind t = [] ↔ KindsProper t := by
 
 theorem claimRefs_iff (t : Trace) (c : Claim) (i : Nat) : claimRefs t c i = [] ↔
     (c.question ∈ t.questionIds ∧ c.subject ∈ t.subjectIds ∧ (∀ n ∈ c.needs, n ∈ t.factIds) ∧
-      c.entailment ∈ t.factIds ∧ ∀ v, c.variantOf = some v → v ∈ t.claimIds) := by
+      (∀ e, c.entailment = some e → e ∈ t.factIds) ∧
+      ∀ v, c.variantOf = some v → v ∈ t.claimIds) := by
   unfold claimRefs
-  cases c.variantOf <;> simp [ensure_eq_nil, List.flatMap_eq_nil_iff]
+  cases c.variantOf <;> cases c.entailment <;> simp [ensure_eq_nil, List.flatMap_eq_nil_iff]
 
 theorem factRefs_iff (t : Trace) (f : Fact) (i : Nat) : factRefs t f i = [] ↔
     (f.subject ∈ t.subjectIds ∧ ∀ s, f.instantiates = some s → s ∈ t.factIds) := by
@@ -144,9 +145,9 @@ theorem needNotEntailment_iff (t : Trace) (id : String) :
   unfold needNotEntailment
   cases h : t.fact? id <;> simp
 
-theorem entailUnique_iff (t : Trace) (c : Claim) :
-    (t.claims.all fun d => d.entailment != c.entailment || d.id == c.id) = true ↔
-      ∀ d ∈ t.claims, d.entailment = c.entailment → d.id = c.id := by
+theorem entailUnique_iff (t : Trace) (c : Claim) (e : String) :
+    (t.claims.all fun d => d.entailment != some e || d.id == c.id) = true ↔
+      ∀ d ∈ t.claims, d.entailment = some e → d.id = c.id := by
   simp only [List.all_eq_true, Bool.or_eq_true, bne_iff_ne, ne_eq, beq_iff_eq]
   constructor
   · intro h d hd he
@@ -154,17 +155,55 @@ theorem entailUnique_iff (t : Trace) (c : Claim) :
     · exact absurd he h'
     · exact h'
   · intro h d hd
-    by_cases he : d.entailment = c.entailment
+    by_cases he : d.entailment = some e
     · exact Or.inr (h d hd he)
     · exact Or.inl he
+
+theorem resultKind_iff (t : Trace) (id : String) :
+    resultKind t id = true ↔ ∀ f, t.fact? id = some f → f.kind = .result := by
+  unfold resultKind
+  cases h : t.fact? id <;> simp
+
+theorem restateUnique_iff (t : Trace) (c : Claim) :
+    (t.claims.all fun d => !d.restates || d.needs != c.needs || d.id == c.id) = true ↔
+      ∀ d ∈ t.claims, d.restates = true → d.needs = c.needs → d.id = c.id := by
+  simp only [List.all_eq_true, Bool.or_eq_true, Bool.not_eq_true', bne_iff_ne, ne_eq, beq_iff_eq]
+  constructor
+  · intro h d hd hr hn
+    rcases h d hd with (h' | h') | h'
+    · simp [hr] at h'
+    · exact absurd hn h'
+    · exact h'
+  · intro h d hd
+    by_cases hr : d.restates = true
+    · by_cases hn : d.needs = c.needs
+      · exact Or.inr (h d hd hr hn)
+      · exact Or.inl (Or.inr hn)
+    · exact Or.inl (Or.inl (by simpa using hr))
+
+theorem restating_iff (t : Trace) (c : Claim) (p : String) : restating t c p = [] ↔
+    ((c.needs.length = 1 ∧ ∀ n ∈ c.needs, ∀ f, t.fact? n = some f → f.kind = .result) ∧
+      ∀ d ∈ t.claims, d.restates = true → d.needs = c.needs → d.id = c.id) := by
+  unfold restating
+  rw [List.append_eq_nil_iff, ensure_eq_nil, ensure_eq_nil, restateUnique_iff]
+  simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, resultKind_iff]
+
+theorem entailmentFact_iff (t : Trace) (c : Claim) (p e : String) : entailmentFact t c p e = [] ↔
+    ((∀ f, t.fact? e = some f → f.kind = .entailment) ∧ e ∉ c.needs ∧
+      ∀ d ∈ t.claims, d.entailment = some e → d.id = c.id) := by
+  unfold entailmentFact
+  rw [List.append_eq_nil_iff, List.append_eq_nil_iff, ensure_eq_nil, ensure_eq_nil, ensure_eq_nil,
+    entailmentKind_iff, entailUnique_iff]
+  simp [and_assoc]
 
 theorem entail_iff (t : Trace) : Check.entail t = [] ↔ EntailmentsProper t := by
   unfold Check.entail EntailmentsProper
   rw [flatMap_zipIdx_eq_nil]
   intro c i
-  simp only [claimEntail, List.append_eq_nil_iff, ensure_eq_nil, List.flatMap_eq_nil_iff,
-    entailmentKind_iff, needNotEntailment_iff, entailUnique_iff, Bool.not_eq_true', and_assoc]
-  simp
+  unfold claimEntail
+  cases hr : c.restates <;> cases he : c.entailment <;>
+    simp [hr, he, List.append_eq_nil_iff, ensure_eq_nil, List.flatMap_eq_nil_iff,
+      needNotEntailment_iff, entailmentFact_iff, restating_iff]
 
 theorem route_iff (t : Trace) : Check.route t = [] ↔ RoutesRespected t := by
   unfold Check.route RoutesRespected

@@ -281,6 +281,9 @@ def review (env : Store.Env) (args : List String) : IO UInt32 := do
   let reviewed ← Receipt.review t reviewer (p.value? "--note")
   writeTrace tg.trace reviewed
   say s!"{tg.trace}: reviewed by {reviewer}"
+  say "The review vouches that the claims and facts match the study, that each headline says no \
+    more than its exact statement, and that the universal premises hold: honest records, working \
+    instruments, correct labels."
   return 0
 
 /-! ## Evaluation commands -/

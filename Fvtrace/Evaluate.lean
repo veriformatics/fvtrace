@@ -113,6 +113,7 @@ def factJson (sc : Scenario) (bindings : List Receipt.Binding) (f : Fact) : Valu
       .obj [("exclusion", .str x), ("source", .str src)])),
     ("trusts", strs f.trusts)] ++
     (match f.instantiates with | some src => [("instantiates", .str src)] | none => []) ++
+    (match f.why with | some w => [("why", .str w)] | none => []) ++
     (match f.evidence with | some ev => [("evidence", Encode.evidence ev)] | none => []) ++
     (match b with
      | some b => [("receipt", .obj [("current", .bool b.current), ("reasons", strs b.reasons)])]
@@ -120,8 +121,11 @@ def factJson (sc : Scenario) (bindings : List Receipt.Binding) (f : Fact) : Valu
 
 def claimJson (sc : Scenario) (review : Receipt.ReviewState) (c : Claim) : Value :=
   .obj ([("id", .str c.id), ("question", .str c.question), ("subject", .str c.subject),
-    ("level", .str c.level.name), ("text", .str c.text), ("latent", .bool c.latent),
-    ("needs", strs c.needs), ("entailment", .str c.entailment),
+    ("level", .str c.level.name), ("text", .str c.text)] ++
+    (match c.headline with | some h => [("headline", .str h)] | none => []) ++
+    [("latent", .bool c.latent), ("needs", strs c.needs)] ++
+    (match c.entailment with | some e => [("entailment", .str e)] | none => []) ++
+    [("restates", .bool c.restates),
     ("final", .str (sc.final c).name), ("intrinsic", .str (sc.intrinsic c).name),
     ("sentence", .str (sc.sentence c)),
     ("label", .obj [("verdict", .str (sc.final c).verdict),

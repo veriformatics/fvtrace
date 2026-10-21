@@ -41,7 +41,7 @@ def tests : TestM Unit := do
     "Assuming “The model assumptions hold.”: RNA is quantified."
   -- Exclusions: X1 (assumed) relates O4 + O5 on S.
   let c9 : Claim := { id := "C9", question := "Q1", subject := "S", level := .descriptive,
-                      text := "Both hold.", needs := ["O4", "O5"], entailment := "EN9" }
+                      text := "Both hold.", needs := ["O4", "O5"], entailment := some "EN9" }
   let en9 : Fact := { id := "EN9", subject := "S", kind := .entailment,
                       text := "O4 and O5 entail C9.", status := .assumed, route := .humanRuling }
   let both := { t with claims := t.claims ++ [c9], facts := t.facts ++ [en9] }
@@ -155,7 +155,8 @@ def witnessTests : TestM Unit := do
   let weak := fun (id k : String) => ({ e1 with id, success := [(k, .assumed)], failure := [] } :
     Experiment)
   let c10 : Claim := { id := "C10", question := "Q1", subject := "S", level := .descriptive,
-                       text := "Both samplings hold.", needs := ["O4", "O5"], entailment := "EN10" }
+                       text := "Both samplings hold.", needs := ["O4", "O5"],
+                       entailment := some "EN10" }
   -- Sources + targets are background conditions: an assumed success on a must-verify fact is
   -- invalid input.
   let base := mapFact (mapFact t "O2" fun f => { f with status := .checked, kind := .provenance })
@@ -215,7 +216,7 @@ def witnessTests : TestM Unit := do
   | other => check n false s!"{repr other}"
   -- Acceptance (plan rule): the highest state first, then the lowest cost.
   let c11 : Claim := { id := "C11", question := "Q1", subject := "S", level := .estimand,
-                       text := "The table is right.", needs := ["O2"], entailment := "EN11" }
+                       text := "The table is right.", needs := ["O2"], entailment := some "EN11" }
   let quick : Experiment := { weak "E6" "O2" with effort := .hours }
   let rule := { t with
     claims := t.claims ++ [c11], facts := t.facts ++ [entail "EN11" "C11" .proved .lean]
@@ -239,7 +240,7 @@ def witnessTests : TestM Unit := do
   let f1 : Fact := { id := "F1", subject := "S", kind := .numerical, text := "F1 holds.",
                      status := .«open», route := .runtimeChecker }
   let c13 : Claim := { id := "C13", question := "Q1", subject := "S", level := .estimand,
-                       text := "F1 and F2 hold.", needs := ["F1", "F2"], entailment := "EN13" }
+                       text := "F1 and F2 hold.", needs := ["F1", "F2"], entailment := some "EN13" }
   let p : Experiment := { quick with id := "P", success := [("F1", .checked)] }
   let onF2 := fun (id : String) => ({ p with id, success := [("F2", .checked)] } : Experiment)
   let tie := fun (exps : List Experiment) => ({ t with
@@ -265,7 +266,7 @@ def witnessTests : TestM Unit := do
   -- Above 20 relevant experiments no optimum is claimed (and no search runs).
   let many := (List.range 21).map fun i => (s!"G{i}", s!"Y{i}")
   let gs := many.map fun (g, _) => ({ f1 with id := g, text := s!"{g} holds." } : Fact)
-  let c21 : Claim := { c13 with id := "C21", needs := many.map (·.1), entailment := "EN21" }
+  let c21 : Claim := { c13 with id := "C21", needs := many.map (·.1), entailment := some "EN21" }
   let big := { t with
     facts := t.facts ++ gs ++ [entail "EN21" "C21" .proved .lean], claims := t.claims ++ [c21]
     experiments := t.experiments ++ many.map fun (g, y) =>
@@ -277,7 +278,7 @@ def witnessTests : TestM Unit := do
   -- Preview counts: a success that derives a violation lowers a claim; each move counts once.
   let c12 : Claim := { id := "C12", question := "Q1", subject := "S", level := .estimand,
                        text := "The animal was sampled once.", needs := ["O4"],
-                       entailment := "EN12" }
+                       entailment := some "EN12" }
   let lowerT := { t with
     claims := t.claims ++ [c12], exclusions := [xa]
     facts := t.facts ++ [entail "EN12" "C12" .assumed .humanRuling] }
@@ -296,7 +297,7 @@ def witnessTests : TestM Unit := do
   let a : Fact := { id := "A", subject := "S", kind := .statistical, text := "A holds.",
                     status := .assumed, route := .lean }
   let ck : Claim := { id := "CK", question := "Q1", subject := "S", level := .estimand,
-                      text := "A is so.", needs := ["O1", "A"], entailment := "EK" }
+                      text := "A is so.", needs := ["O1", "A"], entailment := some "EK" }
   let kT := { t with
     facts := t.facts ++ [a, entail "EK" "CK" .proved .lean], claims := t.claims ++ [ck] }
   let sk : Scenario := { s with trace := kT }

@@ -41,10 +41,11 @@ def tests : TestM Unit := do
     [("WF-refs", "/claims/0/question")]
   expect "check: need on another subject" (mapClaim t "C1" fun c => { c with needs := ["M1"] })
     [("WF-subject", "/claims/0")]
-  expect "check: entailment of wrong kind" (mapClaim t "C1" fun c => { c with entailment := "O2" })
+  expect "check: entailment of wrong kind"
+    (mapClaim t "C1" fun c => { c with entailment := some "O2" })
     [("WF-entail", "/claims/0/entailment")]
   expect "check: shared entailment"
-    (mapClaim t "C2" fun c => { c with entailment := "EN1" })
+    (mapClaim t "C2" fun c => { c with entailment := some "EN1" })
     [("WF-entail", "/claims/0/entailment"), ("WF-entail", "/claims/1/entailment")]
   expect "check: entailment fact used as a need"
     (mapClaim t "C2" fun c => { c with needs := c.needs ++ ["EN1"] })

@@ -91,11 +91,14 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 
 - **Questions**: the scientific questions of the analysis.
 - **Claims**: the sentences that the analysis wants to state. fvTrace shows them word for word.
+  A claim's `text` is its exact statement. An optional `headline` gives a plain form for
+  readers; it must not say more than the exact statement, and the reviewer checks that. A claim
+  that only restates one result needs no entailment fact: mark it `"restates": true`.
 - **Facts**: one statement each. A fact has a **status** (`proved`, `checked`, `assumed`,
   `tested`, `open`, `violated`) and a **route**: how it could be verified (`lean`,
   `refinement`, `runtime-checker`, `human-ruling`, `empirical`). A route limits the status: a
   human ruling or empirical evidence makes a fact `assumed` at best, or `tested` at best when
-  the fact must be verified.
+  the fact must be verified. An optional `why` says in plain words why a claim needs the fact.
 - **Evidence**: the files behind a verified fact (a proof, a checker log). `fvtrace pin` records
   their digests. If a file or the wording of the fact changes later, the fact is no longer
   verified until you pin again. fvTrace checks that the files are unchanged, not that they prove

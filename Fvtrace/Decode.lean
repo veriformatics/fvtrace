@@ -216,7 +216,8 @@ def evidence : Field Evidence := fun path v => do
 
 def fact : Field Fact := fun path v => do
   let some kvs ← members path v
-    ["id", "subject", "kind", "text", "status", "route", "evidence", "trusts", "instantiates"]
+    ["id", "subject", "kind", "text", "status", "route", "evidence", "trusts", "instantiates",
+     "why"]
     | pure none
   let id ← req path kvs "id" ident
   let subj ← req path kvs "subject" ident
@@ -227,26 +228,32 @@ def fact : Field Fact := fun path v => do
   let ev ← opt path kvs "evidence" evidence
   let trusts ← optList path kvs "trusts" text
   let inst ← opt path kvs "instantiates" ident
+  let why ← opt path kvs "why" text
   pure do
     pure { id := ← id, subject := ← subj, kind := ← kind, text := ← t, status := ← st,
-           route := ← r, evidence := ← ev, trusts := ← trusts, instantiates := ← inst }
+           route := ← r, evidence := ← ev, trusts := ← trusts, instantiates := ← inst,
+           why := ← why }
 
 def claim : Field Claim := fun path v => do
   let some kvs ← members path v
-    ["id", "question", "subject", "level", "text", "needs", "entailment", "latent", "variantOf"]
+    ["id", "question", "subject", "level", "text", "headline", "needs", "entailment", "restates",
+     "latent", "variantOf"]
     | pure none
   let id ← req path kvs "id" ident
   let q ← req path kvs "question" ident
   let subj ← req path kvs "subject" ident
   let level ← req path kvs "level" (enum Level.all Level.name)
   let t ← req path kvs "text" text
+  let headline ← opt path kvs "headline" text
   let needs ← req path kvs "needs" (array ident)
-  let ent ← req path kvs "entailment" ident
+  let ent ← opt path kvs "entailment" ident
+  let restates ← optBool path kvs "restates"
   let latent ← optBool path kvs "latent"
   let variantOf ← opt path kvs "variantOf" ident
   pure do
     pure { id := ← id, question := ← q, subject := ← subj, level := ← level, text := ← t,
-           needs := ← needs, entailment := ← ent, latent := ← latent, variantOf := ← variantOf }
+           headline := ← headline, needs := ← needs, entailment := ← ent,
+           restates := ← restates, latent := ← latent, variantOf := ← variantOf }
 
 def experiment : Field Experiment := fun path v => do
   let some kvs ← members path v

@@ -223,13 +223,17 @@
         },
         "instantiates": {
           "$ref": "#/$defs/id"
+        },
+        "why": {
+          "description": "Why a claim needs the fact: display text, outside the statement digest.",
+          "$ref": "#/$defs/text"
         }
       }
     },
     "claim": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "question", "subject", "level", "text", "needs", "entailment"],
+      "required": ["id", "question", "subject", "level", "text", "needs"],
       "properties": {
         "id": {
           "$ref": "#/$defs/id"
@@ -246,6 +250,10 @@
         "text": {
           "$ref": "#/$defs/text"
         },
+        "headline": {
+          "description": "The claim's plain display form, never stronger than text (the reviewer's call).",
+          "$ref": "#/$defs/text"
+        },
         "needs": {
           "type": "array",
           "items": {
@@ -254,6 +262,10 @@
         },
         "entailment": {
           "$ref": "#/$defs/id"
+        },
+        "restates": {
+          "description": "The claim restates its one result need, so it names no entailment fact.",
+          "type": "boolean"
         },
         "latent": {
           "type": "boolean"

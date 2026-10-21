@@ -24,19 +24,26 @@ def factBrief (f : Fact) : Value :=
   .obj [("id", .str f.id), ("subject", .str f.subject), ("kind", .str f.kind.name),
     ("text", .str f.text)]
 
-/-- The statement a fact's receipt certifies (D-canon input of its `statementDigest`). -/
+/-- The statement a fact's receipt certifies (D-canon input of its `statementDigest`): a restated
+result binds its restating claim's text, as an entailment fact binds its claim's. -/
 def factManifest (t : Trace) (f : Fact) : Value :=
   let base := [("id", .str f.id), ("subject", .str f.subject), ("kind", .str f.kind.name),
     ("text", .str f.text), ("route", .str f.route.name)]
   let bound : List (String × Value) :=
     match f.kind with
     | .entailment =>
-      match t.claims.find? (·.entailment == f.id) with
+      match t.claims.find? (·.entailment == some f.id) with
       | some c =>
         let needs := c.needs.map fun n =>
           Value.obj [("id", .str n), ("text", .str ((t.fact? n).map (·.text) |>.getD ""))]
         [("claim", .obj [("id", .str c.id), ("subject", .str c.subject),
           ("level", .str c.level.name), ("text", .str c.text), ("needs", .arr needs)])]
+      | none => []
+    | .result =>
+      match t.claims.find? fun c => c.restates && c.needs == [f.id] with
+      | some c =>
+        [("restatedBy", .obj [("id", .str c.id), ("subject", .str c.subject),
+          ("level", .str c.level.name), ("text", .str c.text)])]
       | none => []
     | .instantiation =>
       match f.instantiates.bind t.fact? with

@@ -47,7 +47,8 @@
         "statement": "positive",
         "statementDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
-      "trusts": ["Checker runtime"]
+      "trusts": ["Checker runtime"],
+      "why": "The claim reports this effect, so the data must show it."
     },
     {
       "id": "E1",
@@ -67,7 +68,8 @@
       "text": "The effect is positive.",
       "needs": ["O1"],
       "entailment": "E1",
-      "latent": true
+      "latent": true,
+      "headline": "The effect is positive."
     }
   ],
   "experiments": [

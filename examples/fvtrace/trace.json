@@ -47,12 +47,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "7f8f1e402b3309c719b3f37a68ec2792baf2889e19166922f558851b27e68800",
+            "sha256": "b381be15b49b8577b1ad4ba0ce2dd17c76cdd70e83165a5cc851aba1f532b2d2",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "b776a9cfaad93bec3b3025ec3562daf6a80e3886aa5e719dfc4bf33cbc38c8e1",
+            "sha256": "a7231879ed238f2b1d161cffdfefa4754238d453bf8e06b56a2cd1e78cb9d285",
             "role": "proof"
           }
         ],
@@ -81,12 +81,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "7f8f1e402b3309c719b3f37a68ec2792baf2889e19166922f558851b27e68800",
+            "sha256": "b381be15b49b8577b1ad4ba0ce2dd17c76cdd70e83165a5cc851aba1f532b2d2",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "b776a9cfaad93bec3b3025ec3562daf6a80e3886aa5e719dfc4bf33cbc38c8e1",
+            "sha256": "a7231879ed238f2b1d161cffdfefa4754238d453bf8e06b56a2cd1e78cb9d285",
             "role": "proof"
           }
         ],
@@ -115,12 +115,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b",
             "role": "proof"
           }
         ],
@@ -149,12 +149,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b",
             "role": "proof"
           }
         ],
@@ -183,12 +183,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b",
             "role": "proof"
           }
         ],
@@ -217,12 +217,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "f204beb597584aeb8dc48ac35cd0275b127287db5ecdfdc1ea79da9129b66c27",
+            "sha256": "99d5285bc7bed27c4e3d89a8c9a34f59372d16d88cecf97ca8f77d5aecd6a879",
             "role": "proof"
           }
         ],
@@ -251,12 +251,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "f204beb597584aeb8dc48ac35cd0275b127287db5ecdfdc1ea79da9129b66c27",
+            "sha256": "99d5285bc7bed27c4e3d89a8c9a34f59372d16d88cecf97ca8f77d5aecd6a879",
             "role": "proof"
           }
         ],
@@ -285,12 +285,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4",
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa",
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b",
             "role": "proof"
           }
         ],
@@ -319,11 +319,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -403,7 +403,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Receipt.lean",
-            "sha256": "4460578eb87f7ca9441ca333dd8a86519d9a8bbb42cbfcbe98fd4a1fac2550ab",
+            "sha256": "e26951f991d3b1d51e267145103aa2a6d8a0b42d0dfcc319ac8dc7cf5359b62e",
             "role": "code"
           },
           {
@@ -427,11 +427,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "7f8f1e402b3309c719b3f37a68ec2792baf2889e19166922f558851b27e68800"
+            "sha256": "b381be15b49b8577b1ad4ba0ce2dd17c76cdd70e83165a5cc851aba1f532b2d2"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "b776a9cfaad93bec3b3025ec3562daf6a80e3886aa5e719dfc4bf33cbc38c8e1"
+            "sha256": "a7231879ed238f2b1d161cffdfefa4754238d453bf8e06b56a2cd1e78cb9d285"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -467,11 +467,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -499,11 +499,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -531,11 +531,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "f204beb597584aeb8dc48ac35cd0275b127287db5ecdfdc1ea79da9129b66c27"
+            "sha256": "99d5285bc7bed27c4e3d89a8c9a34f59372d16d88cecf97ca8f77d5aecd6a879"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -563,11 +563,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -607,11 +607,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "c3c167a802a68242ecd6138cedf84d40b84e9b365274a7bcb7241aaa1cb81cf4"
+            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "79edcaf570cf4e56031b49c1319af9bb88a6ec59a274f7cf7224ede7758d23fa"
+            "sha256": "2726b2e82e8f2ef49dd0aa06315d2931d98c634fe50d9213a2fde76c0a547c3b"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",

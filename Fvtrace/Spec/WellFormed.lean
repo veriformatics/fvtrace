@@ -18,7 +18,7 @@ def IdsUnique (t : Trace) : Prop := t.allIds.Nodup
 /-- WF-refs: every reference names an object of the right collection. -/
 def RefsResolve (t : Trace) : Prop :=
   (∀ c ∈ t.claims, c.question ∈ t.questionIds ∧ c.subject ∈ t.subjectIds ∧
-    (∀ n ∈ c.needs, n ∈ t.factIds) ∧ c.entailment ∈ t.factIds ∧
+    (∀ n ∈ c.needs, n ∈ t.factIds) ∧ (∀ e, c.entailment = some e → e ∈ t.factIds) ∧
     ∀ v, c.variantOf = some v → v ∈ t.claimIds) ∧
   (∀ f ∈ t.facts, f.subject ∈ t.subjectIds ∧ ∀ s, f.instantiates = some s → s ∈ t.factIds) ∧
   (∀ e ∈ t.experiments, e.subject ∈ t.subjectIds ∧ (∀ p ∈ e.success ++ e.failure, p.1 ∈ t.factIds) ∧
@@ -40,11 +40,18 @@ def SubjectsAgree (t : Trace) : Prop :=
   (∀ f ∈ t.facts, ∀ s, f.instantiates = some s →
     ∀ sub, t.factSubject? s = some sub → sub ≠ f.subject)
 
-/-- WF-entail: a claim's entailment fact has kind `entailment`, is not among its needs and
-belongs to that claim alone; no `entailment` fact is listed as a need. -/
+/-- WF-entail: a claim names an entailment fact exactly when it does not restate a result; the
+entailment fact has kind `entailment`, is not among its needs and belongs to that claim alone; a
+restating claim needs exactly one fact, of kind `result`, that no other claim restates; no
+`entailment` fact is listed as a need. -/
 def EntailmentsProper (t : Trace) : Prop :=
-  ∀ c ∈ t.claims, (∀ f, t.fact? c.entailment = some f → f.kind = .entailment) ∧
-    c.entailment ∉ c.needs ∧ (∀ d ∈ t.claims, d.entailment = c.entailment → d.id = c.id) ∧
+  ∀ c ∈ t.claims, (c.restates = true ↔ c.entailment = none) ∧
+    (∀ e, c.entailment = some e →
+      (∀ f, t.fact? e = some f → f.kind = .entailment) ∧ e ∉ c.needs ∧
+      ∀ d ∈ t.claims, d.entailment = some e → d.id = c.id) ∧
+    (c.restates = true →
+      (c.needs.length = 1 ∧ ∀ n ∈ c.needs, ∀ f, t.fact? n = some f → f.kind = .result) ∧
+      ∀ d ∈ t.claims, d.restates = true → d.needs = c.needs → d.id = c.id) ∧
     ∀ n ∈ c.needs, ∀ f, t.fact? n = some f → f.kind ≠ .entailment
 
 /-- WF-needs: a claim needs at least one fact, each listed once. -/
