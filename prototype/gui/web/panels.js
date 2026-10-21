@@ -1,6 +1,6 @@
 // The inspector, the ranked lists and the text view: each shows envelope fields as they are.
 
-import { conditions, lamp } from "./circuit.js";
+import { conditions, exactStatement, headline, lamp } from "./circuit.js";
 import { h, s } from "./dom.js";
 import { count, efforts, kinds, routes, statuses, verdictText, verdicts, word } from "./words.js";
 
@@ -74,7 +74,7 @@ function moveList(ms, env, on, none) {
           {},
           ref("claim", m.claim, on),
           ` changes from ${word(verdicts, m.from)} to ${word(verdicts, m.to)}`,
-          c ? h("small", { class: "move-text" }, c.text) : null,
+          c ? h("small", { class: "move-text" }, headline(c)) : null,
         ),
       );
     }),
@@ -313,7 +313,10 @@ function inspectClaim(env, id, on) {
   ];
   return [
     h("span", { class: "reference" }, `Claim ${c.id} / ${c.level}`),
-    h("h2", {}, c.text),
+    h("h2", {}, headline(c)),
+    c.headline && c.headline !== c.text
+      ? h("p", { class: "exact-text" }, h("strong", {}, "Exact statement: "), c.text)
+      : null,
     h("span", { class: `status-label ${c.final}` }, verdictText(c)),
     h(
       "dl",
@@ -562,9 +565,10 @@ export function textView(env, groups, on) {
                   type: "button",
                   onclick: () => on.select("claim", c.id),
                 },
-                c.text,
+                headline(c),
               ),
               h("small", { class: "list-meta" }, verdictText(c)),
+              exactStatement(c),
               conditions(c, env, on),
             ),
           ),

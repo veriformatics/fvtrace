@@ -89,6 +89,23 @@ function contact(f, on, claim) {
   );
 }
 
+/** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
+export const headline = (c) => c.headline ?? c.text;
+
+/**
+ * The exact statement behind a headline, folded until asked for: the sentence the proofs cover.
+ * @param {Claim} c
+ */
+export function exactStatement(c) {
+  if (!c.headline || c.headline === c.text) return null;
+  return h(
+    "details",
+    { class: "exact" },
+    h("summary", {}, "Show the exact statement"),
+    h("p", {}, c.text),
+  );
+}
+
 /**
  * A claim's circuit card.
  * @param {Claim} c @param {Envelope} env @param {Handlers} on @param {boolean} selected
@@ -124,10 +141,11 @@ export function circuit(c, env, on, selected) {
           { class: "claim-meta" },
           `${c.id} / ${c.level}${c.latent ? " / overlooked direction" : ""}`,
         ),
-        h("span", { class: "sentence" }, c.text),
+        h("span", { class: "sentence" }, headline(c)),
         h("span", { class: `claim-state ${c.final}` }, verdictText(c)),
       ),
     ),
+    exactStatement(c),
     conditions(c, env, on),
     h(
       "ul",
