@@ -2,7 +2,7 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { clickToOpen, h, idButton, s } from "./dom.js";
-import { article, kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
+import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
@@ -90,50 +90,26 @@ function contact(f, on, claim) {
 }
 
 /**
- * The standout label over a claim's words: "Claim" + its verdict in the verdict's color, then its
- * qualifiers, quiet.
- * @param {Claim} c
+ * The label row over a claim's words: its id (the button that opens it, given `open` + `key`), then
+ * its kind joined to its verdict in the verdict's color, then its qualifiers, quiet.
+ * @param {Claim} c @param {() => void} [open] @param {string} [key] @param {boolean} [pressed]
  */
-export const claimTag = (c) => {
+export const claimTag = (c, open, key, pressed) => {
   const q = qualifiers(c);
   return h(
     "span",
     { class: "claim-tag" },
+    h("span", { class: "tag-id" }, open && key ? idButton(c.id, key, open, pressed) : c.id),
     h(
       "span",
       { class: "tag-pair" },
-      h("strong", {}, "Claim"),
+      h("strong", {}, word(levels, c.level)),
       h("span", { class: `tag-soft ${c.final}` }, c.verdict),
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
     c.latent ? h("span", {}, "Overlooked direction") : null,
   );
 };
-
-// Prototype finalists for the level label: outlined (default) | ?level=soft = filled on a wash.
-const softLevel = new URLSearchParams(location.search).get("level") === "soft";
-
-/**
- * The claim's corner block: verdict symbol + id (its button when `open` + `key` are given), its
- * level under them.
- * @param {Claim} c @param {() => void} [open] @param {string} [key] @param {boolean} [pressed]
- */
-export const claimId = (c, open, key, pressed) =>
-  h(
-    "span",
-    { class: "claim-id" },
-    h(
-      "span",
-      { class: "claim-id-top" },
-      lamp(c.final),
-      open && key ? idButton(c.id, key, open, pressed) : c.id,
-    ),
-    h(
-      "span",
-      { class: `claim-level${softLevel ? " soft" : ""}` },
-      `${article(word(levels, c.level))}${word(levels, c.level)}`,
-    ),
-  );
 
 /** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
 export const headline = (c) => c.headline ?? c.text;
@@ -176,10 +152,9 @@ export function circuit(c, env, on, selected) {
       h(
         "span",
         { class: "claim-words" },
-        claimTag(c),
+        claimTag(c, open, `claim:${c.id}`, selected),
         h("span", { class: "sentence" }, headline(c)),
       ),
-      claimId(c, open, `claim:${c.id}`, selected),
     ),
     exactStatement(c),
     conditions(c, env, on),
