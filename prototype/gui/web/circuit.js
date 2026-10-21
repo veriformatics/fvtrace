@@ -102,21 +102,33 @@ export const claimTag = (c, open, key, pressed) => {
     h(
       "span",
       { class: "tag-pair" },
-      h("strong", {}, "Claim"),
+      h("strong", {}, "Claim", idLead ? null : [" ", claimId(c, open, key, pressed)]),
       h("span", { class: `tag-soft ${c.final}` }, c.verdict),
     ),
     q.length ? h("span", { class: `tag-qualifier ${c.final}` }, q.join(", ")) : null,
-    h(
-      "span",
-      {},
-      open && key ? idButton(c.id, key, open, pressed) : c.id,
-      ` / ${word(levels, c.level)}${c.latent ? " / overlooked direction" : ""}`,
-    ),
+    h("span", {}, `${word(levels, c.level)}${c.latent ? " / overlooked direction" : ""}`),
   );
 };
 
+// Prototype finalists for the claim id: in the "Claim" tag (default) | ?id=lead = before the words.
+const idLead = new URLSearchParams(location.search).get("id") === "lead";
+
+/** The claim id: its button when `open` + `key` are given, else plain text. */
+/** @param {Claim} c @param {() => void} [open] @param {string} [key] @param {boolean} [pressed] */
+const claimId = (c, open, key, pressed) =>
+  open && key ? idButton(c.id, key, open, pressed) : c.id;
+
 /** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
 export const headline = (c) => c.headline ?? c.text;
+
+/**
+ * A claim's words as shown: its headline, led by its id under the `?id=lead` finalist.
+ * @param {Claim} c @param {() => void} [open] @param {string} [key] @param {boolean} [pressed]
+ */
+export const claimWords = (c, open, key, pressed) => [
+  idLead ? h("span", { class: "id-lead" }, claimId(c, open, key, pressed)) : null,
+  headline(c),
+];
 
 /**
  * The exact statement behind a headline, folded until asked for: the sentence the proofs cover.
@@ -158,7 +170,7 @@ export function circuit(c, env, on, selected) {
         "span",
         {},
         claimTag(c, open, `claim:${c.id}`, selected),
-        h("span", { class: "sentence" }, headline(c)),
+        h("span", { class: "sentence" }, claimWords(c, open, `claim:${c.id}`, selected)),
       ),
     ),
     exactStatement(c),
