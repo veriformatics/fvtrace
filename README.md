@@ -179,8 +179,9 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
 - `fvtrace export --html ../claims.html` writes one page outside the project folder. The page
   needs no server and no network. It holds the fvTrace engine, compiled to WebAssembly: when you
   press a fact's symbol, the engine computes every verdict in your browser, and you can combine
-  what-ifs as in `fvtrace serve`. The page shows the evidence as it was when you exported it:
-  it cannot check the evidence files again. A browser that cannot run WebAssembly (for example,
+  what-ifs as in `fvtrace serve`. The page contains the whole trace, as `--bundle` does, but no
+  evidence files. It shows the evidence as it was when you exported it: it cannot check the
+  evidence files again. A browser that cannot run WebAssembly (for example,
   Safari in Lockdown Mode) shows the facts as recorded, without what-ifs. The engine adds about
   400 KB to the page.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
