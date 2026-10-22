@@ -47,7 +47,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 0aafd59 U4 `Fvtrace.Snapshot` (codec + evaluate)
 - [x] a72f198 U5 wasm build in `lake build`
 - [x] cfbfaf8 U6 export page v2 + GUI engine
-- [ ] U7 docs + rules + Decisions
+- [x] a700644 U7 docs + rules + Decisions
 - [ ] U8 closing review
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
