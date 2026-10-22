@@ -138,7 +138,7 @@ def nativeTests : TestM Unit := do
     check "export: a bundle missing an evidence file exits 1 and names it"
       (rc == 1 && count err "cannot copy missing proofs/Absent.lean" == 1) err
     IO.FS.createDirAll (proj / "inside")
-    let linked ← symlink (proj / "inside") (dir / "alias") true
+    let linked ← symlink (proj / "inside") (dir / "alias")
     let (rc, _, _) ← run ["export", "--bundle", (dir / "alias").toString]
     check "export: a link into the project is refused as a bundle folder" (linked && rc == 2)
     IO.FS.removeDirAll (proj / "inside")

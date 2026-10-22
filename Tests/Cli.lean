@@ -72,7 +72,8 @@ def skillTests : TestM Unit := do
     IO.FS.writeFile (target / ".fvtrace-skill") "planted"
     IO.FS.writeFile (target / "keep.txt") "the user's file"
     IO.FS.createDirAll (dir / "skills")
-    let _ ← symlink target (dir / "skills" / "fvtrace") true
+    let linked ← symlink target (dir / "skills" / "fvtrace")
+    check "skills: the linked skill folder exists" linked
     let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir",
       (dir / "skills").toString])
     checkEq "skills: a linked skill folder is refused" rc 1
@@ -88,7 +89,7 @@ def writeTests : TestM Unit := do
     let victim := dir / "victim.txt"
     IO.FS.writeFile victim "keep"
     let file := dir / "trace.json"
-    let linked ← symlink victim (dir / "trace.json.fvtrace-tmp") false
+    let linked ← symlink victim (dir / "trace.json.fvtrace-tmp")
     check "write: a link can be planted at the temporary path" linked
     Fvtrace.Cli.replaceFile file "new"
     checkEq "write: a link at the temporary path is not written through"
