@@ -28,6 +28,75 @@ async function pressTimes(page, key, n) {
   await pressTimes(page, key, n - 1);
 }
 
+/** @typedef {{ top: number, left: number, bottom: number, right: number }} Box */
+
+/**
+ * Walks the tour from its current step to the end; returns each step whose card overlaps the
+ * spotlight (steps without a target spotlight nothing).
+ * @param {import("@playwright/test").Page} page @param {string[]} [found]
+ * @returns {Promise<string[]>}
+ */
+async function overlapsFrom(page, found = []) {
+  const step = await page.evaluate(() => {
+    const spot = document.querySelector(".tour-spot");
+    const s = spot instanceof HTMLElement && !spot.hidden ? spot.getBoundingClientRect() : null;
+    const c = document.querySelector(".tour-card")?.getBoundingClientRect();
+    return {
+      count: document.querySelector(".tour-count")?.textContent ?? "",
+      title: document.querySelector("#tour-title")?.textContent ?? "",
+      spot: s ? { top: s.top, left: s.left, bottom: s.bottom, right: s.right } : null,
+      card: c ? { top: c.top, left: c.left, bottom: c.bottom, right: c.right } : null,
+    };
+  });
+  const { spot, card: c } = step;
+  if (
+    spot &&
+    c &&
+    spot.top < c.bottom &&
+    c.top < spot.bottom &&
+    spot.left < c.right &&
+    c.left < spot.right
+  )
+    found.push(`${step.title}: card ${JSON.stringify(c)} over spot ${JSON.stringify(spot)}`);
+  const [at, total] = (/(\d+) of (\d+)/.exec(step.count) ?? []).slice(1).map(Number);
+  if (at === undefined || total === undefined || at >= total) return found;
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".tour-count")).toHaveText(`${at + 1} of ${total}`);
+  return overlapsFrom(page, found);
+}
+
+/**
+ * The tour at each size in turn (desktop + phone width): no card covers the part of the page its
+ * step explains.
+ * @param {import("@playwright/test").Page} page @param {string} url
+ * @param {{ width: number, height: number }[]} [sizes] @param {string[]} [found]
+ * @returns {Promise<void>}
+ */
+async function expectTourClear(
+  page,
+  url,
+  sizes = [
+    { width: 1280, height: 720 },
+    { width: 390, height: 844 },
+  ],
+  found = [],
+) {
+  const [size, ...rest] = sizes;
+  if (!size) {
+    expect(found).toEqual([]);
+    return;
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize(size);
+  await page.goto(url);
+  await page.locator("article.circuit").first().waitFor();
+  await page.locator("#tour-start").click();
+  await expect(page.locator(".tour-count")).toHaveText(/^1 of /);
+  found.push(...(await overlapsFrom(page)).map((f) => `${size.width}px ${f}`));
+  await page.keyboard.press("Escape");
+  return expectTourClear(page, url, rest, found);
+}
+
 const c2Exact =
   "If the treatment did nothing, a difference this large would arise by chance in fewer than 1 " +
   "in 20 random assignments.";
@@ -221,6 +290,10 @@ test.describe("the synthetic study", () => {
     expect(box && box.y + box.height).toBeGreaterThan(844 - 16);
   });
 
+  test("no tour card covers the part of the page that its step explains", async ({ page }) => {
+    await expectTourClear(page, web.url);
+  });
+
   test("a claim's words select for copying; a plain click opens its details", async ({ page }) => {
     await page.goto(web.url);
     const words = card(page, "C1").locator(".sentence");
@@ -342,6 +415,16 @@ test.describe("the feature fixture", () => {
     await expect(card(page, "C2").locator(".conditions-label").first()).toHaveText(
       "Cannot stand because",
     );
+  });
+
+  test("with violated facts + missing checks, no tour card covers its step", async ({ page }) => {
+    // A release-level claim without a release fact draws L-release; O2 violated lists blockers.
+    web = await serveFvtrace("fixture", (t) => {
+      const claims = t["claims"];
+      const first = Array.isArray(claims) ? /** @type {unknown} */ (claims[0]) : undefined;
+      if (isRecord(first)) first["level"] = "release";
+    });
+    await expectTourClear(page, `${web.url}#whatif=O2%3Dviolated`);
   });
 
   test("an unwaived check shows under What may be missing", async ({ page }) => {
