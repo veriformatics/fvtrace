@@ -316,6 +316,21 @@ test.describe("the feature fixture", () => {
     );
   });
 
+  test("a plan names a violated need apart from the facts at their route's ceiling", async ({
+    page,
+  }) => {
+    web = await serveFvtrace("fixture");
+    await page.goto(`${web.url}#whatif=O1%3Dviolated`);
+    await card(page, "C1").locator(".tag-id").click();
+    const notes = page.locator("#inspector .note");
+    await expect(notes.filter({ hasText: "Violated:" })).toHaveText(
+      "Violated: O1. Reword the claim, or collect new data.",
+    );
+    await expect(notes.filter({ hasText: "Stays as it is:" })).toHaveText(
+      "Stays as it is: O3 (no route allows a stronger status).",
+    );
+  });
+
   test("a violated fact lists apart with the claims it blocks", async ({ page }) => {
     web = await serveFvtrace("fixture");
     await page.goto(`${web.url}#whatif=O2%3Dviolated`);

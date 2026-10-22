@@ -253,9 +253,21 @@ function alternatives(p, on) {
 function planSection(c, on, env) {
   const p = c.plan;
   const closable = (/** @type {string} */ id) => env.facts.some((f) => f.id === id && f.closable);
+  const isViolated = (/** @type {string} */ id) =>
+    env.facts.some((f) => f.id === id && f.effective === "violated");
+  const violated = p.uncovered.filter(isViolated);
   const raisable = p.uncovered.filter(closable);
-  const settled = p.uncovered.filter((id) => !closable(id));
+  const settled = p.uncovered.filter((id) => !closable(id) && !isViolated(id));
   const uncovered = [
+    violated.length
+      ? h(
+          "p",
+          { class: "note" },
+          "Violated: ",
+          refs("fact", violated, on),
+          ". Reword the claim, or collect new data.",
+        )
+      : null,
     raisable.length
       ? h(
           "p",
