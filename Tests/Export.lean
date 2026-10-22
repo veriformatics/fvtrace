@@ -57,6 +57,9 @@ def pureTests : TestM Unit := do
     ((bundle [("a", "import { y } from \"./b.js\";"),
       ("b", "import { x } from \"./a.js\";")]).toOption)
     none
+  checkEq "export: base64 text = the base64 alphabet + padding alone"
+    (["QUJD+/09", "", "QUJD<", "QU JD", "QUJD\n", "QUJD-_"].map base64Text)
+    [true, true, false, false, false, false]
   checkEq "export: a missing module is refused"
     ((bundle [("a", "import { y } from \"./zz.js\";")]).toOption) none
   checkEq "export: a module holding </script is refused"
@@ -89,8 +92,13 @@ def nativeTests : TestM Unit := do
     check "export: --html names the page" (count out "claims.html" == 1) out
     let html ← IO.FS.readFile pagePath
     let script := ((html.splitOn "<script type=\"module\">")[1]!.splitOn "</script>")[0]!
-    check "export: the CSP admits exactly the inline script"
-      (count html s!"script-src {← cspHash script};" == 1)
+    check "export: the CSP admits exactly the inline script + WebAssembly compilation"
+      (count html s!"script-src {← cspHash script} 'wasm-unsafe-eval';" == 1 &&
+        count html "unsafe-eval" == 1)
+    let block := ((html.splitOn "id=\"fvtrace-engine\">")[1]!.splitOn "</script>")[0]!
+    check "export: the page carries the engine block once, as built"
+      (count html "id=\"fvtrace-engine\"" == 1 && block == Export.engine && !block.isEmpty &&
+        Export.base64Text block)
     check "export: the page requires Trusted Types"
       (count html "require-trusted-types-for 'script'; trusted-types 'none'" == 1)
     check "export: the page links no file" (count html "src=\"" == 0 && count html "href=\"" == 0)
@@ -104,13 +112,28 @@ def nativeTests : TestM Unit := do
       match ← Session.load tg false none false (← IO.mkRef {}) with
       | .error _ => check "export: the data block holds the recorded envelope" false
       | .ok l =>
+        checkEq "export: the data block = schema 2, the recorded envelope + the snapshot"
+          (kvs.map (·.1)) ["recorded", "schema", "snapshot"]
         check "export: the data block holds the recorded envelope (canonical: sorted keys)"
           ((kvs.lookup "recorded").map (·.canonical) == some (Session.envelope l).canonical)
-        let ids := (Evaluate.actions l.scenario).map (·.1)
-        checkEq "export: one envelope per one-click action"
-          (match kvs.lookup "actions" with | some (.obj as) => as.map (·.1) | _ => [])
-          (ids.mergeSort (· ≤ ·))
+        match kvs.lookup "snapshot" with
+        | some v =>
+          check "export: the snapshot is what the load read (E-snap)"
+            ((Snapshot.decode v.canonical).toOption == some (Export.snapshot l))
+          check "export: the engine's recorded answer = the recorded envelope (first paint)"
+            (Snapshot.evaluate v.canonical "" == (Session.envelope l).pretty)
+        | none => check "export: the data block holds a snapshot" false
     | .ok _ => check "export: the data block is an object" false
+    let tg ← IO.ofExcept (← Store.resolve env none none)
+    match ← Session.load tg false none true (← IO.mkRef {}) with
+    | .error _ => check "export: the study loads for a planted engine" false
+    | .ok l =>
+      for (name, text) in [("an empty engine", ""), ("an engine that is not base64", "H4sI</")] do
+        match ← (pageWith text l).toBaseIO with
+        | .ok _ => check s!"export: a page around {name} is refused" false
+        | .error e =>
+          check s!"export: a page around {name} is refused" (count (toString e) "base64" == 1)
+            (toString e)
     let (rc, _, err) ← run ["export", "--html", (proj / "claims.html").toString]
     checkEq "export: a page inside the project is refused" rc 2
     check "export: the refusal names the project" (count err "project folder" == 1) err

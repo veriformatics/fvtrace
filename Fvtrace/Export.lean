@@ -1,15 +1,19 @@
+import FvtraceEngine
 import FvtraceWeb
 import Fvtrace.Digest
 import Fvtrace.Session
+import Fvtrace.Snapshot
 
 /-!
 # `fvtrace export`: a page or a bundle to share
 
-`--html`: one self-contained page. The GUI's modules are joined into one script, the engine
-computes the recorded envelope + one envelope per one-click action, and a Content Security
-Policy admits exactly the page's own script + style by hash. `--bundle`: the trace + copies of
-its pinned evidence, laid out so a colleague's `fvtrace serve` checks the receipts against the
-copies. Neither writes into the project folder.
+`--html`: one self-contained page. The GUI's modules are joined into one script; the page carries
+the recorded envelope (its first view), a snapshot of what the engine read, and the engine
+itself compiled to WebAssembly (`FvtraceEngine`), which evaluates every what-if in the browser
+(`.agent/contracts/kernel.md` E-page). A Content Security Policy admits exactly the page's own
+script + style by hash, plus WebAssembly compilation. `--bundle`: the trace + copies of its pinned
+evidence, laid out so a colleague's `fvtrace serve` checks the receipts against the copies.
+Neither writes into the project folder.
 -/
 
 namespace Fvtrace.Export
@@ -117,33 +121,49 @@ def hexBytes (hex : String) : ByteArray :=
 def cspHash (text : String) : IO String := do
   return s!"'sha256-{base64 (hexBytes (← Digest.ofString text))}'"
 
-/-- The data block: the recorded envelope + one envelope per one-click action. -/
-def data (l : Session.Loaded) : Value :=
-  let sc := l.scenario
-  .obj [("schema", .str "fvtrace.export/1"), ("recorded", Session.envelope l),
-    ("actions", .obj ((Evaluate.actions sc).map fun (id, _, _, o) =>
-      (id, Evaluate.envelope { sc with overrides := Overrides.normalize o } l.bindings l.digest
-        l.review)))]
+/-- What the page's engine reads (`kernel.md` E-snap): the load's trace + receipts + review. -/
+def snapshot (l : Session.Loaded) : Snapshot.Snapshot :=
+  { trace := l.scenario.trace, bindings := l.bindings, digest := l.digest, review := l.review }
 
-/-- The page: the GUI's HTML with its stylesheet + modules inlined under a hash-pinned CSP. -/
-def page (l : Session.Loaded) : IO String := do
+/-- The data block: the recorded envelope (the page's first view) + the engine's snapshot. -/
+def data (l : Session.Loaded) : Value :=
+  .obj [("schema", .str "fvtrace.export/2"), ("recorded", Session.envelope l),
+    ("snapshot", Snapshot.encode (snapshot l))]
+
+/-- The engine block holds base64 alone, so it cannot close its `<script>`. -/
+def base64Text (s : String) : Bool :=
+  s.all fun c => c.isAlphanum || c == '+' || c == '/' || c == '='
+
+/-- The engine `lake build` compiled to WebAssembly: base64(gzip(module)). -/
+def engine : String := FvtraceEngine.wasmGzipBase64
+
+/-- The page around `engineText` (the build's engine; tests plant others): the GUI's HTML with
+its stylesheet + modules inlined under a hash-pinned CSP. -/
+def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
   let some (_, _, html) := FvtraceWeb.files.find? (·.1 == "/") | throw (IO.userError "no page")
   let some (_, _, css) := FvtraceWeb.files.find? (·.1 == "/style.css")
     | throw (IO.userError "no stylesheet")
   let script ← IO.ofExcept (bundle modules)
-  let csp := s!"default-src 'none'; script-src {← cspHash script}; " ++
+  unless !engineText.isEmpty && base64Text engineText do
+    throw (IO.userError "the embedded engine is not base64 text; rebuild fvtrace")
+  -- `'wasm-unsafe-eval'` admits WebAssembly compilation alone (JavaScript `eval` stays refused).
+  let csp := s!"default-src 'none'; script-src {← cspHash script} 'wasm-unsafe-eval'; " ++
     s!"style-src {← cspHash css}; base-uri 'none'; form-action 'none'; " ++
     "require-trusted-types-for 'script'; trusted-types 'none'"
   let head := s!"<meta http-equiv=\"Content-Security-Policy\" content=\"{csp}\" />\n" ++
     s!"    <style>{css}</style>\n" ++
     s!"    <script type=\"application/json\" id=\"fvtrace-data\">\
       {htmlSafe (data l).canonical}</script>\n" ++
+    s!"    <script type=\"application/octet-stream\" id=\"fvtrace-engine\">{engineText}\
+      </script>\n" ++
     s!"    <script type=\"module\">{script}</script>"
   let linked := "<link rel=\"stylesheet\" href=\"style.css\" />\n" ++
     "    <script type=\"module\" src=\"app.js\"></script>"
   unless (html.splitOn linked).length == 2 do
     throw (IO.userError "the page no longer links style.css + app.js as the export expects")
   return html.replace linked head
+
+def page (l : Session.Loaded) : IO String := pageWith engine l
 
 /-- Copies a file in 1 MiB chunks (evidence can be far larger than memory). -/
 def copyFile (src dest : System.FilePath) : IO Unit := do

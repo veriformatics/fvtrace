@@ -45,7 +45,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 916c71f U2 contract: `kernel.md` § Page engine + `units.md` table (consultant before code)
 - [x] 74105ff U3 `Receipt.Basic` split
 - [x] 0aafd59 U4 `Fvtrace.Snapshot` (codec + evaluate)
-- [ ] U5 wasm build in `lake build`
+- [x] a72f198 U5 wasm build in `lake build`
 - [ ] U6 export page v2 + GUI engine
 - [ ] U7 docs + rules + Decisions
 - [ ] U8 closing review

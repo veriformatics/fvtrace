@@ -58,12 +58,16 @@ examples() {
     return $rc
 }
 
+# The exported page's engine (WebAssembly, run by the page's loader) answers every differential
+# case byte for byte as the native engine does (`kernel.md` E-wasm); Chromium = e2e engine.spec.js.
+engine() { node --test tests/engine/; }
+
 # Claims ↔ proofs ↔ axioms ↔ escape hatches, then every proof's closure replayed through the
 # independent kernels bundled with Lean (`lake check --paranoid`).
 trust() { bash tools/trust.sh; }
 
 prettier_files() {
-    git ls-files -co --exclude-standard -- 'web/*' 'tests/e2e/*' 'tests/schema/*' 'tests/palette/*' 'tests/renovate/*' 'schema/*' \
+    git ls-files -co --exclude-standard -- 'web/*' 'tests/e2e/*' 'tests/engine/*' 'tests/schema/*' 'tests/palette/*' 'tests/renovate/*' 'schema/*' \
         'tools/*.mjs' ':(top,glob)*.json' ':(top,glob)*.mjs' ':(top,glob).*.json' '.github/*' |
         grep -v -e '^lake-manifest.json$'
 }
@@ -72,7 +76,7 @@ js_format() { prettier_files | xargs -r prettier --check; }
 
 js_lint() {
     local rc=0
-    oxlint --type-aware --deny-warnings web tests/e2e tests/schema tests/palette tests/renovate tools ./*.mjs || rc=1
+    oxlint --type-aware --deny-warnings web tests/e2e tests/engine tests/schema tests/palette tests/renovate tools ./*.mjs || rc=1
     stylelint 'web/**/*.css' || rc=1
     html-validate web || rc=1
     return $rc
@@ -188,6 +192,7 @@ main() {
     stage lean-pure lean_pure
     stage cli cli
     stage examples examples
+    stage engine engine
     stage trust trust
     stage c-analyze c_analyze
     stage vendor vendor

@@ -430,15 +430,13 @@ export function decodeProblem(json) {
 }
 
 /**
- * An exported page's data island: the recorded envelope + one envelope per one-click action of
- * the recorded scenario (decoded when shown).
- * @param {unknown} json @returns {{ recorded: unknown, actions: Map<string, unknown> }}
+ * An exported page's data island: the recorded envelope (decoded when shown) + the snapshot that
+ * the page's engine evaluates what-ifs against.
+ * @param {unknown} json @returns {{ recorded: unknown, snapshot: Record<string, unknown> }}
  */
 export function decodeExported(json) {
   const r = obj(json, "");
-  if (r["schema"] !== "fvtrace.export/1") fail("/schema", '"fvtrace.export/1"');
-  return {
-    recorded: r["recorded"],
-    actions: new Map(Object.entries(obj(r["actions"], "/actions"))),
-  };
+  if (r["schema"] !== "fvtrace.export/2") fail("/schema", '"fvtrace.export/2"');
+  // The snapshot stays opaque here: the engine decodes it and refuses a damaged one.
+  return { recorded: r["recorded"], snapshot: obj(r["snapshot"], "/snapshot") };
 }

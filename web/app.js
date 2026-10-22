@@ -1,11 +1,13 @@
 // Claim circuits. The GUI displays what the fvTrace engine computed (the evaluation envelope)
-// and derives no verdict itself. Served (`fvtrace serve`): a what-if goes to the engine and may
-// stack. Exported (`fvtrace export --html`): the page carries the recorded envelope + one
-// precomputed envelope per one-click action, so a what-if applies alone. The address hash holds
-// the view, so a scenario can be shared or reloaded.
+// and derives no verdict itself. A what-if goes to the engine and may stack: served
+// (`fvtrace serve`), the engine is the server; exported (`fvtrace export --html`), it is the
+// engine compiled to WebAssembly inside the page (`engine.js`), which starts in the background
+// while the precomputed recorded envelope shows. The address hash holds the view, so a scenario
+// can be shared or reloaded.
 
 import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
+import { EngineError, startEngine } from "./engine.js";
 import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
 import {
   blockerList,
@@ -24,14 +26,12 @@ import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./
 /** @typedef {import("./envelope.js").State} State */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 
-/** The view: what-if (served: the spec sent to the engine + the overrides it accepted) or action
-(exported), question, layout, selection, experiment filter. */
+/** The view: what-if (the spec sent to the engine + the overrides it accepted), question,
+layout, selection, experiment filter. */
 const view = {
   spec: "",
   /** @type {Map<string, string>} */
   whatif: new Map(),
-  /** @type {string | undefined} */
-  action: undefined,
   question: "",
   layout: /** @type {"circuits" | "text"} */ ("circuits"),
   /** @type {Selection | undefined} */
@@ -48,6 +48,24 @@ const island = document.getElementById("fvtrace-data");
 const islandJson = island ? JSON.parse(island.textContent ?? "null") : undefined;
 const exported = island ? decodeExported(islandJson) : undefined;
 
+const engineFailed =
+  "This browser cannot run the what-ifs on this page, so it shows the facts as recorded.";
+/** The exported page's engine, started once; after any failure it is never called again. */
+/** @type {Promise<import("./engine.js").Engine> | undefined} */
+let engineStart;
+let engineDead = false;
+/** An older export's `#action=…` link, translated once the recorded envelope is known. */
+/** @type {string | undefined} */
+let legacyAction;
+
+/** The snapshot as the engine reads it (JSON text). */
+const snapshotText = exported ? JSON.stringify(exported.snapshot) : "";
+
+function engine() {
+  engineStart ??= startEngine(document.getElementById("fvtrace-engine")?.textContent ?? "");
+  return engineStart;
+}
+
 /** @param {Map<string, string>} w */
 function whatifSpec(w) {
   return [...w].map(([f, st]) => `${f}=${st}`).join(",");
@@ -63,7 +81,7 @@ function isKind(k) {
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   view.spec = p.get("whatif") ?? "";
-  view.action = p.get("action") ?? undefined;
+  legacyAction = view.spec ? undefined : (p.get("action") ?? undefined);
   view.question = p.get("q") ?? "";
   view.layout = p.get("view") === "text" ? "text" : "circuits";
   const sel = /^(fact|claim|experiment):(.+)$/.exec(p.get("select") ?? "");
@@ -76,7 +94,6 @@ function readHash() {
 function writeHash() {
   const p = new URLSearchParams();
   if (view.spec) p.set("whatif", view.spec);
-  if (view.action) p.set("action", view.action);
   if (view.question) p.set("q", view.question);
   if (view.layout === "text") p.set("view", "text");
   if (view.selection) p.set("select", `${view.selection.kind}:${view.selection.id}`);
@@ -92,53 +109,75 @@ function showError(message) {
   el.hidden = false;
 }
 
-/** @type {import("./envelope.js").Action[] | undefined} */
-let recordedCache;
-
-/** An exported page's one-click actions (those of its recorded envelope). */
-function recordedActions() {
-  if (!recordedCache && exported) recordedCache = decodeEnvelope(exported.recorded).actions;
-  return recordedCache ?? [];
+/** An exported page's recorded view: its first paint, and its view after any engine failure. */
+function showRecorded(/** @type {NonNullable<typeof exported>} */ ex) {
+  env = decodeEnvelope(ex.recorded);
+  view.whatif = new Map();
+  render();
 }
 
-/** An exported page: the precomputed envelope of the current action. */
-function loadExported(/** @type {NonNullable<typeof exported>} */ ex) {
-  const raw = view.action === undefined ? ex.recorded : ex.actions.get(view.action);
-  try {
-    if (raw === undefined || view.spec) {
-      showError(
-        view.spec
-          ? "This page holds one-click what-ifs only, so it shows the facts as recorded."
-          : `This page holds no what-if "${view.action}", so it shows the facts as recorded.`,
-      );
-      view.action = undefined;
-      view.spec = "";
-      writeHash();
-      env = decodeEnvelope(ex.recorded);
-    } else {
-      byId("error").hidden = true;
-      env = decodeEnvelope(raw);
-    }
-    render();
-  } catch (e) {
-    showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
+/** An older export's `#action=X` link: X's complete what-if from the recorded envelope, or a
+ * notice over the recorded view when it holds no such action. */
+function translateLegacy(/** @type {NonNullable<typeof exported>} */ ex) {
+  const id = legacyAction;
+  legacyAction = undefined;
+  if (id === undefined) return;
+  const a = decodeEnvelope(ex.recorded).actions.find((x) => x.id === id);
+  if (a) view.spec = whatifSpec(new Map(a.overrides.map((o) => [o.fact, o.status])));
+  else showError(`This page holds no what-if "${id}", so it shows the facts as recorded.`);
+  writeHash();
+}
+
+/** The page's engine failed: the recorded view for the rest of the session. */
+function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
+  engineDead = true;
+  view.spec = "";
+  writeHash();
+  showRecorded(ex);
+  showError(engineFailed);
+}
+
+/** The envelope or problem for `spec`: from the page's engine, or the server's route. */
+/** @param {string} spec @returns {Promise<unknown>} */
+async function evaluate(spec) {
+  if (exported) {
+    if (engineDead) throw new EngineError("the engine stopped earlier");
+    /** @type {unknown} */
+    const json = JSON.parse((await engine()).answer(snapshotText, spec));
+    return json;
   }
+  const res = await fetch(`/api/evaluation${spec ? `?whatif=${encodeURIComponent(spec)}` : ""}`);
+  /** @type {unknown} */
+  const json = await res.json();
+  return json;
 }
 
+// The latest request wins (`requested`): a slower earlier answer, or the engine's start-up, never
+// overwrites a later what-if, reset or click.
 async function load() {
   if (exported) {
-    loadExported(exported);
-    return;
+    translateLegacy(exported);
+    if (!view.spec) {
+      requested = "";
+      try {
+        showRecorded(exported);
+      } catch (e) {
+        showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
+      }
+      return;
+    }
   }
   const spec = view.spec;
   requested = spec;
   document.body.setAttribute("aria-busy", "true");
   try {
-    const res = await fetch(`/api/evaluation${spec ? `?whatif=${encodeURIComponent(spec)}` : ""}`);
-    /** @type {unknown} */
-    const json = await res.json();
+    const json = await evaluate(spec);
     if (spec !== requested) return;
     const problem = decodeProblem(json);
+    if (problem && exported && problem.kind !== "what-if") {
+      engineFailure(exported);
+      return;
+    }
     if (problem) {
       // A refused what-if falls back to the recorded evidence; the message outlives that load.
       if (problem.kind === "what-if" && spec) {
@@ -154,11 +193,16 @@ async function load() {
     byId("error").hidden = true;
     render();
   } catch (e) {
-    showError(
-      e instanceof DecodeError
-        ? `This page does not understand the server's answer (${e.message}). Update fvtrace.`
-        : "The server did not answer. Is fvtrace serve still running?",
-    );
+    // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine.
+    if (exported) {
+      engineDead = true;
+      if (spec === requested) engineFailure(exported);
+    } else
+      showError(
+        e instanceof DecodeError
+          ? `This page does not understand the server's answer (${e.message}). Update fvtrace.`
+          : "The server did not answer. Is fvtrace serve still running?",
+      );
   } finally {
     if (spec === requested) document.body.removeAttribute("aria-busy");
   }
@@ -166,14 +210,11 @@ async function load() {
 
 /** Sets the what-if, then asks the engine. @param {Map<string, string>} w */
 function setWhatif(w) {
+  if (exported && engineDead && w.size > 0) {
+    showError(engineFailed);
+    return;
+  }
   view.spec = whatifSpec(w);
-  writeHash();
-  void load();
-}
-
-/** Exported page: shows one action's envelope (`undefined` = recorded). @param {string} [a] */
-function setAction(a) {
-  view.action = a;
   writeHash();
   void load();
 }
@@ -190,37 +231,24 @@ const on = {
     render();
     byId("inspector").focus();
   },
-  // Exported one-click what-ifs apply alone: a switch undoes only its own action, so a fact that
-  // another action supposes stays as it is until Reset.
   canToggle(fact) {
-    if (exported) {
-      const supposed = env?.facts.find((f) => f.id === fact)?.supposed ?? false;
-      return view.action === `suppose:${fact}` || (!supposed && on.hasAction(`suppose:${fact}`));
-    }
     return view.whatif.has(fact) || on.hasAction(`suppose:${fact}`);
   },
   toggle(fact) {
-    if (exported) setAction(view.action === `suppose:${fact}` ? undefined : `suppose:${fact}`);
-    else if (view.whatif.has(fact)) {
+    if (view.whatif.has(fact)) {
       const w = new Map(view.whatif);
       w.delete(fact);
       setWhatif(w);
     } else on.apply(`suppose:${fact}`);
   },
   supposeStatus(fact) {
-    const actions = exported ? recordedActions() : (env?.actions ?? []);
-    const a = actions.find((x) => x.id === `suppose:${fact}`);
+    const a = (env?.actions ?? []).find((x) => x.id === `suppose:${fact}`);
     return a?.overrides.find((o) => o.fact === fact)?.status;
   },
   hasAction(action) {
-    if (exported) return exported.actions.has(action);
     return env?.actions.some((a) => a.id === action) ?? false;
   },
   apply(action) {
-    if (exported) {
-      if (exported.actions.has(action)) setAction(action);
-      return;
-    }
     const a = env?.actions.find((x) => x.id === action);
     if (a) setWhatif(new Map(a.overrides.map((o) => [o.fact, o.status])));
   },
@@ -385,10 +413,7 @@ function draw(e) {
 }
 
 function wire() {
-  byId("reset").addEventListener("click", () => {
-    if (exported) setAction(undefined);
-    else setWhatif(new Map());
-  });
+  byId("reset").addEventListener("click", () => setWhatif(new Map()));
   byId("export-note").hidden = !exported;
   byId("question-select").addEventListener("change", (ev) => {
     if (ev.target instanceof HTMLSelectElement) view.question = ev.target.value;
@@ -411,9 +436,9 @@ function wire() {
     });
   }
   window.addEventListener("popstate", () => {
-    const before = `${view.spec}|${view.action ?? ""}`;
+    const before = view.spec;
     readHash();
-    if (`${view.spec}|${view.action ?? ""}` === before) render();
+    if (view.spec === before && legacyAction === undefined) render();
     else void load();
   });
 }
@@ -493,7 +518,13 @@ for (const id of ["tour-start", "tour-start-how"]) {
 }
 
 // Start last: an exported page renders during this module's evaluation, so everything `draw`
-// reads (the key table above) must already be initialized.
+// reads (the key table above) must already be initialized. Its engine starts in the background;
+// a start-up failure shows the notice at once (what-ifs need it).
 readHash();
 wire();
 void load();
+if (exported)
+  engine().catch(() => {
+    engineDead = true;
+    if (!view.spec) showError(engineFailed);
+  });
