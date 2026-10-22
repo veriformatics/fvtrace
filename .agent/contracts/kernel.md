@@ -158,6 +158,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 - Self-trace (U6): C1, C3–C6 + C8 read Fully supported on the recorded trace with current receipts (provisional until reviewed), their reasoning facts `proved` with receipts naming the Lean statement(s) each claim's sentence reads; C2 + C7 read Pending verification (they need tested code; E2 + E7 stay `open`); no claim needs I1; I2 records `tested`; `check --strict` rc 0.
 - Display fields: after `pin` + `review`, editing a fact's `why` alone, then a claim's `headline` alone, keeps every receipt current + the envelope's verdicts unchanged and makes the review stale.
 - Actions: in a WF trace under a valid ω, every emitted action's overrides form a valid ω (`Overrides.valid`), incl. a success closure touching a must-verify fact + a premise fact.
+- Exported live what-ifs (IMPLEMENT export): an exported page opened from file:// with the network off stacks a two-fact what-if whose verdicts = `fvtrace claims --whatif` (e2e `export.spec.js`); every page-engine answer = the native engine's, byte for byte (`tests/engine/` Node + `engine.spec.js` Chromium); `lake build` builds the engine from the pinned toolchain (`tools/wasm.lock`, Renovate-tracked); the page's CSP adds `'wasm-unsafe-eval'` alone.
 
 ## Regression witnesses (consultant-1 review; each becomes a production test)
 

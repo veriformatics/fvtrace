@@ -19,8 +19,13 @@ These parts of fvTrace read data that can come from other people:
 - `fvtrace serve`: the web server and its secret link. With `--host`, other computers on your
   network can reach it.
 - The page that `fvtrace export --html` writes and the folder that `fvtrace export --bundle`
-  writes.
+  writes. The page runs the fvTrace engine, compiled to WebAssembly, in the browser. Its content
+  security policy allows only the page's own script and style, and the compilation of
+  WebAssembly. The page loads nothing from the network. A link to the page can carry a what-if;
+  the engine reads it as text.
 - Trace files and the evidence files that they name.
+- The build: `lake build` downloads Emscripten and the Lean runtime sources, and refuses each
+  download whose SHA-256 digest differs from the one in `tools/wasm.lock`.
 
 A replay command runs only when you add `--run` or `--replay`, and it runs with your rights. Read
 the commands with `fvtrace verify` before you use `--run` or `--replay` on a trace from someone
