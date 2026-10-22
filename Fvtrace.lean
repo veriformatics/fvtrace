@@ -13,3 +13,4 @@ import Fvtrace.Render
 import Fvtrace.Digest
 import Fvtrace.Receipt
 import Fvtrace.Args
+import Fvtrace.Snapshot
