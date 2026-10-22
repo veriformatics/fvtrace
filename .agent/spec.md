@@ -42,7 +42,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 ## Tasks
 
 - [x] 3f7a0f0 U1 spike: route decided (Lean C → Emscripten 6.0.12 standalone wasm; parity + CSP + 3 browsers) → `.agent/archive/wasm-spike.md`
-- [ ] U2 contract: `kernel.md` § Page engine + `units.md` table (consultant before code)
+- [x] 916c71f U2 contract: `kernel.md` § Page engine + `units.md` table (consultant before code)
 - [x] 74105ff U3 `Receipt.Basic` split
 - [ ] U4 `Fvtrace.Snapshot` (codec + evaluate)
 - [ ] U5 wasm build in `lake build`
