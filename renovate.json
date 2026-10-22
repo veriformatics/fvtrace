@@ -8,6 +8,11 @@
     {
       "matchManagers": ["npm"],
       "groupName": "dev toolchain (npm)"
+    },
+    {
+      "description": "lean-toolchain + the page engine's Lean runtime sources move together",
+      "matchPackageNames": ["leanprover/lean4"],
+      "groupName": "Lean toolchain"
     }
   ],
   "customManagers": [
@@ -29,6 +34,23 @@
       ],
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Emscripten for the page engine (tools/wasm.lock); every platform line + digest via tools/pin-wasm.sh",
+      "managerFilePatterns": ["/^tools/wasm\\.lock$/"],
+      "matchStrings": ["(?:^|\\n)(?<depName>emsdk) (?<currentValue>\\S+) linux-x86_64 "],
+      "packageNameTemplate": "emscripten-core/emsdk",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "description": "Lean runtime sources for the page engine (tools/wasm.lock); commit + digests via tools/pin-wasm.sh",
+      "managerFilePatterns": ["/^tools/wasm\\.lock$/"],
+      "matchStrings": ["(?:^|\\n)(?<depName>lean-runtime) (?<currentValue>\\S+) "],
+      "packageNameTemplate": "leanprover/lean4",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
     }
   ]
 }
