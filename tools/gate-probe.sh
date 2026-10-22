@@ -223,6 +223,25 @@ probe_assets() {
     lake build «fvtrace-tests» >/dev/null 2>&1
 }
 
+# The page engine build (fvtrace-wasm, run by `lake build FvtraceEngine`): a pinned manifest digest
+# that the fetched tree does not match, an import the page's loader does not provide, a linker
+# warning outside the accepted two. Each plant relinks (≈ 1 min); a failed build leaves the
+# embedded engine as it was.
+engine_build() { lake build FvtraceEngine 2>&1; }
+
+probe_wasm() {
+    keep tools/wasm.lock
+    sed -i -E "s/^(libuv [^ ]+ [^ ]+ )[0-9a-f]{64}/\1$(printf '0%.0s' {1..64})/" tools/wasm.lock
+    expect wasm-manifest 'libuv: manifest sha256 [0-9a-f]+, but tools/wasm.lock pins 0{64}' engine_build
+    keep c/page_engine.c
+    sed -i -e 's/^int fvtrace_init(void) {$/__attribute__((import_module("env"), import_name("probe"))) void fvtrace_probe(void);\nint fvtrace_init(void) {\n  fvtrace_probe();/' c/page_engine.c
+    expect wasm-import 'imports env.probe \(kind 0\), which the page does not provide' engine_build
+    keep c/page_engine.c
+    sed -i -e 's/^lean_object \*initialize_fvtrace_Fvtrace_Snapshot(uint8_t builtin);$/lean_object *initialize_fvtrace_Fvtrace_Snapshot(void);/' \
+        -e 's/initialize_fvtrace_Fvtrace_Snapshot(1);/initialize_fvtrace_Fvtrace_Snapshot();/' c/page_engine.c
+    expect wasm-warning 'unexpected linker warnings' engine_build
+}
+
 probe_examples() {
     keep Fvtrace/Proofs/Plan.lean
     printf '\n-- planted\n' >>Fvtrace/Proofs/Plan.lean
@@ -231,7 +250,7 @@ probe_examples() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style meta trust replay_policy trust_cache audit vendor cli lean_pure palette assets examples)
+    probes=(lean_style meta trust replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"

@@ -56,14 +56,17 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
-      # CodeQL analyzes the C that this step compiles: the FFI shim, as the gate's c-analyze
-      # stage sees it (HACL* is verified upstream; the gate's vendor stage pins its release).
-      - name: Build the C digest shim
+      # CodeQL analyzes the C that this step compiles, as the gate's c-analyze stage sees it: the
+      # FFI shim (HACL* is verified upstream; the gate's vendor stage pins its release) + the page
+      # engine's C bridge (built for WebAssembly by `lake build`, compiled natively here).
+      - name: Build the C digest shim + the page engine bridge
         if: matrix.language == 'c-cpp'
-        run: >-
-          cc -O2 -fPIC -DKRML_VERIFIED_UINT128 -Wall -Wextra -Werror
-          -I"$(lean --print-prefix)/include" -Ic/hacl -Ic/hacl/include
-          -c c/fvtrace_digest.c -o "$RUNNER_TEMP/fvtrace_digest.o"
+        run: |
+          cc -O2 -fPIC -DKRML_VERIFIED_UINT128 -Wall -Wextra -Werror \
+            -I"$(lean --print-prefix)/include" -Ic/hacl -Ic/hacl/include \
+            -c c/fvtrace_digest.c -o "$RUNNER_TEMP/fvtrace_digest.o"
+          cc -O2 -Wall -Wextra -Werror -I"$(lean --print-prefix)/include" \
+            -c c/page_engine.c -o "$RUNNER_TEMP/page_engine.o"
 
       - name: Analyze
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3

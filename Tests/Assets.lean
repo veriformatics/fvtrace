@@ -1,4 +1,5 @@
 import Fvtrace
+import FvtraceEngine
 import Tests.Harness
 
 namespace Tests.Assets
@@ -37,5 +38,12 @@ def tests : TestM Unit := do
       (count words s!"  {st.name}: \"{st.verdict}\",\n" == 1) words
   checkEq "assets: every GUI file in web/ is embedded"
     (shipped.mergeSort (· ≤ ·)) ((FvtraceWeb.files.map (fileOf ·.1)).mergeSort (· ≤ ·))
+  -- The page engine: what `lake build` wrote, base64 of a gzip stream ("H4sI" = 1f 8b 08).
+  let engine := FvtraceEngine.wasmGzipBase64
+  check "assets: the embedded engine = .lake/build/wasm/engine.b64"
+    (engine == (← IO.FS.readFile ".lake/build/wasm/engine.b64"))
+  check "assets: the embedded engine is base64 of gzip"
+    (engine.startsWith "H4sI" && engine.length % 4 == 0 &&
+      engine.all fun c => c.isAlphanum || c == '+' || c == '/' || c == '=')
 
 end Tests.Assets

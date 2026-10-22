@@ -30,21 +30,24 @@ const managers = (
     : { managerFilePatterns: [], matchStrings: [] },
 );
 
-/** @type {Record<string, string[]>} file → dependency names its manager must find */
+/** @type {Record<string, string[]>} file → dependency names its managers must find */
 const expected = {
   "lean-toolchain": [""],
   "tools/tools.lock": ["actionlint", "betterleaks", "zizmor"],
+  "tools/wasm.lock": ["emsdk", "lean-runtime"],
 };
 
-void test("each regex custom manager extracts the dependencies of its file", () => {
+void test("the regex custom managers extract the dependencies of each file", () => {
   for (const [file, deps] of Object.entries(expected)) {
-    const manager = managers.find((m) =>
+    const mine = managers.filter((m) =>
       m.managerFilePatterns.some((p) => new RegExp(p.slice(1, -1)).test(file)),
     );
-    assert.ok(manager, `no custom manager for ${file}`);
+    assert.ok(mine.length > 0, `no custom manager for ${file}`);
     const text = readFileSync(new URL(file, root), "utf8");
-    const found = manager.matchStrings.flatMap((s) =>
-      [...text.matchAll(new RegExp(s, "g"))].map((m) => m.groups?.["depName"] ?? ""),
+    const found = mine.flatMap((manager) =>
+      manager.matchStrings.flatMap((s) =>
+        [...text.matchAll(new RegExp(s, "g"))].map((m) => m.groups?.["depName"] ?? ""),
+      ),
     );
     for (const d of deps)
       assert.ok(found.includes(d), `${file}: no match for "${d}" (got ${JSON.stringify(found)})`);

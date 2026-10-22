@@ -31,9 +31,11 @@ stage() {
 # Lean has no formatter in the 4.35 toolchain; this holds the mechanical layout rules.
 lean_style() { bash tools/lean-style.sh; }
 
-# Builds every target (library, shipped binary, tests, trust audit); every proof is
-# kernel-checked here, and `warningAsError` turns lints + deprecations into failures.
-lean_build() { lake build Fvtrace fvtrace «fvtrace-tests» «fvtrace-trust»; }
+# Builds every target (library, shipped binary, tests, trust audit, the exported page's
+# WebAssembly engine + its build tool); every proof is kernel-checked here, and `warningAsError`
+# turns lints + deprecations into failures. The engine's first build per toolchain fetches
+# Emscripten + generates Init's C (minutes); later builds reuse both and recompile what changed.
+lean_build() { lake build Fvtrace fvtrace «fvtrace-tests» «fvtrace-trust» «fvtrace-wasm» FvtraceEngine; }
 
 lean_test() { lake test; }
 
@@ -82,11 +84,16 @@ js_types() {
     return $rc
 }
 
-# The FFI shim under clang's static analyzer, findings as errors (HACL* itself is verified upstream
-# and compiled verbatim; `vendor` holds it byte-equal to the pinned release).
+# The FFI shim + the page engine's C bridge under clang's static analyzer, findings as errors
+# (HACL* itself is verified upstream and compiled verbatim; `vendor` holds it byte-equal to the
+# pinned release).
 c_analyze() {
+    local rc=0
     clang --analyze -Xclang -analyzer-werror -I"$(lean --print-prefix)/include" -Ic/hacl \
-        -Ic/hacl/include -DKRML_VERIFIED_UINT128 c/fvtrace_digest.c -o /dev/null
+        -Ic/hacl/include -DKRML_VERIFIED_UINT128 c/fvtrace_digest.c -o /dev/null || rc=1
+    clang --analyze -Xclang -analyzer-werror -I"$(lean --print-prefix)/include" \
+        c/page_engine.c -o /dev/null || rc=1
+    return $rc
 }
 
 vendor() { bash tools/vendor-hacl.sh --verify; }

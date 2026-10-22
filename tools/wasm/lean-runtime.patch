@@ -1,0 +1,70 @@
+diff --git a/src/runtime/io.cpp b/src/runtime/io.cpp
+index 422e31c..51d5fb5 100644
+--- a/src/runtime/io.cpp
++++ b/src/runtime/io.cpp
+@@ -874,7 +874,7 @@ extern "C" LEAN_EXPORT obj_res lean_io_get_random_bytes (size_t nbytes) {
+ 
+     if (nbytes == 0) return io_result_mk_ok(lean_alloc_sarray(1, 0, 0));
+ 
+-#if !defined(LEAN_WINDOWS)
++#if !defined(LEAN_WINDOWS) && !defined(LEAN_EMSCRIPTEN)
+     int fd_urandom = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+     if (fd_urandom < 0) {
+         return io_result_mk_error(decode_io_error(errno, lean_mk_ascii_string_unchecked("/dev/urandom")));
+@@ -904,13 +904,17 @@ extern "C" LEAN_EXPORT obj_res lean_io_get_random_bytes (size_t nbytes) {
+         }
+         remain -= read_sz;
+         dst += read_sz;
++#elif defined(LEAN_EMSCRIPTEN)
++        // WASI `random_get` through `getentropy` (at most 256 bytes per call); no file system.
++        size_t read_sz = std::min(remain, static_cast<size_t>(256));
++        if (getentropy(dst, read_sz) != 0) {
++            dec_ref(res);
++            return io_result_mk_error(decode_io_error(errno, nullptr));
++        }
++        remain -= read_sz;
++        dst += read_sz;
+ #else
+-    #if defined(LEAN_EMSCRIPTEN)
+-        // `Crypto.getRandomValues` documents `dest` should be at most 65536 bytes.
+-        size_t read_sz = std::min(remain, static_cast<size_t>(65536));
+-    #else
+         size_t read_sz = remain;
+-    #endif
+         ssize_t nread = read(fd_urandom, dst, read_sz);
+         if (nread < 0) {
+             if (errno != EINTR) {
+@@ -925,7 +929,7 @@ extern "C" LEAN_EXPORT obj_res lean_io_get_random_bytes (size_t nbytes) {
+ #endif
+     }
+ 
+-#if !defined(LEAN_WINDOWS)
++#if !defined(LEAN_WINDOWS) && !defined(LEAN_EMSCRIPTEN)
+     close(fd_urandom);
+ #endif
+     lean_sarray_set_size(res, nbytes);
+diff --git a/src/runtime/thread.h b/src/runtime/thread.h
+index 71513b1..8feb7e3 100644
+--- a/src/runtime/thread.h
++++ b/src/runtime/thread.h
+@@ -70,6 +70,7 @@ public:
+ // NO MULTI THREADING SUPPORT
+ #include <utility>
+ #include <cstdlib>
++#include <mutex>
+ #define LEAN_THREAD_LOCAL
+ namespace lean {
+ constexpr int memory_order_relaxed = 0;
+diff --git a/src/runtime/uv/system.cpp b/src/runtime/uv/system.cpp
+index f81561e..232f41e 100644
+--- a/src/runtime/uv/system.cpp
++++ b/src/runtime/uv/system.cpp
+@@ -633,7 +633,7 @@ extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_passwd() {
+ }
+ 
+ // Std.Internal.UV.System.osGetGroup : IO (Option GroupInfo)
+-extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_group() {
++extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_group(uint64_t gid) {
+     lean_always_assert(
+         false && ("Please build a version of Lean4 with libuv to invoke this.")
+     );
