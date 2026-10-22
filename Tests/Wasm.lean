@@ -138,6 +138,25 @@ def pureTests : TestM Unit := do
   let planted := "wasm-ld: warning: function signature mismatch: initialize_fvtrace_Fvtrace_X"
   checkEq "wasm: another linker warning is reported"
     (Build.unexpectedWarnings (allowed ++ planted)) [planted]
+  let prefixed := "wasm-ld: warning: function signature mismatch: lean_io_create_tempfile_extra"
+  checkEq "wasm: a warning naming an allowed one's prefix is reported (exact match)"
+    (Build.unexpectedWarnings prefixed) [prefixed]
+
+/-- Fetched-input markers: one counts only beside its folder; replacing the folder removes it
+first, so a failed refresh leaves no marker vouching for a half-written folder. -/
+def markerTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let tree := dir / "tree"
+    let marker := dir / "tree.verified"
+    IO.FS.writeFile marker "pins"
+    check "wasm: a marker without its folder does not count"
+      (!(← Build.verified marker tree "pins"))
+    IO.FS.createDirAll tree
+    check "wasm: a marker beside its folder counts for its own pins alone"
+      ((← Build.verified marker tree "pins") && !(← Build.verified marker tree "other"))
+    Build.replaceDir tree marker
+    check "wasm: replacing a folder removes its marker first"
+      (!(← marker.pathExists) && !(← tree.pathExists))
 
 /-- The archive check on a planted file (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do

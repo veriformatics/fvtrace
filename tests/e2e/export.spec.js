@@ -4,7 +4,7 @@
 // recorded view and says why.
 import { test, expect } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
-import { rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fvtrace, isRecord, prepareStudy } from "./fvtrace-server.js";
@@ -211,28 +211,113 @@ test("an engine that fails mid-session is never called again", async ({ browser 
   await context.close();
 });
 
-test("while the engine starts, a later view wins over an earlier what-if", async ({ browser }) => {
-  const { context, page, url } = await openOffline(browser);
-  // A slow start: the user goes back to the recorded view before the engine answers the what-if.
-  await page.addInitScript(() => {
+/** A slow engine start (`ms`), a ready flag + an evaluation counter on the page; `corruptFirst`
+ * garbles the first answer's bytes (no trap: only the page's validation catches it).
+ * @param {import("@playwright/test").Page} page
+ * @param {{ ms?: number, corruptFirst?: boolean }} [opts] */
+async function slowEngine(page, { ms = 1500, corruptFirst = false } = {}) {
+  await page.addInitScript(([delay, corrupt]) => {
     const real = WebAssembly.instantiate.bind(WebAssembly);
+    let calls = 0;
+    Reflect.set(globalThis, "fvtraceCalls", () => calls);
     Reflect.set(
       WebAssembly,
       "instantiate",
       async (/** @type {BufferSource} */ bytes, /** @type {WebAssembly.Imports} */ imports) => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        return real(bytes, imports);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        const { module, instance } = await real(bytes, imports);
+        /** @type {Record<string, WebAssembly.ExportValue>} */
+        const exports = { ...instance.exports };
+        const evaluate = exports["fvtrace_evaluate"];
+        exports["fvtrace_evaluate"] = (/** @type {number[]} */ ...args) => {
+          calls++;
+          /** @type {unknown} */
+          const out = typeof evaluate === "function" ? Reflect.apply(evaluate, undefined, args) : 0;
+          const at = typeof out === "number" ? out : 0;
+          const memory = exports["memory"];
+          if (corrupt && calls === 1 && at !== 0 && memory instanceof WebAssembly.Memory)
+            new Uint8Array(memory.buffer, at, 1).set([0x21]);
+          return at;
+        };
+        Reflect.set(globalThis, "fvtraceReady", true);
+        return { module, instance: { exports } };
       },
     );
+  }, /** @type {[number, boolean]} */ ([ms, corruptFirst]));
+}
+
+/** Waits until the slow engine has started, then for queued answers to settle. @param {import("@playwright/test").Page} page */
+async function engineStarted(page) {
+  await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceReady") === true, null, {
+    timeout: 60_000,
   });
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+}
+
+/** @param {import("@playwright/test").Page} page */
+const evaluations = (page) =>
+  page.evaluate(() => {
+    /** @type {unknown} */
+    const count = Reflect.get(globalThis, "fvtraceCalls");
+    /** @type {unknown} */
+    const n = typeof count === "function" ? Reflect.apply(count, undefined, []) : -1;
+    return typeof n === "number" ? n : -1;
+  });
+
+test("while the engine starts, a later view wins over an earlier what-if", async ({ browser }) => {
+  const { context, page, url } = await openOffline(browser);
+  await slowEngine(page, { ms: 3000 });
   await page.goto(url);
   await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
   expect(new URL(page.url()).hash).toContain("whatif=O2%3Dchecked");
   await page.goBack();
   await expect(page.getByRole("status")).toContainText(recorded);
-  // Past the engine's start: the earlier what-if's answer arrived and was dropped.
-  await page.waitForTimeout(2500);
+  await engineStarted(page);
   await expect(page.getByRole("status")).toContainText(recorded);
   expect(new URL(page.url()).hash).not.toContain("whatif=");
+  expect(await page.evaluate(() => document.body.hasAttribute("aria-busy"))).toBe(false);
+  await context.close();
+});
+
+test("a failure ends the engine before a queued what-if enters it", async ({ browser }) => {
+  const { context, page, url } = await openOffline(browser);
+  await slowEngine(page, { ms: 3000, corruptFirst: true });
+  await page.goto(url);
+  const c2 = card(page, "C2");
+  await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
+  await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
+  await engineStarted(page);
+  expect(await evaluations(page)).toBe(1);
+  await expect(page.locator("#error")).toHaveText(engineFailed);
+  await expect(page.getByRole("status")).toContainText(recorded);
+  await context.close();
+});
+
+test("a linked what-if paints the recorded view first", async ({ browser }) => {
+  const { context, page, url } = await openOffline(browser, "#whatif=O2%3Dchecked");
+  await slowEngine(page, { ms: 3000 });
+  await page.goto(url);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Synthetic study");
+  await expect(page.getByRole("status")).toContainText(recorded);
+  await engineStarted(page);
+  await expect(page.getByRole("status")).toContainText("suppose O2 is verified by a checker");
+  await context.close();
+});
+
+test("an explicit what-if, even empty, wins over an older action link", async ({ browser }) => {
+  const { context, page, url } = await openOffline(browser, "#whatif=&action=suppose%3AO2");
+  await page.goto(url);
+  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#error")).toBeHidden();
+  await context.close();
+});
+
+test("a damaged recorded view says so, also behind an older action link", async ({ browser }) => {
+  const damaged = join(fixture.dir, "damaged.html");
+  const html = await readFile(fixture.page, "utf8");
+  await writeFile(damaged, html.replace('"schema":"fvtrace.evaluation/1"', '"schema":"x"'));
+  const { context, page } = await openOffline(browser);
+  await page.goto(`${pathToFileURL(damaged).href}#action=suppose%3AO2`);
+  await expect(page.locator("#error")).toContainText("This page is damaged");
   await context.close();
 });

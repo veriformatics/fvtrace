@@ -82,13 +82,18 @@ def verifyFile (name : String) (file : FilePath) (pin : String) : IO Unit := do
   let got ← Fvtrace.Digest.ofFile file
   unless got == pin do fail s!"{name}: sha256 {got}, but tools/wasm.lock pins {pin}"
 
-/-- A marker beside a fetched input holds the pins that verified it. -/
-def verified (marker : FilePath) (stamp : String) : IO Bool := do
-  -- Nested `(← …)` actions run before `&&` decides, so the existence test needs its own branch.
-  if ← marker.pathExists then return (← IO.FS.readFile marker) == stamp
-  return false
+/-- A marker beside a fetched input holds the pins that verified it; it counts only while its
+folder exists. -/
+def verified (marker dir : FilePath) (stamp : String) : IO Bool := do
+  -- Nested `(← …)` actions run before `&&` decides, so each test needs its own branch.
+  unless ← marker.pathExists do return false
+  unless ← dir.isDir do return false
+  return (← IO.FS.readFile marker) == stamp
 
-def replaceDir (dir : FilePath) : IO Unit := do
+/-- Empties `dir` for a fresh fetch; its marker goes first, so a failure midway leaves no marker
+that vouches for a half-written folder. -/
+def replaceDir (dir marker : FilePath) : IO Unit := do
+  if ← marker.pathExists then IO.FS.removeFile marker
   if ← dir.pathExists then IO.FS.removeDirAll dir
 
 /-- Writes `path` whole or not at all (a stopped build leaves no half-written file). The
@@ -121,8 +126,8 @@ def emsdk (cfg : Config) (e : Lock.Entry) : IO FilePath := do
   let dir := cfg.cache / id
   let marker := cfg.cache / s!"{id}.verified"
   let install := dir / "install"
-  if ← verified marker e.sha256 then return install
-  replaceDir dir
+  if ← verified marker dir e.sha256 then return install
+  replaceDir dir marker
   let name := (e.url.splitOn "/").getLast?.getD "archive"
   let archive := cfg.cache / "download" / s!"{id}-{name}"
   IO.FS.createDirAll (cfg.cache / "download")
@@ -136,7 +141,12 @@ def emsdk (cfg : Config) (e : Lock.Entry) : IO FilePath := do
     IO.FS.removeFile archive
     throw err
   IO.FS.createDirAll dir
-  discard <| run "tar" #["-xf", archive.toString, "-C", dir.toString]
+  -- A Windows shell may put Git's GNU tar first on PATH, which cannot read the `.zip`.
+  if name.endsWith ".zip" then
+    discard <| run (← python) #["-c",
+      "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])",
+      archive.toString, dir.toString]
+  else discard <| run "tar" #["-xf", archive.toString, "-C", dir.toString]
   -- Emscripten reads this Python file; `FROZEN_CACHE` holds it to the release's prebuilt
   -- libraries (a missing one fails instead of being built here). Node is never needed.
   let py := fun (p : FilePath) => "'" ++ (slashed p).replace "'" "\\'" ++ "'"
@@ -156,8 +166,8 @@ def gitTree (cfg : Config) (e : Lock.Entry) (paths : List String)
     | some p => Fvtrace.Digest.ofFile p
     | none => pure "none"
   let stamp := s!"{e.key} {e.sha256} patch {patchDigest}"
-  if ← verified marker stamp then return dir
-  replaceDir dir
+  if ← verified marker dir stamp then return dir
+  replaceDir dir marker
   say s!"fetching {e.name} {e.version} ({e.key.take 12})"
   -- Byte-exact checkout on every system (a CRLF conversion would change every digest).
   let git := fun (args : Array String) =>
@@ -264,10 +274,13 @@ def allowedWarnings : List String :=
   ["function signature mismatch: lean_io_create_tempfile",
    "function signature mismatch: lean_io_create_tempdir"]
 
-/-- Warning lines outside `allowedWarnings` (`>>>` lines continue the warning above them). -/
+/-- Warning lines outside `allowedWarnings`, matched exactly after `warning: ` (`>>>` lines
+continue the warning above them). -/
 def unexpectedWarnings (stderr : String) : List String :=
   (stderr.splitOn "\n").filter fun l =>
-    (l.splitOn "warning:").length > 1 && !allowedWarnings.any fun w => (l.splitOn w).length > 1
+    match l.splitOn "warning: " with
+    | [] | [_] => false
+    | _ :: rest => !allowedWarnings.contains ("warning: ".intercalate rest).trimAscii.toString
 
 def link (cfg : Config) (t : Tools) (objs : Array FilePath) (wasm : FilePath) : IO Unit := do
   -- One argument per line, quoted for Emscripten's `shlex` reading (Windows' command line would
