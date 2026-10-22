@@ -4,7 +4,7 @@
 // `--list` prints the mutant sites + their count and runs nothing (campaign sizing).
 // Outcome per mutant: killed (tests fail) · survived (tests pass) · incompetent (build fails).
 // Default operators: == ↔ !=, < ↔ ≤ (<=), > ↔ ≥ (>=), && ↔ ||, true ↔ false, binary + ↔ -,
-// removal of a prefix `!`, integer literal n → n + 1. Comments, strings + chars are never mutated.
+// removal of a prefix `!` (before a name, `(` or the `·` placeholder), integer literal n → n + 1. Comments, strings + chars are never mutated.
 import { execFileSync, spawn } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -110,7 +110,7 @@ const operators = [
   { re: /\bfalse\b/g, to: () => "true" },
   { re: /(?<= )\+(?= )/g, to: () => "-" },
   { re: /(?<= )-(?= )/g, to: () => "+" },
-  { re: /!(?=[A-Za-z(])/g, to: () => "" },
+  { re: /!(?=[A-Za-z(·])/g, to: () => "" },
   { re: /(?<![\w.'])\d+(?![\w.])/g, to: (m) => String(BigInt(m) + 1n) },
 ];
 
