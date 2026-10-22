@@ -195,6 +195,25 @@ def question : Field Question := fun path v => do
   let t ← req path kvs "text" text
   pure do pure { id := ← id, title := ← title, text := ← t }
 
+/-- A command-line argument: any non-empty string without NUL (it reaches `execvp` as is). -/
+def arg : Field String := fun path v => do
+  match ← string path v with
+  | some s =>
+    if !s.isEmpty && !s.contains '\x00' then pure (some s)
+    else do report "invalid-arg" path "an argument must be non-empty and free of NUL"; pure none
+  | none => pure none
+
+def replay : Field Replay := fun path v => do
+  let some kvs ← members path v ["command", "output"] | pure none
+  let command ← req path kvs "command" (array arg)
+  let output ← opt path kvs "output" sha
+  if command == some [] then
+    report "invalid-replay" (path ++ ["command"]) "a command needs a program"
+  pure do
+    let c ← command
+    if c.isEmpty then none
+    pure { command := c, output := ← output }
+
 def artifact : Field Artifact := fun path v => do
   let some kvs ← members path v ["path", "sha256", "role"] | pure none
   let p ← req path kvs "path" text
@@ -204,15 +223,16 @@ def artifact : Field Artifact := fun path v => do
 
 def evidence : Field Evidence := fun path v => do
   let some kvs ← members path v
-    ["summary", "artifacts", "verifier", "statement", "statementDigest"] | pure none
+    ["summary", "artifacts", "verifier", "statement", "statementDigest", "replay"] | pure none
   let summary ← req path kvs "summary" text
   let artifacts ← optList path kvs "artifacts" artifact
   let verifier ← opt path kvs "verifier" text
   let statement ← opt path kvs "statement" text
   let digest ← opt path kvs "statementDigest" sha
+  let rep ← opt path kvs "replay" replay
   pure do
     pure { summary := ← summary, artifacts := ← artifacts, verifier := ← verifier,
-           statement := ← statement, statementDigest := ← digest }
+           statement := ← statement, statementDigest := ← digest, replay := ← rep }
 
 def fact : Field Fact := fun path v => do
   let some kvs ← members path v

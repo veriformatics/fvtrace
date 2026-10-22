@@ -58,7 +58,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CheckAcceptsExactlyWellFormed",
-        "statementDigest": "901bf7efb23ae22c6d81d48e2e36571ff1e1eb26db14bca6cc169ad3f04f0b1a"
+        "statementDigest": "901bf7efb23ae22c6d81d48e2e36571ff1e1eb26db14bca6cc169ad3f04f0b1a",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.CheckAcceptsExactlyWellFormed"
+          ],
+          "output": "863409f1420b33aa67ebfd6380d0071be812277b5c4ff405333fbede3dbdf496"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -92,7 +100,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CheckViolationsSound",
-        "statementDigest": "5e76424fc0530855a58507ac84e76dbefc750d7b30217d9fdc9d7885a003e110"
+        "statementDigest": "5e76424fc0530855a58507ac84e76dbefc750d7b30217d9fdc9d7885a003e110",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.CheckViolationsSound"
+          ],
+          "output": "18696ede6dbabadd4cb521179062260628a9be1a7fda7f73e51a9888569927d5"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -126,7 +142,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.RecordedCanIsVerified",
-        "statementDigest": "d3c5f036e217492c01a0f82b2c0650db62d58622ef698e830d5856ec7fd60756"
+        "statementDigest": "d3c5f036e217492c01a0f82b2c0650db62d58622ef698e830d5856ec7fd60756",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.RecordedCanIsVerified"
+          ],
+          "output": "b6b78a575eaadc34da57482ff237a2eb0aee617f5d6b2bf92a43327f2cbfb897"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -160,7 +184,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.RulingCeiling",
-        "statementDigest": "bebc353e93e00d1ad00e5a3d3e3197590cf019c5aa157b8a8c11f5652c1be379"
+        "statementDigest": "bebc353e93e00d1ad00e5a3d3e3197590cf019c5aa157b8a8c11f5652c1be379",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.RulingCeiling"
+          ],
+          "output": "4d5a719f3257b6d82aa97d9c526c64c8d4463a8dd6fa36391686fe7a2b2e55e6"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -194,7 +226,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.CannotExplained",
-        "statementDigest": "29830cd15cc7a4424f148679778fb513ef93fcc44bd265c5990edff9be37e475"
+        "statementDigest": "29830cd15cc7a4424f148679778fb513ef93fcc44bd265c5990edff9be37e475",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.CannotExplained"
+          ],
+          "output": "b2c4444ef66dba7f11396f64f64743386786c40b79bcf6381acf08eafd0300bb"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -228,7 +268,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.PlanSound",
-        "statementDigest": "db8b37f54964dc47b07a485b0df12526a2e7bb0a0dd40fa621da008393950c08"
+        "statementDigest": "db8b37f54964dc47b07a485b0df12526a2e7bb0a0dd40fa621da008393950c08",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.PlanSound"
+          ],
+          "output": "36ac82e05aa8a25a3a73209e34d03068c64988f5aac523273c2d428be43d40e3"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -262,7 +310,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.PlanOptimal",
-        "statementDigest": "baf3b46b8008625c4072bc5a8340abfacd2e2f8fc1b046fd09df7f4cf014818e"
+        "statementDigest": "baf3b46b8008625c4072bc5a8340abfacd2e2f8fc1b046fd09df7f4cf014818e",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.PlanOptimal"
+          ],
+          "output": "9173eed72d7024002637ec2a5262c15cbca27c516f02b2dfcabe1537744162e8"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -296,7 +352,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.SubjectIsolation",
-        "statementDigest": "861103cc5a539e0a664b8c0c10be2f6a5f56cce868a4e5f14232cd4442a46580"
+        "statementDigest": "861103cc5a539e0a664b8c0c10be2f6a5f56cce868a4e5f14232cd4442a46580",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.SubjectIsolation"
+          ],
+          "output": "15317b2b7bb2158eb590aa02305c827ae19a2feb97b7d2ae7031c1feb0aa4b3a"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -328,7 +392,15 @@
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.ConditionalNeedsVerified",
-        "statementDigest": "54943c653ad53fb6ed7598583347e5d9d8c06d122220e96c63a86518f86a23ea"
+        "statementDigest": "54943c653ad53fb6ed7598583347e5d9d8c06d122220e96c63a86518f86a23ea",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.ConditionalNeedsVerified"
+          ],
+          "output": "d96dcdea2f2f269a465bc7d5d0232d7da3cce8b30db4320f7f275840a13bbdf6"
+        }
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -408,7 +480,7 @@
           },
           {
             "path": "Tests/Receipt.lean",
-            "sha256": "820833a6539a103e6196517702af3ecd75c1d4a246dc287a7429e8705d735eb0",
+            "sha256": "0bcca0edf527800380e8797f549d77647ccfc4cd4fce44785d0f8e908db1d217",
             "role": "tests"
           }
         ],

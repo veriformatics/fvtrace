@@ -83,7 +83,8 @@ press **Take the tour**.
 | `fvtrace init` | Creates the trace of the project and shows where it is. |
 | `fvtrace path` | Prints the location of the trace. |
 | `fvtrace check [--strict]` | Checks the trace and the evidence of each verified fact. With `--strict`, a warning without a waiver or changed evidence also fails. |
-| `fvtrace pin` | Records the SHA-256 of each evidence file and statement. |
+| `fvtrace pin [--replay]` | Records the SHA-256 of each evidence file and statement. With `--replay`, it first runs each replay command and records the SHA-256 of its output. |
+| `fvtrace verify [--run]` | Lists the replay command of each fact. With `--run`, it runs each command and checks that it exits with 0 and prints the same output as when it was pinned. |
 | `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. The review vouches that the claims and facts match the study, that each headline says no more than its exact statement, and that the universal premises hold. |
 | `fvtrace claims` | Shows each claim with its verdict, by question. |
 | `fvtrace gaps` | Shows the facts whose verification makes the most claims available. |
@@ -126,6 +127,16 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
   the fact. Each command reads every evidence file again. For large files, add `--cached` to
   `claims`, `gaps`, `experiments`, `plan` or `serve`: it reuses the digest of a file that kept
   its size and modification time, which is faster but misses an edit that keeps both.
+- **Replay**: a fact's evidence can also name a command that checks the fact again, for example
+  a build that prints the statement that a proof covers: `"replay": {"command": ["lake",
+  "build"]}`. The digests cannot see a change outside the pinned files, for example a definition
+  that the statement uses. A replay can: `fvtrace pin --replay` records the SHA-256 of the
+  command's output, and `fvtrace verify --run` runs the command again and fails when it exits
+  with another code than 0 or prints another output. A replay never changes a verdict. The
+  command runs in the project folder with your rights, and it can write there, for example its
+  build files. Nothing runs without `--run` or `--replay`. Before you use them on a trace from
+  someone else, for example a bundle, run `fvtrace verify` to read the commands. Use `--run` only
+  when you trust them.
 - **Subjects**: what the facts are about. The existing analysis is one subject. Data that an
   experiment would create is another subject: such an experiment can raise claims about the new
   data, never the claims of the existing analysis.
@@ -202,6 +213,10 @@ proved:
   receipts and the call of the verified HACL* SHA-256 code.
 - An overlooked direction (no other site can read what `fvtrace serve` shows) needs the access
   check of the server.
+
+Each proof fact of the self-trace also has a replay: `tools/statement.sh` builds fvTrace and
+prints every definition that the theorem's statement uses. If one of these definitions changes
+while the pinned proof files stay the same, `fvtrace verify --run` fails for that fact.
 
 Like every analysis, the self-trace takes its instruments on trust: it does not list them for each
 claim. fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C

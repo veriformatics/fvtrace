@@ -92,12 +92,21 @@ structure Artifact where
   role : Option String := none
   deriving DecidableEq, Repr, Inhabited
 
+/-- A verifier command fvTrace re-runs on request (`fvtrace verify --run`): program, then
+arguments, run without a shell; `output` = SHA-256 of its standard output, pinned by
+`fvtrace pin --replay`. -/
+structure Replay where
+  command : List String
+  output : Option String := none
+  deriving DecidableEq, Repr, Inhabited
+
 structure Evidence where
   summary : String
   artifacts : List Artifact := []
   verifier : Option String := none
   statement : Option String := none
   statementDigest : Option String := none
+  replay : Option Replay := none
   deriving DecidableEq, Repr, Inhabited
 
 structure Fact where

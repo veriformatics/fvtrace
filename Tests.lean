@@ -14,6 +14,7 @@ import Tests.Evaluate
 import Tests.Server
 import Tests.Export
 import Tests.Fields
+import Tests.Replay
 
 namespace Tests
 
@@ -36,6 +37,7 @@ def pure : TestM Unit := do
   area "server" Tests.Server.pureTests
   area "export" Tests.Export.pureTests
   area "fields" Tests.Fields.tests
+  area "replay-pure" Tests.Replay.pureTests
 
 /-- Suites that call the C digest code, or run too long interpreted (plan-scale: 3 s, rerun by
 every mutant): native binary alone (`lake test`). -/
@@ -46,6 +48,7 @@ def native : TestM Unit := do
   area "server-native" Tests.Server.nativeTests
   area "export-native" Tests.Export.nativeTests
   area "plan-scale" Tests.Engine.scaleTests
+  area "replay" Tests.Replay.tests
   area "fields-native" Tests.Fields.nativeTests
 
 /-- Every suite, in run order (`lake test`). -/
