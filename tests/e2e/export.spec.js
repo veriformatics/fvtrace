@@ -125,10 +125,14 @@ test("a linked what-if goes to the page's engine as written", async ({ browser }
   );
   await page.goto(`${pathToFileURL(fixture.page).href}#whatif=O2%3Dassumed`);
   await expect(page.locator("#error")).toHaveText(
-    "O2 cannot be assumed: facts of kind result must be verified. This page shows the facts as recorded instead.",
+    "O2 cannot be assumed: facts of its kind must be verified. This page shows the facts as recorded instead.",
   );
   await expect(page.getByRole("status")).toContainText(recorded);
   expect(new URL(page.url()).hash).not.toContain("whatif=");
+  await page.goto(`${pathToFileURL(fixture.page).href}#whatif=O9%3Dchecked`);
+  await expect(page.locator("#error")).toHaveText(
+    '"O9" is not a fact on record. This page shows the facts as recorded instead.',
+  );
   await context.close();
 });
 

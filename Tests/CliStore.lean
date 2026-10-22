@@ -118,6 +118,12 @@ def tests : TestM Unit := do
     let (rc, _, err) ← run ["claims", "--whatif", "O3=proved"]
     checkEq "cli: a what-if above the route rc" rc 2
     check "cli: the route limit is named" (count err "O3 cannot reach proved" == 1) err
+    for (spec, message) in [("O9=checked", "\"O9\" is not a fact on record"),
+        ("O2=bogus", "\"bogus\" is not a status"), ("O2", "\"O2\" is not of the form FACT=STATUS"),
+        ("O2=assumed", "O2 cannot be assumed: facts of its kind must be verified")] do
+      let (rc, _, err) ← run ["claims", "--whatif", spec]
+      check s!"cli: the refused what-if {spec} exits 2, its token first"
+        (rc == 2 && count err s!"fvtrace: {message}\n" == 1) err
     let (rc, evalOut, _) ← run ["eval"]
     checkEq "cli: eval rc" rc 0
     let some envelope := (Json.parse evalOut.toUTF8).toOption

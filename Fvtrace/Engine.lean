@@ -396,23 +396,23 @@ def Overrides.valid (t : Trace) (o : Overrides) : Bool :=
 /-- Keys in ascending order (one normalized form per what-if). -/
 def Overrides.normalize (o : Overrides) : Overrides := o.mergeSort fun a b => a.1 ≤ b.1
 
-/-- `O1=proved,O3=assumed` → validated, normalized overrides; never clamped or dropped. -/
+/-- `O1=proved,O3=assumed` → validated, normalized overrides; never clamped or dropped. A refusal
+opens with the token it rejects: the GUI shows it as a sentence, the CLI after `fvtrace: `. -/
 def Overrides.parse (t : Trace) (spec : String) : Except String Overrides := do
   let entries := (spec.splitOn ",").filter (!·.isEmpty)
   let mut out : Overrides := []
   for e in entries do
     match e.splitOn "=" with
     | [k, v] =>
-      let some st := Status.all.find? (·.name == v)
-        | throw s!"unknown status \"{v}\" in the what-if"
-      let some f := t.fact? k | throw s!"the trace has no fact \"{k}\""
+      let some st := Status.all.find? (·.name == v) | throw s!"\"{v}\" is not a status"
+      let some f := t.fact? k | throw s!"\"{k}\" is not a fact on record"
       unless f.route.allows st do
         throw s!"{k} cannot reach {v} by route {f.route.name}"
       unless f.allows st do
-        throw s!"{k} cannot be assumed: facts of kind {f.kind.name} must be verified"
+        throw s!"{k} cannot be assumed: facts of its kind must be verified"
       if out.any (·.1 == k) then throw s!"{k} appears twice in the what-if"
       out := out ++ [(k, st)]
-    | _ => throw s!"a what-if entry reads FACT=STATUS, got \"{e}\""
+    | _ => throw s!"\"{e}\" is not of the form FACT=STATUS"
   return Overrides.normalize out
 
 end Fvtrace

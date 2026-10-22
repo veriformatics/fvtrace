@@ -180,7 +180,13 @@ test.describe("the synthetic study", () => {
     await page.goto("about:blank");
     await page.goto(`${web.url}#whatif=O2%3Dassumed`);
     await expect(page.locator("#error")).toHaveText(
-      "O2 cannot be assumed: facts of kind result must be verified. This page shows the facts as recorded instead.",
+      "O2 cannot be assumed: facts of its kind must be verified. This page shows the facts as recorded instead.",
+    );
+    // A stale link: its fact is no longer on record.
+    await page.goto("about:blank");
+    await page.goto(`${web.url}#whatif=O9%3Dchecked`);
+    await expect(page.locator("#error")).toHaveText(
+      '"O9" is not a fact on record. This page shows the facts as recorded instead.',
     );
   });
 
