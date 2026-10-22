@@ -132,9 +132,10 @@ export const startEngine = async (base64) => {
       const specAt = put(specBytes);
       const lengthAt = put(new Uint8Array(4));
       const out = evaluate(snapAt, snapshotBytes.length, specAt, specBytes.length, lengthAt) >>> 0;
+      // A failure ends the instance before any further call, a free included (E-abi).
+      if (out === 0) throw new EngineError("the engine ran out of memory");
       free(snapAt);
       free(specAt);
-      if (out === 0) throw new EngineError("the engine ran out of memory");
       const length = view().getUint32(lengthAt, true);
       free(lengthAt);
       const text = decoder.decode(new Uint8Array(mem().buffer, out, length));

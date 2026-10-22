@@ -81,7 +81,7 @@ function isKind(k) {
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   view.spec = p.get("whatif") ?? "";
-  legacyAction = view.spec ? undefined : (p.get("action") ?? undefined);
+  legacyAction = p.has("whatif") ? undefined : (p.get("action") ?? undefined);
   view.question = p.get("q") ?? "";
   view.layout = p.get("view") === "text" ? "text" : "circuits";
   const sel = /^(fact|claim|experiment):(.+)$/.exec(p.get("select") ?? "");
@@ -141,10 +141,21 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
 /** @param {string} spec @returns {Promise<unknown>} */
 async function evaluate(spec) {
   if (exported) {
+    const e = await engine();
+    // Checked after the await + decided before returning: a request queued behind a failing one
+    // never enters the instance (several loads can wait on one start-up).
     if (engineDead) throw new EngineError("the engine stopped earlier");
-    /** @type {unknown} */
-    const json = JSON.parse((await engine()).answer(snapshotText, spec));
-    return json;
+    try {
+      /** @type {unknown} */
+      const json = JSON.parse(e.answer(snapshotText, spec));
+      const problem = decodeProblem(json);
+      if (problem ? problem.kind !== "what-if" : !decodeEnvelope(json))
+        throw new EngineError("the engine answered neither an envelope nor a what-if problem");
+      return json;
+    } catch (err) {
+      engineDead = true;
+      throw err;
+    }
   }
   const res = await fetch(`/api/evaluation${spec ? `?whatif=${encodeURIComponent(spec)}` : ""}`);
   /** @type {unknown} */
@@ -156,14 +167,17 @@ async function evaluate(spec) {
 // overwrites a later what-if, reset or click.
 async function load() {
   if (exported) {
-    translateLegacy(exported);
+    try {
+      translateLegacy(exported);
+      // The recorded view paints first, with no engine: alone, or until the what-if's answer.
+      if (!view.spec || !env) showRecorded(exported);
+    } catch (e) {
+      showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
+      return;
+    }
     if (!view.spec) {
       requested = "";
-      try {
-        showRecorded(exported);
-      } catch (e) {
-        showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
-      }
+      document.body.removeAttribute("aria-busy");
       return;
     }
   }
@@ -193,10 +207,12 @@ async function load() {
     byId("error").hidden = true;
     render();
   } catch (e) {
-    // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine.
+    // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine;
+    // the notice shows whichever view is current, the view resets when this load is the latest.
     if (exported) {
       engineDead = true;
       if (spec === requested) engineFailure(exported);
+      else showError(engineFailed);
     } else
       showError(
         e instanceof DecodeError
