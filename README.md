@@ -35,9 +35,13 @@ vouches for them once. Until a reviewer signs off the trace, every verdict is pr
 fvTrace is one program, `fvtrace`. To build it from source:
 
 1. Install [elan](https://github.com/leanprover/elan) (the Lean toolchain manager) and a C
-   compiler (`cc`). On Windows, the build uses MinGW `gcc` (set `CC=gcc`). CI builds and tests
-   fvTrace on Linux, macOS and Windows.
-2. In this folder, run `lake build fvtrace`.
+   compiler (`cc`). On Windows, the build uses MinGW `gcc` (set `CC=gcc`). The build also needs
+   Python 3.10 or later, `curl`, `tar` and `git`, because it compiles the engine of the exported
+   page (see [Sharing](#sharing)). CI builds and tests fvTrace on Linux, macOS and Windows.
+2. In this folder, run `lake build fvtrace`. The first build downloads Emscripten (about 300 MB;
+   700 MB on Windows) and the Lean runtime sources, and checks each download against the SHA-256
+   digest in `tools/wasm.lock`. Then it compiles the engine, which takes several minutes. Later
+   builds reuse these files.
 3. Copy `.lake/build/bin/fvtrace` to a folder on your `PATH`.
 4. Run `fvtrace --version` to check the installation.
 
@@ -91,7 +95,7 @@ press **Take the tour**.
 | `fvtrace experiments` | Shows the suggested experiments and what each one changes. |
 | `fvtrace plan CLAIM` | Shows the set of suggested experiments that raises the claim as far as they allow, the cheapest among those. |
 | `fvtrace serve` | Shows the claims in a browser. |
-| `fvtrace export --html FILE` | Writes one page that opens in any browser. |
+| `fvtrace export --html FILE` | Writes one page that opens in any browser, also offline, and computes what-ifs there. |
 | `fvtrace export --bundle DIR` | Writes the trace and copies of its evidence files. |
 | `fvtrace skills install` | Installs the skill for coding agents. |
 | `fvtrace schema` | Prints the JSON Schema of the trace format. |
@@ -173,7 +177,12 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
 ## Sharing
 
 - `fvtrace export --html ../claims.html` writes one page outside the project folder. The page
-  needs no server: every one-click what-if is computed in advance, and each one applies alone.
+  needs no server and no network. It holds the fvTrace engine, compiled to WebAssembly: when you
+  press a fact's symbol, the engine computes every verdict in your browser, and you can combine
+  what-ifs as in `fvtrace serve`. The page shows the evidence as it was when you exported it:
+  it cannot check the evidence files again. A browser that cannot run WebAssembly (for example,
+  Safari in Lockdown Mode) shows the facts as recorded, without what-ifs. The engine adds about
+  400 KB to the page.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
   outside the project folder. On another computer, go to `DIR/project` and run
   `fvtrace serve --trace ../trace.json`.
@@ -218,12 +227,18 @@ Each proof fact of the self-trace also has a replay: `tools/statement.sh` builds
 prints every definition that the theorem's statement uses. If one of these definitions changes
 while the pinned proof files stay the same, `fvtrace verify --run` fails for that fact.
 
+The exported page runs the same Lean definitions: `lake build` compiles them, with the Lean
+runtime, to WebAssembly. A test gives the page's engine and the native engine (the code that the
+`fvtrace` program runs) the same inputs: hundreds of what-ifs on several traces, invalid ones too.
+It requires the same answers, byte for byte, in Node and in Chromium. This is a test, not a proof.
+
 Like every analysis, the self-trace takes its instruments on trust: it does not list them for each
 claim. fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C
 compiler, the proofs of the HACL* SHA-256 code that fvTrace uses, the evidence files that you pin
 (fvTrace checks their digests, not their content), every human ruling in the trace, and the
-reading of each proved Lean statement in English. A reviewer checks that each sentence says what
-its theorem proves.
+reading of each proved Lean statement in English. For an exported page, it also trusts
+Emscripten, the browser, and the small program in the page that connects the engine to the page.
+A reviewer checks that each sentence says what its theorem proves.
 
 ## Limits
 
@@ -238,6 +253,8 @@ its theorem proves.
   the browser tests, the scanners and the format checks. CI runs the same command.
 - `bash tools/fast-gate.sh` runs the quick checks while you work.
 - `bash tools/gate-probe.sh` shows that each purpose-built check fails on a planted error.
+- `bash tools/pin-wasm.sh emsdk VERSION` or `bash tools/pin-wasm.sh lean VERSION` updates the
+  pinned downloads of the engine build (`tools/wasm.lock`).
 
 ## License
 
