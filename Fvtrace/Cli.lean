@@ -63,9 +63,9 @@ def usage : String :=
   "  eval\n" ++
   "      Print the full evaluation as JSON (fvtrace.evaluation/1).\n" ++
   "  export --html FILE | --bundle DIR\n" ++
-  "      Share the claims. --html writes one page that opens in any browser, with\n" ++
-  "      each one-click what-if computed in advance. --bundle writes the trace and\n" ++
-  "      copies of its evidence files for another computer with fvtrace.\n" ++
+  "      Share the claims. --html writes one page that opens in any browser and\n" ++
+  "      evaluates what-ifs there, offline. --bundle writes the trace and copies of\n" ++
+  "      its evidence files for another computer with fvtrace.\n" ++
   "  serve [--port N] [--host ADDRESS] [--cached]\n" ++
   "      Show the claims in a browser: open the link that the command prints. The\n" ++
   "      port is 8642 by default (0 = any free port). With --host, computers on your\n" ++
@@ -694,8 +694,7 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     | .error prob => return ← report prob
   if html then
     replaceFile real (← Export.page l)
-    let n := (Evaluate.actions l.scenario).length
-    say s!"Wrote {real}: the claims of {tg.project} with {n} one-click what-ifs."
+    say s!"Wrote {real}: the claims of {tg.project}. Its what-ifs run in the browser."
     return 0
   if ← real.pathExists then
     unless (← real.readDir).isEmpty do

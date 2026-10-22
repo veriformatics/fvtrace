@@ -168,7 +168,7 @@ def experimentBefore (sc : Scenario) (a b : Experiment) : Bool :=
 
 /-- The one-click what-ifs from this scenario, each as the complete what-if it leads to (so a
 click replaces the what-if): suppose a closable fact at its route's ceiling, an experiment's
-success or failure, a claim's plan. A recorded scenario gives the export's finite domain. -/
+success or failure, a claim's plan. -/
 def actions (sc : Scenario) : List (String × String × String × Overrides) :=
   (sc.trace.facts.filter sc.closable).map (fun f =>
       (s!"suppose:{f.id}", "suppose", f.id,

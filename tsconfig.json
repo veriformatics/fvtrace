@@ -15,6 +15,7 @@
   "include": [
     "*.mjs",
     "tools/**/*.mjs",
+    "tests/engine/**/*.mjs",
     "tests/schema/**/*.mjs",
     "tests/palette/**/*.mjs",
     "tests/renovate/**/*.mjs"
