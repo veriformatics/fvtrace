@@ -41,6 +41,10 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] update automation (row 1): current `renovate.json` re-validated (Renovate 44.176.3 `--strict`, RE2); Renovate app install = owed (user)
+- [ ] GUI copy names the engine (row 2): `web/index.html` experiments sentence; wording = owed (user)
+- [ ] page engine on macOS + Windows (row 3): portability jobs green on 0526dbc (run 39769654379) → row pruned
+- [ ] close: rules upkeep, Tasks → `.agent/archive/maintain-deferred-3.md`, scratch + temp cleanup, full gate on a clean tree
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
