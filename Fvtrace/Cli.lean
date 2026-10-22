@@ -11,6 +11,7 @@ import Fvtrace.Json
 import Fvtrace.Lint
 import Fvtrace.Receipt
 import Fvtrace.Render
+import Fvtrace.Replay
 import Fvtrace.Server
 import Fvtrace.Session
 import Fvtrace.Store
@@ -37,8 +38,15 @@ def usage : String :=
   "      folder. With --strict, a warning without a waiver or a stale receipt also\n" ++
   "      fails the check.\n" ++
   "      It reads every evidence file again.\n" ++
-  "  pin\n" ++
+  "  pin [--replay [--timeout S]]\n" ++
   "      Record the sha256 of each evidence artifact and statement in the trace.\n" ++
+  "      With --replay, first run each replay command of the trace in the project\n" ++
+  "      folder and record the sha256 of its output.\n" ++
+  "  verify [--run [--timeout S]] [--json]\n" ++
+  "      List the replay command of each fact. With --run, run each command in the\n" ++
+  "      project folder: it passes when it exits with 0 and its output is unchanged\n" ++
+  "      since pin --replay. A command runs with your rights: run only the commands\n" ++
+  "      of a trace that you trust.\n" ++
   "  review --reviewer NAME [--note TEXT]\n" ++
   "      Record that NAME reviewed the current content of the trace.\n" ++
   "  claims [--question Q]\n" ++
@@ -177,7 +185,31 @@ def pathCmd (env : Store.Env) (args : List String) : IO UInt32 := do
 
 def checkSpec : Args.Spec := { valued := located, switches := ["--json", "--strict"] }
 
-def pinSpec : Args.Spec := { valued := located }
+def pinSpec : Args.Spec := { valued := located ++ ["--timeout"], switches := ["--replay"] }
+
+def verifySpec : Args.Spec :=
+  { valued := located ++ ["--timeout"], switches := ["--run", "--json"] }
+
+/-- `--timeout S` (whole seconds ≥ 1), accepted beside the flag that runs commands alone. -/
+def timeoutArg (p : Args.Parsed) (runs : Bool) (flag : String) : Except String (Option Nat) :=
+  match p.value? "--timeout" with
+  | none => .ok none
+  | some v =>
+    if !runs then .error s!"--timeout needs {flag}"
+    else match v.toNat? with
+      | some n => if n ≥ 1 then .ok (some n) else .error "--timeout is whole seconds, at least 1"
+      | none => .error "--timeout is whole seconds, at least 1"
+
+/-- Runs one replay command, saying what runs (on stderr when stdout carries JSON) + why it
+failed with its stderr's tail. -/
+def runReplay (tg : Store.Target) (id : String) (r : Replay) (timeout : Option Nat)
+    (note : String → IO Unit) : IO (Except String Replay.Run) := do
+  note s!"  {id}: running {Replay.display r.command}"
+  let res ← Replay.run tg.project r.command timeout
+  if let .ok run := res then
+    unless run.exit == some 0 || run.stderrTail.isEmpty do
+      note s!"  {id}: its error output ends with: {run.stderrTail.trimAscii.toString}"
+  return res
 
 def reviewSpec : Args.Spec := { valued := located ++ ["--reviewer", "--note"] }
 
@@ -241,6 +273,9 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs pinSpec args with
     | .ok p => pure p
     | .error rc => return rc
+  let timeout ← match timeoutArg p (p.has "--replay") "--replay" with
+    | .ok t => pure t
+    | .error m => return ← usageError m
   let tg ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
@@ -251,14 +286,76 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
       complain s!"fvtrace: {tg.trace} does not decode; nothing pinned"
       return 1
     | .error rc => return rc
+  -- Every replay runs before any receipt is hashed: a verifier may rewrite an artifact.
+  let mut outputs : List (String × String) := []
+  let mut failed := 0
+  if p.has "--replay" then
+    for (id, r) in Replay.targets t do
+      match ← runReplay tg id r timeout say with
+      | .ok { exit := some 0, digest, .. } =>
+        outputs := outputs ++ [(id, digest)]
+        say s!"  {id}: output pinned"
+      | res =>
+        failed := failed + 1
+        complain s!"  {id}: output not pinned ({", ".intercalate (Replay.reasons none res)}); \
+          it stays as it was"
   let cache ← Session.openCache tg
-  let (pinned, problems) ← Receipt.pin t tg.project cache
+  let (pinned, problems) ← Receipt.pin (Replay.withOutputs t outputs) tg.project cache
   Session.closeCache tg cache
   if pinned != t then writeTrace tg.trace pinned
   for prob in problems do complain s!"  cannot pin {prob}"
-  let tail := if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found"
+  let tail := (if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found") ++
+    (if failed == 0 then "" else s!", {failed} replay(s) failed")
   say s!"{tg.trace}: pinned against {tg.project}{tail}"
-  return if problems.isEmpty then 0 else 1
+  return if problems.isEmpty && failed == 0 then 0 else 1
+
+def verify (env : Store.Env) (args : List String) : IO UInt32 := do
+  let p ← match ← parseArgs verifySpec args with
+    | .ok p => pure p
+    | .error rc => return rc
+  let runs := p.has "--run"
+  let timeout ← match timeoutArg p runs "--run" with
+    | .ok t => pure t
+    | .error m => return ← usageError m
+  let tg ← match ← target env p with
+    | .ok t => pure t
+    | .error rc => return rc
+  let t ← match ← readTarget p tg with
+    | .ok (.ok t) => pure t
+    | .ok (.error _) =>
+      complain s!"fvtrace: {tg.trace} does not decode; run fvtrace check"; return 1
+    | .error rc => return rc
+  unless (Check.violations t).isEmpty do
+    complain s!"fvtrace: {tg.trace} is not well-formed; run fvtrace check"
+    return 1
+  let json := p.has "--json"
+  let note := fun (line : String) => if json then complain line else say line
+  let targets := Replay.targets t
+  if targets.isEmpty then note "No fact or exclusion declares a replay command."
+  else if !runs then
+    note s!"{targets.length} replay command(s). None runs without --run:"
+    for (id, r) in targets do
+      let pinned := if r.output.isSome then "output pinned" else "output not pinned yet"
+      note s!"  {id}: {Replay.display r.command} ({pinned})"
+  let mut rows : List Value := []
+  let mut failed := 0
+  for (id, r) in targets do
+    let mut fields := [("id", Value.str id), ("command", .arr (r.command.map .str)),
+      ("pinned", .bool r.output.isSome), ("ran", .bool runs)]
+    if runs then
+      let why := Replay.reasons r.output (← runReplay tg id r timeout note)
+      if why.isEmpty then note s!"  {id}: passed"
+      else
+        failed := failed + 1
+        note s!"  {id}: failed ({", ".intercalate why})"
+      fields := fields ++ [("passed", .bool why.isEmpty), ("reasons", .arr (why.map .str))]
+    rows := rows ++ [.obj fields]
+  if runs && !targets.isEmpty then
+    note s!"{targets.length - failed} of {targets.length} replay(s) passed."
+  if json then
+    IO.print (Value.obj [("schema", .str "fvtrace.verify/1"), ("trace", .str tg.trace.toString),
+      ("project", .str tg.project.toString), ("replays", .arr rows)]).pretty
+  return if failed == 0 then 0 else 1
 
 def review (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs reviewSpec args with
@@ -678,6 +775,7 @@ def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
   | "path" :: rest => pathCmd env rest
   | "check" :: rest => check env rest
   | "pin" :: rest => pin env rest
+  | "verify" :: rest => verify env rest
   | "review" :: rest => review env rest
   | "claims" :: rest => claimsCmd env rest
   | "gaps" :: rest => gapsCmd env rest

@@ -4,7 +4,7 @@ open Lean
 /-!
 `fvtrace-trust`: do fvTrace's own claims hold, and what does believing them rest on?
 
-Usage: `lake exe fvtrace-trust [--proofs FILE]`.
+Usage: `lake exe fvtrace-trust [--proofs FILE | --statement CLAIM...]`.
 
 - Claim = a `Prop`-valued definition in a module named `Fvtrace.Spec` or `Fvtrace.Spec.*`;
   proof = a theorem whose type is exactly that claim constant, declared outside the spec modules
@@ -113,6 +113,22 @@ def audit (core : Std.HashSet Name) : CoreM (Array (Name × Array Name) × Array
               findings := findings.push { claim := c, issue := s!"{p} reaches {f} {n}" }
   return (out, findings)
 
+/-- The statement fingerprint of claims (replay verifier of the self-trace, `tools/statement.sh`):
+per claim a header (format, Lean version, claim), then every non-core constant its statement
+reaches, sorted by name, with its type + its value when it is a definition. The same definitions
+print the same bytes; a changed definition the statement reads changes them. -/
+def statement (env : Environment) (core : Std.HashSet Name) (c : Name) : Except String String := do
+  unless env.contains c do throw s!"no constant {c}"
+  let isCore := fun n => core.contains (modOf env n)
+  let reached := closure #[c] fun n => match env.find? n with
+    | some ci => if isCore n then none else some (meaningDeps ci)
+    | none => none
+  let lines := ((reached.filter (!isCore ·)).qsort Name.lt).toList.filterMap fun n =>
+    (env.find? n).map fun ci =>
+      let value := match ci with | .defnInfo d => s!"\n  := {d.value}" | _ => ""
+      s!"{n} : {ci.type}{value}"
+  return s!"fvtrace-statement 1 {Lean.versionString} {c}\n" ++ "\n".intercalate lines ++ "\n"
+
 def main (args : List String) : IO UInt32 := do
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := `Fvtrace }] {}
@@ -123,8 +139,15 @@ def main (args : List String) : IO UInt32 := do
   | ["--proofs", file] =>
     IO.FS.writeFile file (String.join (claims.toList.flatMap fun (_, prfs) =>
       prfs.toList.map (s!"{·}\n")))
+  | "--statement" :: names@(_ :: _) =>
+    for f in findings do IO.eprintln s!"FAIL {f.claim}: {f.issue}"
+    for n in names do
+      match statement env core n.toName with
+      | .ok text => IO.print text
+      | .error m => IO.eprintln s!"fvtrace-trust: {m}"; return 2
+    return if findings.isEmpty then 0 else 1
   | [] => pure ()
-  | _ => IO.eprintln "usage: fvtrace-trust [--proofs FILE]"; return 2
+  | _ => IO.eprintln "usage: fvtrace-trust [--proofs FILE | --statement CLAIM...]"; return 2
   for (c, prfs) in claims do
     let shown := if prfs.isEmpty then "UNPROVEN" else ", ".intercalate (prfs.toList.map toString)
     IO.println s!"claim {c}: {shown}"

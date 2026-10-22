@@ -32,10 +32,25 @@ replay_policy() {
     return $rc
 }
 
-# What decides a replay's outcome: the export (exactly what the kernels check), the toolchain (which
-# kernels) + this script (which policy). Arg: <export.ndjson>.
+# What decides a replay's outcome: the export (exactly what the kernels check + every definition a
+# claim's statement reads), the toolchain (which kernels), this script (which policy), and the
+# self-trace's statement replays (their pins, the fingerprint code). Arg: <export.ndjson>.
 replay_key() {
-    { sha256sum <"$1" && lean --version && sha256sum <"${BASH_SOURCE[0]}"; } | sha256sum | cut -d' ' -f1
+    { sha256sum <"$1" && lean --version && sha256sum <"${BASH_SOURCE[0]}" &&
+        cat examples/fvtrace/trace.json TrustMain.lean tools/statement.sh | sha256sum; } |
+        sha256sum | cut -d' ' -f1
+}
+
+# The self-trace's proof facts replay their statement fingerprints (fvtrace verify --run): a
+# definition a statement reads changed without a re-pin fails here. Runs with the kernel replay.
+statements() {
+    local home rc
+    home="$(mktemp -d)"
+    FVTRACE_HOME="$home" .lake/build/bin/fvtrace verify --run --trace examples/fvtrace/trace.json \
+        --project .
+    rc=$?
+    rm -rf "$home"
+    return $rc
 }
 
 # rc 0 iff <keyfile> records <key> as passed; split out so tools/gate-probe.sh can plant keys.
@@ -63,7 +78,7 @@ main() {
     lake env leanexport Fvtrace -- "${proofs[@]}" >"$out/export.ndjson" || return 1
     key="$(replay_key "$out/export.ndjson")"
     if replay_cached "$out/replayed" "$key" >/dev/null; then
-        printf 'trust: %d proofs; this export already passed every kernel (key %s): replay skipped\n' \
+        printf 'trust: %d proofs; this export already passed every kernel + the self-trace statement replays (key %s): skipped\n' \
             "${#proofs[@]}" "${key:0:12}"
         return 0
     fi
@@ -75,6 +90,7 @@ main() {
     rc=$?
     grep -E 'kernel (accepts|rejected)|not implemented yet|declined' "$out/check.log"
     printf 'trust: %d proofs replayed\n' "${#proofs[@]}"
+    statements || rc=1
     if [[ $rc -eq 0 ]]; then printf '%s\n' "$key" >"$out/replayed"; fi
     return $rc
 }
