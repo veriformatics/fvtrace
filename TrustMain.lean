@@ -4,7 +4,7 @@ open Lean
 /-!
 `fvtrace-trust`: do fvTrace's own claims hold, and what does believing them rest on?
 
-Usage: `lake exe fvtrace-trust [--list-proofs]`.
+Usage: `lake exe fvtrace-trust [--proofs FILE]`.
 
 - Claim = a `Prop`-valued definition in a module named `Fvtrace.Spec` or `Fvtrace.Spec.*`;
   proof = a theorem whose type is exactly that claim constant, declared outside the spec modules
@@ -15,7 +15,8 @@ Usage: `lake exe fvtrace-trust [--list-proofs]`.
   non-spec `Fvtrace.*` constant), since such a claim certifies nothing about the binary.
 - Lean core = modules whose `.olean` lies under the Lean sysroot, decided by file origin rather
   than module name, so a project-local module named `Lean.X` is still audited.
-- `--list-proofs` prints the proof names alone, one per line, for `leanexport` replay.
+- `--proofs FILE` also writes the proof names, one per line, to FILE (for `leanexport` replay):
+  one import of the environment serves both the audit and the replay.
 -/
 
 def standardAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
@@ -118,10 +119,12 @@ def main (args : List String) : IO UInt32 := do
   let core ← coreModules env
   let ctx : Core.Context := { fileName := "<fvtrace-trust>", fileMap := default }
   let ((claims, findings), _) ← (audit core).toIO ctx { env }
-  if args.contains "--list-proofs" then
-    for (_, prfs) in claims do
-      for p in prfs do IO.println p
-    return if findings.isEmpty then 0 else 1
+  match args with
+  | ["--proofs", file] =>
+    IO.FS.writeFile file (String.join (claims.toList.flatMap fun (_, prfs) =>
+      prfs.toList.map (s!"{·}\n")))
+  | [] => pure ()
+  | _ => IO.eprintln "usage: fvtrace-trust [--proofs FILE]"; return 2
   for (c, prfs) in claims do
     let shown := if prfs.isEmpty then "UNPROVEN" else ", ".intercalate (prfs.toList.map toString)
     IO.println s!"claim {c}: {shown}"

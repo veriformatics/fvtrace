@@ -188,7 +188,8 @@ rely on are Lean theorems, stated in `Fvtrace/Spec` and proved in `Fvtrace/Proof
 holds only when the facts that must be verified are verified; a claim with a human ruling for its
 entailment reads neither of the two; a suggested plan is the best that the suggested experiments
 allow. `bash tools/trust.sh` checks every proof again with independent
-kernels (lean4lean and nanoda). The well-formedness check that `fvtrace check` applies to a
+kernels (lean4lean and nanoda). It skips the check only when the same proofs, compiled by the same
+toolchain, already passed it. The well-formedness check that `fvtrace check` applies to a
 decoded trace is proved to accept exactly the well-formed traces; the JSON decoding before it is
 tested, not proved.
 
