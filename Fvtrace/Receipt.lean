@@ -66,7 +66,8 @@ def statementDigest (manifest : Value) : IO String := Digest.ofString manifest.c
 def resolve (root : System.FilePath) (rel : String) : IO (Except String System.FilePath) := do
   let p := root / rel
   unless ← p.pathExists do return .error s!"missing {rel}"
-  let real ← IO.FS.realPath p
+  -- A dangling link can read as present (Windows); it has no real path.
+  let real ← try IO.FS.realPath p catch _ => return .error s!"missing {rel}"
   let rootReal ← IO.FS.realPath root
   unless rootReal.components.isPrefixOf real.components && real.components != rootReal.components do
     return .error s!"outside {rel}"

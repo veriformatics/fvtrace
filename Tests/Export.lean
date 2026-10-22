@@ -141,6 +141,7 @@ def nativeTests : TestM Unit := do
     let linked ← symlink (proj / "inside") (dir / "alias")
     let (rc, _, _) ← run ["export", "--bundle", (dir / "alias").toString]
     check "export: a link into the project is refused as a bundle folder" (linked && rc == 2)
+    unlink (dir / "alias")
     IO.FS.removeDirAll (proj / "inside")
     let (rc, _, err) ← capture (Cli.runIn { home := proj / "proofs" / "Contrast.lean", cwd := proj }
       ["init"])

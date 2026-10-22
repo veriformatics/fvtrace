@@ -93,6 +93,10 @@ def tests : TestM Unit := do
       check "receipt: the escaping link exists" linked
       checkEq "receipt: a symlink out of the project is refused" (← reasonsOf pinned root "O1")
         ["outside proofs/Contrast.lean"]
+      unlink (outside / "secret.txt")
+      checkEq "receipt: a dangling link reads missing" (← reasonsOf pinned root "O1")
+        ["missing proofs/Contrast.lean"]
+      unlink (root / "proofs" / "Contrast.lean")
     let reworded := mapFact pinned "O1" fun f => { f with text := f.text ++ " Revised." }
     checkEq "receipt: rewording a fact stales its receipt"
       ((← reasonsOf reworded root "O1").filter (· == "statement-changed")) ["statement-changed"]
