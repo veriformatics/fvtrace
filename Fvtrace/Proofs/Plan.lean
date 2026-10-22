@@ -45,21 +45,45 @@ theorem closureStep_same {a b : List String} (h : ∀ x, x ∈ a ↔ x ∈ b) (x
     x ∈ s.closureStep a ↔ x ∈ s.closureStep b := by
   simp only [mem_closureStep, h]
 
+/-- The closure loop without its early exit: the reference the closure lemmas are about. -/
+def closureFuelRef : Nat → List String → List String
+  | 0, ids => ids
+  | n + 1, ids => closureFuelRef n (s.closureStep ids)
+
+theorem fixed_fuel (ids : List String) (hf : s.closureStep ids = ids) (n : Nat) :
+    closureFuelRef s n ids = ids := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp only [closureFuelRef, hf, ih]
+
+/-- The early exit changes no result: a step that adds nothing repeats itself forever. -/
+theorem closureFuel_eq_ref (n : Nat) (ids : List String) :
+    s.closureFuel n ids = closureFuelRef s n ids := by
+  induction n generalizing ids with
+  | zero => rfl
+  | succ n ih =>
+    simp only [Scenario.closureFuel, closureFuelRef]
+    split
+    · rename_i hf
+      have heq : s.closureStep ids = ids := by simpa using hf
+      rw [heq, fixed_fuel s ids heq n]
+    · exact ih _
+
 theorem closureFuel_succ (n : Nat) (ids : List String) :
-    s.closureFuel (n + 1) ids = s.closureStep (s.closureFuel n ids) := by
+    closureFuelRef s (n + 1) ids = s.closureStep (closureFuelRef s n ids) := by
   induction n generalizing ids with
   | zero => rfl
   | succ n ih => exact ih (s.closureStep ids)
 
 theorem mem_closureFuel {n : Nat} {ids : List String} {x : String} (h : x ∈ ids) :
-    x ∈ s.closureFuel n ids := by
+    x ∈ closureFuelRef s n ids := by
   induction n with
   | zero => exact h
   | succ n ih => rw [closureFuel_succ]; exact (mem_closureStep s).mpr (Or.inl ih)
 
 theorem fixed_from {ids : List String} {m : Nat}
-    (hf : ∀ x ∈ s.closureStep (s.closureFuel m ids), x ∈ s.closureFuel m ids) (k : Nat) :
-    ∀ x, x ∈ s.closureFuel (m + k) ids ↔ x ∈ s.closureFuel m ids := by
+    (hf : ∀ x ∈ s.closureStep (closureFuelRef s m ids), x ∈ closureFuelRef s m ids) (k : Nat) :
+    ∀ x, x ∈ closureFuelRef s (m + k) ids ↔ x ∈ closureFuelRef s m ids := by
   induction k with
   | zero => intro x; exact Iff.rfl
   | succ k ih =>
@@ -118,25 +142,25 @@ theorem filter_length_lt {E : List String} {p q : String → Bool}
 
 /-- Each closure step either reaches a fixed point or adds an experiment id. -/
 theorem fuel_fixed (hwf : WellFormed s.trace) (ids : List String) (n : Nat) :
-    (∃ m ≤ n, ∀ x ∈ s.closureStep (s.closureFuel m ids), x ∈ s.closureFuel m ids) ∨
-      n ≤ count s (s.closureFuel n ids) := by
+    (∃ m ≤ n, ∀ x ∈ s.closureStep (closureFuelRef s m ids), x ∈ closureFuelRef s m ids) ∨
+      n ≤ count s (closureFuelRef s n ids) := by
   induction n with
   | zero => exact Or.inr (Nat.zero_le _)
   | succ n ih =>
     rcases ih with ⟨m, hm, hf⟩ | hle
     · exact Or.inl ⟨m, Nat.le_succ_of_le hm, hf⟩
-    · by_cases hf : ∀ x ∈ s.closureStep (s.closureFuel n ids), x ∈ s.closureFuel n ids
+    · by_cases hf : ∀ x ∈ s.closureStep (closureFuelRef s n ids), x ∈ closureFuelRef s n ids
       · exact Or.inl ⟨n, Nat.le_succ n, hf⟩
       · right
         obtain ⟨x, hx⟩ := Classical.not_forall.mp hf
-        have hxs : x ∈ s.closureStep (s.closureFuel n ids) :=
+        have hxs : x ∈ s.closureStep (closureFuelRef s n ids) :=
           Classical.byContradiction fun h => hx fun h' => absurd h' h
-        have hxn : x ∉ s.closureFuel n ids := fun h => hx fun _ => h
+        have hxn : x ∉ closureFuelRef s n ids := fun h => hx fun _ => h
         have hxE : x ∈ s.trace.experimentIds := by
           rcases (mem_closureStep s).mp hxs with h | ⟨id, _, h⟩
           · exact absurd h hxn
           · exact adds_mem s hwf h
-        have hlt : count s (s.closureFuel n ids) < count s (s.closureFuel (n + 1) ids) := by
+        have hlt : count s (closureFuelRef s n ids) < count s (closureFuelRef s (n + 1) ids) := by
           rw [closureFuel_succ]
           unfold count
           refine filter_length_lt ?_ hxE ?_ ?_
@@ -144,15 +168,15 @@ theorem fuel_fixed (hwf : WellFormed s.trace) (ids : List String) (n : Nat) :
             rw [List.contains_iff_mem] at hz ⊢
             exact (mem_closureStep s).mpr (Or.inl hz)
           · exact List.contains_iff_mem.mpr hxs
-          · cases h : (s.closureFuel n ids).contains x
+          · cases h : (closureFuelRef s n ids).contains x
             · rfl
             · exact absurd (List.contains_iff_mem.mp h) hxn
         omega
 
 /-- The fuel `experiments.length + 1` reaches the fixed point. -/
 theorem closure_fixed (hwf : WellFormed s.trace) (ids : List String) :
-    ∀ x ∈ s.closureStep (s.closureFuel (s.trace.experiments.length + 1) ids),
-      x ∈ s.closureFuel (s.trace.experiments.length + 1) ids := by
+    ∀ x ∈ s.closureStep (closureFuelRef s (s.trace.experiments.length + 1) ids),
+      x ∈ closureFuelRef s (s.trace.experiments.length + 1) ids := by
   rcases fuel_fixed s hwf ids (s.trace.experiments.length + 1) with ⟨m, hm, hf⟩ | hle
   · obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le hm
     rw [hk]
@@ -162,7 +186,7 @@ theorem closure_fixed (hwf : WellFormed s.trace) (ids : List String) :
     exact (fixed_from s hf k x).mpr (h1.mp hx)
   · exfalso
     have hb := List.length_filter_le
-      (s.closureFuel (s.trace.experiments.length + 1) ids).contains s.trace.experimentIds
+      (closureFuelRef s (s.trace.experiments.length + 1) ids).contains s.trace.experimentIds
     simp only [Trace.experimentIds, List.length_map] at hb
     unfold count at hle
     simp only [Trace.experimentIds] at hle
@@ -170,8 +194,8 @@ theorem closure_fixed (hwf : WellFormed s.trace) (ids : List String) :
 
 theorem mem_closure_iff {ids : List String} {x : String} :
     x ∈ s.closure ids ↔
-      x ∈ s.trace.experimentIds ∧ x ∈ s.closureFuel (s.trace.experiments.length + 1) ids := by
-  simp only [Scenario.closure, List.mem_filter, List.contains_iff_mem]
+      x ∈ s.trace.experimentIds ∧ x ∈ closureFuelRef s (s.trace.experiments.length + 1) ids := by
+  simp only [Scenario.closure, List.mem_filter, List.contains_iff_mem, closureFuel_eq_ref]
 
 theorem closure_closed (hwf : WellFormed s.trace) (ids : List String) :
     Closed s.trace (s.closure ids) := by
@@ -186,7 +210,7 @@ theorem closure_closed (hwf : WellFormed s.trace) (ids : List String) :
 
 theorem closure_subset {ids q : List String} (hq : Closed s.trace q) (h : ∀ x ∈ ids, x ∈ q) :
     ∀ x ∈ s.closure ids, x ∈ q := by
-  have hfuel : ∀ n, ∀ x ∈ s.closureFuel n ids, x ∈ q := by
+  have hfuel : ∀ n, ∀ x ∈ closureFuelRef s n ids, x ∈ q := by
     intro n
     induction n with
     | zero => exact h
@@ -211,6 +235,24 @@ theorem closure_subset {ids q : List String} (hq : Closed s.trace q) (h : ∀ x 
 theorem mem_closure {ids : List String} {x : String} (hx : x ∈ ids)
     (hE : x ∈ s.trace.experimentIds) : x ∈ s.closure ids :=
   (mem_closure_iff s).mpr ⟨hE, mem_closureFuel s hx⟩
+
+theorem closureFuelRef_mono {a b : List String} (h : ∀ x ∈ a, x ∈ b) (n : Nat) :
+    ∀ x ∈ closureFuelRef s n a, x ∈ closureFuelRef s n b := by
+  induction n with
+  | zero => exact h
+  | succ n ih =>
+    intro x hx
+    rw [closureFuel_succ] at hx ⊢
+    rcases (mem_closureStep s).mp hx with hx | ⟨z, hz, hzx⟩
+    · exact (mem_closureStep s).mpr (Or.inl (ih x hx))
+    · exact (mem_closureStep s).mpr (Or.inr ⟨z, ih z hz, hzx⟩)
+
+/-- More seeds, a larger closure (any trace). -/
+theorem closure_mono {a b : List String} (h : ∀ x ∈ a, x ∈ b) :
+    ∀ x ∈ s.closure a, x ∈ s.closure b := by
+  intro x hx
+  obtain ⟨hxE, hxf⟩ := (mem_closure_iff s).mp hx
+  exact (mem_closure_iff s).mpr ⟨hxE, closureFuelRef_mono s h _ x hxf⟩
 
 end Closure
 
@@ -486,6 +528,16 @@ theorem valid_of {X Y : List String} (T : String)
   intro x hx hs ha
   exact hv x hx hs (active_mono s x hle ha)
 
+def sublists {α : Type} : List α → List (List α)
+  | [] => [[]]
+  | x :: xs => let r := sublists xs; r ++ r.map (x :: ·)
+
+/-- The exhaustive search's candidates: closures of every subset of the relevant experiments that
+stay consistent. -/
+def candidates (c : Claim) : List (List String) :=
+  ((sublists ((s.relevant c).map (·.id))).map s.closure).filter fun p =>
+    (s.applySuccess p).valid c.subject
+
 theorem mem_sublists_of_sublist {α : Type} : ∀ {l' l : List α}, List.Sublist l' l →
     l' ∈ sublists l
   | _, _, .slnil => by simp [sublists]
@@ -504,7 +556,7 @@ def pruned (c : Claim) (q : List String) : List String :=
 than its pruned candidate, which lies inside `q`. -/
 theorem pruning (hwf : WellFormed s.trace) {c : Claim} (hc : c ∈ s.trace.claims)
     {q : List String} (hq : Closed s.trace q) (hqv : (s.applySuccess q).valid c.subject = true) :
-    pruned s c q ∈ s.candidates c ∧
+    pruned s c q ∈ candidates s c ∧
       ((s.applySuccess q).final c).rank ≤ ((s.applySuccess (pruned s c q)).final c).rank ∧
       ∀ x ∈ pruned s c q, x ∈ q := by
   have hsub : ∀ x ∈ pruned s c q, x ∈ q := closure_subset s hq fun x hx =>
@@ -541,7 +593,7 @@ theorem pruning (hwf : WellFormed s.trace) {c : Claim} (hc : c ∈ s.trace.claim
     Nat.le_antisymm (hle n) (applySuccess_covered s hwf (hcov n hn))
   have hPv : (s.applySuccess (pruned s c q)).valid c.subject = true := valid_of s c.subject hle hqv
   refine ⟨?_, ?_, hsub⟩
-  · unfold Scenario.candidates
+  · unfold candidates
     exact List.mem_filter.mpr ⟨List.mem_map.mpr ⟨_, mem_sublists_of_sublist List.filter_sublist,
       rfl⟩, by simpa using hPv⟩
   · simp only [Scenario.final, hqv, hPv, ↓reduceIte]
@@ -700,12 +752,208 @@ theorem fold_best (c : Claim) : ∀ (l : List (List String)) (acc : List String)
       by_cases hb : s.planBetter c p acc = true <;> simp [hb]
     · exact Or.inr (List.mem_cons_of_mem p hr)
 
+/-! ### Branch and bound = the exhaustive fold -/
+
+/-- The exhaustive search: every candidate folded in order (what `Scenario.best` computes). -/
+def bestRef (c : Claim) : List String :=
+  (candidates s c).foldl (fun acc p => if s.planBetter c p acc then p else acc) []
+
+def step (c : Claim) (acc p : List String) : List String :=
+  if s.planBetter c p acc then p else acc
+
+/-- The candidates below a search node, in the exhaustive order: closures of `inc` + each subset
+of `rest`, the consistent ones. -/
+def leaves (c : Claim) (inc rest : List String) : List (List String) :=
+  ((sublists rest).map fun xs => s.closure (inc ++ xs)).filter fun p =>
+    (s.applySuccess p).valid c.subject
+
+theorem lexLt_asymm {a b : List Nat} (h : lexLt a b = true) : lexLt b a = false := by
+  cases hb : lexLt b a
+  · rfl
+  · have := lexLt_trans a b a h hb
+    rw [lexLt_irrefl] at this
+    cases this
+
+/-- Pointwise higher counts stay lexicographically above whatever the lower ones are above. -/
+theorem lexLt_map_le_right {es : List Effort} {f g : Effort → Nat} (h : ∀ e, f e ≤ g e) :
+    ∀ c : List Nat, lexLt c (es.map f) = true → lexLt c (es.map g) = true := by
+  induction es with
+  | nil => intro c hc; cases c <;> simp [lexLt] at hc
+  | cons e es ih =>
+    intro c hc
+    cases c with
+    | nil => rfl
+    | cons z zs =>
+      simp only [List.map_cons, lexLt, Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq,
+        beq_iff_eq] at hc ⊢
+      have := h e
+      rcases hc with hc | ⟨hz, hc⟩
+      · exact Or.inl (Nat.lt_of_lt_of_le hc this)
+      · rcases Nat.lt_or_eq_of_le this with hlt | heq
+        · exact Or.inl (hz ▸ hlt)
+        · exact Or.inr ⟨hz.trans heq, ih zs hc⟩
+
+theorem mem_sublists_sub {α : Type} : ∀ {l xs : List α}, xs ∈ sublists l → ∀ x ∈ xs, x ∈ l
+  | [], xs, h => by simp [sublists] at h; subst h; intro x hx; cases hx
+  | a :: l, xs, h => by
+    simp only [sublists, List.mem_append, List.mem_map] at h
+    rcases h with h | ⟨ys, hys, rfl⟩
+    · exact fun x hx => List.mem_cons_of_mem a (mem_sublists_sub h x hx)
+    · intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact List.mem_cons_self
+      · exact List.mem_cons_of_mem a (mem_sublists_sub hys x hx)
+
+theorem eff_le_eff1 (n : String) : (s.eff n).strength ≤ (s.eff1 n).strength := by
+  unfold Scenario.eff
+  split
+  · exact Nat.le_refl _
+  · exact Nat.zero_le _
+
+/-- `optimistic` bounds the state of any scenario whose needs read no stronger. -/
+theorem final_le_optimistic {s t : Scenario} {c : Claim}
+    (hinc : t.incompatible c = s.incompatible c) (htr : t.trace = s.trace)
+    (hle : ∀ n ∈ c.needsAll, (s.eff n).strength ≤ (t.eff1 n).strength) :
+    (s.final c).rank ≤ (t.optimistic c).rank := by
+  unfold Scenario.final
+  split
+  · simp only [Scenario.intrinsic, Scenario.optimistic, hinc]
+    apply rank_ladder_mono
+    · simp only [Bool.or_eq_true, List.any_map, List.any_eq_true, Function.comp_apply,
+        beq_iff_eq]
+      rintro (⟨n, hn, hv⟩ | h)
+      · have hs : (s.eff n).strength ≤ 0 := by simpa only [hv, EStatus.strength] using hle n hn
+        exact Or.inl ⟨n, hn, strength_zero (Nat.le_zero.mp hs)⟩
+      · exact Or.inr h
+    · simp only [List.all_map, List.all_eq_true, Function.comp_apply, EStatus.verified,
+        beq_iff_eq]
+      intro h n hn
+      have := hle n hn; have := h n hn; have := strength_le_three (t.eff1 n)
+      omega
+    · simp only [List.all_eq_true, Scenario.restsOn, Scenario.mustVerify, htr, Bool.and_eq_true,
+        Bool.or_eq_true, Bool.not_eq_true', EStatus.asserted, EStatus.verified,
+        decide_eq_true_eq, beq_iff_eq]
+      intro h n hn
+      have := hle n hn; have := strength_le_three (t.eff1 n)
+      obtain ⟨ha, hm⟩ := h n hn
+      exact ⟨by omega, hm.imp id fun hv => by omega⟩
+  · exact Nat.zero_le _
+
+/-- No candidate inside the closure of `upper` ranks above its optimistic state (any trace). -/
+theorem descendant_bound (c : Claim) {leaf upper : List String} (h : ∀ x ∈ leaf, x ∈ upper) :
+    ((s.applySuccess (s.closure leaf)).final c).rank ≤
+      ((s.applySuccess (s.closure upper)).optimistic c).rank := by
+  apply final_le_optimistic (s := s.applySuccess (s.closure leaf))
+    (t := s.applySuccess (s.closure upper)) rfl rfl
+  intro n _
+  exact Nat.le_trans (eff_le_eff1 _ n) (applySuccess_mono s (closure_mono s h) n)
+
+/-- More seeds cost at least as much, effort by effort (any trace). -/
+theorem descendant_cost {inc leaf : List String} (h : ∀ x ∈ inc, x ∈ leaf) (e : Effort) :
+    effortCount s.trace (s.closure inc) e ≤ effortCount s.trace (s.closure leaf) e := by
+  rw [effortCount_eq, effortCount_eq]
+  unfold Scenario.closure
+  simp only [List.filter_filter, closureFuel_eq_ref]
+  apply filter_length_le
+  intro x _ hx
+  simp only [Bool.and_eq_true, List.contains_iff_mem] at hx ⊢
+  exact ⟨hx.1, closureFuelRef_mono s h _ x hx.2⟩
+
+theorem fold_unchanged (c : Claim) (best : List String) :
+    ∀ l : List (List String), (∀ p ∈ l, s.planBetter c p best = false) →
+      l.foldl (step s c) best = best
+  | [], _ => rfl
+  | p :: l, h => by
+    simp only [List.foldl_cons, step, h p List.mem_cons_self, Bool.false_eq_true, ↓reduceIte]
+    exact fold_unchanged c best l fun q hq => h q (List.mem_cons_of_mem p hq)
+
+/-- A skipped node holds no candidate that beats `best`. -/
+theorem skip_sound (c : Claim) {inc rest best : List String}
+    (h : s.skips c inc rest best = true) :
+    ∀ p ∈ leaves s c inc rest, s.planBetter c p best = false := by
+  intro p hp
+  obtain ⟨hmap, hpv⟩ := List.mem_filter.mp hp
+  obtain ⟨xs, hxs, rfl⟩ := List.mem_map.mp hmap
+  have hlo : ∀ x ∈ inc, x ∈ inc ++ xs := fun x hx => List.mem_append_left _ hx
+  have hup : ∀ x ∈ inc ++ xs, x ∈ inc ++ rest := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact List.mem_append_left _ hx
+    · exact List.mem_append_right _ (mem_sublists_sub hxs x hx)
+  have hle := applySuccess_mono s (closure_mono s hlo)
+  unfold Scenario.skips at h
+  by_cases hv : (s.applySuccess (s.closure inc)).valid c.subject = true
+  · simp only [hv, Bool.not_true, Bool.false_eq_true, ↓reduceIte, Bool.or_eq_true,
+      Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at h
+    have hb := descendant_bound s c hup
+    have hcost : lexLt (costOf s.trace best) (costOf s.trace (s.closure inc)) = true →
+        lexLt (costOf s.trace best) (costOf s.trace (s.closure (inc ++ xs))) = true := by
+      intro hl
+      rw [costOf_eq] at hl ⊢
+      exact lexLt_map_le_right (fun e => descendant_cost s hlo e) _ hl
+    unfold Scenario.planBetter
+    simp only [Bool.or_eq_false_iff, Bool.and_eq_false_iff, decide_eq_false_iff_not,
+      beq_eq_false_iff_ne, ne_eq]
+    rcases h with h | ⟨heq, hl⟩
+    · exact ⟨by omega, Or.inl (by omega)⟩
+    · have hl' := hcost hl
+      refine ⟨by omega, ?_⟩
+      by_cases hr : ((s.applySuccess (s.closure (inc ++ xs))).final c).rank =
+          ((s.applySuccess best).final c).rank
+      · refine Or.inr ⟨by simp [lexLt_asymm hl'], Or.inl fun hc => ?_⟩
+        rw [hc, lexLt_irrefl] at hl'
+        cases hl'
+      · exact Or.inl hr
+  · exfalso
+    exact hv (valid_of s c.subject hle hpv)
+
+theorem leaves_nil (c : Claim) (inc : List String) :
+    leaves s c inc [] = [s.closure inc].filter fun p => (s.applySuccess p).valid c.subject := by
+  simp [leaves, sublists]
+
+theorem leaves_cons (c : Claim) (inc : List String) (r : String) (rest : List String) :
+    leaves s c inc (r :: rest) = leaves s c inc rest ++ leaves s c (inc ++ [r]) rest := by
+  simp only [leaves, sublists, List.map_append, List.map_map, List.filter_append]
+  congr 2
+  apply List.map_congr_left
+  intro xs _
+  simp
+
+/-- The branch and bound returns what the exhaustive fold over its leaves returns. -/
+theorem search_eq (c : Claim) : ∀ (rest inc best : List String),
+    s.search c inc rest best = (leaves s c inc rest).foldl (step s c) best
+  | [], inc, best => by
+    rw [leaves_nil]
+    simp only [Scenario.search]
+    by_cases hv : (s.applySuccess (s.closure inc)).valid c.subject = true
+    · simp only [hv, Bool.true_and, List.filter_cons_of_pos, List.filter_nil, List.foldl_cons,
+        List.foldl_nil, step]
+    · simp only [hv, Bool.false_and, Bool.false_eq_true, ↓reduceIte, List.filter_cons_of_neg,
+        not_false_eq_true, List.filter_nil, List.foldl_nil]
+  | r :: rest, inc, best => by
+    rw [leaves_cons, List.foldl_append]
+    simp only [Scenario.search]
+    split
+    · rename_i hs
+      have h := skip_sound s c hs
+      rw [leaves_cons] at h
+      rw [fold_unchanged s c best _ fun p hp => h p (List.mem_append_left _ hp),
+        fold_unchanged s c best _ fun p hp => h p (List.mem_append_right _ hp)]
+    · rw [search_eq c rest inc best, search_eq c rest (inc ++ [r])]
+
+theorem best_eq_ref (c : Claim) : s.best c = bestRef s c := by
+  unfold Scenario.best bestRef candidates
+  rw [search_eq]
+  simp only [leaves, List.nil_append]
+  rfl
+
 theorem best_spec (c : Claim) :
-    (s.best c = [] ∨ s.best c ∈ s.candidates c) ∧
-      ∀ p ∈ s.candidates c, NoBetter s c p (s.best c) := by
-  have h := fold_best s c (s.candidates c) [] [[]] fun p hp => by
+    (s.best c = [] ∨ s.best c ∈ candidates s c) ∧
+      ∀ p ∈ candidates s c, NoBetter s c p (s.best c) := by
+  rw [best_eq_ref]
+  have h := fold_best s c (candidates s c) [] [[]] fun p hp => by
     rw [List.mem_singleton.mp hp]; exact noBetter_self s c []
-  unfold Scenario.best
+  unfold bestRef
   exact ⟨h.1, fun p hp => h.2 p (List.mem_append_right _ hp)⟩
 
 theorem applySuccess_nil : s.applySuccess [] = s := by
@@ -746,7 +994,7 @@ theorem planSound : Spec.PlanSound := by
   rcases (best_spec s c).1 with h0 | h0
   · rw [h0, applySuccess_nil]
     exact ⟨(fun _ hid => nomatch hid), hv, rfl⟩
-  · unfold Scenario.candidates at h0
+  · unfold candidates at h0
     obtain ⟨hmap, hval⟩ := List.mem_filter.mp h0
     obtain ⟨S, _, hS⟩ := List.mem_map.mp hmap
     refine ⟨?_, by simpa using hval, rfl⟩

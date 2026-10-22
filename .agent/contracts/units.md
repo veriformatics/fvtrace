@@ -27,3 +27,9 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | U4 export bundler | kernel (shell, security) | export page = the GUI's modules bundled, imports resolved, nothing else | Tests/Export red on the ported `app.js`; mutation credit (Export) |
 | U5 GUI | data | Decisions GUI; `.claude/rules/web.md` | `web/envelope.js` decoder; e2e + axe + reduced motion + palette; operator visual QA |
 | U6 examples + docs | data (examples) + docs | `.claude/rules/examples.md`; `CLAUDE.md` Authoring | gate `examples`; consistency pass (L-CLAIM) |
+
+# Units → tier → contract → evidence (MAINTAIN — deferred rows)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| plan search (branch and bound) | kernel | `kernel.md` § Plans (search, bound, skip rule, closure early exit) | `search_eq` + `best_eq_ref` (search = the exhaustive fold) ⇒ G4a + G4b unchanged; `fvtrace-trust` + independent replay; consultant-3 before code; Tests/Engine `scaleTests` (red: the old engine times out) |

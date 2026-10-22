@@ -222,7 +222,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "99d5285bc7bed27c4e3d89a8c9a34f59372d16d88cecf97ca8f77d5aecd6a879",
+            "sha256": "9921882a6200c400d22887736ecf81c20d2215479e7eea458f12b98bc286cc95",
             "role": "proof"
           }
         ],
@@ -256,7 +256,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "99d5285bc7bed27c4e3d89a8c9a34f59372d16d88cecf97ca8f77d5aecd6a879",
+            "sha256": "9921882a6200c400d22887736ecf81c20d2215479e7eea458f12b98bc286cc95",
             "role": "proof"
           }
         ],
@@ -535,7 +535,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
-            "sha256": "99d5285bc7bed27c4e3d89a8c9a34f59372d16d88cecf97ca8f77d5aecd6a879"
+            "sha256": "9921882a6200c400d22887736ecf81c20d2215479e7eea458f12b98bc286cc95"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",

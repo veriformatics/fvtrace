@@ -208,9 +208,12 @@ def closureStep (ids : List String) : List String :=
          | none => [])
     | none => []
 
+/-- Steps until a step adds nothing (each later step would repeat it) or the fuel runs out. -/
 def closureFuel : Nat → List String → List String
   | 0, ids => ids
-  | n + 1, ids => closureFuel n (closureStep s ids)
+  | n + 1, ids =>
+    let next := closureStep s ids
+    if next == ids then ids else closureFuel n next
 
 /-- The least prerequisite-closed set containing `ids`, in trace order (a fixed point: every
 experiment enters within `experiments.length` steps). -/
@@ -281,10 +284,6 @@ def idsLt : List String → List String → Bool
   | _ :: _, [] => false
   | a :: as, b :: bs => a < b || (a == b && idsLt as bs)
 
-def sublists {α : Type} : List α → List (List α)
-  | [] => [[]]
-  | x :: xs => let r := sublists xs; r ++ r.map (x :: ·)
-
 /-- Plan search stops claiming an optimum above this many relevant experiments. -/
 def maxRelevant : Nat := 20
 
@@ -339,13 +338,40 @@ def planBetter (c : Claim) (a b : List String) : Bool :=
   ra > rb || (ra == rb && (lexLt (costOf s.trace a) (costOf s.trace b) ||
     (costOf s.trace a == costOf s.trace b && idsLt a b)))
 
-/-- Closed candidates (closures of subsets of the relevant experiments) that stay consistent. -/
-def candidates (c : Claim) : List (List String) :=
-  ((sublists ((s.relevant c).map (·.id))).map s.closure).filter fun p =>
-    (s.applySuccess p).valid c.subject
+/-- The highest state a success set can give `c` when it applies at most what this scenario
+applies: needs read on `eff1` (a derived violation or a conflict on the subject only lowers a
+state; incompatible needs do not depend on the set). -/
+def optimistic (c : Claim) : State :=
+  let sts := c.needsAll.map s.eff1
+  if sts.any (· == .violated) || !(s.incompatible c).isEmpty then .cannot
+  else if sts.all (·.verified) then .can
+  else if c.needsAll.all (fun n => (s.eff1 n).asserted && (!s.mustVerify n || (s.eff1 n).verified))
+    then .conditional
+  else .«open»
 
-def best (c : Claim) : List String :=
-  (s.candidates c).foldl (fun acc p => if s.planBetter c p acc then p else acc) []
+/-- No candidate seeded by `inc` + some of `rest` beats `best`: the seeds `inc` already conflict
+(more successes keep the conflict), or none can rank above `best` and the seeds alone cost more
+(every such candidate costs at least as much, effort by effort). -/
+def skips (c : Claim) (inc rest best : List String) : Bool :=
+  let lo := s.closure inc
+  if !(s.applySuccess lo).valid c.subject then true
+  else
+    let bound := ((s.applySuccess (s.closure (inc ++ rest))).optimistic c).rank
+    let rank := ((s.applySuccess best).final c).rank
+    bound < rank || (bound == rank && lexLt (costOf s.trace best) (costOf s.trace lo))
+
+/-- Branch and bound over the relevant experiments `rest`, each one first left out of the seeds,
+then put in (the order of the exhaustive search over every subset); a candidate = the closure of
+its seeds, kept when it stays consistent and beats `best` (proved equal to that search). -/
+def search (c : Claim) : List String → List String → List String → List String
+  | inc, [], best =>
+    let p := s.closure inc
+    if (s.applySuccess p).valid c.subject && s.planBetter c p best then p else best
+  | inc, r :: rest, best =>
+    if s.skips c inc (r :: rest) best then best
+    else search c (inc ++ [r]) rest (search c inc rest best)
+
+def best (c : Claim) : List String := s.search c [] ((s.relevant c).map (·.id)) []
 
 def plan (c : Claim) : PlanResult :=
   let cov := s.coverage c
