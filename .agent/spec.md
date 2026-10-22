@@ -41,18 +41,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [x] 3f7a0f0 U1 spike: route decided (Lean C → Emscripten 6.0.12 standalone wasm; parity + CSP + 3 browsers) → `.agent/archive/wasm-spike.md`
-- [x] 916c71f U2 contract: `kernel.md` § Page engine + `units.md` table (consultant before code)
-- [x] 74105ff U3 `Receipt.Basic` split
-- [x] 0aafd59 U4 `Fvtrace.Snapshot` (codec + evaluate)
-- [x] a72f198 U5 wasm build in `lake build`
-- [x] cfbfaf8 U6 export page v2 + GUI engine
-- [x] a700644 U7 docs + rules + Decisions
-- [ ] U8 closing review
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
 
-IMPLEMENT — export: live what-ifs (WebAssembly)
-> Live stacked what-ifs in the HTML export (export precomputes one-click what-ifs only): the engine compiled to WebAssembly (Lean C output through Emscripten; `lean.h` carries `LEAN_EMSCRIPTEN`) runs in the exported page. Acceptance: an exported page, opened from `file://` offline, evaluates a two-fact what-if and matches `fvtrace claims --whatif` for the same overrides.
-> (user ruling: route to IMPLEMENT; body to paste = `.agent/route.md`)
+MAINTAIN — whole product
