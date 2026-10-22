@@ -475,12 +475,17 @@
         "artifacts": [
           {
             "path": "Fvtrace/Receipt.lean",
-            "sha256": "e26951f991d3b1d51e267145103aa2a6d8a0b42d0dfcc319ac8dc7cf5359b62e",
+            "sha256": "a9163820c5d633c36207af1c5c0d1aa7e844f2c4e1a64f05882b0dd9f82183fb",
+            "role": "code"
+          },
+          {
+            "path": "Fvtrace/Receipt/Basic.lean",
+            "sha256": "bf005623b65c36a8b1b7868efbb8b46e6074cc20dfb97b35d9c58be4db5f9a92",
             "role": "code"
           },
           {
             "path": "Tests/Receipt.lean",
-            "sha256": "0bcca0edf527800380e8797f549d77647ccfc4cd4fce44785d0f8e908db1d217",
+            "sha256": "af441f8bbd276344ee464c6955843a61f092fcffaac58ddba9d56d886e7f4759",
             "role": "tests"
           }
         ],

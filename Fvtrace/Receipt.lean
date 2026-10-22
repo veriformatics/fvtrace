@@ -4,6 +4,7 @@ import Fvtrace.Digest
 import Fvtrace.Encode
 import Fvtrace.Json
 import Fvtrace.Model
+import Fvtrace.Receipt.Basic
 
 /-!
 # Receipts + review record (contract § Receipts, § Review)
@@ -113,15 +114,6 @@ def Cache.save (c : Cache) (file : System.FilePath) : IO Unit := do
 
 /-! ## Binding -/
 
-structure Binding where
-  /-- Fact or exclusion id. -/
-  id : String
-  current : Bool
-  /-- `changed <path>` · `missing <path>` · `outside <path>` · `not a file <path>` ·
-  `statement-changed`. -/
-  reasons : List String
-  deriving Repr, BEq
-
 def bind (root : System.FilePath) (cache : IO.Ref Cache) (rehash : Bool) (id : String)
     (ev : Option Evidence) (manifest : Value) : IO Binding := do
   let some ev := ev | return { id, current := false, reasons := ["no receipt"] }
@@ -191,21 +183,6 @@ def pin (t : Trace) (root : System.FilePath) (cache : IO.Ref Cache) :
 /-- SHA-256 of the canonical trace without its review record (contract § Review). -/
 def reviewDigest (t : Trace) : IO String :=
   Digest.ofString (Encode.trace { t with review := none }).canonical
-
-inductive ReviewState where
-  | draft
-  | stale
-  | reviewed
-  deriving DecidableEq, Repr
-
-def ReviewState.name : ReviewState → String
-  | .draft => "draft" | .stale => "stale" | .reviewed => "reviewed"
-
-/-- The review state for a given content digest (contract § Review). -/
-def reviewStateOf (t : Trace) (digest : String) : ReviewState :=
-  match t.review with
-  | none => .draft
-  | some r => if r.digest == digest then .reviewed else .stale
 
 /-- A draft needs no digest, which keeps FFI-free callers FFI-free (the interpreted suite). -/
 def reviewState (t : Trace) : IO ReviewState := do

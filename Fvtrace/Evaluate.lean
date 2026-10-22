@@ -2,7 +2,7 @@ import Fvtrace.Engine
 import Fvtrace.Encode
 import Fvtrace.Json
 import Fvtrace.Lint
-import Fvtrace.Receipt
+import Fvtrace.Receipt.Basic
 
 /-!
 # Evaluation envelope (`fvtrace.evaluation/1`)
