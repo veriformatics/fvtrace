@@ -137,6 +137,16 @@ def tests : TestM Unit := do
     ((Overrides.parse t "Z9=assumed").toOption.isNone)
   check "engine: duplicate what-if is rejected"
     ((Overrides.parse t "O2=checked,O2=assumed").toOption.isNone)
+  -- The GUI shows a refusal as `<message>. This page shows …` and the CLI as `fvtrace: <message>`:
+  -- each message opens with the token it rejects, so it reads right on both.
+  let refusal := fun (spec : String) =>
+    match Overrides.parse t spec with | .error m => m | .ok _ => ""
+  checkEq "engine: an unknown fact opens its refusal" (refusal "Z9=assumed")
+    "\"Z9\" is not a fact on record"
+  checkEq "engine: an unknown status opens its refusal" (refusal "O2=bogus")
+    "\"bogus\" is not a status"
+  checkEq "engine: a malformed entry opens its refusal" (refusal "O2")
+    "\"O2\" is not of the form FACT=STATUS"
 
 /-- Contract regression witnesses + acceptance cases (kernel.md) beyond `tests`. -/
 def witnessTests : TestM Unit := do
@@ -340,7 +350,7 @@ def kindTests : TestM Unit := do
     ((Overrides.parse t "O2=assumed").toOption.isNone)
   checkEq "engine: the refusal says the fact must be verified"
     (match Overrides.parse t "O2=assumed" with | .error m => m | .ok _ => "")
-    "O2 cannot be assumed: facts of kind result must be verified"
+    "O2 cannot be assumed: facts of its kind must be verified"
   checkEq "engine: the what-if may assume a background condition"
     (Overrides.parse t "O3=assumed").toOption (some [("O3", .assumed)])
 
