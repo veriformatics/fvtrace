@@ -217,6 +217,7 @@ def tests : TestM Unit := do
     check "store: a symlink to the project can be made" linked
     let (_, pl, _) ← capture (Cli.runIn away ["path", "--project", "link"])
     checkEq "store: a symlinked folder shares its target's entry" (line pl) trace
+    unlink (dir / "link")
     -- An entry keeps the folder name's letters, digits, `-`, `_` + `.`; any other character → `-`.
     IO.FS.createDirAll (dir / "my_proj.v-2 x")
     let (_, pn, _) ← capture (Cli.runIn away ["path", "--project", "my_proj.v-2 x"])

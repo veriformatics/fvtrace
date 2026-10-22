@@ -58,6 +58,12 @@ def symlink (target link : System.FilePath) : IO Bool := do
     IO.eprintln s!"symlink {link} → {target} (rc {out.exitCode}): {out.stderr.trimAscii.toString}"
   return out.exitCode == 0
 
+/-- Removes a link itself, never what it points at: a link to a folder goes with rmdir on Windows,
+with unlink elsewhere. A test removes each link it made, since Lean 4.35's `removeDirAll` (the temp
+folder's cleanup) enters a link to a folder on Windows. -/
+def unlink (link : System.FilePath) : IO Unit :=
+  try IO.FS.removeFile link catch _ => IO.FS.removeDir link
+
 /-- Runs one suite area + records its wall-clock (the gate prints a suite's slowest parts). An
 exception fails the area as one more check and the next areas still run, so one run (a CI job on
 another platform) reports every failure. -/

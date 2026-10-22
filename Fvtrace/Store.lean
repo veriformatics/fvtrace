@@ -101,6 +101,24 @@ def resolve (env : Env) (project trace : Option String) : IO (Except String Targ
   let entry := env.home / (← entryName root)
   return .ok { trace := file.getD (entry / "trace.json"), project := root, entry }
 
+/-- `path` (present or a dangling link) is a link: its real path is not its folder's real path +
+its name. Lean 4.35's `symlinkMetadata` follows links on Windows (it is `metadata` there), so the
+test goes through real paths. -/
+def isLink (path : System.FilePath) : IO Bool := do
+  let some parent := path.parent | return false
+  let some name := path.fileName | return false
+  try return (← IO.FS.realPath path) != (← IO.FS.realPath parent) / name
+  catch _ => return true
+
+/-- Deletes `dir` and everything in it, removing each link itself instead of entering it (Lean
+4.35's `removeDirAll` enters a link to a folder on Windows and deletes what it points at). -/
+partial def removeTree (dir : System.FilePath) : IO Unit := do
+  for ent in ← dir.readDir do
+    if (← ent.path.isDir) && !(← isLink ent.path) then removeTree ent.path
+    -- A link to a folder goes with rmdir on Windows, with unlink elsewhere.
+    else try IO.FS.removeFile ent.path catch _ => IO.FS.removeDir ent.path
+  IO.FS.removeDir dir
+
 /-- A well-formed trace to start from: the analysis + the existing subject, nothing claimed. -/
 def starter (project : System.FilePath) : Trace :=
   let name := project.fileName.getD ""

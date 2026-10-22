@@ -78,6 +78,27 @@ def skillTests : TestM Unit := do
       (dir / "skills").toString])
     checkEq "skills: a linked skill folder is refused" rc 1
     check "skills: the link's target keeps its files" (← (target / "keep.txt").pathExists)
+    check "skills: a link reads as a link, its target as a folder"
+      ((← Fvtrace.Store.isLink (dir / "skills" / "fvtrace")) && !(← Fvtrace.Store.isLink target))
+    unlink (dir / "skills" / "fvtrace")
+    IO.FS.writeFile (dir / "gone.txt") "soon gone"
+    let dangling ← symlink (dir / "gone.txt") (dir / "dangling")
+    IO.FS.removeFile (dir / "gone.txt")
+    check "skills: a dangling link reads as a link"
+      (dangling && (← Fvtrace.Store.isLink (dir / "dangling")))
+    unlink (dir / "dangling")
+    -- A link planted inside an installed copy goes with the copy; what it points at stays.
+    let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir",
+      (dir / "skills").toString])
+    checkEq "skills: install beside the removed link rc" rc 0
+    let planted ← symlink target (dir / "skills" / "fvtrace" / "planted")
+    check "skills: a link can be planted in the installed copy" planted
+    let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir",
+      (dir / "skills").toString])
+    checkEq "skills: reinstall over a planted link rc" rc 0
+    check "skills: reinstall removes the planted link, not what it points at"
+      ((← (target / "keep.txt").pathExists) &&
+        !(← (dir / "skills" / "fvtrace" / "planted").pathExists))
   let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--agent", "vim"])
   checkEq "skills: an unknown agent rc" rc 2
   let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills"])

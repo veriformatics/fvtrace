@@ -522,11 +522,11 @@ def installSkill (root : System.FilePath) : IO (Except String System.FilePath) :
   let dir := root / "fvtrace"
   if ← dir.pathExists then
     -- A link would make the replacement delete the files it points at.
-    if (← dir.symlinkMetadata).type == .symlink then
+    if ← Store.isLink dir then
       return .error s!"{dir} is a link; remove it or give --dir"
     unless ← (dir / skillMarker).pathExists do
       return .error s!"{dir} exists and was not written by fvtrace; remove it or give --dir"
-    IO.FS.removeDirAll dir
+    Store.removeTree dir
   for (path, body) in FvtraceSkill.files do
     let dest := dir / path
     if let some parent := dest.parent then IO.FS.createDirAll parent
