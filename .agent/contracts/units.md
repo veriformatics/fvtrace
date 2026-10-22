@@ -40,3 +40,16 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | tour card placement | data (GUI) | `.claude/rules/web.md` tour law | e2e walks every step at 1280×720 + 390×844 on the synthetic study + the fixture with violated facts and a missing check (red: 5–6 desktop + 3 phone overlaps); screenshots of all 15 steps at both widths |
 | mutation tool: `!·` sites | kernel (gate tool) | `.claude/rules/lean.md` mutation credit | `--list` shows Evaluate.lean:178 (absent before); campaigns over the 5 sites: 5/5 killed, 0 survivors |
 | verifier replay | kernel (shell, security) | `kernel.md` § Replay; Decisions Evidence binding (user rulings) | consultant-4 before code (V4 build dependency + V6 sequencing adopted; V2 security ruled by MAIN); schema corpus 7 cases (Node + Lean halves); Tests/Replay 18 checks (fixture verifier = the test binary); self-trace acceptance (`maxRelevant` 20 → 0: receipts current, P6 + P7 replays fail); mutation credit on Replay.lean + the CLI |
+
+# Units → tier → contract → evidence (IMPLEMENT — export: live what-ifs)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| U1 spike | — | `.agent/route.md` first unit: build route decided before design | `.agent/archive/wasm-spike.md` (parity, size, timing, determinism, CSP control, Chromium + Firefox + WebKit) |
+| U2 contract | kernel | `kernel.md` § Page engine, envelope actions, trusted base | consultant before code |
+| U3 receipt split | kernel (refactor) | behavior unchanged: `Binding` + `ReviewState` → `Fvtrace/Receipt/Basic.lean` (Std-free) | unchanged suites green; self-trace re-pinned |
+| U4 snapshot | kernel | E-snap, E-eval | Tests/Snapshot: round trip on both examples + fixtures, `evaluate` = native envelope `.pretty` over every action + seeded stacks, problem kinds, damaged + misshapen input; test-binary hook `--evaluate-snapshot`; red first; mutation credit on `Fvtrace/Snapshot.lean` |
+| U5 wasm build | kernel (build) | E-build, E-wasm (closure) | Tests/Wasm (lock, platform, manifest, wasm parser, link contract, warnings); probes (archive + manifest digest mismatch, unexpected import, missing or wrong-kind export, new link warning); two clean builds in different folders `cmp`; incremental witness (engine change ⇒ new embedded bytes; rerun reuses); gate timings cold + warm; Renovate extraction test; macOS + Windows = CI run (user push) |
+| U6 export page + GUI engine | kernel (shell, security: Export, E-abi bridge + `web/engine.js`) + data (GUI rendering) | E-page, E-abi, E-gui, E-sec; `.claude/rules/web.md` | Tests/Export; differential test (E-wasm classes; Node + Chromium); e2e file:// offline (two-fact stack, linked spec, refused spec, legacy action, engine failure, latest request wins); axe; mutation credit on Export; L-SEC (MAIN) |
+| U7 docs + rules | docs | README, skill, SECURITY, rules (web.md exported flow), Decisions | consistency pass (L-CLAIM): proofs of definitions vs tests of the compiled adapter vs export-time receipts |
+| U8 closing review | — | lenses fixed before reading | `.agent/review.md` |
