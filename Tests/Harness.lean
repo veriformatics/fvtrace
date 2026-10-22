@@ -12,10 +12,11 @@ structure Run where
   /-- Wall-clock (ms) per suite area, in run order. -/
   times : Array (String × Nat) := #[]
 
-abbrev TestM := StateT Run IO
+/-- The record lives in a reference, so an exception keeps what an area recorded before it. -/
+abbrev TestM := ReaderT (IO.Ref Run) IO
 
-def check (name : String) (ok : Bool) (detail : String := "") : TestM Unit :=
-  modify fun r => { r with outcomes := r.outcomes.push { name, ok, detail } }
+def check (name : String) (ok : Bool) (detail : String := "") : TestM Unit := do
+  (← read).modify fun r => { r with outcomes := r.outcomes.push { name, ok, detail } }
 
 def checkEq {α : Type} [BEq α] [Repr α] (name : String) (got want : α) : TestM Unit :=
   check name (got == want) s!"got {repr got}, want {repr want}"
@@ -51,12 +52,20 @@ def symlink (target link : System.FilePath) (dir : Bool) : IO Bool := do
     else IO.Process.output { cmd := "ln", args := #["-s", target.toString, link.toString] }
   return out.exitCode == 0
 
-/-- Runs one suite area + records its wall-clock (the gate prints a suite's slowest parts). -/
+/-- Runs one suite area + records its wall-clock (the gate prints a suite's slowest parts). An
+exception fails the area as one more check and the next areas still run, so one run (a CI job on
+another platform) reports every failure. -/
 def area (name : String) (suite : TestM Unit) : TestM Unit := do
   let t0 ← IO.monoMsNow
-  suite
+  try suite catch e => check s!"{name}: the area runs to its end" false (toString e)
   let ms := (← IO.monoMsNow) - t0
-  modify fun r => { r with times := r.times.push (name, ms) }
+  (← read).modify fun r => { r with times := r.times.push (name, ms) }
+
+/-- Runs `suite` from an empty record. -/
+def exec (suite : TestM Unit) : IO Run := do
+  let ref ← IO.mkRef {}
+  suite ref
+  ref.get
 
 /-- Prints each failure + a summary with the three slowest areas; rc 0 iff every check passed. -/
 def report (r : Run) : IO UInt32 := do

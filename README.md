@@ -35,8 +35,8 @@ vouches for them once. Until a reviewer signs off the trace, every verdict is pr
 fvTrace is one program, `fvtrace`. To build it from source:
 
 1. Install [elan](https://github.com/leanprover/elan) (the Lean toolchain manager) and a C
-   compiler (`cc`). On Windows, the build uses MinGW `gcc` (set `CC=gcc`); Windows and macOS
-   builds are not tested yet.
+   compiler (`cc`). On Windows, the build uses MinGW `gcc` (set `CC=gcc`). CI builds and tests
+   fvTrace on Linux, macOS and Windows.
 2. In this folder, run `lake build fvtrace`.
 3. Copy `.lake/build/bin/fvtrace` to a folder on your `PATH`.
 4. Run `fvtrace --version` to check the installation.

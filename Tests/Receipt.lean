@@ -89,8 +89,8 @@ def tests : TestM Unit := do
     IO.FS.removeDirAll (root / "proofs" / "Contrast.lean")
     IO.FS.withTempDir fun outside => do
       IO.FS.writeFile (outside / "secret.txt") "not part of the project\n"
-      let _ ← IO.Process.output { cmd := "ln", args := #["-s", (outside / "secret.txt").toString,
-        (root / "proofs" / "Contrast.lean").toString] }
+      let linked ← symlink (outside / "secret.txt") (root / "proofs" / "Contrast.lean") false
+      check "receipt: the escaping link exists" linked
       checkEq "receipt: a symlink out of the project is refused" (← reasonsOf pinned root "O1")
         ["outside proofs/Contrast.lean"]
     let reworded := mapFact pinned "O1" fun f => { f with text := f.text ++ " Revised." }
