@@ -44,12 +44,18 @@ def capture {α : Type} (act : IO α) : IO (α × String × String) := do
   let e := String.fromUTF8! (← err.get).data
   return (r, o, e)
 
-/-- Creates `link` → `target` (`ln -s`; `mklink` on Windows, where CI runs as administrator). -/
-def symlink (target link : System.FilePath) (dir : Bool) : IO Bool := do
+/-- Creates `link` → `target` (an existing file or folder): `ln -s`; on Windows (CI runs as an
+administrator, who may create links) PowerShell's `New-Item`, one `-Command` string: Lean quotes
+every argument, and cmd.exe misreads a quoted `/c`. A failure prints the command's stderr. -/
+def symlink (target link : System.FilePath) : IO Bool := do
+  let quote := fun (p : System.FilePath) => "'" ++ p.toString.replace "'" "''" ++ "'"
   let out ← if System.Platform.isWindows then
-      IO.Process.output { cmd := "cmd", args := #["/c", "mklink"] ++
-        (if dir then #["/D"] else #[]) ++ #[link.toString, target.toString] }
+      IO.Process.output { cmd := "powershell", args := #["-NoProfile", "-NonInteractive",
+        "-Command",
+        s!"New-Item -ItemType SymbolicLink -Path {quote link} -Target {quote target} | Out-Null"] }
     else IO.Process.output { cmd := "ln", args := #["-s", target.toString, link.toString] }
+  unless out.exitCode == 0 do
+    IO.eprintln s!"symlink {link} → {target} (rc {out.exitCode}): {out.stderr.trimAscii.toString}"
   return out.exitCode == 0
 
 /-- Runs one suite area + records its wall-clock (the gate prints a suite's slowest parts). An

@@ -213,7 +213,7 @@ def tests : TestM Unit := do
     let (_, pa, _) ← capture (Cli.runIn away ["path", "--project", "a/analysis"])
     let (_, pb, _) ← capture (Cli.runIn away ["path", "--project", "b/analysis"])
     check "store: same-named folders get distinct entries" (line pa != line pb) s!"{pa} {pb}"
-    let linked ← symlink proj (dir / "link") true
+    let linked ← symlink proj (dir / "link")
     check "store: a symlink to the project can be made" linked
     let (_, pl, _) ← capture (Cli.runIn away ["path", "--project", "link"])
     checkEq "store: a symlinked folder shares its target's entry" (line pl) trace
