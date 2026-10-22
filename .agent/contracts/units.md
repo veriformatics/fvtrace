@@ -32,6 +32,7 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 
 | unit | tier | contract | evidence |
 |---|---|---|---|
+| CodeQL code scanning | kernel (CI) | `.claude/rules/ops.md` CI | local CodeQL 2.27.2 pre-scan 0 results; first run on `main` (a948e45, run 39707898418) green, code scanning 0 open alerts (103 JS / 23 actions / 95 C rules) |
 | plan search (branch and bound) | kernel | `kernel.md` § Plans (search, bound, skip rule, closure early exit) | `search_eq` + `best_eq_ref` (search = the exhaustive fold) ⇒ G4a + G4b unchanged; `fvtrace-trust` + independent replay; consultant-3 before code; Tests/Engine `scaleTests` (red: the old engine times out) |
 | portability (CRLF checkout) | kernel (gate) | `.gitattributes`; `.claude/rules/lean.md` Tests | Windows CI log (bundler + `Tests/Assets` on CRLF); local `core.autocrlf=true` clone: 20 FAIL before, LF after; Tests/Harness keeps every area's record past an exception; owed: both portability jobs green on the push |
 | plan notes for violated needs | kernel (shell: CLI text) + data (GUI) | `kernel.md` § Plans coverage (uncovered needs); `.claude/rules/web.md` (display of engine fields) | CLI test + e2e case on the fixture under `#whatif=O1=violated`, both red on the unfixed code; screenshot of C1's details |
