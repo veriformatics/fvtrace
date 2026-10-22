@@ -152,6 +152,20 @@ probe_replay_policy() {
     allow replay-optional-kernel-declines replay_policy "$log" 1
 }
 
+# The replay is skipped only for the very key that passed: an export one byte off, or no record,
+# replays.
+probe_trust_cache() {
+    local keyfile="$backup/replayed" export="$backup/export.ndjson" key
+    printf '{"planted":1}\n' >"$export"
+    key="$(replay_key "$export")"
+    printf '%s\n' "$key" >"$keyfile"
+    allow trust-cache-hit replay_cached "$keyfile" "$key"
+    printf '{"planted":2}\n' >"$export"
+    expect trust-cache-changed-export 'replay needed' replay_cached "$keyfile" "$(replay_key "$export")"
+    rm -f "$keyfile"
+    expect trust-cache-no-record 'replay needed' replay_cached "$keyfile" "$key"
+}
+
 probe_audit() {
     keep lake-manifest.json
     jq '.packages = [{"name": "planted"}]' lake-manifest.json >"$backup/m.json" && cp "$backup/m.json" lake-manifest.json
@@ -217,7 +231,7 @@ probe_examples() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style meta trust replay_policy audit vendor cli lean_pure palette assets examples)
+    probes=(lean_style meta trust replay_policy trust_cache audit vendor cli lean_pure palette assets examples)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
