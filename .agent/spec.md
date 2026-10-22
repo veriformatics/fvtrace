@@ -41,6 +41,10 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] update automation (row 1): Renovate app install = owed (user)
+- [ ] secret scanning + push protection (row 2): owed (user approval)
+- [ ] private vulnerability reporting + `SECURITY.md` (row 3; draft `.scratch/s3/SECURITY.md`): owed (user approval)
+- [ ] close: rules upkeep, Tasks → `.agent/archive/maintain-deferred-2.md`, scratch + temp cleanup, full gate on a clean tree
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
