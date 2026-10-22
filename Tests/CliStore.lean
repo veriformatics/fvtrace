@@ -144,6 +144,11 @@ def tests : TestM Unit := do
       out
     check "cli: plan sets apart a fact at its route's ceiling"
       (count out "Stays as it is: O3 (no route allows a stronger status)." == 1) out
+    let (rc, out, _) ← run ["plan", "C1", "--whatif", "O1=violated"]
+    checkEq "cli: plan under a violated need rc" rc 0
+    check "cli: plan names a violated need apart from the route note"
+      (count out "Violated: O1 (reword the claim or collect new data)." == 1 &&
+        count out "Stays as it is: O3 (no route allows a stronger status)." == 1) out
     let (rc, _, _) ← run ["plan", "C9"]
     checkEq "cli: plan on an unknown claim rc" rc 2
     -- serve: a port out of range is a usage error; a bind failure (an address of no local

@@ -467,8 +467,10 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
       return 0
     say s!"{c.id} {(sc.final c).verdict}: {sc.sentence c}"
     let uncovered := fun (cov : Coverage) => do
-      let (open_, settled) := cov.uncovered.partition fun n =>
-        (sc.trace.fact? n).any sc.closable
+      let (violated, rest) := cov.uncovered.partition (sc.eff · == .violated)
+      let (open_, settled) := rest.partition fun n => (sc.trace.fact? n).any sc.closable
+      unless violated.isEmpty do
+        say s!"  Violated: {", ".intercalate violated} (reword the claim or collect new data)."
       unless open_.isEmpty do
         let they := if open_.length == 1 then "It needs" else "They need"
         say s!"  No suggested experiment raises {", ".intercalate open_}. \
