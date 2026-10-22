@@ -17,7 +17,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - Product = local OSS tool over one project folder (user ruling): reads the analysis (code, data, microscopy, manuscripts) and never writes into it; fvTrace's own files (trace, review record, digest cache) live in its data dir (`FVTRACE_HOME`, else the platform data dir `/fvtrace/<project>/`), `--trace` overrides. Writes land in the project only where the user points them (`--trace` naming a file there, `FVTRACE_HOME` or `skills install --dir` inside it, a replay command under `verify --run` / `pin --replay` (user ruling: replays run in the project folder; the command, not fvTrace, may write there)); `export` refuses destinations inside it. Hosted multi-user service = separate paid product, other repo (user idea: cloud builds, e.g. replays run remotely, belong there).
 - Stack (user ruling: fvTrace must itself exemplify FV) = Lean 4.35 throughout: one native binary (engine, trace checker, CLI, local HTTP server on `Std.Http`). Kernel semantics proved in Lean against a human-readable spec module; gate = axiom audit + independent-kernel replay of every proof. Own JSON codec on `Std` (`Lean.Data.Json` links all of `Lean`: 118 MB binary, measured). SHA-256 = vendored HACL* verified C over FFI (pure Lean measured 13 MB/s vs coreutils 276 MB/s). GUI = no-build ES modules typed by JSDoc, display only: every verdict, ranking + plan it shows comes from the engine. Dev-only Node toolchain (TypeScript 7 checkJs, oxlint, Prettier, stylelint, html-validate, Playwright + axe).
-- GUI access: `fvtrace serve` binds loopback with a per-run token (cookie after first load) + Host allowlist; `--host` opts into LAN with the same token. Sharing (user ruling: both): `fvtrace export --html` = one self-contained page, verdicts + every one-click what-if precomputed by the engine; `--bundle` = trace + copies of its pinned evidence for a colleague's own `fvtrace serve`.
+- GUI access: `fvtrace serve` binds loopback with a per-run token (cookie after first load) + Host allowlist; `--host` opts into LAN with the same token. Sharing (user ruling: both): `fvtrace export --html` = one self-contained page: the recorded verdicts precomputed + the engine compiled to WebAssembly, so any stacked what-if evaluates in the page (user rulings, IMPLEMENT export: recorded view + engine, per-action envelopes dropped; the engine is built during `lake build` from pinned Emscripten + Lean runtime sources, never committed; export note "This page was exported. It shows the evidence as it was at export, and its what-ifs run in your browser."; a browser that cannot run it keeps the recorded view: "This browser cannot run the what-ifs on this page, so it shows the facts as recorded."); `--bundle` = trace + copies of its pinned evidence for a colleague's own `fvtrace serve`.
 - Trace format = JSON (`"fvtrace": 1`) + JSON Schema printed by `fvtrace schema` (MAIN ruling: a YAML parser would enlarge the verified binary's trusted base).
 - Trace model = questions → claims → facts + subjects + experiments + exclusions + waivers + review (JSON keys `facts`, `claims`, …). Fact = one statement + `kind` + `status` + `route` (`lean`, `runtime-checker`, `refinement`, `human-ruling`, `empirical`; route ceiling: `proved` needs `lean` | `refinement`, `checked` needs `runtime-checker`, the rest top out at `assumed`, or `tested` for a must-verify kind) + evidence + trusted base + subject + optional `why`. Claim = `text` (the exact statement) + optional `headline` + optional `restates`. Contract = `.agent/contracts/kernel.md`.
 - FV stance: verified = `proved` | `checked` (proved checker accepted the actual object). `assumed` = declared premise ⇒ claim only in conditional form. `tested` | `open` = gaps. `violated` ⇒ claim cannot be made as written.
@@ -41,6 +41,14 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] U1 spike: route decided (Lean C → Emscripten 6.0.12 standalone wasm; parity + CSP + 3 browsers) → `.agent/archive/wasm-spike.md`
+- [ ] U2 contract: `kernel.md` § Page engine + `units.md` table (consultant before code)
+- [ ] U3 `Receipt.Basic` split
+- [ ] U4 `Fvtrace.Snapshot` (codec + evaluate)
+- [ ] U5 wasm build in `lake build`
+- [ ] U6 export page v2 + GUI engine
+- [ ] U7 docs + rules + Decisions
+- [ ] U8 closing review
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
