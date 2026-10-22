@@ -49,7 +49,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 3fc9456 tour placement (row 8)
 - [x] a948e45 mutation tool `!·` sites (row 9)
 - [x] 4487a9f portability: Windows test links through PowerShell (row 5, part 2)
-- [ ] portability part 3 (row 5): Windows symlinkMetadata follows links → `Store.isLink`/`removeTree`, `Receipt.resolve` dangling = missing, tests unlink their links; branch wt/port2 (.scratch/worktrees/port2), mutation log .scratch/mut5.log; then push + both portability jobs green
+- [x] a95c3c8 portability part 3: Windows link semantics (row 5); closed by the commit after it (run 39715363621: both portability jobs green)
 - [ ] verifier replay (row 2; user rulings: in the project folder, pass = exit 0 + pinned output digest, self-trace statement fingerprints): contract in wt/verify kernel.md § Replay, consultant-4 → .scratch/consultant-4/verdicts.md; design .scratch/row2-design.md
 - [ ] route row 1 (user ruling: IMPLEMENT): route.md body (first unit = build/link/file:// spike; evidence .scratch/researcher-1/evidence.md) + routed Phase state, after rows 2 + 5 settle
 - [ ] close: worktrees + branches + scratch (mut5, mut9, codeql bundles) removed, rules upkeep, full gate on a clean tree
