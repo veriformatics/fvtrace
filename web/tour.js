@@ -6,7 +6,11 @@ import { lamp } from "./circuit.js";
 import { fill, h } from "./dom.js";
 import { verdictMeanings, verdicts, word } from "./words.js";
 
-/** @typedef {{ target: string[], title: string, body: () => (Node | string)[] }} Step */
+/**
+ * `compact` = a smaller part of the target, spotlit when the target is too tall to share the
+ * screen with the card (a long section on a phone).
+ * @typedef {{ target: string[], compact?: string[], title: string, body: () => (Node | string)[] }} Step
+ */
 
 /** @param {string} t */
 const p = (t) => h("p", {}, t);
@@ -132,6 +136,7 @@ const steps = [
   },
   {
     target: [".experiments"],
+    compact: [".experiments > div:first-child"],
     title: "Experiments that fill the gaps",
     body: () => [
       p(
@@ -144,6 +149,7 @@ const steps = [
   },
   {
     target: [".work"],
+    compact: [".work > div:first-child"],
     title: "Where verification pays",
     body: () => [
       p(
@@ -153,6 +159,7 @@ const steps = [
   },
   {
     target: ["#blockers"],
+    compact: ["#blockers > div:first-child"],
     title: "Violated facts",
     body: () => [
       p(
@@ -162,6 +169,7 @@ const steps = [
   },
   {
     target: ["#checks"],
+    compact: ["#checks > div:first-child"],
     title: "What may be missing",
     body: () => [
       p(
@@ -185,7 +193,16 @@ function find(sels) {
   return null;
 }
 
+const pad = 6;
+const gap = 16;
+/** A card shorter than this shows little more than its buttons. */
+const minCard = 200;
+/** Phones dock the card at the bottom of the screen (CSS). */
+const docked = () => innerWidth <= 760;
+
 const spot = h("div", { class: "tour-spot", "aria-hidden": "true" });
+// Room below the page while the tour runs, so a target at the page end can scroll to the top.
+const room = h("div", { class: "tour-room", "aria-hidden": "true" });
 const card = h("div", {
   class: "tour-card",
   role: "dialog",
@@ -203,7 +220,7 @@ let opener = null;
 export function startTour(from) {
   opener = from;
   shown = steps.filter((st) => !st.target.length || find(st.target));
-  document.body.append(spot, card);
+  document.body.append(room, spot, card);
   document.addEventListener("keydown", onKey);
   addEventListener("resize", place);
   addEventListener("scroll", place, { passive: true });
@@ -211,6 +228,7 @@ export function startTour(from) {
 }
 
 function end() {
+  room.remove();
   spot.remove();
   card.remove();
   document.removeEventListener("keydown", onKey);
@@ -256,50 +274,91 @@ function go(i) {
       ),
     ),
   );
-  const el = st.target.length ? find(st.target) : null;
-  const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
-  // Narrow screens dock the card at the bottom, so the element goes to the top, above it.
-  if (el && innerWidth <= 760)
-    scrollTo({ top: scrollY + el.getBoundingClientRect().top - 16, behavior });
-  else el?.scrollIntoView({ block: "center", behavior });
+  const el = target(st);
+  if (el) {
+    const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
+    scrollTo({ top: scrollY + el.getBoundingClientRect().top - pad - lead(el), behavior });
+  }
   place();
   card.focus({ preventScroll: true });
 }
 
-/** Keeps the spotlight on the step's element + the card beside it, inside the viewport. */
+/** The step's element: its compact part when the whole is too tall to share the screen. @param {Step} st */
+function target(st) {
+  const el = st.target.length ? find(st.target) : null;
+  if (!el || !st.compact) return el;
+  const tall = el.getBoundingClientRect().height + 2 * pad > innerHeight - 3 * gap - minCard;
+  return (tall && find(st.compact)) || el;
+}
+
+/** The card's height without a height limit of its own. */
+function naturalHeight() {
+  card.style.removeProperty("max-height");
+  return card.getBoundingClientRect().height;
+}
+
+/** Where the target's spotlight should start on screen so that the card fits beside or below it. @param {HTMLElement} el */
+function lead(el) {
+  if (docked()) return gap;
+  const r = el.getBoundingClientRect();
+  const t = r.height + 2 * pad;
+  const ch = naturalHeight();
+  if (t + gap + ch <= innerHeight - 2 * gap) return (innerHeight - t - gap - ch) / 2;
+  return beside(r, card.getBoundingClientRect().width) === null
+    ? gap
+    : Math.max(gap, (innerHeight - t) / 2);
+}
+
+/** The left edge of a card beside the target (right side first), or null when neither side fits. @param {DOMRect} r @param {number} cw */
+function beside(r, cw) {
+  if (r.right + pad + gap + cw <= innerWidth - gap) return r.right + pad + gap;
+  if (r.left - pad - gap - cw >= gap) return r.left - pad - gap - cw;
+  return null;
+}
+
+/** Keeps the spotlight on the step's element + the card clear of it, inside the viewport. */
 function place() {
   const st = shown[at];
-  const el = st?.target.length ? find(st.target) : null;
+  const el = st ? target(st) : null;
   card.classList.toggle("centered", !el);
   spot.hidden = !el;
+  const ch = naturalHeight();
   if (!el) {
     card.style.removeProperty("top");
     card.style.removeProperty("left");
     return;
   }
   const r = el.getBoundingClientRect();
-  const pad = 6;
   spot.style.top = `${r.top - pad}px`;
   spot.style.left = `${r.left - pad}px`;
   spot.style.width = `${r.width + 2 * pad}px`;
   spot.style.height = `${r.height + 2 * pad}px`;
-  if (innerWidth <= 760) {
-    // the card docks at the bottom (CSS)
+  const below = innerHeight - (r.bottom + pad + gap) - gap;
+  const above = r.top - pad - gap - gap;
+  if (docked()) {
+    // Docked at the bottom (CSS): the card keeps to the room under the target.
     card.style.removeProperty("top");
     card.style.removeProperty("left");
+    if (ch > below) card.style.maxHeight = `${Math.max(below, minCard)}px`;
     return;
   }
-  const c = card.getBoundingClientRect();
-  const gap = 16;
-  const below = r.bottom + pad + gap;
-  const above = r.top - pad - gap - c.height;
-  const top =
-    below + c.height <= innerHeight
-      ? below
-      : above >= 0
-        ? above
-        : Math.max(gap, innerHeight - c.height - gap);
-  const left = Math.min(Math.max(gap, r.left), innerWidth - c.width - gap);
+  const cw = card.getBoundingClientRect().width;
+  const left = Math.min(Math.max(gap, r.left), innerWidth - cw - gap);
+  const side = beside(r, cw);
+  let top;
+  if (ch <= below) top = r.bottom + pad + gap;
+  else if (ch <= above) top = r.top - pad - gap - ch;
+  else if (side !== null) {
+    card.style.left = `${side}px`;
+    card.style.top = `${Math.min(Math.max(gap, r.top - pad), innerHeight - ch - gap)}px`;
+    return;
+  } else if (below >= above) {
+    card.style.maxHeight = `${Math.max(below, minCard)}px`;
+    top = r.bottom + pad + gap;
+  } else {
+    card.style.maxHeight = `${Math.max(above, minCard)}px`;
+    top = gap;
+  }
   card.style.top = `${top}px`;
   card.style.left = `${left}px`;
 }

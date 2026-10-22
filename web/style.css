@@ -992,6 +992,11 @@ footer {
   background: var(--panel);
 }
 
+/* Room below the page while the tour runs: a target at the page end can scroll to the top. */
+.tour-room {
+  height: 100vh;
+}
+
 .tour-card.centered {
   top: 50%;
   left: 50%;
