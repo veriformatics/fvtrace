@@ -37,13 +37,15 @@ def pure : TestM Unit := do
   area "export" Tests.Export.pureTests
   area "fields" Tests.Fields.tests
 
-/-- Suites that call the C digest code: native binary alone (`lake test`). -/
+/-- Suites that call the C digest code, or run too long interpreted (plan-scale: 3 s, rerun by
+every mutant): native binary alone (`lake test`). -/
 def native : TestM Unit := do
   area "digest" Tests.Digest.tests
   area "receipt" Tests.Receipt.tests
   area "cli-store" Tests.CliStore.tests
   area "server-native" Tests.Server.nativeTests
   area "export-native" Tests.Export.nativeTests
+  area "plan-scale" Tests.Engine.scaleTests
   area "fields-native" Tests.Fields.nativeTests
 
 /-- Every suite, in run order (`lake test`). -/

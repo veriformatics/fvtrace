@@ -344,6 +344,62 @@ def kindTests : TestM Unit := do
   checkEq "engine: the what-if may assume a background condition"
     (Overrides.parse t "O3=assumed").toOption (some [("O3", .assumed)])
 
+/-- Plan search at the ruled limit: 20 relevant experiments on one claim (2^20 candidates for an
+exhaustive search; the branch and bound skips subtrees it proves to hold no better plan). -/
+def scaleTests : TestM Unit := do
+  let efforts := [Effort.hours, .days, .weeks, .months]
+  let fact := fun (id : String) (k : Kind) =>
+    ({ id, subject := "S", kind := k, text := s!"{id} holds.", status := .«open»,
+       route := .lean } : Fact)
+  let exp := fun (i : Nat) (success : List (String × Status)) =>
+    ({ id := s!"E{i + 10}", subject := "S", kind := .dry, effort := efforts[i % 4]!,
+       title := s!"Experiment {i}", method := "Run it.", resources := "None.", success,
+       caveat := "None." } : Experiment)
+  let wide := fun (facts : List Fact) (c : Claim) (exps : List Experiment)
+      (exclusions : List Exclusion) =>
+    ({ analysis := { id := "A", title := "Wide", summary := "Twenty experiments, one claim." },
+       subjects := [{ id := "S", title := "Wide", kind := .existing }],
+       questions := [{ id := "Q", title := "Q", text := "Does it hold?" }],
+       facts, claims := [c], experiments := exps, exclusions } : Trace)
+  let claimOn := fun (needs : List String) =>
+    ({ id := "C", question := "Q", subject := "S", level := .estimand, text := "They hold.",
+       needs, entailment := some "EN" } : Claim)
+  let planOf := fun (t : Trace) =>
+    ({ trace := t, current := fun _ => true } : Scenario).plan ((t.claim? "C").get!)
+  let range := List.range 20
+  -- Every experiment also proves the reasoning fact EN, so each one is a true alternative for it.
+  let proving := fun (i : Nat) (needs : List String) => exp i (((needs ++ ["EN"]).map (·, .proved)))
+  let one := range.map (s!"F{·}")
+  let n := "plan: 20 experiments, one need each → all twenty"
+  match planOf (wide ((one ++ ["EN"]).map (fact · .numerical) |>.map fun f =>
+      if f.id == "EN" then { f with kind := .entailment } else f)
+      (claimOn one) (range.map fun i => proving i [s!"F{i}"]) []) with
+  | .planned _ exps st .. => checkEq n (exps.length, st) (20, .can)
+  | other => check n false s!"{repr other}"
+  let n := "plan: 20 experiments, one shared need → the cheapest, smallest id"
+  match planOf (wide [fact "F" .numerical, fact "EN" .entailment] (claimOn ["F"])
+      (range.map fun i => proving i ["F"]) []) with
+  | .planned _ exps st .. => checkEq n (exps, st) (["E10"], .can)
+  | other => check n false s!"{repr other}"
+  let pairs := (List.range 10).map (s!"F{·}")
+  let n := "plan: 20 experiments, two per need → the cheaper of each pair"
+  match planOf (wide ((pairs.map (fact · .numerical)) ++ [fact "EN" .entailment]) (claimOn pairs)
+      (range.map fun i => proving i [s!"F{i / 2}"]) []) with
+  | .planned _ exps st .. =>
+    checkEq n (exps, st) ((List.range 10).map (s!"E{2 * · + 10}"), .can)
+  | other => check n false s!"{repr other}"
+  -- Every non-empty set asserts F against the assumed premise G: each one conflicts.
+  let x : Exclusion := { id := "X", subject := "S", between := ("F", "G"),
+                         text := "F rules out G.", status := .assumed, route := .humanRuling }
+  let restating : Claim := { id := "C", question := "Q", subject := "S", level := .descriptive,
+                             text := "F holds.", needs := ["F"], restates := true }
+  let g : Fact := { fact "G" .statistical with status := .assumed, route := .humanRuling }
+  let n := "plan: 20 experiments that each conflict → no improvement"
+  match planOf (wide [fact "F" .result, g] restating (range.map fun i => exp i [("F", .proved)])
+      [x]) with
+  | .noImprovement _ => check n true
+  | other => check n false s!"{repr other}"
+
 /-- Contract acceptance rows (03fe522) the unit tests had not reached: valid actions, mixed work
 rows, the self-trace's stated verdicts. -/
 def acceptanceTests : TestM Unit := do
