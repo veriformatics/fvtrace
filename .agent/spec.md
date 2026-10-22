@@ -11,7 +11,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - `web/` = GUI (claim diagrams, key table, guided tour; no-build ES modules, display-only); `skill/fvtrace/` = the Agent Skill; `schema/trace.schema.json` = trace format; `examples/fvtrace/` (self-trace) + `examples/synthetic/` = pinned examples.
 - `tools/gate.sh` = the one gate (local + CI: `.github/workflows/gate.yml`, + `codeql.yml` = code scanning); `tools/fast-gate.sh` = iteration; `tools/gate-probe.sh` = positive controls; `tools/mutate.mjs` = mutation credit (`--list` sizes a campaign); law = `.claude/rules/ops.md`.
 - `.agent/contracts/kernel.md` = kernel contract (ids cited by proofs + tests); `.agent/contracts/units.md` = unit → tier → evidence; `.agent/review.md` = closing-review ledger.
-- `README.md` = user documentation. Prototypes retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-gui-iterate` (the GUI's ITERATE prototype: `web/` copy, dev proxy, field stubs), tag `prototype-lint` (shelved manuscript check).
+- `README.md` = user documentation; `SECURITY.md` = the private vulnerability route + the surfaces that read other people's data. Prototypes retired: tag `prototype-gui` (claim circuits + Python engine), tag `prototype-gui-iterate` (the GUI's ITERATE prototype: `web/` copy, dev proxy, field stubs), tag `prototype-lint` (shelved manuscript check).
 
 ## Decisions
 
@@ -42,7 +42,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 ## Tasks
 
 - [ ] update automation (row 1): Renovate app install = owed (user)
-- [ ] secret scanning + push protection (row 2): owed (user approval)
+- [x] e155e74 secret scanning + push protection (row 2; user approval): enabled, read back
 - [ ] private vulnerability reporting + `SECURITY.md` (row 3; draft `.scratch/s3/SECURITY.md`): owed (user approval)
 - [ ] close: rules upkeep, Tasks → `.agent/archive/maintain-deferred-2.md`, scratch + temp cleanup, full gate on a clean tree
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
