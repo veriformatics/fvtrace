@@ -15,6 +15,8 @@ Usage: `lake exe fvtrace-trust [--proofs FILE | --statement CLAIM...]`.
   non-spec `Fvtrace.*` constant), since such a claim certifies nothing about the binary.
 - Lean core = modules whose `.olean` lies under the Lean sysroot, decided by file origin rather
   than module name, so a project-local module named `Lean.X` is still audited.
+- Capabilities: each shipped module's direct OS access (programs, file reads + writes, network,
+  environment) must match `capabilityAllowlist` exactly (no scanner reads Lean).
 - `--proofs FILE` also writes the proof names, one per line, to FILE (for `leanexport` replay):
   one import of the environment serves both the audit and the replay.
 -/
@@ -113,6 +115,77 @@ def audit (core : Std.HashSet Name) : CoreM (Array (Name × Array Name) × Array
               findings := findings.push { claim := c, issue := s!"{p} reaches {f} {n}" }
   return (out, findings)
 
+/-! ## Capabilities: which shipped module may touch the operating system, and how
+
+No scanner reads Lean (security review F1), so this audit holds the security-relevant OS access
+of the shipped code to an exact list: a new direct use (a route that reads files, a command that
+runs a program) fails until reviewed and listed here; a listed use no definition makes fails
+too. Direct = a constant in the module's own definitions (a caller of `Store.removeTree` is not
+charged with `write`: the module that wraps the effect is). -/
+
+/-- `IO.FS.Handle.mk`'s mode decides read or write; a mode passed in as a value counts as both. -/
+def readModes : List Name := [``IO.FS.Mode.read]
+def writeModes : List Name :=
+  [``IO.FS.Mode.write, ``IO.FS.Mode.writeNew, ``IO.FS.Mode.readWrite, ``IO.FS.Mode.append]
+
+/-- The capability a constant grants: running programs, reading or writing files, the network,
+the environment. -/
+def capabilityOf (n : Name) : Option String :=
+  if [``IO.Process.spawn, ``IO.Process.output, ``IO.Process.run].contains n then some "process"
+  else if ([``IO.FS.readFile, ``IO.FS.readBinFile, ``IO.FS.lines, ``System.FilePath.readDir] ++
+      readModes).contains n then some "read"
+  else if ([``IO.FS.writeFile, ``IO.FS.writeBinFile, ``IO.FS.createDir, ``IO.FS.createDirAll,
+      ``IO.FS.rename, ``IO.FS.removeFile, ``IO.FS.removeDir, ``IO.FS.removeDirAll,
+      ``IO.setAccessRights] ++ writeModes).contains n then some "write"
+  else if n == ``IO.getEnv then some "environment"
+  else if [`Std.Http.Server.serve, `Std.Internal.IO.Async.TCP, `Std.Internal.IO.Async.UDP,
+      `Std.Internal.UV.TCP, `Std.Internal.UV.UDP].any (·.isPrefixOf n) then some "network"
+  else none
+
+/-- The capabilities each shipped module uses directly; every other module, none. -/
+def capabilityAllowlist : List (Name × List String) :=
+  [(`Fvtrace.Cli, ["process", "read", "write"]),
+   (`Fvtrace.Digest, ["read"]),
+   (`Fvtrace.Export, ["read", "write"]),
+   (`Fvtrace.Receipt, ["read", "write"]),
+   (`Fvtrace.Replay, ["process"]),
+   (`Fvtrace.Server, ["network"]),
+   (`Fvtrace.Session, ["read"]),
+   (`Fvtrace.Store, ["environment", "read", "write"])]
+
+/-- (module, capability) ↦ the definitions that use it directly, over every `Fvtrace.*` module. -/
+def capabilityUses (env : Environment) : Std.HashMap (Name × String) (Array Name) := Id.run do
+  let mut out := {}
+  for (n, ci) in env.constants.toList do
+    let m := modOf env n
+    unless isFvtraceModule m do continue
+    let some v := ci.value? | continue
+    let used := v.getUsedConstants
+    let mut caps := used.filterMap capabilityOf
+    if used.contains ``IO.FS.Handle.mk &&
+        !used.any (fun c => readModes.contains c || writeModes.contains c) then
+      caps := caps ++ #["read", "write"]
+    for cap in caps do
+      out := out.insert (m, cap) ((out.getD (m, cap) #[]).push n)
+  return out
+
+/-- A use outside the list, or a listed use no definition makes. -/
+def capabilityFindings (env : Environment) : Array Finding := Id.run do
+  let uses := capabilityUses env
+  let allowed := fun (m : Name) (cap : String) =>
+    ((capabilityAllowlist.lookup m).getD []).contains cap
+  let mut out := #[]
+  for ((m, cap), defs) in uses.toList do
+    unless allowed m cap do
+      let names := ", ".intercalate ((defs.qsort Name.lt).toList.map toString)
+      out := out.push { claim := m, issue := s!"uses {cap} outside the capability list ({names})" }
+  for (m, caps) in capabilityAllowlist do
+    for cap in caps do
+      unless uses.contains (m, cap) do
+        out := out.push
+          { claim := m, issue := s!"capability list names {cap}, which it no longer uses" }
+  return out.qsort fun a b => toString a.claim ++ a.issue < toString b.claim ++ b.issue
+
 /-- The statement fingerprint of claims (replay verifier of the self-trace, `tools/statement.sh`):
 per claim a header (format, Lean version, claim), then every non-core constant its statement
 reaches, sorted by name, with its type + its value when it is a definition. The same definitions
@@ -135,6 +208,7 @@ def main (args : List String) : IO UInt32 := do
   let core ← coreModules env
   let ctx : Core.Context := { fileName := "<fvtrace-trust>", fileMap := default }
   let ((claims, findings), _) ← (audit core).toIO ctx { env }
+  let findings := findings ++ capabilityFindings env
   match args with
   | ["--proofs", file] =>
     IO.FS.writeFile file (String.join (claims.toList.flatMap fun (_, prfs) =>

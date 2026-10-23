@@ -166,6 +166,28 @@ probe_trust() {
     printf 'namespace Fvtrace.Proofs\ntheorem plantedVacuous : Spec.PlantedVacuous := rfl\nend Fvtrace.Proofs\n' \
         >>Fvtrace/Proofs.lean
     expect trust-vacuous 'PlantedVacuous: statement reaches no shipped code' trust_build
+
+    lake build Fvtrace «fvtrace-trust» >/dev/null 2>&1
+}
+
+probe_capability() {
+    # Capabilities (security review F1, fvtrace-trust): a server route reading a file, a handle
+    # opened with a mode passed in as a value, a listed capability no definition uses.
+    keep Fvtrace/Server.lean
+    printf 'namespace Fvtrace.Server\ndef plantedRead (p : System.FilePath) : IO String := IO.FS.readFile p\nend Fvtrace.Server\n' \
+        >>Fvtrace/Server.lean
+    expect trust-capability \
+        'Fvtrace.Server: uses read outside the capability list \(Fvtrace.Server.plantedRead\)' trust_build
+    keep Fvtrace/Server.lean
+    printf 'namespace Fvtrace.Server\ndef plantedOpen (p : System.FilePath) (m : IO.FS.Mode) : IO IO.FS.Handle := IO.FS.Handle.mk p m\nend Fvtrace.Server\n' \
+        >>Fvtrace/Server.lean
+    expect trust-capability-mode \
+        'Fvtrace.Server: uses write outside the capability list \(Fvtrace.Server.plantedOpen\)' trust_build
+    keep TrustMain.lean
+    # shellcheck disable=SC2016 # the backticks quote Lean names
+    sed -i 's/^  \[(`Fvtrace.Cli, /  [(`Fvtrace.Engine, ["process"]), (`Fvtrace.Cli, /' TrustMain.lean
+    expect trust-capability-unused \
+        'Fvtrace.Engine: capability list names process, which it no longer uses' trust_build
     lake build Fvtrace «fvtrace-trust» >/dev/null 2>&1
 }
 
@@ -283,7 +305,7 @@ probe_examples() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
