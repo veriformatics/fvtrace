@@ -254,8 +254,9 @@ probe_assets() {
 
 # The page engine build (fvtrace-wasm, run by `lake build FvtraceEngine`): a pinned manifest digest
 # that the fetched tree does not match, an import the page's loader does not provide, a linker
-# warning outside the accepted two. Each plant relinks (≈ 1 min); a failed build leaves the
-# embedded engine as it was.
+# warning outside the accepted two, a changed build step in lakefile.lean (Lake traces no target's
+# own step, so the engine target traces the file; else a cached engine would replay). Each plant
+# relinks (≈ 1 min); a failed build leaves the embedded engine as it was.
 engine_build() { lake build FvtraceEngine 2>&1; }
 
 probe_wasm() {
@@ -269,6 +270,9 @@ probe_wasm() {
     sed -i -e 's/^lean_object \*initialize_fvtrace_Fvtrace_Snapshot(uint8_t builtin);$/lean_object *initialize_fvtrace_Fvtrace_Snapshot(void);/' \
         -e 's/initialize_fvtrace_Fvtrace_Snapshot(1);/initialize_fvtrace_Fvtrace_Snapshot();/' c/page_engine.c
     expect wasm-warning 'unexpected linker warnings' engine_build
+    keep lakefile.lean
+    sed -i -e 's/ "--githash", lean.githash,//' lakefile.lean
+    expect wasm-build-step 'usage: fvtrace-wasm' engine_build
 }
 
 probe_examples() {
