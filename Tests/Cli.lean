@@ -158,7 +158,9 @@ def readTests : TestM Unit := do
     checkEq "read: a trace at the limit reaches the parser"
       ((codes (← at_ 11 spaces)).map (·.startsWith "syntax")) [true]
     let valid := dir / "valid.json"
-    let text := (Fvtrace.Encode.trace (Fvtrace.Store.starter dir)).pretty
+    -- The canonical form ends in `}`: a byte short of it no longer parses (the pretty form's
+    -- final newline would).
+    let text := (Fvtrace.Encode.trace (Fvtrace.Store.starter dir)).canonical
     IO.FS.writeFile valid text
     checkEq "read: a valid trace of exactly the limit decodes whole"
       (codes (← at_ text.utf8ByteSize valid)) ["ok"]
