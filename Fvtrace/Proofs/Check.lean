@@ -1,4 +1,5 @@
 import Fvtrace.Spec.WellFormed
+import Fvtrace.Proofs.Lookups
 
 /-! Proofs of `Fvtrace.Spec.CheckAcceptsExactlyWellFormed` + `CheckViolationsSound`. -/
 
@@ -6,7 +7,13 @@ import Fvtrace.Spec.WellFormed
 set_option linter.unusedSimpArgs false
 
 namespace Fvtrace.Proofs.Check
-open Fvtrace Fvtrace.Check Fvtrace.Spec
+open Fvtrace Fvtrace.Check Fvtrace.Spec Fvtrace.Proofs.Lookups
+
+/-- Reads each `Lookups.reference` answer as the original expression it stands for. -/
+local macro "ref_simp" : tactic => `(tactic| try simp only [ref_fact?, ref_subject?, ref_claim?,
+  ref_experiment?, ref_factSubject?, ref_hasQuestion, ref_hasSubject, ref_hasFact, ref_hasClaim,
+  ref_hasExperiment, ref_idsNodup, ref_soleEntailment, ref_soleRestater, ref_earlierExperiment,
+  ref_earlierPair, ref_waiversNodup, ref_nodup])
 
 theorem ensure_eq_nil {ok : Bool} {p m : String} : ensure ok p m = [] ↔ ok = true := by
   unfold ensure; cases ok <;> simp
@@ -33,10 +40,10 @@ theorem flatMap_zipIdx_eq_nil {α β : Type} {l : List α} {g : α × Nat → Li
   · intro hp q hq
     exact (h q.1 q.2).mpr (hp q.1 (List.fst_mem_of_mem_zipIdx hq))
 
-theorem ids_iff (t : Trace) : Check.ids t = [] ↔ IdsUnique t := by
+theorem ids_iff (t : Trace) : Check.ids (Lookups.reference t) = [] ↔ IdsUnique t := by
   simp [Check.ids, ensure_eq_nil, IdsUnique]
 
-theorem needs_iff (t : Trace) : Check.needs t = [] ↔ NeedsProper t := by
+theorem needs_iff (t : Trace) : Check.needs (Lookups.reference t) t = [] ↔ NeedsProper t := by
   unfold Check.needs NeedsProper
   rw [flatMap_zipIdx_eq_nil (P := fun c => c.needs ≠ [] ∧ c.needs.Nodup)]
   intro c i
@@ -49,40 +56,44 @@ theorem kind_iff (t : Trace) : Check.kind t = [] ↔ KindsProper t := by
   simp only [ensure_eq_nil]
   cases f.instantiates <;> cases f.kind <;> simp
 
-theorem claimRefs_iff (t : Trace) (c : Claim) (i : Nat) : claimRefs t c i = [] ↔
+theorem claimRefs_iff (t : Trace) (c : Claim) (i : Nat) : claimRefs (Lookups.reference t) c i = [] ↔
     (c.question ∈ t.questionIds ∧ c.subject ∈ t.subjectIds ∧ (∀ n ∈ c.needs, n ∈ t.factIds) ∧
       (∀ e, c.entailment = some e → e ∈ t.factIds) ∧
       ∀ v, c.variantOf = some v → v ∈ t.claimIds) := by
   unfold claimRefs
   cases c.variantOf <;> cases c.entailment <;> simp [ensure_eq_nil, List.flatMap_eq_nil_iff]
 
-theorem factRefs_iff (t : Trace) (f : Fact) (i : Nat) : factRefs t f i = [] ↔
+theorem factRefs_iff (t : Trace) (f : Fact) (i : Nat) : factRefs (Lookups.reference t) f i = [] ↔
     (f.subject ∈ t.subjectIds ∧ ∀ s, f.instantiates = some s → s ∈ t.factIds) := by
   unfold factRefs
   cases f.instantiates <;> simp [ensure_eq_nil]
 
-theorem experimentRefs_iff (t : Trace) (e : Experiment) (i : Nat) : experimentRefs t e i = [] ↔
+theorem experimentRefs_iff (t : Trace) (e : Experiment) (i : Nat) :
+    experimentRefs (Lookups.reference t) e i = [] ↔
     (e.subject ∈ t.subjectIds ∧ (∀ p ∈ e.success ++ e.failure, p.1 ∈ t.factIds) ∧
       ∀ r ∈ e.requires, r ∈ t.experimentIds) := by
   unfold experimentRefs
   simp [ensure_eq_nil, List.flatMap_eq_nil_iff, or_imp, forall_and, and_assoc]
 
-theorem exclusionRefs_iff (t : Trace) (x : Exclusion) (i : Nat) : exclusionRefs t x i = [] ↔
+theorem exclusionRefs_iff (t : Trace) (x : Exclusion) (i : Nat) :
+    exclusionRefs (Lookups.reference t) x i = [] ↔
     (x.subject ∈ t.subjectIds ∧ x.between.1 ∈ t.factIds ∧ x.between.2 ∈ t.factIds) := by
   unfold exclusionRefs
   simp [ensure_eq_nil]
 
-theorem subjectRefs_iff (t : Trace) (s : Subject) (i : Nat) : subjectRefs t s i = [] ↔
+theorem subjectRefs_iff (t : Trace) (s : Subject) (i : Nat) :
+    subjectRefs (Lookups.reference t) s i = [] ↔
     ∀ e, s.createdBy = some e → e ∈ t.experimentIds := by
   unfold subjectRefs
   cases s.createdBy <;> simp [ensure_eq_nil]
 
-theorem waiverRefs_iff (t : Trace) (w : Waiver) (i : Nat) : waiverRefs t w i = [] ↔
+theorem waiverRefs_iff (t : Trace) (w : Waiver) (i : Nat) :
+    waiverRefs (Lookups.reference t) w i = [] ↔
     w.claim ∈ t.claimIds := by
   unfold waiverRefs
   simp [ensure_eq_nil]
 
-theorem refs_iff (t : Trace) : Check.refs t = [] ↔ RefsResolve t := by
+theorem refs_iff (t : Trace) : Check.refs (Lookups.reference t) t = [] ↔ RefsResolve t := by
   unfold Check.refs RefsResolve
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (fun c i => claimRefs_iff t c i),
@@ -110,11 +121,13 @@ theorem flatMap_zipIdx_eq_nil_idx {α β : Type} {l : List α} {g : α × Nat �
     rw [heq] at this
     exact (h q.1 q.2).mpr this
 
-theorem onSubject_iff (t : Trace) (id s : String) : onSubject t id s = true ↔ OnSubject t id s := by
+theorem onSubject_iff (t : Trace) (id s : String) :
+    onSubject (Lookups.reference t) id s = true ↔ OnSubject t id s := by
   unfold onSubject OnSubject
+  simp only [Fvtrace.Proofs.Lookups.ref_factSubject?]
   cases h : t.factSubject? id <;> simp
 
-theorem subject_iff (t : Trace) : Check.subject t = [] ↔ SubjectsAgree t := by
+theorem subject_iff (t : Trace) : Check.subject (Lookups.reference t) t = [] ↔ SubjectsAgree t := by
   unfold Check.subject SubjectsAgree
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (P := fun c => ∀ n ∈ c.needsAll, OnSubject t n c.subject)
@@ -136,13 +149,17 @@ theorem subject_iff (t : Trace) : Check.subject t = [] ↔ SubjectsAgree t := by
   simp only [and_assoc]
 
 theorem entailmentKind_iff (t : Trace) (id : String) :
-    entailmentKind t id = true ↔ ∀ f, t.fact? id = some f → f.kind = .entailment := by
+    entailmentKind (Lookups.reference t) id = true ↔
+      ∀ f, t.fact? id = some f → f.kind = .entailment := by
   unfold entailmentKind
+  simp only [Fvtrace.Proofs.Lookups.ref_fact?]
   cases h : t.fact? id <;> simp
 
 theorem needNotEntailment_iff (t : Trace) (id : String) :
-    needNotEntailment t id = true ↔ ∀ f, t.fact? id = some f → f.kind ≠ .entailment := by
+    needNotEntailment (Lookups.reference t) id = true ↔
+      ∀ f, t.fact? id = some f → f.kind ≠ .entailment := by
   unfold needNotEntailment
+  simp only [Fvtrace.Proofs.Lookups.ref_fact?]
   cases h : t.fact? id <;> simp
 
 theorem entailUnique_iff (t : Trace) (c : Claim) (e : String) :
@@ -160,8 +177,9 @@ theorem entailUnique_iff (t : Trace) (c : Claim) (e : String) :
     · exact Or.inl he
 
 theorem resultKind_iff (t : Trace) (id : String) :
-    resultKind t id = true ↔ ∀ f, t.fact? id = some f → f.kind = .result := by
+    resultKind (Lookups.reference t) id = true ↔ ∀ f, t.fact? id = some f → f.kind = .result := by
   unfold resultKind
+  simp only [Fvtrace.Proofs.Lookups.ref_fact?]
   cases h : t.fact? id <;> simp
 
 theorem restateUnique_iff (t : Trace) (c : Claim) :
@@ -181,22 +199,27 @@ theorem restateUnique_iff (t : Trace) (c : Claim) :
       · exact Or.inl (Or.inr hn)
     · exact Or.inl (Or.inl (by simpa using hr))
 
-theorem restating_iff (t : Trace) (c : Claim) (p : String) : restating t c p = [] ↔
+theorem restating_iff (t : Trace) (c : Claim) (p : String) :
+    restating (Lookups.reference t) c p = [] ↔
     ((c.needs.length = 1 ∧ ∀ n ∈ c.needs, ∀ f, t.fact? n = some f → f.kind = .result) ∧
       ∀ d ∈ t.claims, d.restates = true → d.needs = c.needs → d.id = c.id) := by
   unfold restating
+  ref_simp
   rw [List.append_eq_nil_iff, ensure_eq_nil, ensure_eq_nil, restateUnique_iff]
   simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, resultKind_iff]
 
-theorem entailmentFact_iff (t : Trace) (c : Claim) (p e : String) : entailmentFact t c p e = [] ↔
+theorem entailmentFact_iff (t : Trace) (c : Claim) (p e : String) :
+    entailmentFact (Lookups.reference t) c p e = [] ↔
     ((∀ f, t.fact? e = some f → f.kind = .entailment) ∧ e ∉ c.needs ∧
       ∀ d ∈ t.claims, d.entailment = some e → d.id = c.id) := by
   unfold entailmentFact
+  ref_simp
   rw [List.append_eq_nil_iff, List.append_eq_nil_iff, ensure_eq_nil, ensure_eq_nil, ensure_eq_nil,
     entailmentKind_iff, entailUnique_iff]
   simp [and_assoc]
 
-theorem entail_iff (t : Trace) : Check.entail t = [] ↔ EntailmentsProper t := by
+theorem entail_iff (t : Trace) :
+    Check.entail (Lookups.reference t) t = [] ↔ EntailmentsProper t := by
   unfold Check.entail EntailmentsProper
   rw [flatMap_zipIdx_eq_nil]
   intro c i
@@ -205,7 +228,7 @@ theorem entail_iff (t : Trace) : Check.entail t = [] ↔ EntailmentsProper t := 
     simp [hr, he, List.append_eq_nil_iff, ensure_eq_nil, List.flatMap_eq_nil_iff,
       needNotEntailment_iff, entailmentFact_iff, restating_iff]
 
-theorem route_iff (t : Trace) : Check.route t = [] ↔ RoutesRespected t := by
+theorem route_iff (t : Trace) : Check.route (Lookups.reference t) t = [] ↔ RoutesRespected t := by
   unfold Check.route RoutesRespected
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (P := fun f => f.allows f.status = true)
@@ -214,6 +237,7 @@ theorem route_iff (t : Trace) : Check.route t = [] ↔ RoutesRespected t := by
         f.allows p.2 = true)
       (fun e i => by
         unfold outcomeRoutes
+        ref_simp
         simp only [List.flatMap_eq_nil_iff]
         refine forall_congr' fun p => imp_congr_right fun _ => ?_
         cases t.fact? p.1 <;> simp [ensure_eq_nil]),
@@ -221,7 +245,8 @@ theorem route_iff (t : Trace) : Check.route t = [] ↔ RoutesRespected t := by
       (fun x i => by simp [ensure_eq_nil])]
   simp only [and_assoc]
 
-theorem outcome_iff (t : Trace) : Check.outcome t = [] ↔ OutcomesProper t := by
+theorem outcome_iff (t : Trace) :
+    Check.outcome (Lookups.reference t) t = [] ↔ OutcomesProper t := by
   unfold Check.outcome OutcomesProper
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (P := fun e => e.success ≠ [] ∧ (∀ p ∈ e.success, p.2.asserted = true) ∧
@@ -250,17 +275,20 @@ theorem path_iff (t : Trace) : Check.path t = [] ↔ PathsSafe t := by
   simp [List.flatMap_eq_nil_iff, ensure_eq_nil, or_imp, forall_and, forall_exists_index, and_imp]
 
 theorem subjectKind_iff (t : Trace) (id : String) (k : SubjectKind) :
-    subjectKind t id k = true ↔ ∀ s, t.subject? id = some s → s.kind = k := by
+    subjectKind (Lookups.reference t) id k = true ↔ ∀ s, t.subject? id = some s → s.kind = k := by
   unfold subjectKind
+  simp only [Fvtrace.Proofs.Lookups.ref_subject?]
   cases t.subject? id <;> simp
 
-theorem prospective_iff (t : Trace) : Check.prospective t = [] ↔ SubjectsProper t := by
+theorem prospective_iff (t : Trace) :
+    Check.prospective (Lookups.reference t) t = [] ↔ SubjectsProper t := by
   unfold Check.prospective SubjectsProper
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (P := fun s => (s.kind = .prospective ↔ s.createdBy.isSome) ∧
         ∀ e, s.createdBy = some e → ∀ x, t.experiment? e = some x → x.subject = s.id)
       (fun s i => by
         unfold subjectProper
+        ref_simp
         cases hc : s.createdBy with
         | none => cases hk : s.kind <;> simp [ensure_eq_nil, hk]
         | some e =>
@@ -269,12 +297,14 @@ theorem prospective_iff (t : Trace) : Check.prospective t = [] ↔ SubjectsPrope
         s.kind = .prospective → f.status = .«open»)
       (fun f i => by
         unfold prospectiveOpen
+        ref_simp
         cases hs : t.subject? f.subject with
         | none => simp [ensure_eq_nil]
         | some s => cases hk : s.kind <;> simp [ensure_eq_nil, hk])]
   simp [ensure_eq_nil, List.any_eq_true, and_assoc]
 
-theorem variant_iff (t : Trace) : Check.variant t = [] ↔ VariantsProper t := by
+theorem variant_iff (t : Trace) :
+    Check.variant (Lookups.reference t) t = [] ↔ VariantsProper t := by
   unfold Check.variant VariantsProper
   rw [flatMap_zipIdx_eq_nil]
   intro c i
@@ -287,7 +317,8 @@ theorem samePair_iff (x y : Exclusion) : samePair x y = true ↔
     (x.subject = y.subject ∧ (x.between = y.between ∨ x.between = y.between.swap)) := by
   simp [samePair]
 
-theorem exclusion_iff (t : Trace) : Check.exclusion t = [] ↔ ExclusionsProper t := by
+theorem exclusion_iff (t : Trace) :
+    Check.exclusion (Lookups.reference t) t = [] ↔ ExclusionsProper t := by
   unfold Check.exclusion ExclusionsProper
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (P := fun x => x.between.1 ≠ x.between.2)
@@ -297,26 +328,30 @@ theorem exclusion_iff (t : Trace) : Check.exclusion t = [] ↔ ExclusionsProper 
       (fun x i => by simp [ensure_eq_nil, List.any_eq_false, samePair_iff])]
 
 theorem assertedFact_iff (t : Trace) (id : String) :
-    assertedFact t id = true ↔ ∃ f, t.fact? id = some f ∧ f.status.asserted = true := by
+    assertedFact (Lookups.reference t) id = true ↔
+      ∃ f, t.fact? id = some f ∧ f.status.asserted = true := by
   unfold assertedFact
+  simp only [Fvtrace.Proofs.Lookups.ref_fact?]
   cases t.fact? id <;> simp
 
-theorem consistent_iff (t : Trace) : Check.consistent t = [] ↔ RecordedConsistent t := by
+theorem consistent_iff (t : Trace) :
+    Check.consistent (Lookups.reference t) t = [] ↔ RecordedConsistent t := by
   unfold Check.consistent RecordedConsistent
   rw [flatMap_zipIdx_eq_nil]
   intro x i
   simp only [ensure_eq_nil, Bool.not_eq_true', Bool.and_eq_false_iff, ← assertedFact_iff]
-  cases x.status.asserted <;> cases assertedFact t x.between.1 <;>
-    cases assertedFact t x.between.2 <;>
+  cases x.status.asserted <;> cases assertedFact (Lookups.reference t) x.between.1 <;>
+    cases assertedFact (Lookups.reference t) x.between.2 <;>
     simp
 
-theorem waiver_iff (t : Trace) : Check.waiver t = [] ↔ WaiversProper t := by
+theorem waiver_iff (t : Trace) : Check.waiver (Lookups.reference t) t = [] ↔ WaiversProper t := by
   unfold Check.waiver WaiversProper
   simp only [List.append_eq_nil_iff]
   rw [flatMap_zipIdx_eq_nil (P := fun w => w.rule ∈ lintRules) (fun w i => by simp [ensure_eq_nil])]
   simp [ensure_eq_nil]
 
-theorem rule_check_iff (r : Check.Rule) (t : Trace) : r.check t = [] ↔ Rule.Holds r t := by
+theorem rule_check_iff (r : Check.Rule) (t : Trace) :
+    r.check (Lookups.reference t) t = [] ↔ Rule.Holds r t := by
   cases r
   · exact ids_iff t
   · exact refs_iff t
@@ -334,9 +369,15 @@ theorem rule_check_iff (r : Check.Rule) (t : Trace) : r.check t = [] ↔ Rule.Ho
   · exact waiver_iff t
   · exact kind_iff t
 
+/-- `violations` reads the trace through its indexes; they answer as its lists do. -/
+theorem violations_eq_reference (t : Trace) :
+    violations t = violationsWith (Lookups.reference t) t := by
+  rw [violations, fast_eq_reference]
+
 theorem violations_eq_nil (t : Trace) :
     violations t = [] ↔ ∀ r ∈ Check.Rule.all, Rule.Holds r t := by
-  unfold violations
+  rw [violations_eq_reference]
+  unfold violationsWith
   simp only [List.flatMap_eq_nil_iff, List.map_eq_nil_iff]
   exact forall_congr' fun r => imp_congr_right fun _ => rule_check_iff r t
 
@@ -347,7 +388,8 @@ theorem checkAcceptsExactlyWellFormed : Spec.CheckAcceptsExactlyWellFormed := by
 
 theorem checkViolationsSound : Spec.CheckViolationsSound := by
   intro t v hv
-  unfold violations at hv
+  rw [violations_eq_reference] at hv
+  unfold violationsWith at hv
   obtain ⟨r, _, hr⟩ := List.mem_flatMap.mp hv
   obtain ⟨⟨p, m⟩, hpm, rfl⟩ := List.mem_map.mp hr
   intro hholds

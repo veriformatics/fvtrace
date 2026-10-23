@@ -3,7 +3,7 @@ import Std.Time
 import Fvtrace.Digest
 import Fvtrace.Encode
 import Fvtrace.Json
-import Fvtrace.Model
+import Fvtrace.Lookups
 import Fvtrace.Receipt.Basic
 
 /-!
@@ -26,36 +26,37 @@ def factBrief (f : Fact) : Value :=
     ("text", .str f.text)]
 
 /-- The statement a fact's receipt certifies (D-canon input of its `statementDigest`): a restated
-result binds its restating claim's text, as an entailment fact binds its claim's. -/
-def factManifest (t : Trace) (f : Fact) : Value :=
+result binds its restating claim's text, as an entailment fact binds its claim's. Reads the trace
+through `L` (`Lookups.fast` in every caller). -/
+def factManifest (L : Lookups) (f : Fact) : Value :=
   let base := [("id", .str f.id), ("subject", .str f.subject), ("kind", .str f.kind.name),
     ("text", .str f.text), ("route", .str f.route.name)]
   let bound : List (String × Value) :=
     match f.kind with
     | .entailment =>
-      match t.claims.find? (·.entailment == some f.id) with
+      match L.entailmentClaim? f.id with
       | some c =>
         let needs := c.needs.map fun n =>
-          Value.obj [("id", .str n), ("text", .str ((t.fact? n).map (·.text) |>.getD ""))]
+          Value.obj [("id", .str n), ("text", .str ((L.fact? n).map (·.text) |>.getD ""))]
         [("claim", .obj [("id", .str c.id), ("subject", .str c.subject),
           ("level", .str c.level.name), ("text", .str c.text), ("needs", .arr needs)])]
       | none => []
     | .result =>
-      match t.claims.find? fun c => c.restates && c.needs == [f.id] with
+      match L.restatingClaim? f.id with
       | some c =>
         [("restatedBy", .obj [("id", .str c.id), ("subject", .str c.subject),
           ("level", .str c.level.name), ("text", .str c.text)])]
       | none => []
     | .instantiation =>
-      match f.instantiates.bind t.fact? with
+      match f.instantiates.bind L.fact? with
       | some s => [("source", factBrief s)]
       | none => []
     | _ => []
   .obj (base ++ bound)
 
 /-- The statement an exclusion's receipt certifies, endpoints included (rewording one stales it). -/
-def exclusionManifest (t : Trace) (x : Exclusion) : Value :=
-  let endpoint (id : String) : Value := ((t.fact? id).map factBrief).getD (.obj [("id", .str id)])
+def exclusionManifest (L : Lookups) (x : Exclusion) : Value :=
+  let endpoint (id : String) : Value := ((L.fact? id).map factBrief).getD (.obj [("id", .str id)])
   .obj [("id", .str x.id), ("subject", .str x.subject), ("text", .str x.text),
     ("route", .str x.route.name), ("between", .arr [endpoint x.between.1, endpoint x.between.2])]
 
@@ -117,28 +118,28 @@ def Cache.save (c : Cache) (file : System.FilePath) : IO Unit := do
 def bind (root : System.FilePath) (cache : IO.Ref Cache) (rehash : Bool) (id : String)
     (ev : Option Evidence) (manifest : Value) : IO Binding := do
   let some ev := ev | return { id, current := false, reasons := ["no receipt"] }
-  let mut reasons := []
+  let mut reasons := #[]
   for a in ev.artifacts do
     match ← resolve root a.path with
-    | .error why => reasons := reasons ++ [why]
+    | .error why => reasons := reasons.push why
     | .ok real =>
       if some (← fileDigest cache rehash real) != a.sha256 then
-        reasons := reasons ++ [s!"changed {a.path}"]
+        reasons := reasons.push s!"changed {a.path}"
   if some (← statementDigest manifest) != ev.statementDigest then
-    reasons := reasons ++ ["statement-changed"]
-  return { id, current := reasons.isEmpty, reasons }
+    reasons := reasons.push "statement-changed"
+  return { id, current := reasons.isEmpty, reasons := reasons.toList }
 
 /-- Bindings of every recorded verified fact + exclusion (the only ones a binding affects). -/
-def bindings (t : Trace) (root : System.FilePath) (cache : IO.Ref Cache) (rehash : Bool := false) :
-    IO (List Binding) := do
-  let mut out := []
+def bindings (t : Trace) (root : System.FilePath) (cache : IO.Ref Cache) (rehash : Bool := false)
+    (L : Lookups := Lookups.fast t) : IO (List Binding) := do
+  let mut out := #[]
   for f in t.facts do
     if f.status.verified then
-      out := out ++ [← bind root cache rehash f.id f.evidence (factManifest t f)]
+      out := out.push (← bind root cache rehash f.id f.evidence (factManifest L f))
   for x in t.exclusions do
     if x.status.verified then
-      out := out ++ [← bind root cache rehash x.id x.evidence (exclusionManifest t x)]
-  return out
+      out := out.push (← bind root cache rehash x.id x.evidence (exclusionManifest L x))
+  return out.toList
 
 /-! ## Pinning -/
 
@@ -146,37 +147,39 @@ def bindings (t : Trace) (root : System.FilePath) (cache : IO.Ref Cache) (rehash
 artifacts stay unpinned and are reported. -/
 def pinEvidence (root : System.FilePath) (cache : IO.Ref Cache) (ev : Evidence) (manifest : Value) :
     IO (Evidence × List String) := do
-  let mut artifacts := []
-  let mut problems := []
+  let mut artifacts := #[]
+  let mut problems := #[]
   for a in ev.artifacts do
     match ← resolve root a.path with
-    | .error why => artifacts := artifacts ++ [a]; problems := problems ++ [why]
+    | .error why => artifacts := artifacts.push a; problems := problems.push why
     | .ok real =>
-      artifacts := artifacts ++ [{ a with sha256 := some (← fileDigest cache true real) }]
+      artifacts := artifacts.push { a with sha256 := some (← fileDigest cache true real) }
   let digest ← statementDigest manifest
-  return ({ ev with artifacts, statementDigest := some digest }, problems)
+  return ({ ev with artifacts := artifacts.toList, statementDigest := some digest },
+    problems.toList)
 
 /-- Pins every fact + exclusion that carries evidence; returns the new trace + problems. -/
 def pin (t : Trace) (root : System.FilePath) (cache : IO.Ref Cache) :
     IO (Trace × List String) := do
-  let mut problems := []
-  let mut facts := []
+  let L := Lookups.fast t
+  let mut problems := #[]
+  let mut facts := #[]
   for f in t.facts do
     match f.evidence with
     | some ev =>
-      let (ev', ps) ← pinEvidence root cache ev (factManifest t f)
-      facts := facts ++ [{ f with evidence := some ev' }]
-      problems := problems ++ ps.map (s!"{f.id}: " ++ ·)
-    | none => facts := facts ++ [f]
-  let mut exclusions := []
+      let (ev', ps) ← pinEvidence root cache ev (factManifest L f)
+      facts := facts.push { f with evidence := some ev' }
+      problems := problems ++ (ps.map (s!"{f.id}: " ++ ·)).toArray
+    | none => facts := facts.push f
+  let mut exclusions := #[]
   for x in t.exclusions do
     match x.evidence with
     | some ev =>
-      let (ev', ps) ← pinEvidence root cache ev (exclusionManifest t x)
-      exclusions := exclusions ++ [{ x with evidence := some ev' }]
-      problems := problems ++ ps.map (s!"{x.id}: " ++ ·)
-    | none => exclusions := exclusions ++ [x]
-  return ({ t with facts, exclusions }, problems)
+      let (ev', ps) ← pinEvidence root cache ev (exclusionManifest L x)
+      exclusions := exclusions.push { x with evidence := some ev' }
+      problems := problems ++ (ps.map (s!"{x.id}: " ++ ·)).toArray
+    | none => exclusions := exclusions.push x
+  return ({ t with facts := facts.toList, exclusions := exclusions.toList }, problems.toList)
 
 /-! ## Review record -/
 

@@ -291,13 +291,16 @@ def escape (s : String) (shown : Bool := false) : String :=
       if n < 0x20 || (shown && ((0x7f ≤ n && n ≤ 0x9f) || Render.bidi n)) then acc ++ uEscape n
       else acc.push c) ++ "\""
 
+/-- Inserts `k` after every member whose key is not above its own. -/
 def insertBy (k : String × Value) : List (String × Value) → List (String × Value)
   | [] => [k]
   | x :: xs => if k.1 < x.1 then k :: x :: xs else x :: insertBy k xs
 
-/-- Members sorted by key (code point order), for the canonical form. -/
+/-- Members sorted by key (code point order), for the canonical form: equal keys in reversed input
+order, the order of the insertion sort `kvs.foldr insertBy []` it replaces (O(n²): a large
+outcome map or digest cache) and is proved equal to (`Spec.SortMembersAgree`). -/
 def sortMembers (kvs : List (String × Value)) : List (String × Value) :=
-  kvs.foldr insertBy []
+  kvs.reverse.mergeSort fun a b => a.1 ≤ b.1
 
 /-- D-canon: sorted keys, no insignificant whitespace. -/
 partial def Value.canonical : Value → String

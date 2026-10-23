@@ -79,7 +79,8 @@ def evaluate (snapshot spec : String) : String :=
     match Overrides.parse s.trace spec with
     | .error m => (problem "what-if" m).pretty
     | .ok o =>
-      let current := fun id => (s.bindings.find? (·.id == id)).any (·.current)
+      let byId := Receipt.BindingIndex.of s.bindings
+      let current := fun id => (byId.find id).any (·.current)
       (Evaluate.envelope { trace := s.trace, current, overrides := o } s.bindings s.digest
         s.review).pretty
 

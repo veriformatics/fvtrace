@@ -319,7 +319,8 @@ def witnessTests : TestM Unit := do
                        text := "O1 holds for the new cohort.", status := .«open»,
                        route := .humanRuling, instantiates := some "O1" }
   check "evaluate: the envelope keeps a fact's instantiation source"
-    (((Evaluate.factJson s [] inst).canonical.splitOn "\"instantiates\":\"O1\"").length == 2)
+    (((Evaluate.factJson (Answers.fast s) (fun _ => none) inst).canonical.splitOn
+      "\"instantiates\":\"O1\"").length == 2)
 
 /-- Must-verify kinds + verdict words (contract § Model `allows` + `ceiling f`, S-state gate). -/
 def kindTests : TestM Unit := do
@@ -430,24 +431,24 @@ def acceptanceTests : TestM Unit := do
   match sm.work.find? (·.fact == "O2") with
   | some w =>
     checkEq "cli: a mixed work row makes one claim available + names what the other needs"
-      (w.unlocks, Cli.neededBy sm w) (["CY"], ["Needed by C2, together with EN2."])
+      (w.unlocks, Cli.neededBy (Answers.fast sm) w) (["CY"], ["Needed by C2, together with EN2."])
   | none => check "cli: a mixed work row makes one claim available" false
   -- Work rows: a claim that cannot stand still names the facts it needs with the row's fact.
   let blocked := s.withOverrides [("O1", .violated)]
   match blocked.work.find? (·.fact == "O2") with
   | some w =>
     checkEq "cli: a work row names what a blocked claim needs too"
-      (Cli.neededBy blocked w)
+      (Cli.neededBy (Answers.fast blocked) w)
       ["Needed by C2, together with EN2, but C2 is not possible as worded."]
   | none => check "cli: a work row names what a blocked claim needs too" false
   -- Self-trace (user rulings): its stated verdicts, receipts taken as current.
   match decodeTrace (← IO.FS.readBinFile "examples/fvtrace/trace.json") with
   | .ok self =>
     let ss : Scenario := { trace := self, current := fun _ => true }
-    checkEq "examples: the self-trace's verdicts (C1, C3–C6, C8 can; C2 + C7 open)"
+    checkEq "examples: the self-trace's verdicts (C1, C3–C6, C8, C9 can; C2 + C7 open)"
       (self.claims.map fun c => (c.id, ss.final c))
       [("C1", .can), ("C2", .«open»), ("C3", .can), ("C4", .can), ("C5", .can), ("C6", .can),
-       ("C8", .can), ("C7", .«open»)]
+       ("C8", .can), ("C7", .«open»), ("C9", .can)]
     check "examples: no self-trace claim needs I1 (a universal premise)"
       (self.claims.all fun c => !c.needs.contains "I1")
   | .error _ => check "examples: the self-trace decodes" false

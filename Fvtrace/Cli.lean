@@ -224,22 +224,24 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
   let decoded ← match ← readTarget p tg with
     | .ok d => pure d
     | .error rc => return rc
+  -- One lookup record serves the checker, the lints + the receipts.
   let (errors, warnings, trace?) :
-      List (String × String × String) × List Lint.Warning × Option Trace :=
+      List (String × String × String) × List Lint.Warning × Option (Trace × Lookups) :=
     match decoded with
     | .error ds => (ds.toList.map fun d => (d.code, d.path, d.message), [], none)
     | .ok t =>
-      ((Check.violations t).map fun v => (v.rule.code, v.path, v.message), Lint.warnings t,
-        some t)
+      let L := Lookups.fast t
+      ((Check.violationsWith L t).map fun v => (v.rule.code, v.path, v.message),
+        Lint.warningsWith L t, some (t, L))
   let mut receipts : List Receipt.Binding := []
   let mut review : Option (Receipt.ReviewState × Option Review) := none
-  if let some t := trace? then
+  if let some (t, L) := trace? then
     review := some (← Receipt.reviewState t, t.review)
     if errors.isEmpty then
       let cache ← Session.openCache tg
       -- Every command reads each evidence file by default: the size + mtime cache could miss an
       -- edit that keeps both. The evaluation commands + serve reuse it on --cached alone.
-      receipts ← Receipt.bindings t tg.project cache true
+      receipts ← Receipt.bindings t tg.project cache true L
       Session.closeCache tg cache
   let stale := receipts.filter (!·.current)
   if p.has "--json" then
@@ -288,20 +290,20 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
       return 1
     | .error rc => return rc
   -- Every replay runs before any receipt is hashed: a verifier may rewrite an artifact.
-  let mut outputs : List (String × String) := []
+  let mut outputs : Array (String × String) := #[]
   let mut failed := 0
   if p.has "--replay" then
     for (id, r) in Replay.targets t do
       match ← runReplay tg id r timeout say with
       | .ok { exit := some 0, digest, .. } =>
-        outputs := outputs ++ [(id, digest)]
+        outputs := outputs.push (id, digest)
         say s!"  {id}: output pinned"
       | res =>
         failed := failed + 1
         complain s!"  {id}: output not pinned ({", ".intercalate (Replay.reasons none res)}); \
           it stays as it was"
   let cache ← Session.openCache tg
-  let (pinned, problems) ← Receipt.pin (Replay.withOutputs t outputs) tg.project cache
+  let (pinned, problems) ← Receipt.pin (Replay.withOutputs t outputs.toList) tg.project cache
   Session.closeCache tg cache
   if pinned != t then writeTrace tg.trace pinned
   for prob in problems do complain s!"  cannot pin {prob}"
@@ -338,7 +340,7 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
     for (id, r) in targets do
       let pinned := if r.output.isSome then "output pinned" else "output not pinned yet"
       note s!"  {id}: {Replay.display r.command} ({pinned})"
-  let mut rows : List Value := []
+  let mut rows : Array Value := #[]
   let mut failed := 0
   for (id, r) in targets do
     let mut fields := [("id", Value.str id), ("command", .arr (r.command.map .str)),
@@ -350,12 +352,12 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
         failed := failed + 1
         note s!"  {id}: failed ({", ".intercalate why})"
       fields := fields ++ [("passed", .bool why.isEmpty), ("reasons", .arr (why.map .str))]
-    rows := rows ++ [.obj fields]
+    rows := rows.push (.obj fields)
   if runs && !targets.isEmpty then
     note s!"{targets.length - failed} of {targets.length} replay(s) passed."
   if json then
     IO.print (Value.obj [("schema", .str "fvtrace.verify/1"), ("trace", .str tg.trace.toString),
-      ("project", .str tg.project.toString), ("replays", .arr rows)]).pretty
+      ("project", .str tg.project.toString), ("replays", .arr rows.toList)]).pretty
   return if failed == 0 then 0 else 1
 
 def review (env : Store.Env) (args : List String) : IO UInt32 := do
@@ -435,63 +437,95 @@ def footer (l : Loaded) : IO Unit := do
   say s!"({mode}; {review})"
   say s!"(project: {l.target.project})"
 
+/-- The claims of question `q`, in trace order, through an index of the claims by question. -/
+def claimsOf (ix : Index String) (claims : Array Claim) (q : String) : List Claim :=
+  (ix.group (cmp := compare) q).filterMap (claims[·]?)
+
+/-- The prospective subjects with claims among `mine`, in subject order, each with those claims in
+trace order: `subjects.filter prospective` × `mine.filter (·.subject == id)`, empty groups left
+out, through an index (ids are unique in a well-formed trace). -/
+def prospectiveGroups (t : Trace) (subjectAt : String → Option Nat) (mine : List Claim) :
+    List (Subject × List Claim) :=
+  let subjects := t.subjects.toArray
+  let pairs := mine.filterMap fun c => (subjectAt c.subject).bind fun p =>
+    (subjects[p]?).bind fun sub => if sub.kind == .prospective then some (p, c) else none
+  let sorted := pairs.mergeSort fun a b => a.1 ≤ b.1
+  let groups := sorted.foldl (init := (#[] : Array (Nat × Array Claim))) fun acc (p, c) =>
+    match acc.back? with
+    | some (q, cs) => if q == p then acc.pop.push (q, cs.push c) else acc.push (p, #[c])
+    | none => acc.push (p, #[c])
+  groups.toList.filterMap fun (p, cs) => (subjects[p]?).map (·, cs.toList)
+
+/-- The title of the experiment that creates a subject, when it is prospective. -/
+def creatorTitle (L : Lookups) (subject : String) : Option String := do
+  let sub ← L.subject? subject
+  let e ← sub.createdBy
+  let x ← L.experiment? e
+  return x.title
+
 def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 0 fun p l => do
     let sc := l.scenario
     if p.has "--json" then
       IO.print (project (envelopeOf l) (projectionKeys ++ ["subjects", "counts", "claims"])).pretty
       return 0
+    let A := Answers.fast sc
     let qs := sc.trace.questions.filter fun q => (p.value? "--question").all (· == q.id)
+    let byQuestion := Index.ofKeys compare (sc.trace.claims.map (·.question))
+    let claimsArr := sc.trace.claims.toArray
+    let subjectIx := Index.ofKeys compare (sc.trace.subjects.map (·.id))
     for q in qs do
       say s!"{q.id} {q.title}: {q.text}"
-      let mine := sc.trace.claims.filter (·.question == q.id)
+      let mine := claimsOf byQuestion claimsArr q.id
       let groups : List (String × List Claim) :=
         [State.can, .conditional, .«open», .cannot].map (fun st =>
           (st.verdict, mine.filter fun c =>
-            !c.latent && !sc.prospective c.subject && sc.final c == st)) ++
-        [("Overlooked directions", mine.filter fun c => c.latent && !sc.prospective c.subject)] ++
-        ((sc.trace.subjects.filter (·.kind == .prospective)).map fun sub =>
-          (s!"If {(sc.creatorTitle sub.id).getD sub.title} runs",
-            mine.filter (·.subject == sub.id)))
+            !c.latent && !A.prospective c.subject && A.final c == st)) ++
+        [("Overlooked directions", mine.filter fun c => c.latent && !A.prospective c.subject)] ++
+        ((prospectiveGroups sc.trace (subjectIx.first? (cmp := compare)) mine).map fun (sub, cs) =>
+          (s!"If {(creatorTitle A.lookups sub.id).getD sub.title} runs", cs))
       for (title, cs) in groups do
         unless cs.isEmpty do
           say s!"  {title}"
           for c in cs do
-            let qual := sc.qualifiers c l.review
+            let qual := A.qualifiers c l.review
             let tail := if qual.isEmpty then "" else s!" [{", ".intercalate qual}]"
-            say s!"    {c.id} {(sc.final c).verdict}{tail}: {sc.sentence c}"
+            say s!"    {c.id} {(A.final c).verdict}{tail}: {A.sentence c}"
             let list := fun (xs : List String) => ", ".intercalate xs
             let detail :=
-              (if (sc.blockers c).isEmpty then [] else [s!"violated: {list (sc.blockers c)}"]) ++
-              (if (sc.incompatible c).isEmpty then []
-               else [s!"needs both sides of: {list (sc.incompatible c)}"]) ++
-              (if (sc.gaps c).isEmpty then [] else [s!"gaps: {", ".intercalate (sc.gaps c)}"]) ++
-              (if (sc.premises c).isEmpty || sc.final c == .conditional then []
-               else [s!"assumes: {", ".intercalate (sc.premises c)}"])
+              (if (A.blockers c).isEmpty then [] else [s!"violated: {list (A.blockers c)}"]) ++
+              (if (A.incompatible c).isEmpty then []
+               else [s!"needs both sides of: {list (A.incompatible c)}"]) ++
+              (if (A.gaps c).isEmpty then [] else [s!"gaps: {", ".intercalate (A.gaps c)}"]) ++
+              (if (A.premises c).isEmpty || A.final c == .conditional then []
+               else [s!"assumes: {", ".intercalate (A.premises c)}"])
             unless detail.isEmpty do say s!"      {"; ".intercalate detail}"
     footer l
     return 0
 
 def claimList (ids : List String) : String := if ids.isEmpty then "none" else ", ".intercalate ids
 
-/-- `a`, `a and b`, `a, b and c`. -/
-def andList : List String → String
-  | [] => ""
-  | [a] => a
-  | [a, b] => s!"{a} and {b}"
-  | a :: rest => s!"{a}, {andList rest}"
+/-- `a`, `a and b`, `a, b and c`: built left to right, once (a nested append would copy the list's
+tail at every item). -/
+def andList (xs : List String) : String :=
+  match xs.dropLast, xs.getLast? with
+  | [], some a => a
+  | init, some last => ", ".intercalate init ++ " and " ++ last
+  | _, none => ""
 
 /-- A work row's claims beyond those it makes available alone, each with the facts it needs
 together with this one (its gaps, minus the row's fact), a blocked one also flagged. -/
-def neededBy (sc : Scenario) (w : Scenario.Work) : List String :=
-  (w.gates.filter (!w.unlocks.contains ·)).filterMap fun id => (sc.trace.claim? id).map fun c =>
-    let others := (sc.gaps c).filter (· != w.fact)
-    let together := if others.isEmpty then "" else s!", together with {andList others}"
-    match sc.final c with
-    | .cannot => if others.isEmpty then s!"Needed by {id}, which is not possible as worded."
-      else s!"Needed by {id}{together}, but {id} is not possible as worded."
-    | .conditional => s!"Needed by {id}, which holds only if it is true."
-    | _ => s!"Needed by {id}{together}."
+def neededBy (A : Answers) (w : Scenario.Work) : List String :=
+  let alone := Index.ofKeys compare w.unlocks
+  (w.gates.filter fun id => (alone.first? (cmp := compare) id).isNone).filterMap fun id =>
+    (A.lookups.claim? id).map fun c =>
+      let others := (A.gaps c).filter (· != w.fact)
+      let together := if others.isEmpty then "" else s!", together with {andList others}"
+      match A.final c with
+      | .cannot => if others.isEmpty then s!"Needed by {id}, which is not possible as worded."
+        else s!"Needed by {id}{together}, but {id} is not possible as worded."
+      | .conditional => s!"Needed by {id}, which holds only if it is true."
+      | _ => s!"Needed by {id}{together}."
 
 def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 0 fun p l => do
@@ -499,19 +533,22 @@ def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     if p.has "--json" then
       IO.print (project (envelopeOf l) (projectionKeys ++ ["work", "blockers"])).pretty
       return 0
-    if sc.work.isEmpty then
+    let A := Answers.fast sc
+    let work := A.work ()
+    if work.isEmpty then
       say "No fact that a claim needs can rise further: each one is violated or has the \
         strongest status that its route allows."
     else say "Facts to verify, most useful first:"
-    for w in sc.work do
-      say s!"  {w.fact} {sc.factText w.fact}"
+    for w in work do
+      say s!"  {w.fact} {A.factText w.fact}"
       let alone := if w.unlocks.isEmpty then []
         else [s!"Makes available alone: {", ".intercalate w.unlocks}."]
-      say s!"      {" ".intercalate (alone ++ neededBy sc w)}"
-    unless sc.blockerFacts.isEmpty do
+      say s!"      {" ".intercalate (alone ++ neededBy A w)}"
+    let blockers := A.blockerFacts ()
+    unless blockers.isEmpty do
       say "Violated facts (reword the claims or collect new data):"
-      for (f, cs) in sc.blockerFacts do
-        say s!"  {f} {sc.factText f}"
+      for (f, cs) in blockers do
+        say s!"  {f} {A.factText f}"
         say s!"      Blocks: {claimList cs}."
     footer l
     return 0
@@ -531,42 +568,45 @@ def experimentsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
       return 0
     if sc.trace.experiments.isEmpty then say "The trace suggests no experiment."
     else say "Suggested experiments, most useful first:"
-    for e in sc.trace.experiments.mergeSort (Evaluate.experimentBefore sc) do
-      let cl := sc.closure [e.id]
-      let created := if sc.creates e then "; creates new data"
-        else if sc.prospective e.subject then "; on new data" else ""
+    let A := Answers.fast sc
+    for e in A.experimentOrder () do
+      let cl := A.closure [e.id]
+      let created := if A.creates e then "; creates new data"
+        else if A.prospective e.subject then "; on new data" else ""
       say s!"  {e.id} {e.title} ({e.kind.name}, {e.effort.name}{created})"
       let first := cl.filter (· != e.id)
       unless first.isEmpty do say s!"      Runs after: {", ".intercalate first}."
-      let contingent := (sc.merged cl).any fun (k, _) => sc.resultFacts.contains k
+      let contingent := (A.merged cl).any fun (k, _) => A.isResult k
       let when := if contingent then "If it succeeds and the result is observed" else
         "If it succeeds"
-      say s!"      {when}: {movesText (sc.moves (sc.applySuccess cl))}"
+      say s!"      {when}: {movesText (A.successMoves cl)}"
       unless e.failure.isEmpty do
-        say s!"      If it fails: {movesText (sc.moves (sc.applyFailure e))}"
+        say s!"      If it fails: {movesText (A.failureMoves e)}"
     footer l
     return 0
 
 def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 1 fun p l => do
     let sc := l.scenario
+    let A := Answers.fast sc
     let id := p.positional[0]!
-    let some c := sc.trace.claim? id | return ← usageError s!"no claim \"{id}\""
+    let some c := A.lookups.claim? id | return ← usageError s!"no claim \"{id}\""
     if p.has "--json" then
-      let claim := match envelopeOf l with
+      let env := envelopeOf l
+      let claim := match env with
         | .obj kvs => match kvs.lookup "claims" with
           | some (.arr cs) => cs.find? fun (v : Value) => match v with
             | .obj ckv => ckv.lookup "id" == some (Value.str id)
             | _ => false
           | _ => none
         | _ => none
-      IO.print (Value.obj ((match project (envelopeOf l) projectionKeys with
+      IO.print (Value.obj ((match project env projectionKeys with
         | .obj kvs => kvs | _ => []) ++ [("claim", claim.getD .null)])).pretty
       return 0
-    say s!"{c.id} {(sc.final c).verdict}: {sc.sentence c}"
+    say s!"{c.id} {(A.final c).verdict}: {A.sentence c}"
     let uncovered := fun (cov : Coverage) => do
-      let (violated, rest) := cov.uncovered.partition (sc.eff · == .violated)
-      let (open_, settled) := rest.partition fun n => (sc.trace.fact? n).any sc.closable
+      let (violated, rest) := cov.uncovered.partition (A.eff · == .violated)
+      let (open_, settled) := rest.partition fun n => (A.lookups.fact? n).any A.closable
       unless violated.isEmpty do
         say s!"  Violated: {", ".intercalate violated} (reword the claim or collect new data)."
       unless open_.isEmpty do
@@ -575,7 +615,7 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
           {they} a new experiment or a ruling."
       unless settled.isEmpty do
         say s!"  Stays as it is: {", ".intercalate settled} (no route allows a stronger status)."
-    match sc.plan c with
+    match A.plan c with
     | .planned cov exps st _ _ contingent =>
       say s!"  Plan: {", ".intercalate exps}. If the plan succeeds, the claim reads {st.verdict}."
       say "  The plan shows coverage, not scientific priority."

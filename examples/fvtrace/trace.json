@@ -32,6 +32,11 @@
       "id": "Q4",
       "title": "Isolation",
       "text": "Can a what-if or another site reach claims it should not touch?"
+    },
+    {
+      "id": "Q5",
+      "title": "Fast paths",
+      "text": "Does the fast evaluation that fvtrace runs give the answers that the proved definitions give?"
     }
   ],
   "facts": [
@@ -52,7 +57,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "a7231879ed238f2b1d161cffdfefa4754238d453bf8e06b56a2cd1e78cb9d285",
+            "sha256": "af7fecfaa5e5e4cb8f1d737f73978f0f4ebbc099e43c76103e21967933ca301c",
             "role": "proof"
           }
         ],
@@ -65,7 +70,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckAcceptsExactlyWellFormed"
           ],
-          "output": "863409f1420b33aa67ebfd6380d0071be812277b5c4ff405333fbede3dbdf496"
+          "output": "7c55f153392c57d130b2805054aa0e3fcce536bd99ed8c699f2082e459c9ea5b"
         }
       },
       "trusts": [
@@ -94,7 +99,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "a7231879ed238f2b1d161cffdfefa4754238d453bf8e06b56a2cd1e78cb9d285",
+            "sha256": "af7fecfaa5e5e4cb8f1d737f73978f0f4ebbc099e43c76103e21967933ca301c",
             "role": "proof"
           }
         ],
@@ -107,7 +112,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckViolationsSound"
           ],
-          "output": "18696ede6dbabadd4cb521179062260628a9be1a7fda7f73e51a9888569927d5"
+          "output": "bca61fd7b0aee18f63f1f4bfc403c1321be9f2dff76bfa33181363a737489e6c"
         }
       },
       "trusts": [
@@ -475,12 +480,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Receipt.lean",
-            "sha256": "a9163820c5d633c36207af1c5c0d1aa7e844f2c4e1a64f05882b0dd9f82183fb",
+            "sha256": "ea1cf8d3f2953c69bd75d446574758708588657dd392d3e7fb5943623e7d54f5",
             "role": "code"
           },
           {
             "path": "Fvtrace/Receipt/Basic.lean",
-            "sha256": "bf005623b65c36a8b1b7868efbb8b46e6074cc20dfb97b35d9c58be4db5f9a92",
+            "sha256": "3d4ff578da76629c0b39556d37e3bf301987e267094ddbcfc0743bbff811d70e",
             "role": "code"
           },
           {
@@ -508,7 +513,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "a7231879ed238f2b1d161cffdfefa4754238d453bf8e06b56a2cd1e78cb9d285"
+            "sha256": "af7fecfaa5e5e4cb8f1d737f73978f0f4ebbc099e43c76103e21967933ca301c"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -704,6 +709,181 @@
         "C compiler",
         "Lean runtime"
       ]
+    },
+    {
+      "id": "P10",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "Every answer that the envelope, the GUI and the CLI read about a scenario is the same from the indexed engine as from the plain definitions.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.AnswersAgree.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Fast.lean",
+            "sha256": "268a39dc058a224a6ad2ed3b5666316a7bda1bc63025ea940c41d28e701d7561",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Answers.lean",
+            "sha256": "f50ac76dafe49155cf8305d41798f46dd119cf5173aab9d01bcada58adfafec1",
+            "role": "proof"
+          },
+          {
+            "path": "Fvtrace/Proofs/Closure.lean",
+            "sha256": "f622d3a8f075c3ca5fa8a591072e98cf574b49a85935c2be625b7da7c561f830",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.AnswersAgree",
+        "statementDigest": "bd154c0b515570fe2254fce5f21a473fa05390aeb32430bf0a172fb12cc46e9a",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.AnswersAgree"
+          ],
+          "output": "2c0e04abed83c150eead74a4d2a344f4095c76793922776ed83edc03da8c5f45"
+        }
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
+    },
+    {
+      "id": "P11",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "Every question that the checker, the lints and the receipt statements ask of a trace gets the same answer from its sorted indexes as from its lists, and a receipt found through an index is the first one with that id.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.LookupsAgree.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Fast.lean",
+            "sha256": "268a39dc058a224a6ad2ed3b5666316a7bda1bc63025ea940c41d28e701d7561",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Lookups.lean",
+            "sha256": "7799b55629ff4bd5383bf5313c24510a1e1729dcc08db53bbdfc0feac6c4bd59",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.LookupsAgree",
+        "statementDigest": "4bae3f1cc669cecbc2a2b50c68ed258c73621f7a9cd9cd966c5b687305dfc3be",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.LookupsAgree"
+          ],
+          "output": "3442885fc7de7ddec8e0199f3e09c9a03a390762d42a5fadc9dc753c4519d586"
+        }
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
+    },
+    {
+      "id": "P12",
+      "subject": "S",
+      "kind": "implementation",
+      "text": "The canonical form of a JSON object orders its members as the insertion sort that it replaced.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.SortMembersAgree.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Fast.lean",
+            "sha256": "268a39dc058a224a6ad2ed3b5666316a7bda1bc63025ea940c41d28e701d7561",
+            "role": "statement"
+          },
+          {
+            "path": "Fvtrace/Proofs/Json.lean",
+            "sha256": "5a5c99f505c45024b7f9103d72e3fba39f39948c3b7a948afd39a7f58e933e1e",
+            "role": "proof"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.SortMembersAgree",
+        "statementDigest": "0e27580800371640120497cc5daa86a533e7fcbd2f77ce466530a292f0031a54",
+        "replay": {
+          "command": [
+            "bash",
+            "tools/statement.sh",
+            "Fvtrace.Spec.SortMembersAgree"
+          ],
+          "output": "8053bebe6cdcbfa59484e810e662f58380bb9758562c910aa9eaa7cd5ae44cd5"
+        }
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
+    },
+    {
+      "id": "E9",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "C9's sentence joins the statements of P10, P11 and P12, all proved in Lean.",
+      "status": "proved",
+      "route": "lean",
+      "evidence": {
+        "summary": "Lean proof of Fvtrace.Spec.AnswersAgree ∧ Fvtrace.Spec.LookupsAgree ∧ Fvtrace.Spec.SortMembersAgree.",
+        "artifacts": [
+          {
+            "path": "Fvtrace/Spec/Fast.lean",
+            "sha256": "268a39dc058a224a6ad2ed3b5666316a7bda1bc63025ea940c41d28e701d7561"
+          },
+          {
+            "path": "Fvtrace/Proofs/Answers.lean",
+            "sha256": "f50ac76dafe49155cf8305d41798f46dd119cf5173aab9d01bcada58adfafec1"
+          },
+          {
+            "path": "Fvtrace/Proofs/Closure.lean",
+            "sha256": "f622d3a8f075c3ca5fa8a591072e98cf574b49a85935c2be625b7da7c561f830"
+          },
+          {
+            "path": "Fvtrace/Proofs/Lookups.lean",
+            "sha256": "7799b55629ff4bd5383bf5313c24510a1e1729dcc08db53bbdfc0feac6c4bd59"
+          },
+          {
+            "path": "Fvtrace/Proofs/Json.lean",
+            "sha256": "5a5c99f505c45024b7f9103d72e3fba39f39948c3b7a948afd39a7f58e933e1e"
+          }
+        ],
+        "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
+        "statement": "Fvtrace.Spec.AnswersAgree ∧ Fvtrace.Spec.LookupsAgree ∧ Fvtrace.Spec.SortMembersAgree",
+        "statementDigest": "c3ddba34e6c5fb47d73c411c056774eef09f5d4ffd75b9cb6ed7b0274c5685fb"
+      },
+      "trusts": [
+        "Lean 4.35.0 kernel",
+        "lean4lean",
+        "nanoda",
+        "Lean compiler",
+        "C compiler",
+        "Lean runtime"
+      ]
     }
   ],
   "claims": [
@@ -799,6 +979,19 @@
       ],
       "entailment": "E7",
       "latent": true
+    },
+    {
+      "id": "C9",
+      "question": "Q5",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "The indexed paths that fvtrace runs give the same answers as the plain definitions: every answer about a scenario, every question that the checker, the lints and the receipt statements ask of a trace, and the member order of the canonical form.",
+      "needs": [
+        "P10",
+        "P11",
+        "P12"
+      ],
+      "entailment": "E9"
     }
   ],
   "experiments": [
@@ -855,6 +1048,11 @@
     {
       "rule": "L-result",
       "claim": "C8",
+      "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
+    },
+    {
+      "rule": "L-result",
+      "claim": "C9",
       "reason": "A claim about fvTrace's own code rests on proofs, not on an observed result."
     }
   ]

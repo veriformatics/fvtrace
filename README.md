@@ -219,9 +219,16 @@ toolchain, already passed it. The well-formedness check that `fvtrace check` app
 decoded trace is proved to accept exactly the well-formed traces; the JSON decoding before it is
 tested, not proved.
 
-`examples/fvtrace/trace.json` applies fvTrace to itself. Six of its claims read **Fully
-supported**: each claim says what one or two Lean theorems prove, and its entailment fact is that
-proof. Two claims read **Pending verification**, because facts that they need are tested but not
+The `fvtrace` program does not run those definitions directly. It reads a trace through sorted
+indexes and keeps the results that it uses again, so a trace of 16 MiB takes seconds. Lean
+theorems prove that these fast paths give the same answers as the definitions, for every trace
+and every what-if (`Fvtrace/Spec/Fast.lean`). Thus the other guarantees cover what the program
+shows.
+
+`examples/fvtrace/trace.json` applies fvTrace to itself. Seven of its claims read **Fully
+supported**: each claim says what one, two or three Lean theorems prove, and its entailment fact
+is that proof. One of them says that the fast paths give the same answers as the definitions.
+Two claims read **Pending verification**, because facts that they need are tested but not
 proved:
 
 - The receipt claim ("Fully supported" means unchanged evidence) needs the file check of the
@@ -260,6 +267,11 @@ A reviewer checks that each sentence says what its theorem proves.
   jobs, one for each group of checks.
 - `bash tools/fast-gate.sh` runs the quick checks while you work.
 - `bash tools/gate-probe.sh` shows that each purpose-built check fails on a planted error.
+- `bash tools/scale.sh --assert` times `fvtrace check` and `fvtrace eval` on generated traces
+  of up to 16 MiB and fails when a run takes more than 60 seconds, or more than 2.5 times as
+  long when the trace doubles. Run it on an idle computer.
+- `bash tools/compare.sh OLD NEW` runs two `fvtrace` programs on the same inputs and fails when
+  their output differs by one byte.
 - `bash tools/pin-wasm.sh emsdk VERSION` or `bash tools/pin-wasm.sh lean VERSION` updates the
   pinned downloads of the engine build (`tools/wasm.lock`).
 
