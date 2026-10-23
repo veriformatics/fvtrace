@@ -41,6 +41,9 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] security review (MAINTAIN request): scanners + manual pass, a verdict per check-set row (`.agent/review.md`)
+- [ ] security fixes: one unit per finding above info, each with its red test + acceptance check
+- [ ] close: full gate green on a clean tree; ledger → `.agent/archive/`; rules upkeep
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
