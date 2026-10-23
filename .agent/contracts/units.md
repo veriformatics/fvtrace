@@ -61,3 +61,11 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | unit | tier | contract | evidence |
 |---|---|---|---|
 | pins at latest eligible release | data (pins: the gate runs every tool they feed) | `.claude/rules/deps.md` (release age, user ruling) | CI gate on the commit (run in its body); fast gate + e2e under Node 26.12.1 (signed SHASUMS checked); HACL* `--check` at the new rev rc 0, planted digest rc 1; actionlint planted label rc 1; every `fvtrace` command driven |
+
+# Units → tier → contract → evidence (MAINTAIN — security review)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| review ledger | — | check set fixed before reading (`.agent/review.md`) | 15 rows adjudicated; scanners at 53bcecc; probes (cookie, HTTP edge cases, slots, bodies, /dev/zero, parser + checker scale) |
+| F6 skill ground rule | docs | `skill/fvtrace/SKILL.md` ground rules | `rg` acceptance (53bcecc: rc 1); CI run 39946476496 |
+| F3 bounded trace read | kernel (shell) | `kernel.md` D-json (regular file, refused by size before a read, ≤ limit + 1 bytes) | smoke FIFO / device / 64 GiB red on 53bcecc (rc 124 / 1 / 124); Tests/Cli `readTests`; mutation credit (Session.lean) |

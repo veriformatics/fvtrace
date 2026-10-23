@@ -4,7 +4,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 
 ## Decode (D-*; tested + round-trip property)
 
-- Input = UTF-8 JSON text. D-json: RFC 8259 syntax; duplicate object keys rejected; numbers = integers alone; nesting depth ≤ 64; size ≤ 16 MiB.
+- Input = UTF-8 JSON text. D-json: RFC 8259 syntax; duplicate object keys rejected; numbers = integers alone; nesting depth ≤ 64; size ≤ 16 MiB. A trace file is opened only when regular (no FIFO, device or link to one) and refused by its size before a byte is read; at most one byte past the limit is read.
 - D-shape: every object closed (unknown field ⇒ error); optional fields absent (never `null`); required fields listed below; enums exact lowercase strings. Defaults when absent: `experiments`, `exclusions`, `waivers`, `artifacts`, `trusts`, `requires` = `[]`; `failure` = `{}`; `latent` = `false`. Strings = Unicode scalar sequences: invalid UTF-8 and unpaired `\uD800`–`\uDFFF` escapes are rejected.
 - D-id: ids match `^[A-Za-z][A-Za-z0-9_.-]{0,63}$`. D-text: text fields non-empty, contain no C0 control char except `\n`. D-date: `YYYY-MM-DD`. D-sha: 64 lowercase hex.
 - Diagnostics = `{code, path (RFC 6901 pointer), message}`; decode errors stop the check (WF needs a decoded trace); every decode error found in one pass is reported. Exit codes (CLI): 0 = valid (warnings allowed), 1 = invalid trace, 2 = usage or I/O error.

@@ -70,6 +70,25 @@ expect "plan on an unknown claim rc" 2 $?
 fv FVTRACE_HOME="$tmp/fv" "$bin" bogus >/dev/null 2>&1
 expect "unknown command rc" 2 $?
 
+# truncate + a FIFO: Linux (the gate's cli stage runs there).
+if [[ "$(uname -s)" == Linux ]]; then
+    # A trace from someone else (a bundle can carry links): a FIFO would block on open, a device
+    # never end, a sparse giant be allocated whole. Each is refused before a byte is read.
+    mkfifo "$tmp/fifo.json"
+    ln -s /dev/null "$tmp/device.json"
+    for f in fifo device; do
+        out="$(fv FVTRACE_HOME="$tmp/fv" timeout 20 "$bin" check --trace "$tmp/$f.json" 2>&1)"
+        expect "check on a $f rc" 2 $?
+        [[ "$out" == *"not a regular file"* ]] || expect "check names the $f" "not a regular file" "$out"
+    done
+    truncate -s 64G "$tmp/huge.json"
+    out="$(fv FVTRACE_HOME="$tmp/fv" timeout 20 "$bin" check --trace "$tmp/huge.json" 2>&1)"
+    expect "check on a 64 GiB trace rc" 1 $?
+    [[ "$out" == *"the trace has 68719476736 bytes"* ]] ||
+        expect "check refuses the 64 GiB trace by its size" "the trace has 68719476736 bytes" "$out"
+
+fi
+
 rm -rf "$tmp/proj/rel"
 after="$(cd "$tmp/proj" && find . -print0 | sort -z | xargs -0 sha256sum 2>/dev/null)"
 expect "project folder unchanged" "$before" "$after"

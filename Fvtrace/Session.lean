@@ -36,14 +36,35 @@ def openCache (t : Store.Target) : IO (IO.Ref Receipt.Cache) := do
 def closeCache (t : Store.Target) (cache : IO.Ref Receipt.Cache) : IO Unit := do
   if ← t.entry.isDir then (← cache.get).save t.cacheFile
 
-/-- Reads the target's trace; `explicit` = the user named the file (`--trace`). -/
-def read (t : Store.Target) (explicit : Bool) :
+/-- The first `n` bytes of `path` (all of it when shorter), read in 1 MiB chunks. -/
+def readPrefix (path : System.FilePath) (n : Nat) : IO ByteArray := do
+  let h ← IO.FS.Handle.mk path .read
+  let mut out := ByteArray.empty
+  while out.size < n do
+    let chunk ← h.read (min 1048576 (n - out.size)).toUSize
+    if chunk.isEmpty then break
+    out := out ++ chunk
+  return out
+
+/-- Reads the target's trace, at most `limit` bytes; `explicit` = the user named the file
+(`--trace`). A trace can come from someone else (a bundle), so only a regular file is opened (a
+FIFO blocks on open, a device such as `/dev/zero` never ends), its size decides before any byte is
+read, and at most one byte past the limit is read (a file growing meanwhile still meets the
+decoder's size rule). -/
+def readWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
     IO (Except Problem (Except (Array Decode.Diag) Trace)) := do
   if !explicit && !(← t.trace.pathExists) then return .error (.noTrace t.project)
   try
-    return .ok (decodeTrace (← IO.FS.readBinFile t.trace))
+    let m ← t.trace.metadata
+    unless m.type == .file do return .error (.unreadable t.trace "not a regular file")
+    if m.byteSize.toNat > limit then return .ok (.error #[sizeDiag m.byteSize.toNat limit])
+    return .ok (decodeTraceWithin limit (← readPrefix t.trace (limit + 1)))
   catch e =>
     return .error (.unreadable t.trace ((toString e).replace "\n" " "))
+
+/-- D-json: at most 16 MiB. -/
+def read : Store.Target → Bool → IO (Except Problem (Except (Array Decode.Diag) Trace)) :=
+  readWithin maxTraceBytes
 
 /-- Reads, checks + binds the trace, then applies the what-if (`FACT=STATUS,…`). -/
 def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash : Bool)
