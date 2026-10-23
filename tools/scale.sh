@@ -71,11 +71,13 @@ for shape in "${shapes[@]}"; do
             printf '%-12s %8s %9s %-6s %4s %9s %9s %8s %11s\n' "$shape" "$n" \
                 "$(stat -c %s "$dir/trace.json")" "$cmd" "$rc" "$wall" "$user" "$((rss / 1024))" \
                 "$(<"$work/bytes")"
-            # The bound grades the unrounded ratio: 2.504 rounds to 2.50 but exceeds 2.5.
-            ratio=""
+            # awk grades the ratio as a double, before any rounding (2.504 prints as 2.50 but
+            # exceeds 2.5): it prints the ratio + 1 when it is over the bound.
+            ratio="" over=0
             if [[ -n "$prev" && "$wall" != timeout && "$prev" != timeout ]]; then
-                ratio="$(awk -v a="$prev" -v b="$wall" -v na="$prev_n" -v nb="$n" \
-                    'BEGIN { if (a > 0 && nb > na) printf "%.6f", exp(log(b / a) * log(2) / log(nb / na)) }')"
+                read -r ratio over < <(awk -v a="$prev" -v b="$wall" -v na="$prev_n" -v nb="$n" \
+                    -v m="$max_ratio" 'BEGIN { if (a > 0 && nb > na) {
+                        r = exp(log(b / a) * log(2) / log(nb / na)); printf "%.4f %d\n", r, (r > m) } }')
                 [[ -n "$ratio" ]] && printf '%-12s ratio %.2f per doubling\n' "" "$ratio"
             fi
             if [[ $grade -eq 1 ]]; then
@@ -86,8 +88,8 @@ for shape in "${shapes[@]}"; do
                 elif awk -v w="$wall" -v m="$max_wall" 'BEGIN { exit !(w > m) }'; then
                     fail "$shape $cmd n=$n: wall $wall s > $max_wall s"
                 fi
-                if [[ -n "$ratio" ]] && awk -v r="$ratio" -v m="$max_ratio" 'BEGIN { exit !(r > m) }'; then
-                    fail "$shape $cmd n=$prev_n→$n: ratio $(printf '%.4f' "$ratio") > $max_ratio per doubling"
+                if [[ "$over" == 1 ]]; then
+                    fail "$shape $cmd n=$prev_n→$n: ratio $ratio > $max_ratio per doubling"
                 fi
             fi
             prev="$wall" prev_n="$n"
