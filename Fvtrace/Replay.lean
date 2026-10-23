@@ -1,4 +1,5 @@
 import Fvtrace.Digest
+import Fvtrace.Index
 import Fvtrace.Model
 
 /-!
@@ -110,8 +111,12 @@ def reasons (pinned : Option String) : Except String Run → List String
 
 /-- `t` with each id's replay `output` set (pairs from `pin --replay`). -/
 def withOutputs (t : Trace) (outputs : List (String × String)) : Trace :=
+  let ix := Index.ofKeys compare (outputs.map (·.1))
+  let arr := outputs.toArray
+  -- `outputs.lookup id` (its first match) through an index.
+  let lookup := fun (id : String) => ((ix.first? (cmp := compare) id).bind (arr[·]?)).map (·.2)
   let setReplay := fun (id : String) (r : Replay) =>
-    match outputs.lookup id with
+    match lookup id with
     | some d => { r with output := some d }
     | none => r
   let set := fun (id : String) (ev : Option Evidence) =>

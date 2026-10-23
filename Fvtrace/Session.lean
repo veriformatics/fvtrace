@@ -73,7 +73,8 @@ def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash :
     | .ok (.ok tr) => pure tr
     | .ok (.error ds) => return .error (.undecodable t.trace ds)
     | .error p => return .error p
-  let vs := Check.violations tr
+  let L := Lookups.fast tr
+  let vs := Check.violationsWith L tr
   unless vs.isEmpty do return .error (.illFormed t.trace vs)
   let overrides ← match whatif with
     | none => pure []
@@ -81,8 +82,9 @@ def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash :
       match Overrides.parse tr spec with
       | .ok o => pure o
       | .error m => return .error (.badWhatif m)
-  let bindings ← Receipt.bindings tr t.project cache rehash
-  let current := fun id => (bindings.find? (·.id == id)).any (·.current)
+  let bindings ← Receipt.bindings tr t.project cache rehash L
+  let byId := Receipt.BindingIndex.of bindings
+  let current := fun id => (byId.find id).any (·.current)
   return .ok { target := t, scenario := { trace := tr, current, overrides }, bindings,
                digest := ← Receipt.reviewDigest tr, review := ← Receipt.reviewState tr }
 

@@ -17,6 +17,8 @@ import Tests.Fields
 import Tests.Replay
 import Tests.Snapshot
 import Tests.Wasm
+import Tests.Scale
+import Tests.Differential
 
 namespace Tests
 
@@ -53,6 +55,9 @@ def native : TestM Unit := do
   area "server-native" Tests.Server.nativeTests
   area "export-native" Tests.Export.nativeTests
   area "plan-scale" Tests.Engine.scaleTests
+  area "check-scale" Tests.Scale.checkTests
+  area "eval-scale" Tests.Scale.evalTests
+  area "differential" Tests.Differential.tests
   area "json-scale" Tests.Json.scaleTests
   area "replay" Tests.Replay.tests
   area "fields-native" Tests.Fields.nativeTests

@@ -1,4 +1,4 @@
-import Fvtrace.Model
+import Fvtrace.Lookups
 
 /-!
 # Engine (contract § Effective status, § Claim state, § Ranking, § Experiments, § Plans)
@@ -397,22 +397,27 @@ def Overrides.valid (t : Trace) (o : Overrides) : Bool :=
 def Overrides.normalize (o : Overrides) : Overrides := o.mergeSort fun a b => a.1 ≤ b.1
 
 /-- `O1=proved,O3=assumed` → validated, normalized overrides; never clamped or dropped. A refusal
-opens with the token it rejects: the GUI shows it as a sentence, the CLI after `fvtrace: `. -/
+opens with the token it rejects: the GUI shows it as a sentence, the CLI after `fvtrace: `. Facts
++ earlier keys are looked up through indexes (`kernel.md` P-shell): every entry before the current
+one passed (the first refusal ends the loop), so an earlier entry naming the key = a repeat. -/
 def Overrides.parse (t : Trace) (spec : String) : Except String Overrides := do
   let entries := (spec.splitOn ",").filter (!·.isEmpty)
-  let mut out : Overrides := []
-  for e in entries do
+  let L := Lookups.fast t
+  let seen := Index.ofKeys compare (entries.map fun e => (e.splitOn "=").headD "")
+  let mut out : Array (String × Status) := #[]
+  for (e, i) in entries.zipIdx do
     match e.splitOn "=" with
     | [k, v] =>
       let some st := Status.all.find? (·.name == v) | throw s!"\"{v}\" is not a status"
-      let some f := t.fact? k | throw s!"\"{k}\" is not a fact on record"
+      let some f := L.fact? k | throw s!"\"{k}\" is not a fact on record"
       unless f.route.allows st do
         throw s!"{k} cannot reach {v} by route {f.route.name}"
       unless f.allows st do
         throw s!"{k} cannot be assumed: facts of its kind must be verified"
-      if out.any (·.1 == k) then throw s!"{k} appears twice in the what-if"
-      out := out ++ [(k, st)]
+      if (seen.first? (cmp := compare) k).any (· < i) then
+        throw s!"{k} appears twice in the what-if"
+      out := out.push (k, st)
     | _ => throw s!"\"{e}\" is not of the form FACT=STATUS"
-  return Overrides.normalize out
+  return Overrides.normalize out.toList
 
 end Fvtrace

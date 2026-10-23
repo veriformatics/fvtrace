@@ -181,12 +181,13 @@ def within (outer inner : System.FilePath) : Bool :=
 /-- Copies the trace + every artifact its evidence names into `dir`: `dir/trace.json`,
 `dir/project/<path>`, `dir/README.txt`. Returns the artifacts it could not copy. -/
 def writeBundle (t : Trace) (project dir : System.FilePath) : IO (List String) := do
-  let paths := ((t.facts.filterMap (·.evidence)) ++ (t.exclusions.filterMap (·.evidence))).flatMap
-    (·.artifacts.map (·.path)) |>.eraseDups
-  let mut problems := []
+  let paths := Index.eraseDups compare <|
+    ((t.facts.filterMap (·.evidence)) ++ (t.exclusions.filterMap (·.evidence))).flatMap
+      (·.artifacts.map (·.path))
+  let mut problems := #[]
   for p in paths do
     match ← Receipt.resolve project p with
-    | .error why => problems := problems ++ [why]
+    | .error why => problems := problems.push why
     | .ok real =>
       let dest := dir / "project" / p
       if let some parent := dest.parent then IO.FS.createDirAll parent
@@ -198,6 +199,6 @@ def writeBundle (t : Trace) (project dir : System.FilePath) : IO (List String) :
     "To see its claims, install fvtrace, then run this command in the folder `project`:\n\n" ++
     "    fvtrace serve --trace ../trace.json\n\n" ++
     "fvtrace checks each receipt against the copies in `project`.\n"
-  return problems
+  return problems.toList
 
 end Fvtrace.Export

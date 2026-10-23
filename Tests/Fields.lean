@@ -63,7 +63,7 @@ def tests : TestM Unit := do
   -- Each restated result binds its own restating claim; a result that a claim with an
   -- entailment needs alone binds none (its claim's text sits in the entailment's statement).
   let manifest := fun (tr : Trace) (id : String) =>
-    (Receipt.factManifest tr ((tr.fact? id).get!)).canonical
+    (Receipt.factManifest (Lookups.fast tr) ((tr.fact? id).get!)).canonical
   check "fields: each restated result binds its own claim (restatedBy)"
     (count (manifest t "M1") "\"restatedBy\":{\"id\":\"C1\"" == 1 &&
       count (manifest t "M2") "\"restatedBy\":{\"id\":\"C2\"" == 1)
