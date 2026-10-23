@@ -2,6 +2,8 @@
 # The one gate command: a human, an agent and CI run exactly this, so one result is one claim.
 # Stages run to completion after a failure (no `set -e`), so one run reports every problem; each
 # prints `<stage> rc=N <s>s`, the run closes on `gate rc=N <s>s`.
+# Usage: tools/gate.sh [--shard NAME] — no argument = every stage; a shard = its stages alone
+# (CI runs one job per shard, see STAGES).
 set -uo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,6 +29,40 @@ stage() {
     [[ $rc -eq 0 ]] || failed+=("$name")
     return 0
 }
+
+# Stage · CI shards. A full run takes every stage in this order, each running the function of its
+# name (`-` → `_`). CI runs one job per shard (gate.yml matrix), each on a fresh checkout, so a
+# shard whose stages read the build lists lean-build too; `fanout` holds the matrix = these shards.
+STAGES='
+tools       checks
+lean-style  checks
+lean-build  lean e2e
+lean-test   lean
+lean-pure   lean
+cli         lean
+examples    lean
+engine      lean
+trust       lean
+c-analyze   checks
+vendor      checks
+js-format   checks
+js-lint     checks
+js-types    checks
+js-test     checks
+e2e         e2e
+audit       checks
+secrets     checks
+workflows   checks
+fanout      checks
+spec        checks
+shell       checks
+meta        checks
+'
+
+# Every shard STAGES names, once each, in first-use order.
+shard_names() { awk 'NF { for (i = 2; i <= NF; i++) if (!seen[$i]++) print $i }' <<<"$STAGES"; }
+
+tools() { bash tools/fetch-tools.sh; }
 
 # Lean has no formatter in the 4.35 toolchain; this holds the mechanical layout rules.
 lean_style() { bash tools/lean-style.sh; }
@@ -163,6 +199,35 @@ workflows() {
     return $rc
 }
 
+# CI runs the gate as one job per gate.yml matrix shard: a stage without a shard, or a shard the
+# matrix lacks, would pass a local run and never run in CI.
+fanout() {
+    local rc=0 wf=.github/workflows/gate.yml matrix shards
+    awk 'NF == 1 { print "fanout: stage " $1 " has no CI shard"; bad = 1 } END { exit bad }' \
+        <<<"$STAGES" >&2 || rc=1
+    matrix="$(sed -n 's/^ *shard: \[\(.*\)\]$/\1/p' "$wf" | tr -d ' ' | tr ',' '\n' | sort)"
+    shards="$(shard_names | sort)"
+    if [[ "$matrix" != "$shards" ]]; then
+        printf 'fanout: %s matrix shards [%s] != tools/gate.sh shards [%s]\n' "$wf" \
+            "$(paste -sd, - <<<"$matrix")" "$(paste -sd, - <<<"$shards")" >&2
+        rc=1
+    fi
+    # Matched by YAML position, not parsed (no YAML parser in the toolchain): the `run:` key of a
+    # step in job `gate` (job keys at 2 spaces, step keys at 8), the whole line. The same text in a
+    # comment, behind `|| true`, or inside a block scalar (indented deeper than its key) runs no gate.
+    # `$SHARD` here = the workflow's literal text, which the runner's shell expands.
+    # shellcheck disable=SC2016
+    if [[ "$(awk '
+        /^[^ #]/ { top = $0 }
+        top == "jobs:" && /^  [^ #]/ { job = $1 }
+        job == "gate:" && /^        run: bash tools\/gate\.sh --shard "\$SHARD"$/ { n++ }
+        END { print n + 0 }' "$wf")" != 1 ]]; then
+        printf 'fanout: %s runs no single `bash tools/gate.sh --shard "$SHARD"` step\n' "$wf" >&2
+        rc=1
+    fi
+    return $rc
+}
+
 spec() { sh .agent/spec-lint .agent/spec.md; }
 
 shell() {
@@ -183,31 +248,24 @@ meta() {
 }
 
 main() {
-    local start
+    local start shard="" rows row name shards
+    if [[ $# -gt 0 ]]; then
+        if [[ $# -ne 2 || "$1" != --shard ]] || ! shard_names | grep -x -F -- "$2" >/dev/null; then
+            printf 'usage: tools/gate.sh [--shard %s]\n' "$(shard_names | paste -sd'|' -)" >&2
+            exit 2
+        fi
+        shard="$2"
+    fi
     start="$(stamp)"
-    stage tools bash tools/fetch-tools.sh
-    stage lean-style lean_style
-    stage lean-build lean_build
-    stage lean-test lean_test
-    stage lean-pure lean_pure
-    stage cli cli
-    stage examples examples
-    stage engine engine
-    stage trust trust
-    stage c-analyze c_analyze
-    stage vendor vendor
-    stage js-format js_format
-    stage js-lint js_lint
-    stage js-types js_types
-    stage js-test js_test
-    stage e2e e2e
-    stage audit audit
-    stage secrets secrets
-    stage workflows workflows
-    stage spec spec
-    stage shell shell
-    stage meta meta
-    printf '\n=== gate ===\n'
+    # An array, not a `while read` loop: stages keep the caller's stdin.
+    mapfile -t rows <<<"$STAGES"
+    for row in "${rows[@]}"; do
+        read -r name shards <<<"$row"
+        if [[ -n "$name" && ( -z "$shard" || " $shards " == *" $shard "* ) ]]; then
+            stage "$name" "${name//-/_}"
+        fi
+    done
+    printf '\n=== gate%s ===\n' "${shard:+ (shard $shard)}"
     if [[ ${#failed[@]} -ne 0 ]]; then
         printf 'FAILED: %s\n' "${failed[*]}"
         printf 'gate rc=1 %ss\n' "$(elapsed "$start")"
@@ -218,5 +276,5 @@ main() {
 
 # Sourcing exposes the stage functions without running the gate (tools/fast-gate.sh, probes).
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main
+    main "$@"
 fi
