@@ -11,6 +11,7 @@ paths:
   - "tools/wasm/**"
   - "tools/pin-wasm.sh"
   - "lakefile.lean"
+  - ".github/workflows/gate.yml"
 ---
 
 # Page engine build (`kernel.md` § Page engine)
@@ -21,5 +22,5 @@ paths:
 - Runtime patches = `tools/wasm/lean-runtime.patch` alone (`git diff` against the pinned tree, applied by `git apply`): single-thread `<mutex>`, `lean_uv_os_get_group` stub signature, `getRandomBytes` through `getentropy` (WASI `random_get`: Init's `IO.stdGenRef` reads entropy at start-up). A runtime bump re-checks each hunk.
 - Link contract (`FvtraceWasm/Binary.lean`): imports ⊆ the loader's WASI functions, exports ⊇ memory + `_initialize` + `fvtrace_init|alloc|free|evaluate`; linker warnings ⊆ the two temporary-file signature mismatches. A new import or warning = a loader change (`web/engine.js`) + this list, never a silenced check.
 - Determinism: link order = runtime (CMake order) + sorted Init C + sorted app C + bridge; objects keyed by sha256(source + flags + toolchain) with include paths relative to the cache, so caches move between folders + hosts (Emscripten's `.emscripten` names `$CFGDIR`, written every build); two clean builds in different folders give the same bytes.
-- CI cache (`ops.md` CI): the entries of `.lake/build/wasm` minus `download/` (listed through `wasm/*`: a folder entry takes every child along), keyed by OS + arch + pins + toolchain + this build tool (`FvtraceWasm/**`, `WasmMain.lean`). An entry never changes under its key, so whatever renames every object or marker (flags, the toolchain string, marker format) stays in the key; else every run recompiles all ≈ 700 objects under a stale entry. A restore that fails midway sets no `cache-hit`, and the next step empties the folder. The weekly scheduled run skips the cache.
+- CI cache (`ops.md` CI): the entries of `.lake/build/wasm` minus `download/` (listed through `wasm/*`: a folder entry takes every child along), keyed by OS + arch + pins + toolchain + this build tool (`FvtraceWasm/**`, `WasmMain.lean`). An entry never changes under its key, so whatever renames every object or marker (flags, the toolchain string, marker format) stays in the key; else every run recompiles all ≈ 700 objects under a stale entry. A restore that fails midway sets no `cache-hit`, and the next step empties the folder. The weekly scheduled run skips the cache (downloads + pin checks every week). A run restores its own branch's entries (by name: a re-created `ci/<unit>` hits) + `main`'s, so a new `ci/<unit>` hits once `main`'s run has saved the key.
 - Probes `wasm-manifest` (a planted libuv digest), `wasm-import` (a declared `env.probe` import in the bridge), `wasm-warning` (a mis-declared initializer), `wasm-build-step` (a dropped `--githash` pair in `lakefile.lean`) fire: `bash tools/gate-probe.sh wasm` (each relinks, ≈ 1 min). Unit checks = `Tests/Wasm.lean`.

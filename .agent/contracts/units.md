@@ -41,6 +41,7 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | mutation tool: `!·` sites | kernel (gate tool) | `.claude/rules/lean.md` mutation credit | `--list` shows Evaluate.lean:178 (absent before); campaigns over the 5 sites: 5/5 killed, 0 survivors |
 | verifier replay | kernel (shell, security) | `kernel.md` § Replay; Decisions Evidence binding (user rulings) | consultant-4 before code (V4 build dependency + V6 sequencing adopted; V2 security ruled by MAIN); schema corpus 7 cases (Node + Lean halves); Tests/Replay 18 checks (fixture verifier = the test binary); self-trace acceptance (`maxRelevant` 20 → 0: receipts current, P6 + P7 replays fail); mutation credit on Replay.lean + the CLI |
 | CI engine-build cache | kernel (gate) | `.claude/rules/ops.md` CI; `.claude/rules/wasm.md` CI cache | commit body: zizmor `cache-poisoning` fires on both cache steps under a planted release trigger, none under the real triggers; `gate-probe.sh wasm` on a cache-hit tree; probe `wasm-build-step` (red before `lakefile.lean` was traced); CI miss run + its rerun on a hit + a hit at another commit (`lean-build`, portability); reviewer-1 (R1–R7: F1–F4 fixed) |
+| e2e limits | kernel (gate: thresholds, user ruling) | `.claude/rules/web.md` e2e limits | 752ee38 (durations at load ≈ 2.6× + ≈ 3×); 27787a1 body: `tools/e2e-load.sh gate 3` on nixbox, 3 green runs, 1-min load ≥ 12 (1.5 × 8 CPUs) through each e2e stage |
 
 # Units → tier → contract → evidence (IMPLEMENT — export: live what-ifs)
 
