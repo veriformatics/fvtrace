@@ -43,7 +43,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - [x] a782e4e U1 contract (`kernel.md` § Performance) + units table + `tools/scale.mjs`, `scale.sh --assert`, `compare.sh` + probes `scale`, `compare`
 - [x] fa7f307 U2–U5 `Fvtrace.Index`, `Fvtrace.Lookups` + `Fvtrace.Answers` (fast = reference: `LookupsAgree`, `SortMembersAgree`, `AnswersAgree` proved; closures by a level walk over one array of marks), Tests/Scale (red at af5a2f1), F5 measurements on an idle host, README + rules + self-trace C9 (P10–P12)
-- [ ] U6 closing review (lenses fixed before reading) → `.agent/review.md` section
+- [x] 4e8eefa · 84da642 U6 closing review: check set fixed before reading, R1–R5 one reviewer each + S (MAIN), 10 findings fixed or disposed, re-review round (`.agent/review.md` § Closing review)
 - [ ] close: Phase → MAINTAIN — whole product (resumed), F5 row → fixed
 - [x] 57178af security review: scanners + manual pass, a verdict per check-set row (`.agent/review.md`)
 - [x] 4d7968f F6 skill ground rule
