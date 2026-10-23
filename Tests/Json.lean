@@ -48,6 +48,22 @@ def tests : TestM Unit := do
   parses "json: nested" "{\"a\": [1, {\"b\": {}}], \"c\": []}"
     (.obj [("a", .arr [.num 1, .obj [("b", .obj [])]]), ("c", .arr [])])
   rejects "json: duplicate key" "{\"a\": 1, \"a\": 2}" 9 "duplicate key \"a\""
+  rejects "json: the earliest repeat is reported" "{\"b\":1,\"a\":2,\"b\":3,\"a\":4}" 13
+    "duplicate key \"b\""
+  rejects "json: a later pair repeating first is reported first"
+    "{\"x\":1,\"y\":2,\"y\":3,\"x\":4}" 13 "duplicate key \"y\""
+  rejects "json: a key three times is reported at its second" "{\"a\":1,\"a\":2,\"a\":3}" 7
+    "duplicate key \"a\""
+  rejects "json: an inner repeat comes first" "{\"a\":{\"b\":1,\"b\":2},\"a\":3}" 12
+    "duplicate key \"b\""
+  parses "json: equal values under distinct keys" "{\"a\":1,\"b\":1}"
+    (.obj [("a", .num 1), ("b", .num 1)])
+  parses "json: integers of 20 digits" "[12345678901234567890, -99999999999999999999]"
+    (.arr [.num 12345678901234567890, .num (-99999999999999999999)])
+  rejects "json: an integer of 21 digits" "[123456789012345678901]" 1
+    "integer longer than 20 digits"
+  rejects "json: a negative integer of 21 digits" "-100000000000000000000" 0
+    "integer longer than 20 digits"
   rejects "json: missing colon" "{\"a\" 1}" 5 "expected ':'"
   rejects "json: non-string key" "{1: 2}" 1 "expected a string key"
   rejects "json: trailing comma in array" "[1,]" 3 "unexpected character"
@@ -122,5 +138,19 @@ def tests : TestM Unit := do
       check "json: canonical round-trips" (c.canonical == v.canonical)
       check "json: pretty round-trips" (p == v)
     | _, _ => check "json: canonical round-trips" false "reparse failed"
+
+/-- Documents inside the 16 MiB bound that cost hours when parsing was quadratic (D-json: a trace
+from someone else must not pin a core); native alone, a scale the interpreter would slow. -/
+def scaleTests : TestM Unit := do
+  let keys := (List.range 200000).map (s!"\"k{·}\":0")
+  let wide := "{" ++ ",".intercalate keys ++ "}"
+  match parse (bytes wide) with
+  | .ok (.obj kvs) => checkEq "json: 200,000 distinct keys parse" kvs.length 200000
+  | other => check "json: 200,000 distinct keys parse" false s!"{repr (other.map fun _ => ())}"
+  let repeated := "{" ++ ",".intercalate keys ++ ",\"k0\":1}"
+  rejects "json: a repeat among 200,000 keys is found" repeated (wide.utf8ByteSize)
+    "duplicate key \"k0\""
+  rejects "json: a number of a million digits stops at its 21st" ("".pushn '7' 1000000) 0
+    "integer longer than 20 digits"
 
 end Tests.Json

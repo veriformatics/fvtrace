@@ -141,6 +141,11 @@ def string (b : ByteArray) (i : Nat) : Result String := Id.run do
 
 def isDigit (c : UInt8) : Bool := 48 ≤ c && c ≤ 57
 
+/-- D-json: digits an integer may carry. The trace format's one number is `1`; `cache.json`'s
+sizes + times fit 64 bits. Without a cap, folding n digits into one integer costs n²: a 16 MiB
+number would take hours. -/
+def maxDigits : Nat := 20
+
 /-- An integer; a fraction or exponent is rejected (the format carries integers alone). -/
 def number (b : ByteArray) (i : Nat) : Result Value := Id.run do
   let mut j := i
@@ -151,15 +156,28 @@ def number (b : ByteArray) (i : Nat) : Result Value := Id.run do
     if !isDigit c then return fail i "invalid number"
     if c == 48 && (byteAt b (j + 1)).any isDigit then return fail i "leading zero in number"
   | none => return fail i "invalid number"
+  let start := j
   let mut n : Nat := 0
   repeat
     let some c := byteAt b j | break
     unless isDigit c do break
+    if j - start == maxDigits then return fail i s!"integer longer than {maxDigits} digits"
     n := n * 10 + (c - 48).toNat
     j := j + 1
   if byteAt b j == some 46 || byteAt b j == some 101 || byteAt b j == some 69 then
     return fail i "non-integer number"
   return .ok (.num (if neg then -(n : Int) else n), j)
+
+/-- The earliest repeated key among an object's `(key, offset)` pairs, the place where a scan
+comparing each key with every earlier one stops, found in O(k log k) instead of k²: a stable sort
+by key keeps equal keys in document order, so every entry after the first of its key repeats it. -/
+def firstRepeat (keys : List (String × Nat)) : Option (String × Nat) :=
+  let sorted := keys.mergeSort fun a b => a.1 ≤ b.1
+  (sorted.zip (sorted.drop 1)).foldl (init := none) fun best (a, b) =>
+    if a.1 != b.1 then best
+    else match best with
+      | some r => if b.2 < r.2 then some b else best
+      | none => some b
 
 mutual
   /-- One value after optional whitespace. `fuel` bounds the recursion (≥ remaining bytes). -/
@@ -173,7 +191,7 @@ mutual
       | some c =>
         if c == 123 then
           if depth ≥ maxDepth then fail i "nesting deeper than 64"
-          else members b fuel (depth + 1) (i + 1) []
+          else members b fuel (depth + 1) (i + 1) [] []
         else if c == 91 then
           if depth ≥ maxDepth then fail i "nesting deeper than 64"
           else elements b fuel (depth + 1) (i + 1) []
@@ -204,9 +222,10 @@ mutual
           | some 93 => .ok (.arr (v :: acc).reverse, j + 1)
           | _ => fail j "expected ',' or ']'"
 
-  /-- Object members after `{`; duplicate keys are rejected at the duplicate's offset. -/
-  def members (b : ByteArray) (fuel depth i : Nat) (acc : List (String × Value)) :
-      Result Value :=
+  /-- Object members after `{`; `acc` + `keys` (each key with its offset) hold the members so far
+  in reverse. A duplicate key is rejected at its offset once the object closes (`firstRepeat`). -/
+  def members (b : ByteArray) (fuel depth i : Nat) (acc : List (String × Value))
+      (keys : List (String × Nat)) : Result Value :=
     match fuel with
     | 0 => fail i "unexpected end of input"
     | fuel + 1 =>
@@ -217,19 +236,20 @@ mutual
         match string b i with
         | .error e => .error e
         | .ok (k, j) =>
-          if acc.any (·.1 == k) then fail i s!"duplicate key \"{k}\""
+          let j := skipWs b j
+          if byteAt b j != some 58 then fail j "expected ':'"
           else
-            let j := skipWs b j
-            if byteAt b j != some 58 then fail j "expected ':'"
-            else
-              match value b fuel depth (j + 1) with
-              | .error e => .error e
-              | .ok (v, l) =>
-                let l := skipWs b l
-                match byteAt b l with
-                | some 44 => members b fuel depth (l + 1) ((k, v) :: acc)
-                | some 125 => .ok (.obj ((k, v) :: acc).reverse, l + 1)
-                | _ => fail l "expected ',' or '}'"
+            match value b fuel depth (j + 1) with
+            | .error e => .error e
+            | .ok (v, l) =>
+              let l := skipWs b l
+              match byteAt b l with
+              | some 44 => members b fuel depth (l + 1) ((k, v) :: acc) ((k, i) :: keys)
+              | some 125 =>
+                match firstRepeat ((k, i) :: keys).reverse with
+                | some (dup, at_) => fail at_ s!"duplicate key \"{dup}\""
+                | none => .ok (.obj ((k, v) :: acc).reverse, l + 1)
+              | _ => fail l "expected ',' or '}'"
 end
 
 end Parse
