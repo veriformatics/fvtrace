@@ -443,7 +443,7 @@
       "id": "T1",
       "subject": "S",
       "kind": "implementation",
-      "text": "fvtrace serve sends its page and claims only in answer to GET requests that name an allowed Host and carry the run's token.",
+      "text": "fvtrace serve sends the claims only in answer to GET requests that name an allowed Host and carry the run's token in their Authorization header; it sets no cookie.",
       "status": "tested",
       "route": "lean",
       "evidence": {
@@ -451,16 +451,16 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "032abb3f941167386ddf3f5104cd43f052d6e206ee2d4bed73a415649292c0b9",
+            "sha256": "41d395a78ae7e5d48aa74c1e1a90707b953b76cf936c3a258459d4ba967c1939",
             "role": "code"
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "4969675cb364b4a209ad2bc9ed98dbb364a73be6db6eb7c46824819292d18535",
+            "sha256": "1d307a9281553390016d17cab49d01957c409c6e5326fbc6aaed6e962263fee9",
             "role": "tests"
           }
         ],
-        "statementDigest": "587ef8fa83aadf486018d31b2803a98226dd702e03fb8918c0739ed05dcd1a43"
+        "statementDigest": "e9aae9093cbe1db770d9a88193e0636bebc6030e1052288ae467659a12faf87f"
       }
     },
     {
@@ -669,7 +669,8 @@
       "route": "lean",
       "trusts": [
         "Browser same-origin policy",
-        "SameSite cookies"
+        "CORS preflight for an Authorization header",
+        "Web storage scoped to one origin (scheme, host, port)"
       ]
     },
     {
@@ -792,7 +793,7 @@
       "question": "Q4",
       "subject": "S",
       "level": "descriptive",
-      "text": "A page from another site can never read the claims that fvtrace serve shows.",
+      "text": "A page from another site, or from another server on this computer, can never read the claims that fvtrace serve shows.",
       "needs": [
         "T1"
       ],

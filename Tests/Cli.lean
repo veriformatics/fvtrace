@@ -36,6 +36,26 @@ def bindTests : TestM Unit := do
     ((Fvtrace.Cli.bindAddress (some "::") 8642).toOption.isNone)
   check "serve: a host name is refused"
     ((Fvtrace.Cli.bindAddress (some "lab") 8642).toOption.isNone)
+  checkEq "serve: the default port is 8718" Fvtrace.Cli.defaultPort 8718
+  let opener := fun (vars : List (String × String)) (windows macos : Bool) =>
+    Fvtrace.Cli.browserOpener (fun n => vars.lookup n) windows macos
+  checkEq "serve: Linux with a display opens through xdg-open"
+    (opener [("DISPLAY", ":0")] false false, opener [("WAYLAND_DISPLAY", "wayland-0")] false false)
+    (some "xdg-open", some "xdg-open")
+  checkEq "serve: Linux without a display prints the link"
+    (opener [] false false, opener [("DISPLAY", "")] false false) (none, none)
+  checkEq "serve: macOS + Windows open through their own openers"
+    (opener [] false true, opener [] true false) (some "open", some "explorer.exe")
+  checkEq "serve: an SSH session prints the link (the browser is on the other computer)"
+    ([false, true].map fun w => (opener [("SSH_CONNECTION", "a"), ("DISPLAY", ":0")] w (!w),
+      opener [("SSH_TTY", "/dev/pts/1"), ("DISPLAY", ":0")] w false)) [(none, none), (none, none)]
+  checkEq "serve: WSL prints the link (its browser cannot read this file system)"
+    (opener [("WSL_DISTRO_NAME", "Ubuntu"), ("DISPLAY", ":0")] false false) none
+  let link := "http://fvtrace.localhost:8718/#token=00ff"
+  let page := Fvtrace.Cli.redirectPage link
+  check "serve: the redirect page sends the browser on to the link"
+    ((page.splitOn s!"content=\"0;url={link}\"").length == 2 &&
+      (page.splitOn s!"href=\"{link}\"").length == 2 && (page.splitOn "http://").length == 3) page
 
 /-- `skills install --dir` + `skills show` (no store: pure suite). -/
 def skillTests : TestM Unit := do

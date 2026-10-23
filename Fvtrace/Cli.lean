@@ -66,11 +66,12 @@ def usage : String :=
   "      Share the claims. --html writes one page that opens in any browser and\n" ++
   "      evaluates what-ifs there, offline. --bundle writes the trace and copies of\n" ++
   "      its evidence files for another computer with fvtrace.\n" ++
-  "  serve [--port N] [--host ADDRESS] [--cached]\n" ++
-  "      Show the claims in a browser: open the link that the command prints. The\n" ++
-  "      port is 8642 by default (0 = any free port). With --host, computers on your\n" ++
-  "      network can open the page at ADDRESS. The page is not encrypted: share it\n" ++
-  "      on a network that you trust.\n" ++
+  "  serve [--port N] [--host ADDRESS] [--cached] [--no-browser]\n" ++
+  "      Show the claims in your browser: the command opens it. The port is 8718\n" ++
+  "      by default (0 = any free port). With --no-browser, or where it cannot open\n" ++
+  "      a browser (an SSH session), it prints a link to open instead. With --host,\n" ++
+  "      computers on your network can open the page at ADDRESS. The page is not\n" ++
+  "      encrypted: share it on a network that you trust.\n" ++
   "  schema\n" ++
   "      Print the JSON Schema of the trace format.\n" ++
   "  skills install [--agent claude|agents] [--dir DIR]\n" ++
@@ -708,7 +709,11 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
 
 /-! ## The GUI server -/
 
-def serveSpec : Args.Spec := { valued := located ++ ["--port", "--host"], switches := ["--cached"] }
+def serveSpec : Args.Spec :=
+  { valued := located ++ ["--port", "--host"], switches := ["--cached", "--no-browser"] }
+
+/-- 8718 = U+220E ∎, the end of a proof (an easter egg: the help leaves it unsaid). -/
+def defaultPort : UInt16 := 8718
 
 /-- The bind address: loopback, or the one `--host` names (an address others use to reach this
 computer; a wildcard address has no single name to allow as `Host`). -/
@@ -729,16 +734,82 @@ where
   wildcard := "--host needs the address that others use to reach this computer, \
     not a wildcard address"
 
+/-- `Host` names a loopback server answers: the browser's `fvtrace.localhost`, plus `localhost` and
+both addresses for a link typed by hand. -/
+def loopbackHosts (port : UInt16) : List String :=
+  ["fvtrace.localhost", "localhost", "127.0.0.1", "[::1]"].map (s!"{·}:{port}")
+
+/-- Serves on `127.0.0.1:port` and `[::1]:port`: `localhost` names reach either address (Chromium
+tries `::1` first), so a program holding the other one would own the page's origin. `[::1]` busy:
+refused on a fixed port, another free port under `port = 0`; no IPv6: IPv4 alone. -/
+def serveLoopback (cfg : IO.Ref Server.Config) (cache : IO.Ref Receipt.Cache) (port : UInt16) :
+    IO (Except String UInt16) := do
+  for _ in [0:5] do
+    let (v4, bound) ← Server.start cfg (.v4 { addr := .ofParts 127 0 0 1, port }) cache
+    try
+      let _ ← Server.start cfg (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := bound }) cache
+      return .ok bound
+    catch e =>
+      match e with
+      | .unsupportedOperation .. => return .ok bound
+      | .resourceBusy .. =>
+        Server.stop v4
+        if port != 0 then return .error s!"another program serves [::1]:{bound}"
+      | e => Server.stop v4; throw e
+  return .error "no port is free on both loopback addresses"
+
+/-- The program that opens a file in this computer's browser, or `none` where that browser would
+be the wrong one or none exists: an SSH session (the user's browser is on the other computer),
+WSL (its browser cannot read this file system's paths), Linux or BSD without a display. -/
+def browserOpener (getEnv : String → Option String) (windows macos : Bool) : Option String :=
+  let set := fun (n : String) => (getEnv n).any (!·.isEmpty)
+  if set "SSH_CONNECTION" || set "SSH_TTY" then none
+  else if windows then some "explorer.exe"
+  else if macos then some "open"
+  else if set "WSL_DISTRO_NAME" || !(set "DISPLAY" || set "WAYLAND_DISPLAY") then none
+  else some "xdg-open"
+
+/-- A page that sends the browser on to `link`: the opener gets this file's path, never the link,
+since a command line shows in every user's process list. -/
+def redirectPage (link : String) : String :=
+  "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\" />\n" ++
+  s!"<meta http-equiv=\"refresh\" content=\"0;url={link}\" />\n<title>fvTrace</title>\n" ++
+  s!"</head>\n<body>\n<p><a href=\"{link}\">Open fvTrace</a></p>\n</body>\n</html>\n"
+
+/-- Opens `link` through a redirect page in the data folder's `serve` folder (mode 0700, set on
+every run before the write; earlier runs' pages, each with a dead token, are removed); `true` = the
+opener started and did not fail within 3 s (it may keep running as the browser itself;
+`explorer.exe` reports 1 even when it opened the page). -/
+def openBrowser (env : Store.Env) (opener : String) (port : UInt16) (link : String) :
+    IO Bool := do
+  try
+    let dir := env.home / "serve"
+    IO.FS.createDirAll dir
+    IO.setAccessRights dir { user := { read := true, write := true, execution := true } }
+    for old in ← dir.readDir do
+      try IO.FS.removeFile old.path catch _ => pure ()
+    let page := dir / s!"open-{port}.html"
+    replaceFile page (redirectPage link)
+    let child ← IO.Process.spawn
+      { cmd := opener, args := #[page.toString], stdin := .null, stdout := .null, stderr := .null }
+    for _ in [0:30] do
+      match ← child.tryWait with
+      | some code => return code == 0 || System.Platform.isWindows
+      | none => IO.sleep 100
+    return true
+  catch _ => return false
+
 def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs serveSpec args with
     | .ok p => pure p
     | .error rc => return rc
   let port ← match p.value? "--port" with
-    | none => pure 8642
+    | none => pure defaultPort
     | some v => match v.toNat? with
       | some n => if n < 65536 then pure n.toUInt16 else return ← usageError "--port is 0 to 65535"
       | none => return ← usageError "--port is 0 to 65535"
-  let (addr, name) ← match bindAddress (p.value? "--host") port with
+  let host := p.value? "--host"
+  let (addr, name) ← match bindAddress host port with
     | .ok a => pure a
     | .error m => return ← usageError m
   let tg ← match ← target env p with
@@ -746,18 +817,38 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     | .error rc => return rc
   let token := Digest.hex (← IO.getRandomBytes 16)
   let cache ← Session.openCache tg
-  let initial : Server.Config :=
-    { target := tg, explicit := (p.value? "--trace").isSome, token, port, hosts := [],
-      cached := p.has "--cached" }
-  let cfg ← IO.mkRef initial
-  let bound ← try Server.start cfg addr cache catch e =>
-    complain s!"fvtrace: cannot serve on {name}:{port}: {e}. Give another --port (0 = any)."
-    return 2
-  let aliases := if (p.value? "--host").isNone then [s!"localhost:{bound}"] else []
-  cfg.modify ({ · with port := bound, hosts := s!"{name}:{bound}" :: aliases })
+  let cfg ← IO.mkRef ({ target := tg, explicit := (p.value? "--trace").isSome, token, hosts := [],
+                        cached := p.has "--cached" } : Server.Config)
+  let started ← try
+      if host.isSome then pure (.ok (← Server.start cfg addr cache).2)
+      else serveLoopback cfg cache port
+    catch e => pure (.error (toString e))
+  let bound ← match started with
+    | .ok b => pure b
+    | .error why =>
+      complain s!"fvtrace: cannot serve on {name}:{port}: {why}. Give another --port (0 = any)."
+      return 2
+  let (hosts, site) := if host.isSome then ([s!"{name}:{bound}"], s!"http://{name}:{bound}/")
+    else (loopbackHosts bound, s!"http://fvtrace.localhost:{bound}/")
+  cfg.modify ({ · with hosts })
+  -- The token rides after `#`: a browser sends that part to no server, log or Referer.
+  let link := s!"{site}#token={token}"
   say s!"Serving the project {tg.project}"
-  say s!"Open http://{name}:{bound}/?token={token}"
-  if (p.value? "--host").isSome then
+  let vars ← ["SSH_CONNECTION", "SSH_TTY", "WSL_DISTRO_NAME", "DISPLAY", "WAYLAND_DISPLAY"].mapM
+    fun n => do return (n, ← Store.envVar n)
+  let opener := if p.has "--no-browser" || host.isSome then none
+    else browserOpener (fun n => (vars.lookup n).join) System.Platform.isWindows
+      System.Platform.isOSX
+  let opened ← match opener with
+    | some o => openBrowser env o bound link
+    | none => pure false
+  if opened then
+    say s!"Opened the claims in your browser: {site}"
+    -- An opener's success does not prove the page loaded (a Snap browser cannot read hidden
+    -- folders; macOS may hand HTML files to another app).
+    say s!"If the page did not open, use this link: {link}"
+  else say s!"Open {link}"
+  if host.isSome then
     say "Anyone on your network who has this link can see the trace (the link is not encrypted)."
   say "Stop with Ctrl+C."
   (← IO.getStdout).flush

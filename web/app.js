@@ -50,6 +50,46 @@ const exported = island ? decodeExported(islandJson) : undefined;
 
 const engineFailed =
   "This browser cannot run the what-ifs on this page, so it shows the facts as recorded.";
+
+// Served: the run's token, offered once in the address (`#token=…`), then kept in this origin's
+// storage. An origin includes the port, so no other server on this computer reads it (a cookie
+// would reach every one of them).
+const tokenKey = "fvtrace-token";
+/** A token from the address, until the server accepts it (another site may link `#token=junk`).
+ * @type {string | undefined} */
+let offered;
+/** The token where storage is off. @type {string | undefined} */
+let kept;
+
+function storedToken() {
+  try {
+    return localStorage.getItem(tokenKey) ?? kept;
+  } catch {
+    return kept;
+  }
+}
+
+/** @param {string} token */
+function keepToken(token) {
+  kept = token;
+  try {
+    localStorage.setItem(tokenKey, token);
+  } catch {
+    // Storage off: the token lasts for this page alone.
+  }
+}
+
+/** Takes the token out of the address before anything reads or pushes the hash, so no history
+ * entry keeps it. */
+function takeToken() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const token = p.get("token");
+  if (token === null) return;
+  offered = token;
+  p.delete("token");
+  const rest = p.toString();
+  history.replaceState(null, "", rest ? `#${rest}` : `${location.pathname}${location.search}`);
+}
 /** The exported page's engine, started once; after any failure it is never called again. */
 /** @type {Promise<import("./engine.js").Engine> | undefined} */
 let engineStart;
@@ -157,7 +197,17 @@ async function evaluate(spec) {
       throw err;
     }
   }
-  const res = await fetch(`/api/evaluation${spec ? `?whatif=${encodeURIComponent(spec)}` : ""}`);
+  const url = `/api/evaluation${spec ? `?whatif=${encodeURIComponent(spec)}` : ""}`;
+  const ask = (/** @type {string} */ token) =>
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const stored = storedToken();
+  let res = await ask(offered ?? stored ?? "");
+  if (offered !== undefined) {
+    // Any answer but 403 accepts it: a refused what-if counts, since access is decided first.
+    if (res.status !== 403) keepToken(offered);
+    else if (stored !== undefined) res = await ask(stored);
+    offered = undefined;
+  }
   /** @type {unknown} */
   const json = await res.json();
   return json;
@@ -536,6 +586,7 @@ for (const id of ["tour-start", "tour-start-how"]) {
 // Start last: an exported page renders during this module's evaluation, so everything `draw`
 // reads (the key table above) must already be initialized. Its engine starts in the background;
 // a start-up failure shows the notice at once (what-ifs need it).
+if (!exported) takeToken();
 readHash();
 wire();
 void load();

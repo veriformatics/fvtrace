@@ -171,20 +171,20 @@ test.describe("the synthetic study", () => {
   });
 
   test("a linked what-if goes to the engine as written", async ({ page }) => {
-    await page.goto(`${web.url}#whatif=O2%3Dchecked%2CO2%3Dviolated`);
+    await page.goto(`${web.url}&whatif=O2%3Dchecked%2CO2%3Dviolated`);
     await expect(page.locator("#error")).toHaveText(
       "O2 appears twice in the what-if. This page shows the facts as recorded instead.",
     );
     await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
     expect(new URL(page.url()).hash).not.toContain("whatif=");
     await page.goto("about:blank");
-    await page.goto(`${web.url}#whatif=O2%3Dassumed`);
+    await page.goto(`${web.url}&whatif=O2%3Dassumed`);
     await expect(page.locator("#error")).toHaveText(
       "O2 cannot be assumed: facts of its kind must be verified. This page shows the facts as recorded instead.",
     );
     // A stale link: its fact is no longer on record.
     await page.goto("about:blank");
-    await page.goto(`${web.url}#whatif=O9%3Dchecked`);
+    await page.goto(`${web.url}&whatif=O9%3Dchecked`);
     await expect(page.locator("#error")).toHaveText(
       '"O9" is not a fact on record. This page shows the facts as recorded instead.',
     );
@@ -233,7 +233,7 @@ test.describe("the synthetic study", () => {
     await expect(o2.locator(".list-meta")).toHaveText("Needed by C2, together with O3 and EN2.");
     await expect(o2.locator(".work-count")).toBeHidden();
     // A blocked claim still names what it needs with the row's fact.
-    await page.goto(`${web.url}#whatif=O1%3Dviolated`);
+    await page.goto(`${web.url}&whatif=O1%3Dviolated`);
     await expect(o2.locator(".list-meta")).toHaveText(
       "Needed by C2, together with O3 and EN2, but C2 is not possible as worded.",
     );
@@ -347,7 +347,7 @@ test.describe("the synthetic study", () => {
 test.describe("the feature fixture", () => {
   test("a conflicting what-if makes every claim on its subject not possible", async ({ page }) => {
     web = await serveFvtrace("fixture");
-    await page.goto(`${web.url}#whatif=O4%3Dassumed%2CO5%3Dassumed`);
+    await page.goto(`${web.url}&whatif=O4%3Dassumed%2CO5%3Dassumed`);
     const c1 = card(page, "C1");
     await expect(verdict(c1)).toHaveText("Claim not possible");
     await expect(c1.locator(".tag-qualifier")).toHaveText("what-if, conflicting what-if");
@@ -399,7 +399,7 @@ test.describe("the feature fixture", () => {
     page,
   }) => {
     web = await serveFvtrace("fixture");
-    await page.goto(`${web.url}#whatif=O1%3Dviolated`);
+    await page.goto(`${web.url}&whatif=O1%3Dviolated`);
     await card(page, "C1").locator(".tag-id").click();
     const notes = page.locator("#inspector .note");
     await expect(notes.filter({ hasText: "Violated:" })).toHaveText(
@@ -412,7 +412,7 @@ test.describe("the feature fixture", () => {
 
   test("a violated fact lists apart with the claims it blocks", async ({ page }) => {
     web = await serveFvtrace("fixture");
-    await page.goto(`${web.url}#whatif=O2%3Dviolated`);
+    await page.goto(`${web.url}&whatif=O2%3Dviolated`);
     await expect(page.locator("#blockers")).toBeVisible();
     await expect(page.locator("#blocker-list")).toContainText(
       "O2 The marker rises in treated samples.",
@@ -430,7 +430,7 @@ test.describe("the feature fixture", () => {
       const first = Array.isArray(claims) ? /** @type {unknown} */ (claims[0]) : undefined;
       if (isRecord(first)) first["level"] = "release";
     });
-    await expectTourClear(page, `${web.url}#whatif=O2%3Dviolated`);
+    await expectTourClear(page, `${web.url}&whatif=O2%3Dviolated`);
   });
 
   test("an unwaived check shows under What may be missing", async ({ page }) => {
