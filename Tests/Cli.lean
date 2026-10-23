@@ -175,4 +175,40 @@ def readTests : TestM Unit := do
       (← Fvtrace.Session.readPrefix big 2000000).size 1048586
     checkEq "read: a prefix of 0 bytes reads nothing" (← Fvtrace.Session.readPrefix big 0).size 0
 
+private def groupClaim (id sub : String) : Fvtrace.Claim :=
+  { id, subject := sub, question := "Q", level := .descriptive, text := id,
+    needs := [id ++ "R"], restates := true }
+
+private def groupFact (id sub : String) : Fvtrace.Fact :=
+  { id := id ++ "R", subject := sub, kind := .result, route := .runtimeChecker,
+    status := .«open», text := id }
+
+private def groupCreator (id sub result : String) : Fvtrace.Experiment :=
+  { id, subject := sub, kind := .dry, effort := .hours, title := id, method := id,
+    resources := id, success := [(result, .checked)], caveat := id }
+
+/-- `claims` groups a question's claims on prospective subjects: one group per subject in subject
+order, its claims in trace order (the original `subjects.filter prospective` ×
+`claims.filter (·.subject == id)`, empty groups dropped). Claims interleave across subjects. -/
+def groupTests : TestM Unit := do
+  let t : Fvtrace.Trace :=
+    { analysis := { id := "A", title := "A", summary := "A" },
+      subjects := [{ id := "S", title := "S", kind := .existing },
+        { id := "P", title := "P", kind := .prospective, createdBy := some "EP" },
+        { id := "T", title := "T", kind := .prospective, createdBy := some "ET" }],
+      questions := [{ id := "Q", title := "Q", text := "Q" }],
+      facts := [groupFact "T1" "T", groupFact "P1" "P", groupFact "P2" "P", groupFact "T2" "T",
+        groupFact "S1" "S"],
+      claims := [groupClaim "T1" "T", groupClaim "P1" "P", groupClaim "P2" "P",
+        groupClaim "T2" "T", groupClaim "S1" "S"],
+      experiments := [groupCreator "EP" "P" "P1R", groupCreator "ET" "T" "T1R"] }
+  checkEq "cli groups: the trace is well-formed" (Fvtrace.Check.violations t).length 0
+  let ix := Fvtrace.Index.ofKeys compare (t.subjects.map (·.id))
+  let got := (Fvtrace.Cli.prospectiveGroups t (ix.first? (cmp := compare)) t.claims).map
+    fun (sub, cs) => (sub.id, cs.map (·.id))
+  let want := ((t.subjects.filter (·.kind == .prospective)).map fun sub =>
+    (sub.id, (t.claims.filter (·.subject == sub.id)).map (·.id))).filter (!·.2.isEmpty)
+  checkEq "cli groups: subject order, then trace order inside a subject" got want
+  checkEq "cli groups: P before T, each claim once" got [("P", ["P1", "P2"]), ("T", ["T1", "T2"])]
+
 end Tests.Cli

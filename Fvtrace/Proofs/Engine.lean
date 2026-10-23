@@ -338,12 +338,12 @@ theorem getLast?_cons_pair (a : String) (l : List String) (x y : String) :
 theorem sentenceVerbatim : Spec.SentenceVerbatim := by
   intro s c
   refine ⟨rfl, ?_, ?_⟩
-  · unfold Scenario.sentenceParts
+  · unfold Scenario.sentenceParts Scenario.sentenceWith
     split
     · exact getLast?_cons_pair _ _ _ _
     · rfl
   · intro hcond p hp
-    unfold Scenario.sentenceParts
+    unfold Scenario.sentenceParts Scenario.sentenceWith
     simp only [hcond, beq_self_eq_true, ite_true, List.mem_append, List.mem_cons]
     exact Or.inl (Or.inr (mem_joinParts (List.mem_map_of_mem hp)))
 

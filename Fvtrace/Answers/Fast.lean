@@ -626,11 +626,6 @@ def fast (s : Scenario) : Answers :=
   let changedByWhatif := fun (c : Claim) =>
     c.needsAll.any (fun n => core.eff n != base.eff n) ||
       core.valid c.subject != base.valid c.subject
-  let creatorTitle := fun sub => do
-    let x ← cx.L.subject? sub
-    let e ← x.createdBy
-    let ex ← cx.L.experiment? e
-    return ex.title
   let successMoves := fun ids => movesUnder cx s core memo (raisedBy cx core ids)
   { lookups := cx.L
     override? := core.override?
@@ -642,17 +637,13 @@ def fast (s : Scenario) : Answers :=
     closable
     final
     intrinsic := Core.intrinsic cx s core
-    sentence := fun c =>
-      String.join (if final c == .conditional then
-        ["Assuming "] ++ Scenario.joinParts ((premises c).map fun p => "“" ++ factText p ++ "”") ++
-          [": ", c.text]
-      else [c.text])
+    sentence := fun c => String.join (Scenario.sentenceWith (final c) (premises c) factText c)
     qualifiers := fun c review =>
-      (if changedByWhatif c then ["what-if"] else []) ++
-      (match review with | .draft => ["draft"] | .stale => ["stale review"] | .reviewed => []) ++
-      ((if prospective c.subject then creatorTitle c.subject else none).map
-        (fun t => [s!"if {t} runs"])).getD [] ++
-      (if !core.valid c.subject then ["conflicting what-if"] else [])
+      Scenario.qualifiersWith (changedByWhatif c) review
+        (if prospective c.subject then
+          Scenario.creatorTitleWith cx.L.subject? cx.L.experiment? c.subject
+        else none)
+        (core.valid c.subject)
     verifiedNeeds := fun c => c.needsAll.filter fun n => (core.eff n).verified
     premises
     gaps := fun c => gapsUnder cx core.eff c.needsAll

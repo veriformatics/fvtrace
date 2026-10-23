@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # Cross-revision byte equality (`.agent/contracts/kernel.md` P-evidence): two fvtrace binaries on the
 # same inputs + flags, stdout + stderr + exit code compared byte for byte.
-#   tools/compare.sh OLD NEW   (OLD = the binary built at the revision before an engine change)
+#   tools/compare.sh [--timeout S] OLD NEW   (OLD = the binary built before an engine change)
 # Inputs: both examples, the test fixtures, every tools/scale.mjs shape at n = 3, 40, 150. Per
 # input: check (+ --json), eval (+ what-ifs, refused ones too), claims, gaps, experiments, plan
-# (+ --json). Every run gets a fresh data folder. Exit 1 on any difference.
+# (+ --json). Every run gets a fresh data folder. Exit 1 on any difference, and on any run either
+# binary does not finish within S seconds (default 600): equal partial output proves nothing.
 set -uo pipefail
-[[ $# -eq 2 ]] || { printf 'usage: tools/compare.sh OLD NEW\n' >&2; exit 2; }
+limit=600
+[[ ${1:-} == --timeout ]] && { limit="$2"; shift 2; }
+[[ $# -eq 2 ]] || { printf 'usage: tools/compare.sh [--timeout S] OLD NEW\n' >&2; exit 2; }
 old="$(realpath -- "$1")" new="$(realpath -- "$2")"
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-runs=0 diffs=0
+runs=0 diffs=0 timeouts=0
 cmp_run() { # label, project, trace, args...
     local label="$1" project="$2" trace="$3"; shift 3
     local b out
@@ -19,8 +22,11 @@ cmp_run() { # label, project, trace, args...
         local bin="$old"
         [[ $b == new ]] && bin="$new"
         rm -rf "${work:?}/home"
-        (cd "$project" && FVTRACE_HOME="$work/home" timeout 600 "$bin" "$@" --trace "$trace" \
+        (cd "$project" && FVTRACE_HOME="$work/home" timeout "$limit" "$bin" "$@" --trace "$trace" \
             >"$work/$b.out" 2>"$work/$b.err"; echo "rc=$?" >"$work/$b.rc")
+        if [[ "$(<"$work/$b.rc")" == rc=124 ]]; then
+            timeouts=$((timeouts + 1)); printf 'TIMEOUT %s %s %s (%s s)\n' "$b" "$label" "$*" "$limit"
+        fi
     done
     runs=$((runs + 1))
     for out in out err rc; do
@@ -58,5 +64,6 @@ for spec in "${inputs[@]}"; do
         cmp_run "$label" "$project" "$trace" claims --whatif "$w"
     done
 done
-printf 'compare: %d runs, %d differing outputs (%s vs %s)\n' "$runs" "$diffs" "$old" "$new"
-[[ $diffs -eq 0 ]]
+printf 'compare: %d runs, %d differing outputs, %d timeouts (%s vs %s)\n' "$runs" "$diffs" \
+    "$timeouts" "$old" "$new"
+[[ $diffs -eq 0 && $timeouts -eq 0 ]]
