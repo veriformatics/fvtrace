@@ -7,8 +7,10 @@ import Fvtrace.Json
 
 One folder per project in fvTrace's data folder (`FVTRACE_HOME`, else the platform data folder +
 `fvtrace`): `trace.json`, `project.json` (the project folder it belongs to) and `cache.json`
-(artifact digests). fvTrace writes into the project folder only where the user points it there:
-`--trace` naming a file in it, `FVTRACE_HOME` or `skills install --dir` inside it.
+(artifact digests); beside them `serve/` (mode 0700): the page that sends the browser to a
+running `fvtrace serve`, the run's token inside (`Cli.openBrowser`). fvTrace writes into the
+project folder only where the user points it there: `--trace` naming a file in it, `FVTRACE_HOME`
+or `skills install --dir` inside it.
 -/
 
 namespace Fvtrace.Store

@@ -163,8 +163,23 @@ def tests : TestM Unit := do
     check "cli: serve --port 65536 is refused" (rc == 2 && count err "--port is 0 to 65535" == 1)
       err
     let (rc, _, err) ← run ["serve", "--host", "192.0.2.1"]
-    check "cli: serve names the address it cannot bind (default port 8642)"
-      (rc == 2 && count err "cannot serve on 192.0.2.1:8642" == 1) err
+    check "cli: serve names the address it cannot bind (default port 8718)"
+      (rc == 2 && count err "cannot serve on 192.0.2.1:8718" == 1) err
+    -- Another program on [::1] would own the `fvtrace.localhost` origin (Chromium tries ::1
+    -- first): serve refuses a fixed port it cannot hold on both loopback addresses.
+    let cfg ← IO.mkRef ({ target := { trace := home / "x.json", project := proj, entry := home },
+                          explicit := true, token := "x", hosts := [] } : Server.Config)
+    let held ← try
+        some <$> Server.start cfg (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := 0 })
+          (← IO.mkRef {})
+      catch _ => pure none
+    match held with
+    | some (other, port) =>
+      let (rc, _, err) ← run ["serve", "--port", toString port, "--no-browser"]
+      check "cli: serve refuses a port another program holds on [::1]"
+        (rc == 2 && count err s!"another program serves [::1]:{port}" == 1) err
+      Server.stop other
+    | none => IO.println "  (no IPv6 loopback here: the [::1] refusal is not checked)"
     let (rc, out, _) ← run ["gaps"]
     checkEq "cli: gaps rc" rc 0
     check "cli: gaps lists closable facts, each with what its claims need together with it"

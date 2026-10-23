@@ -26,8 +26,10 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     await expect(page).toHaveTitle("fvTrace");
     await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
     await page.locator("article.circuit").first().waitFor();
+    // The page keeps the run's token in its origin's storage and sends it as a header.
     const evaluation = await page.evaluate(async () => {
-      const res = await fetch("/api/evaluation");
+      const token = localStorage.getItem("fvtrace-token") ?? "";
+      const res = await fetch("/api/evaluation", { headers: { Authorization: `Bearer ${token}` } });
       /** @type {unknown} */
       const body = await res.json();
       return { status: res.status, body };
@@ -52,11 +54,15 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
   }
 });
 
-test("a page without the token link is refused", async ({ page }) => {
+test("a page opened without the token link shows no claims", async ({ page }) => {
   const web = await serveFvtrace();
   try {
-    const res = await page.goto(`${web.base}/`);
-    expect(res?.status()).toBe(403);
+    await page.goto(`${web.base}/`);
+    await expect(page.locator("#error")).toHaveText(
+      "This page has no access to the claims. Use the link that fvtrace serve prints, or run " +
+        "fvtrace serve again.",
+    );
+    await expect(page.locator("article.circuit")).toHaveCount(0);
   } finally {
     await web.close();
   }

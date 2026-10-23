@@ -70,7 +70,7 @@ expect "plan on an unknown claim rc" 2 $?
 fv FVTRACE_HOME="$tmp/fv" "$bin" bogus >/dev/null 2>&1
 expect "unknown command rc" 2 $?
 
-# truncate + a FIFO: Linux (the gate's cli stage runs there).
+# GNU stat, truncate + a FIFO: Linux (the gate's cli stage runs there).
 if [[ "$(uname -s)" == Linux ]]; then
     # A trace from someone else (a bundle can carry links): a FIFO would block on open, a device
     # never end, a sparse giant be allocated whole. Each is refused before a byte is read.
@@ -87,6 +87,61 @@ if [[ "$(uname -s)" == Linux ]]; then
     [[ "$out" == *"the trace has 68719476736 bytes"* ]] ||
         expect "check refuses the 64 GiB trace by its size" "the trace has 68719476736 bytes" "$out"
 
+    # serve opens the browser itself through a private redirect page: a fake xdg-open records the
+    # file it gets (never the link: a command line shows in every user's process list).
+    mkdir -p "$tmp/bin"
+    # shellcheck disable=SC2016 # $1 + $OPENED belong to the fake opener
+    printf '#!/bin/sh\nprintf "%%s\\n" "$1" >"$OPENED"\n' >"$tmp/bin/xdg-open"
+    chmod +x "$tmp/bin/xdg-open"
+    # Starts serve with the given assignments, waits for its last line, keeps its output.
+    serve_until_ready() {
+        rm -f "$tmp/opened" "$tmp/serve.out"
+        (cd "$tmp/proj" && exec env -i PATH="$tmp/bin:$PATH" OPENED="$tmp/opened" \
+            FVTRACE_HOME="$tmp/fv" "$@" "$bin" serve --port 0 >"$tmp/serve.out" 2>&1) &
+        spid=$!
+        for _ in $(seq 200); do
+            grep -q 'Stop with Ctrl+C.' "$tmp/serve.out" 2>/dev/null && break
+            sleep 0.05
+        done
+        kill "$spid" 2>/dev/null
+        wait "$spid" 2>/dev/null
+    }
+    mkdir -p "$tmp/fv/serve"
+    printf 'an earlier run, its token dead\n' >"$tmp/fv/serve/open-1.html"
+    serve_until_ready DISPLAY=:9
+    expect "an earlier run's page is removed" "" "$(ls "$tmp/fv/serve/open-1.html" 2>/dev/null)"
+    page="$(cat "$tmp/opened" 2>/dev/null)"
+    [[ "$page" =~ ^"$tmp"/fv/serve/open-[0-9]+\.html$ ]] ||
+        expect "serve hands the opener the redirect page" "$tmp/fv/serve/open-<port>.html" "$page"
+    expect "the redirect folder is private" 700 "$(stat -c %a "$tmp/fv/serve" 2>/dev/null)"
+    link="$(sed -n 's/^If the page did not open, use this link: //p' "$tmp/serve.out")"
+    [[ "$link" == http://fvtrace.localhost:*/#token=* ]] ||
+        expect "serve prints the link as a fallback" "http://fvtrace.localhost:<port>/#token=…" "$link"
+    [[ -n "$link" && "$(cat "$page" 2>/dev/null)" == *"url=$link\""* ]] ||
+        expect "the redirect page holds the link" "$link" "$(cat "$page" 2>/dev/null)"
+    opened="$(grep '^Opened the claims in your browser: ' "$tmp/serve.out")"
+    [[ "$opened" == *"http://fvtrace.localhost:"*"/" && "$opened" != *token* ]] ||
+        expect "serve names the address without the token" "Opened … http://fvtrace.localhost:<port>/" \
+            "$(cat "$tmp/serve.out")"
+    for env in "DISPLAY=:9 SSH_CONNECTION=x" "DISPLAY=:9 WSL_DISTRO_NAME=x" "NO_DISPLAY=1"; do
+        # shellcheck disable=SC2086 # each word = one assignment
+        serve_until_ready $env
+        expect "no browser opens ($env)" "" "$(cat "$tmp/opened" 2>/dev/null)"
+        grep -q '^Open http://fvtrace.localhost:[0-9]*/#token=[0-9a-f]*$' "$tmp/serve.out" ||
+            expect "serve prints the link to open ($env)" "Open http://…/#token=…" "$(cat "$tmp/serve.out")"
+    done
+    # An opener that keeps running (the browser itself, started in the foreground) counts as
+    # opened; a missing opener leaves the link to open by hand.
+    # shellcheck disable=SC2016 # $1 + $OPENED belong to the fake opener
+    printf '#!/bin/sh\nprintf "%%s\\n" "$1" >"$OPENED"\nsleep 5\n' >"$tmp/bin/xdg-open"
+    serve_until_ready DISPLAY=:9
+    grep -q '^Opened the claims in your browser: ' "$tmp/serve.out" ||
+        expect "an opener still running counts as opened" "Opened …" "$(cat "$tmp/serve.out")"
+    rm "$tmp/bin/xdg-open"
+    # PATH = the emptied folder alone (a later assignment wins): no system xdg-open answers.
+    serve_until_ready DISPLAY=:9 PATH="$tmp/bin"
+    grep -q '^Open http://fvtrace.localhost:[0-9]*/#token=[0-9a-f]*$' "$tmp/serve.out" ||
+        expect "no opener: serve prints the link" "Open http://…/#token=…" "$(cat "$tmp/serve.out")"
 fi
 
 rm -rf "$tmp/proj/rel"

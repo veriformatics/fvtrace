@@ -54,8 +54,8 @@ fvTrace is one program, `fvtrace`. To build it from source:
 4. If a fact is verified, name its evidence files (a proof, a checker log) in the trace, then
    pin them: `fvtrace pin` records the digests of the files, so that a later change shows.
 5. Check the trace: `fvtrace check`. Correct each error that it shows.
-6. Read the verdicts: `fvtrace claims`. To use the browser view, run `fvtrace serve` and open
-   the link that it prints.
+6. Read the verdicts: `fvtrace claims`. To use the browser view, run `fvtrace serve`: it opens
+   the page in your browser.
 7. When the trace is correct, sign it off: `fvtrace review --reviewer "Your Name"`.
 
 The folder `examples/synthetic` holds a small made-up study: three claims about a treatment and a
@@ -63,8 +63,11 @@ marker. To see it, go to `examples/synthetic/project` and run `fvtrace serve --t
 
 ## The browser view
 
-`fvtrace serve` shows the claims of each scientific question in a browser. To learn the page,
-press **Take the tour**.
+`fvtrace serve` shows the claims of each scientific question in your browser, at
+`fvtrace.localhost:8718`. It opens the page itself. Where it cannot open a browser, for example
+in an SSH session, it prints a link instead. In an SSH session, forward the port first
+(`ssh -L 8718:localhost:8718 HOST`), then open the link on your own computer. To get the link in
+every case, add `--no-browser`. To learn the page, press **Take the tour**.
 
 - Each claim shows a plain headline. To read the exact statement that the proofs cover, open
   **Show the exact statement**.
@@ -165,7 +168,8 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 ## Where fvTrace keeps its files
 
 fvTrace keeps its own files in its data folder: one folder for each project, with the trace, the
-project location and a cache of file digests. It writes into your project folder only where you
+project location and a cache of file digests. The folder `serve` holds the page that sends your
+browser to `fvtrace serve`; only you can open that folder. It writes into your project folder only where you
 point it: `--trace` at a file there, or `FVTRACE_HOME` or `skills install --dir` at a folder in
 it. The data folder is
 `FVTRACE_HOME` if you set it. Otherwise it is the data folder of your platform plus `fvtrace`:
@@ -187,9 +191,10 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
   outside the project folder. On another computer, go to `DIR/project` and run
   `fvtrace serve --trace ../trace.json`.
-- `fvtrace serve` answers on this computer only. Each run makes a new secret link. With
-  `--host ADDRESS`, computers on your network can open the page at that address. The page is
-  not encrypted, so use `--host` only on a network that you trust.
+- `fvtrace serve` answers on this computer only. Each run makes a new secret token. The page
+  keeps it, so no other program on this computer can read the claims. With `--host ADDRESS`,
+  computers on your network can open the page with the link that the command prints. The page
+  is not encrypted, so use `--host` only on a network that you trust.
 
 ## Use fvTrace with a coding agent
 
@@ -221,8 +226,8 @@ proved:
 
 - The receipt claim ("Fully supported" means unchanged evidence) needs the file check of the
   receipts and the call of the verified HACL* SHA-256 code.
-- An overlooked direction (no other site can read what `fvtrace serve` shows) needs the access
-  check of the server.
+- An overlooked direction (no other site, and no other server on this computer, can read what
+  `fvtrace serve` shows) needs the access check of the server.
 
 Each proof fact of the self-trace also has a replay: `tools/statement.sh` builds fvTrace and
 prints every definition that the theorem's statement uses. If one of these definitions changes

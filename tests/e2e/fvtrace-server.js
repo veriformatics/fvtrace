@@ -1,5 +1,6 @@
 // Runs the built `fvtrace serve` for one test: a temporary data folder + project folder holding a
-// study (pinned), a free port, and the token link the server prints. Studies: `synthetic` = the
+// study (pinned), a free port, and the token link the server prints (`--no-browser`: the test opens
+// it; the link ends in `#token=…`, so view parameters append with `&`). Studies: `synthetic` = the
 // shipped example (examples/synthetic); `fixture` = the feature-rich test trace (exclusions,
 // prerequisites, waivers) with the example's proof files.
 import { spawn, spawnSync } from "node:child_process";
@@ -65,7 +66,7 @@ export async function prepareStudy(study, edit) {
  */
 export async function serveFvtrace(study = "synthetic", edit) {
   const { dir, project, env } = await prepareStudy(study, edit);
-  const server = spawn(bin, ["serve", "--port", "0"], { cwd: project, env });
+  const server = spawn(bin, ["serve", "--port", "0", "--no-browser"], { cwd: project, env });
   const url = await new Promise(
     /** @param {(link: string) => void} resolve */ (resolve, reject) => {
       let out = "";

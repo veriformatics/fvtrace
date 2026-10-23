@@ -16,8 +16,8 @@ Security fixes go to the newest version on the `main` branch.
 
 These parts of fvTrace read data that can come from other people:
 
-- `fvtrace serve`: the web server and its secret link. With `--host`, other computers on your
-  network can reach it.
+- `fvtrace serve`: the web server and the secret token that its link carries. With `--host`,
+  other computers on your network can reach it.
 - The page that `fvtrace export --html` writes and the folder that `fvtrace export --bundle`
   writes. The page runs the fvTrace engine, compiled to WebAssembly, in the browser. Its content
   security policy allows only the page's own script and style, and the compilation of
