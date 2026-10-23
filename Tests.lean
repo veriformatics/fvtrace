@@ -53,6 +53,7 @@ def native : TestM Unit := do
   area "server-native" Tests.Server.nativeTests
   area "export-native" Tests.Export.nativeTests
   area "plan-scale" Tests.Engine.scaleTests
+  area "json-scale" Tests.Json.scaleTests
   area "replay" Tests.Replay.tests
   area "fields-native" Tests.Fields.nativeTests
   area "snapshot-native" Tests.Snapshot.nativeTests

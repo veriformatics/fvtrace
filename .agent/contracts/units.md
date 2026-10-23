@@ -69,3 +69,4 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | review ledger | — | check set fixed before reading (`.agent/review.md`) | 15 rows adjudicated; scanners at 53bcecc; probes (cookie, HTTP edge cases, slots, bodies, /dev/zero, parser + checker scale) |
 | F6 skill ground rule | docs | `skill/fvtrace/SKILL.md` ground rules | `rg` acceptance (53bcecc: rc 1); CI run 39946476496 |
 | F3 bounded trace read | kernel (shell) | `kernel.md` D-json (regular file, refused by size before a read, ≤ limit + 1 bytes) | smoke FIFO / device / 64 GiB red on 53bcecc (rc 124 / 1 / 124); Tests/Cli `readTests`; mutation credit (Session.lean) |
+| F4 parser bounds | kernel (codec, tested) | `kernel.md` D-json (integers ≤ 20 digits, O(n log n) parse) | Tests/Json 21-digit red on 53bcecc (554/556), `json-scale` red (native rc 124 at 180 s); mutation credit (Json.lean); engine differential (wasm) |
