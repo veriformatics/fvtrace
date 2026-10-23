@@ -40,6 +40,7 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | tour card placement | data (GUI) | `.claude/rules/web.md` tour law | e2e walks every step at 1280×720 + 390×844 on the synthetic study + the fixture with violated facts and a missing check (red: 5–6 desktop + 3 phone overlaps); screenshots of all 15 steps at both widths |
 | mutation tool: `!·` sites | kernel (gate tool) | `.claude/rules/lean.md` mutation credit | `--list` shows Evaluate.lean:178 (absent before); campaigns over the 5 sites: 5/5 killed, 0 survivors |
 | verifier replay | kernel (shell, security) | `kernel.md` § Replay; Decisions Evidence binding (user rulings) | consultant-4 before code (V4 build dependency + V6 sequencing adopted; V2 security ruled by MAIN); schema corpus 7 cases (Node + Lean halves); Tests/Replay 18 checks (fixture verifier = the test binary); self-trace acceptance (`maxRelevant` 20 → 0: receipts current, P6 + P7 replays fail); mutation credit on Replay.lean + the CLI |
+| CI engine-build cache | kernel (gate) | `.claude/rules/ops.md` CI; `.claude/rules/wasm.md` CI cache | commit body: zizmor `cache-poisoning` fires on both cache steps under a planted release trigger, none under the real triggers; `gate-probe.sh wasm` on a cache-hit tree; probe `wasm-build-step` (red before `lakefile.lean` was traced); CI miss run + its rerun on a hit + a hit at another commit (`lean-build`, portability); reviewer-1 (R1–R7: F1–F4 fixed) |
 
 # Units → tier → contract → evidence (IMPLEMENT — export: live what-ifs)
 

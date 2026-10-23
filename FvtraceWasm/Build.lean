@@ -119,6 +119,14 @@ def files (dir : FilePath) (paths : List String) : IO (List (String × String)) 
 
 /-! ## Pinned inputs -/
 
+/-- Emscripten's config, a Python file beside `install/`. Its paths go through `$CFGDIR`, which
+Emscripten sets to the config's folder, so the cache stays valid wherever it moves (a restored CI
+cache included); `FROZEN_CACHE` holds Emscripten to the release's prebuilt libraries (a missing one
+fails instead of being built here). Node is never needed. -/
+def emscriptenConfig : String :=
+  "LLVM_ROOT = '$CFGDIR/install/bin'\nBINARYEN_ROOT = '$CFGDIR/install'\nNODE_JS = 'node'\n\
+    FROZEN_CACHE = True\n"
+
 /-- The Emscripten release for this platform, extracted + configured: its `install` folder.
 Archive + tree are named by their pin, so another pin never touches a verified copy. -/
 def emsdk (cfg : Config) (e : Lock.Entry) : IO FilePath := do
@@ -126,7 +134,10 @@ def emsdk (cfg : Config) (e : Lock.Entry) : IO FilePath := do
   let dir := cfg.cache / id
   let marker := cfg.cache / s!"{id}.verified"
   let install := dir / "install"
-  if ← verified marker dir e.sha256 then return install
+  if ← verified marker dir e.sha256 then
+    -- Written on reuse too: a config naming absolute paths breaks once the cache moves.
+    IO.FS.writeFile (dir / ".emscripten") emscriptenConfig
+    return install
   replaceDir dir marker
   let name := (e.url.splitOn "/").getLast?.getD "archive"
   let archive := cfg.cache / "download" / s!"{id}-{name}"
@@ -147,12 +158,7 @@ def emsdk (cfg : Config) (e : Lock.Entry) : IO FilePath := do
       "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])",
       archive.toString, dir.toString]
   else discard <| run "tar" #["-xf", archive.toString, "-C", dir.toString]
-  -- Emscripten reads this Python file; `FROZEN_CACHE` holds it to the release's prebuilt
-  -- libraries (a missing one fails instead of being built here). Node is never needed.
-  let py := fun (p : FilePath) => "'" ++ (slashed p).replace "'" "\\'" ++ "'"
-  IO.FS.writeFile (dir / ".emscripten")
-    s!"LLVM_ROOT = {py (install / "bin")}\nBINARYEN_ROOT = {py install}\nNODE_JS = 'node'\n\
-      FROZEN_CACHE = True\n"
+  IO.FS.writeFile (dir / ".emscripten") emscriptenConfig
   IO.FS.writeFile marker e.sha256
   return install
 

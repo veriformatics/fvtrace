@@ -52,6 +52,28 @@ jobs:
         with:
           python-version: "3.13"
 
+      # The page engine's build folder (Emscripten, Lean runtime sources, Init's C, objects, the
+      # engine) costs minutes to fill. Inside it a fetched input counts under its pin's marker and an
+      # object under its content digest, and Lake rebuilds what changed, so the key holds what changes
+      # every object: pins, toolchain, build tool. The folder's entries are listed (`*`) so the
+      # download archive can be left out. The weekly run builds from scratch: downloads + pin checks
+      # every week (.claude/rules/wasm.md).
+      - name: Cache the page engine build
+        id: engine-cache
+        if: matrix.shard != 'checks' && github.event_name != 'schedule'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake/build/wasm/*
+            !.lake/build/wasm/download
+          key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean') }}
+
+      # A restore that fails midway keeps its partial files and sets no `cache-hit`: start empty, as
+      # on a miss, so neither the build nor the post step's save works from a partial folder.
+      - name: Remove a partial page engine build
+        if: matrix.shard != 'checks' && github.event_name != 'schedule' && steps.engine-cache.outputs.cache-hit != 'true'
+        run: rm -rf .lake/build/wasm
+
       # The lean shard's Node stage (engine) imports no package.
       - name: Install pnpm
         if: matrix.shard != 'lean'
@@ -101,6 +123,22 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+
+      # As in the gate job: the weekly run builds the page engine from scratch on each platform.
+      - name: Cache the page engine build
+        id: engine-cache
+        if: github.event_name != 'schedule'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake/build/wasm/*
+            !.lake/build/wasm/download
+          key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean') }}
+
+      - name: Remove a partial page engine build
+        if: github.event_name != 'schedule' && steps.engine-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: rm -rf .lake/build/wasm
 
       # Lean's Windows toolchain targets the MinGW ABI; the C digest code builds with MinGW gcc.
       - name: Select the C compiler

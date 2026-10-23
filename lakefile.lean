@@ -50,14 +50,15 @@ lean_exe «fvtrace-wasm» where
 /-- The exported page's engine (`.agent/contracts/kernel.md` E-build): `fvtrace-wasm` compiles
 Lake's C for `Fvtrace.Snapshot`'s import closure + the toolchain's own `Init` + the pinned Lean
 runtime to WebAssembly and writes base64(gzip(module)). Traced over the tool, that C, the pins,
-the runtime patch + the C bridge, so a change to any of them rebuilds the embedded engine. -/
+the runtime patch, the C bridge + this file (Lake traces no target's own build step; a changed step
+would replay a cached engine), so a change to any of them rebuilds the embedded engine. -/
 target engine pkg : System.FilePath := do
   let some tool ← findLeanExe? `«fvtrace-wasm» | error "no executable fvtrace-wasm"
   let some root ← findModule? `Fvtrace.Snapshot | error "no module Fvtrace.Snapshot"
   let closure := (← (← root.transImports.fetch).await).push root
   let cJob := Job.collectArray (← closure.mapM (·.c.fetch))
   let inputs := Job.collectArray (← #["tools/wasm.lock", "tools/wasm/lean-runtime.patch",
-    "c/page_engine.c"].mapM fun (p : String) => inputTextFile (pkg.dir / p))
+    "c/page_engine.c", "lakefile.lean"].mapM fun (p : String) => inputTextFile (pkg.dir / p))
   let toolJob ← tool.exe.fetch
   let out := pkg.buildDir / "wasm" / "engine.b64"
   (toolJob.zipWith (·, ·) (cJob.zipWith (·, ·) inputs)).mapM fun (exe, cFiles, _) => do
