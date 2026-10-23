@@ -43,12 +43,16 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - [x] 57178af security review: scanners + manual pass, a verdict per check-set row (`.agent/review.md`)
 - [x] 4d7968f F6 skill ground rule
-- [ ] F3 bounded trace read · F4 parser bounds · F2 GUI access (user rulings: `fvtrace.localhost:8718`, browser opened by `serve`): committed with red witnesses; mutation credit = campaigns queued for a slot (user ruling: wait) → record them in the three commit bodies, survivors ruled by the advisor
-- [ ] F1 capability audit (user ruling: build now): `fvtrace-trust` fails a process spawn, file write, network or environment use outside an allowlisted module; probe + rule line
-- [ ] F5 engine speed-up (user ruling: in this session): check + evaluation near-linear on large valid traces (acceptance fixed before code), proofs redone; the plan search keeps its ruled limit
+- [x] 4958aff F3 bounded trace read (CI 39960172366) · a936d55 F4 parser bounds (CI 39960172522) · 61d97d9 F2 GUI access (CI 39960172393; user rulings: `fvtrace.localhost:8718`, browser opened by `serve`)
+- [x] a390abb F3 mutation credit (Session.lean: 6 + 1 killed, 3 equivalent, advisor rulings)
+- [ ] mutation credit F4 + F2 (resume note): rerun with `--timeout 900` on an unloaded slot (the commands = `.agent/review.md` F2 + F4 rows; the default 120 s step limit voided the F4 run at load ≈ 20) → results + survivor rulings into those rows
+- [x] 5b098c9 F1 capability audit (CI 39962416380; user ruling: build now)
+- [ ] F5 engine speed-up → routed: IMPLEMENT — engine speed-up (Phase); acceptance + baselines + design notes = `.agent/review.md` F5
 - [ ] close: full gate green on a clean tree; ledger → `.agent/archive/`; rules upkeep
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
 
-MAINTAIN — whole product
+IMPLEMENT — engine speed-up (security review F5)
+> Full fast engine, but let's end this session, and begin it in an IMPLEMENT session next session
+Suspended: MAINTAIN — whole product
