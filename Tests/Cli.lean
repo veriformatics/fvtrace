@@ -119,4 +119,38 @@ def writeTests : TestM Unit := do
     check "write: the file is a plain file, not the link"
       ((← file.symlinkMetadata).type == .file)
 
+/-- A trace is read only from a regular file and only up to one byte past the size limit. -/
+def readTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let at_ := fun (limit : Nat) (file : System.FilePath) =>
+      Fvtrace.Session.readWithin limit { trace := file, project := dir, entry := dir / "e" } true
+    let codes := fun (r : Except Fvtrace.Session.Problem (Except (Array Fvtrace.Decode.Diag)
+        Fvtrace.Trace)) =>
+      match r with
+      | .ok (.error ds) => ds.toList.map fun d => d.code ++ ": " ++ d.message
+      | .ok (.ok _) => ["ok"]
+      | .error (.unreadable _ why) => [s!"unreadable: {why}"]
+      | .error _ => ["other problem"]
+    let spaces := dir / "spaces.json"
+    IO.FS.writeFile spaces "           "
+    checkEq "read: a trace over the limit is refused by its size" (codes (← at_ 10 spaces))
+      ["size: the trace has 11 bytes; the limit is 10 bytes"]
+    checkEq "read: a trace at the limit reaches the parser"
+      ((codes (← at_ 11 spaces)).map (·.startsWith "syntax")) [true]
+    let valid := dir / "valid.json"
+    let text := (Fvtrace.Encode.trace (Fvtrace.Store.starter dir)).pretty
+    IO.FS.writeFile valid text
+    checkEq "read: a valid trace of exactly the limit decodes whole"
+      (codes (← at_ text.utf8ByteSize valid)) ["ok"]
+    unless System.Platform.isWindows do
+      checkEq "read: a device is never read" (codes (← at_ 10 "/dev/null"))
+        ["unreadable: not a regular file"]
+    let big := dir / "big.bin"
+    IO.FS.writeBinFile big (ByteArray.mk (Array.replicate 1048586 7))
+    checkEq "read: a prefix past one chunk stops at its length"
+      (← Fvtrace.Session.readPrefix big 1048581).size 1048581
+    checkEq "read: a shorter file comes back whole"
+      (← Fvtrace.Session.readPrefix big 2000000).size 1048586
+    checkEq "read: a prefix of 0 bytes reads nothing" (← Fvtrace.Session.readPrefix big 0).size 0
+
 end Tests.Cli

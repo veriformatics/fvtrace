@@ -365,12 +365,15 @@ namespace Fvtrace
 /-- D-json: a larger input is refused before parsing. -/
 def maxTraceBytes : Nat := 16 * 1024 * 1024
 
+/-- D-json: why an input of `size` bytes is refused. -/
+def sizeDiag (size limit : Nat) : Decode.Diag :=
+  { code := "size", path := "",
+    message := s!"the trace has {size} bytes; the limit is {limit} bytes" }
+
 /-- Bytes → trace: a syntax error stops with its line + column; otherwise every shape error is
-listed. Inputs above `limit` bytes are refused unread. -/
+listed. Inputs above `limit` bytes are refused before parsing. -/
 def decodeTraceWithin (limit : Nat) (input : ByteArray) : Except (Array Decode.Diag) Trace :=
-  if input.size > limit then
-    .error #[{ code := "size", path := "",
-                message := s!"the trace has {input.size} bytes; the limit is {limit} bytes" }]
+  if input.size > limit then .error #[sizeDiag input.size limit]
   else
   match Json.parse input with
   | .error e =>
