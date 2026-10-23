@@ -8,8 +8,9 @@ set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$root/c/hacl"
-# CPython 3.14.8's Modules/_hacl/refresh.sh pins the same revision.
-rev=8ba599b2f6c9701b3dc961db895b0856a2210f76
+# CPython main's Modules/_hacl/refresh.sh pins the same revision (3.14 + 3.15 pin 8ba599b2, whose
+# copies of every file below are byte-identical).
+rev=504c2987452f87fe44bce9b9f12e19d6e051761f
 base="https://raw.githubusercontent.com/hacl-star/hacl-star/$rev"
 
 # sha256 · local path · upstream path

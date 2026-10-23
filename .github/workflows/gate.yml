@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         shard: [lean, e2e, checks]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       SHARD: ${{ matrix.shard }}
@@ -50,7 +50,7 @@ jobs:
         if: matrix.shard != 'checks'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13"
+          python-version: "3.15"
 
       # The page engine's build folder (Emscripten, Lean runtime sources, Init's C, objects, the
       # engine) costs minutes to fill. Inside it a fetched input counts under its pin's marker and an
@@ -93,7 +93,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium-headless-shell
 
       # `lake check` sandboxes the replay in bubblewrap, which needs unprivileged user
-      # namespaces; Ubuntu 24.04 restricts them through AppArmor by default.
+      # namespaces; Ubuntu restricts them through AppArmor by default.
       - name: Install system tools
         run: |
           sudo apt-get update
@@ -109,7 +109,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, windows-2025]
+        os: [macos-26, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -122,7 +122,7 @@ jobs:
       - name: Install Python for the page engine build
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13"
+          python-version: "3.15"
 
       # As in the gate job: the weekly run builds the page engine from scratch on each platform.
       - name: Cache the page engine build
