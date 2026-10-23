@@ -41,15 +41,6 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] RESUME: request (user, MAINTAIN) = work every `.agent/deferred.md` row in rank order: one unit + one scoped commit per row, gate green at every commit, the row pruned in its closing commit; a row needing the user → its agent part done + its user part recorded as owed; finds (incl. the template refresh's 2 rows) → funded after the session-start rows; the one AskUserQuestion was asked + answered; the closing AskUserQuestion too (e2e: raise the default limit + `smoke`'s; Renovate: code now). Finish line (Met when): every row closed by its acceptance check in its own commit, recorded as blocked on the user with what it still owes, waiting on its unmet re-open trigger, or routed, and the full gate (`tools/ci-gate.sh`) passes on a clean working tree at the closing commit; this note removed. Committed: ecd8e6b, cd69935, 6a73af1, 10a8c87, 752ee38 (e2e measurement), 0182781 (CI engine cache; scheduled-run part waits on its trigger), 8f9c4e6 (Version.lean comment) + this commit (e2e limits). Row 1: the form was resubmitted (veriformatics → only fvtrace, approved permissions); GitHub's "Confirm access" prompt waits in Neo for the user's code; installations 0 at last poll. Next: `bash tools/e2e-load.sh gate 3` on nixbox (rc 0 = 3 green runs, each run's e2e load ≥ 12) + `tools/ci-gate.sh e2e-limits` → amend this commit's message; row 1: installations → 1 ⇒ poll ≤ 30 min for the Dependency Dashboard, met → prune; then close. Teammates: none.
-- [ ] update automation (row 1): ecd8e6b current `renovate.json` re-validated (Renovate 44.176.3 `--strict`, RE2); Renovate app install (user approval): GitHub's sudo prompt awaits the user's code
-- [x] 6a73af1 GUI copy names the engine (row 2): `web/index.html` experiments sentence → the user's wording
-- [x] cd69935 page engine on macOS + Windows (row 3): portability jobs green on 0526dbc (run 39769654379) → row pruned
-- [x] 10a8c87 what-if messages (new row, user wording): `Overrides.parse` messages, rejected token first; tests + e2e
-- [ ] e2e under host load (find): user ruling = default limit 90 s + `smoke` 300 s; evidence harness `tools/e2e-load.sh` (measure + gate); `gate 3` on nixbox at ≥ 1.5× load + CI gate
-- [x] 0182781 CI engine-build cache (template-refresh find): `.lake/build/wasm` cached in every job that builds, scheduled run fresh; its scheduled-run check waits on its trigger (deferred row)
-- [x] 8f9c4e6 Version.lean comment (template-refresh find): the comment names `lakefile.lean`
-- [ ] close: rules upkeep, Tasks → `.agent/archive/maintain-deferred-3.md`, scratch + temp cleanup, full gate on a clean tree
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
