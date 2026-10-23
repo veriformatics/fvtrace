@@ -223,11 +223,6 @@ theorem claimSubject_group (sub : String) :
       (t.claims.zipIdx.filter fun x => x.1.subject == sub).map (·.2) :=
   group_map t.claims (·.subject) sub
 
-theorem experimentIx_group (id : String) :
-    (Ctx.build t).experimentIx.group (cmp := compare) id =
-      (t.experiments.zipIdx.filter fun x => x.1.id == id).map (·.2) :=
-  group_map t.experiments (·.id) id
-
 theorem isResult_eq (k : String) :
     (Ctx.build t).isResult k =
       (Scenario.resultFacts { trace := t, current := fun _ => true }).contains k := by
@@ -240,14 +235,6 @@ theorem gateList_eq (id : String) :
     gateList (Ctx.build t).gates id =
       (t.claims.zipIdx.filter fun x => decide (id ∈ x.1.needsAll)).map (·.2) :=
   gatePositions_eq t id
-
-theorem mem_zipIdx_pos {α : Type} {l : List α} {p : Nat} :
-    p ∈ (l.zipIdx.filter fun x => decide (x.2 < l.length)).map (·.2) ↔ p < l.length := by
-  simp only [List.mem_map, List.mem_filter, decide_eq_true_eq]
-  constructor
-  · rintro ⟨x, ⟨_, h⟩, rfl⟩; exact h
-  · intro h
-    exact ⟨(l[p], p), ⟨List.mem_zipIdx_iff_getElem?.mpr (by simp [h]), h⟩, rfl⟩
 
 /-- The positions of `l` passing `q` (read on the item). -/
 theorem positions_nodup {α : Type} (l : List α) (q : α × Nat → Bool) :
@@ -980,10 +967,6 @@ theorem gates_eq (f : Fact) :
   intro c _
   simp [List.contains_iff_mem]
 
-theorem memo_at (p : Nat) (hp : p < s.trace.claims.length) :
-    (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s))).get[p]? =
-      some (ClaimMemo.of (cxOf s) s (coreOf s) s.trace.claims[p]) := memo_get s p hp
-
 /-- A trace claim's final state under a what-if, from its memo. -/
 theorem memo_final (extra : Overrides) (p : Nat) (hp : p < s.trace.claims.length) :
     let m := ClaimMemo.of (cxOf s) s (coreOf s) s.trace.claims[p]
@@ -1317,9 +1300,6 @@ theorem count_ofKeys (l : List String) (d : String) :
   congr 2
   funext x
   simp [Is, cmp_beq]
-
-theorem applySuccess_after (ids : List String) :
-    afterOf s (s.raised ids) = s.applySuccess ids := rfl
 
 theorem node_valid (c : Claim) (ids : List String) :
     (Delta.build (cxOf s) s (coreOf s) (s.raised ids)).valid c.subject =

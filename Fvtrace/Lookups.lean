@@ -7,7 +7,8 @@ import Fvtrace.Model
 Every by-id or whole-list question the checker, the lints, the receipt manifests + the engine ask
 of one trace, as one record of plain functions. `reference` = the original expressions over the
 trace's lists (the definitions the claims read); `fast` = the same answers from sorted indexes
-(`Fvtrace.Index`), O(log n) each. `Fvtrace.Proofs.Lookups` proves the two records equal, so code
+(`Fvtrace.Index`): O(log n) per by-id question, O(n log n) once per whole-list
+one. `Fvtrace.Proofs.Lookups` proves the two records equal, so code
 written over a `Lookups` prints the same bytes with either.
 -/
 
@@ -99,8 +100,9 @@ def keyed {α κ : Type} (l : List α) (key : α → Option κ) : List (κ × Na
 def restatedOne (c : Claim) : Option String :=
   if c.restates then match c.needs with | [n] => some n | _ => none else none
 
-/-- The same answers from sorted indexes: O(log n) each. An index is built on its first question
-(a `Thunk`), so a consumer pays for the ones it asks alone. -/
+/-- The same answers from sorted indexes: O(log n) per by-id question, a whole-list answer once.
+An index is built on its first question (a `Thunk`), so a consumer pays for the ones it asks
+alone. -/
 @[noinline] def fast (t : Trace) : Lookups :=
   let facts := Thunk.mk fun _ => t.facts.toArray
   let subjects := Thunk.mk fun _ => t.subjects.toArray

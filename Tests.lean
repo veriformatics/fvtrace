@@ -27,7 +27,7 @@ credit). -/
 def pure : TestM Unit := do
   area "cli" do
     Tests.Cli.tests; Tests.Cli.skillTests; Tests.Cli.writeTests; Tests.Cli.bindTests
-    Tests.Cli.readTests
+    Tests.Cli.readTests; Tests.Cli.groupTests
   area "json" Tests.Json.tests
   area "decode" do
     Tests.Decode.tests; Tests.Decode.sizeTests; Tests.Decode.outcomeOrderTests

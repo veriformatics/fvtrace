@@ -6,9 +6,10 @@ import Fvtrace.Receipt.Basic
 /-!
 # The fast paths answer as the definitions do (`kernel.md` P-claims)
 
-fvTrace reads a trace through sorted indexes, so a 16 MiB trace takes seconds. Each claim below
-says that an indexed answer equals the plain definition it replaces. The other claims are stated
-over the plain definitions, so they cover what the binary shows.
+fvTrace reads a trace through sorted indexes + memos (time bounds: `tools/scale.sh`, graded
+workloads alone). Each claim below says that an indexed answer equals the plain definition it
+replaces. The other claims are stated over the plain definitions, so they cover what the binary
+shows.
 -/
 
 namespace Fvtrace.Spec

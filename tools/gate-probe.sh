@@ -324,10 +324,17 @@ STUB
 }
 
 # tools/compare.sh (cross-revision byte equality) fails on any difference: two stand-in binaries
-# that exit differently differ on every run, one compared with itself on none.
+# that exit differently differ on every run, one compared with itself on none; a run past the
+# time limit fails too.
 probe_compare() {
     expect compare-differ 'DIFF self check \(rc\)' bash tools/compare.sh /bin/true /bin/false
     allow compare-same bash tools/compare.sh /bin/true /bin/true
+    # Equal partial output proves nothing: a stand-in whose first run outlasts the limit.
+    local slow="$backup/slow-once"
+    # shellcheck disable=SC2016 # the stand-in's own script text
+    printf '#!/usr/bin/env bash\n[[ -e "$0.ran" ]] || { : >"$0.ran"; sleep 3; }\n' >"$slow"
+    chmod +x "$slow"
+    expect compare-timeout 'TIMEOUT old self check' bash tools/compare.sh --timeout 1 "$slow" "$slow"
 }
 
 probes=("$@")

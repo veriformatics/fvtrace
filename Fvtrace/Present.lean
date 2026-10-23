@@ -17,23 +17,43 @@ def State.verdict : State → String
 
 namespace Scenario
 
-variable (s : Scenario)
-
-def factText (id : String) : String := ((s.trace.fact? id).map (·.text)).getD id
-
 /-- Quoted items with `; ` between them. -/
 def joinParts : List String → List String
   | [] => []
   | [q] => [q]
   | q :: qs => q :: "; " :: joinParts qs
 
-/-- The sentence's pieces: verbatim claim + premise texts (`Assuming “p₁”; “p₂”: text` for a
-conditional claim); the sentence is their concatenation. -/
-def sentenceParts (c : Claim) : List String :=
-  if s.final c == .conditional then
-    ["Assuming "] ++ joinParts ((s.premises c).map fun p => "“" ++ s.factText p ++ "”") ++
-      [": ", c.text]
+/-- A claim's sentence pieces from its final state + premise ids: verbatim claim + premise texts
+(`Assuming “p₁”; “p₂”: text` for a conditional claim); the sentence is their concatenation. -/
+def sentenceWith (final : State) (premises : List String) (factText : String → String)
+    (c : Claim) : List String :=
+  if final == .conditional then
+    ["Assuming "] ++ joinParts (premises.map fun p => "“" ++ factText p ++ "”") ++ [": ", c.text]
   else [c.text]
+
+/-- A claim's qualifiers: changed by the what-if, the review state, the experiment that creates
+its subject (prospective subjects), a conflicting what-if on its subject. -/
+def qualifiersWith (changed : Bool) (review : Receipt.ReviewState) (creator : Option String)
+    (valid : Bool) : List String :=
+  (if changed then ["what-if"] else []) ++
+  (match review with | .draft => ["draft"] | .stale => ["stale review"] | .reviewed => []) ++
+  (creator.map (fun t => [s!"if {t} runs"])).getD [] ++
+  (if !valid then ["conflicting what-if"] else [])
+
+/-- The title of the experiment that creates `subject` (its `createdBy`). -/
+def creatorTitleWith (subject? : String → Option Subject) (experiment? : String → Option Experiment)
+    (subject : String) : Option String := do
+  let sub ← subject? subject
+  let e ← sub.createdBy
+  let x ← experiment? e
+  return x.title
+
+variable (s : Scenario)
+
+def factText (id : String) : String := ((s.trace.fact? id).map (·.text)).getD id
+
+def sentenceParts (c : Claim) : List String :=
+  sentenceWith (s.final c) (s.premises c) s.factText c
 
 def sentence (c : Claim) : String := String.join (s.sentenceParts c)
 
@@ -54,18 +74,12 @@ def hypothetical (c : Claim) : Bool := s.prospective c.subject || s.changedByWha
 def creates (e : Experiment) : Bool :=
   (s.trace.subject? e.subject).any (·.createdBy == some e.id)
 
-def creatorTitle (subject : String) : Option String := do
-  let sub ← s.trace.subject? subject
-  let e ← sub.createdBy
-  let x ← s.trace.experiment? e
-  return x.title
+def creatorTitle (subject : String) : Option String :=
+  creatorTitleWith s.trace.subject? s.trace.experiment? subject
 
 def qualifiers (c : Claim) (review : Receipt.ReviewState) : List String :=
-  (if s.changedByWhatif c then ["what-if"] else []) ++
-  (match review with | .draft => ["draft"] | .stale => ["stale review"] | .reviewed => []) ++
-  ((if s.prospective c.subject then s.creatorTitle c.subject else none).map
-    (fun t => [s!"if {t} runs"])).getD [] ++
-  (if !s.valid c.subject then ["conflicting what-if"] else [])
+  qualifiersWith (s.changedByWhatif c) review
+    (if s.prospective c.subject then s.creatorTitle c.subject else none) (s.valid c.subject)
 
 end Scenario
 

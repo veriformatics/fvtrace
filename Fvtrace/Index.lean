@@ -1,11 +1,12 @@
 /-!
 # Sorted indexes (`.agent/contracts/kernel.md` P-index)
 
-Answers to "which positions carry key k" in O(log n) each: a stable sort of (key, position) pairs
-+ a lower-bound binary search. Keys are ordered by a `compare` that is transitive + lawful
-(`Std.TransCmp`, `Std.LawfulEqCmp`): ids, positions + pairs of them. No hash map: a trace's ids are
-its author's choice, so collisions would come on demand. `Init` alone: the exported page's
-engine compiles this module. `Fvtrace.Proofs.Index` states what each answer equals.
+Answers to "which positions carry key k" in O(log n) + the positions returned: a stable sort of
+(key, position) pairs (O(n log n), once per index) + a lower-bound binary search. Keys are
+ordered by a `compare` that is transitive + lawful (`Std.TransCmp`, `Std.LawfulEqCmp`): ids,
+positions + pairs of them. No hash map: a trace's ids are its author's choice, so collisions
+would come on demand. `Init` alone: the exported page's engine compiles this module.
+`Fvtrace.Proofs.Index` states what each answer equals.
 -/
 
 namespace Fvtrace

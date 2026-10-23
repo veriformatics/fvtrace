@@ -106,10 +106,11 @@ function protectedMask(src) {
 const operators = [
   { re: /==/g, to: () => "!=" },
   { re: /!=/g, to: () => "==" },
-  { re: /(?<![<=-])<(?![=-])/g, to: () => "<=" },
+  // `<|` + `|>` are pipes, not comparisons: mutating them only breaks the build.
+  { re: /(?<![<=-])<(?![=|-])/g, to: () => "<=" },
   { re: /<=/g, to: () => "<" },
   { re: /≤/g, to: () => "<" },
-  { re: /(?<![=-])>(?![=>])/g, to: () => ">=" },
+  { re: /(?<![=|-])>(?![=>])/g, to: () => ">=" },
   { re: />=/g, to: () => ">" },
   { re: /≥/g, to: () => ">" },
   { re: /&&/g, to: () => "||" },

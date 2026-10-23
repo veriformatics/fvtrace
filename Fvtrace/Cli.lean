@@ -456,13 +456,6 @@ def prospectiveGroups (t : Trace) (subjectAt : String → Option Nat) (mine : Li
     | none => acc.push (p, #[c])
   groups.toList.filterMap fun (p, cs) => (subjects[p]?).map (·, cs.toList)
 
-/-- The title of the experiment that creates a subject, when it is prospective. -/
-def creatorTitle (L : Lookups) (subject : String) : Option String := do
-  let sub ← L.subject? subject
-  let e ← sub.createdBy
-  let x ← L.experiment? e
-  return x.title
-
 def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 0 fun p l => do
     let sc := l.scenario
@@ -483,7 +476,8 @@ def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
             !c.latent && !A.prospective c.subject && A.final c == st)) ++
         [("Overlooked directions", mine.filter fun c => c.latent && !A.prospective c.subject)] ++
         ((prospectiveGroups sc.trace (subjectIx.first? (cmp := compare)) mine).map fun (sub, cs) =>
-          (s!"If {(creatorTitle A.lookups sub.id).getD sub.title} runs", cs))
+          let creator := Scenario.creatorTitleWith A.lookups.subject? A.lookups.experiment? sub.id
+          (s!"If {creator.getD sub.title} runs", cs))
       for (title, cs) in groups do
         unless cs.isEmpty do
           say s!"  {title}"
