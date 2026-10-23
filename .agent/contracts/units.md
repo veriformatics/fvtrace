@@ -72,3 +72,14 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | F4 parser bounds | kernel (codec, tested) | `kernel.md` D-json (integers ≤ 20 digits, O(n log n) parse) | Tests/Json 21-digit red on 53bcecc (554/556), `json-scale` red (native rc 124 at 180 s); mutation credit (Json.lean); engine differential (wasm) |
 | F2 GUI access | kernel (shell, security) | Decisions GUI access (user rulings); `.claude/rules/server.md` | e2e `access.spec.js` red on 53bcecc; Tests/Server + Tests/Cli + CliStore + smoke opener cases; advisor on the contract before code |
 | F1 capability audit | kernel (gate tool) | `.claude/rules/lean.md` (`fvtrace-trust` capability list) | probes `trust-capability` (file read in Server), `trust-capability-mode` (mode as a value), `trust-capability-unused` (stale entry) fire; 0 findings on the tree |
+
+# Units → tier → contract → evidence (IMPLEMENT — engine speed-up)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| U1 contract + scale tools | kernel (contract) + gate tool | `kernel.md` § Performance (P-*); `tools/scale.mjs` shapes | consultant before kernel code; baselines at af5a2f1 (`tools/scale.sh`) |
+| U2 index | kernel | P-index | proofs (`Fvtrace/Proofs/Index.lean`): first position = `findIdx?`, group = ascending positions; `fvtrace-trust` |
+| U3 lookups: check, lint, receipts | kernel + kernel (shell) | P-shared, P-claims (`LookupsAgree`, `SortMembersAgree`), P-shell | proofs; P1/P2 replayed; Tests Check/Receipt/Json unchanged; old ↔ new binary byte-equal; Tests/Scale check rows red at af5a2f1 |
+| U4 answers: engine, envelope, CLI text | kernel | P-shared, P-claims (`AnswersAgree`), P-delta | proofs; tester differential suite (fast vs reference, generated traces); engine differential (wasm); old ↔ new binary byte-equal; Tests/Scale eval rows red at af5a2f1 |
+| U5 measurements + docs + self-trace | data (measurements) + docs | P-bound; README, rules, self-trace | `tools/scale.sh` on an idle host → ledger F5; consistency pass; self-trace facts for the agreement claims, re-pinned |
+| U6 closing review | — | lenses fixed before reading | `.agent/review.md` section |

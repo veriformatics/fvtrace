@@ -303,9 +303,36 @@ probe_examples() {
     expect examples-stale-receipt 'receipt P6: stale \(changed Fvtrace/Proofs/Plan.lean' examples
 }
 
+# tools/scale.sh --assert (the F5 acceptance, run by hand on an idle host) grades rc, timeout, wall
+# time + per-doubling ratio. A stub stands in for fvtrace: it sleeps STUB_K × n² s (n from its
+# trace folder's name) and exits STUB_RC.
+probe_scale() {
+    local stub="$backup/fvtrace-stub"
+    cat >"$stub" <<'STUB'
+#!/usr/bin/env bash
+dir="${3%/trace.json}"
+sleep "$(awk -v n="${dir##*-}" -v k="${STUB_K:-0}" 'BEGIN { printf "%.3f", k * n * n }')"
+exit "${STUB_RC:-0}"
+STUB
+    chmod +x "$stub"
+    local run=(bash tools/scale.sh --assert --bin "$stub" --n "2 4" wide)
+    STUB_RC=3 expect scale-rc 'FAIL wide check n=2: rc 3' "${run[@]}"
+    STUB_K=0.02 expect scale-ratio 'FAIL wide check n=2→4: ratio [0-9.]+ > 2.5 per doubling' "${run[@]}"
+    STUB_K=0.02 expect scale-wall 'FAIL wide check n=4: wall [0-9.]+ s > 0.1 s' "${run[@]}" --max-wall 0.1
+    STUB_K=0.2 expect scale-timeout 'FAIL wide check n=4: timeout after 1 s' "${run[@]}" --timeout 1
+    allow scale-pass "${run[@]}"
+}
+
+# tools/compare.sh (cross-revision byte equality) fails on any difference: two stand-in binaries
+# that exit differently differ on every run, one compared with itself on none.
+probe_compare() {
+    expect compare-differ 'DIFF self check \(rc\)' bash tools/compare.sh /bin/true /bin/false
+    allow compare-same bash tools/compare.sh /bin/true /bin/true
+}
+
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm scale compare)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
