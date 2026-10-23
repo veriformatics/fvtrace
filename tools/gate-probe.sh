@@ -96,6 +96,35 @@ probe_lean_style() {
     expect lean-style-newline 'no final newline' lean_style
 }
 
+# CI runs one job per gate.yml matrix shard: a stage without a shard, a shard the matrix lacks, or
+# a job that never runs its shard would leave stages unrun in CI.
+probe_fanout() {
+    local table="$STAGES"
+    STAGES+=$'planted\n'
+    expect fanout-unsharded 'fanout: stage planted has no CI shard' fanout
+    STAGES="$table"
+    keep .github/workflows/gate.yml
+    sed -i -E 's/^( +shard: \[)lean, /\1/' .github/workflows/gate.yml
+    expect fanout-matrix 'matrix shards \[checks,e2e\] != tools/gate.sh shards \[checks,e2e,lean\]' fanout
+    keep .github/workflows/gate.yml
+    # `$SHARD` = the workflow's literal step text
+    # shellcheck disable=SC2016
+    sed -i 's/--shard "\$SHARD"/--shard lean/' .github/workflows/gate.yml
+    # shellcheck disable=SC2016
+    expect fanout-step 'runs no single `bash tools/gate.sh --shard "\$SHARD"` step' fanout
+    keep .github/workflows/gate.yml
+    # shellcheck disable=SC2016
+    sed -i 's/run: bash tools\/gate.sh --shard "\$SHARD"/run: echo skipped # &/' .github/workflows/gate.yml
+    # shellcheck disable=SC2016
+    expect fanout-step-comment 'runs no single `bash tools/gate.sh --shard "\$SHARD"` step' fanout
+    keep .github/workflows/gate.yml
+    # shellcheck disable=SC2016
+    sed -i 's/^\( *\)run: bash tools\/gate.sh --shard "\$SHARD"$/\1run: |\n\1  cat <<'\''LABEL'\''\n\1  run: bash tools\/gate.sh --shard "$SHARD"\n\1  LABEL/' \
+        .github/workflows/gate.yml
+    # shellcheck disable=SC2016
+    expect fanout-step-heredoc 'runs no single `bash tools/gate.sh --shard "\$SHARD"` step' fanout
+}
+
 probe_meta() {
     keep lakefile.lean
     sed -i 's/^  version := v!".*"$/  version := v!"9.9.9"/' lakefile.lean
@@ -250,7 +279,7 @@ probe_examples() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style meta trust replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm)
+    probes=(lean_style fanout meta trust replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"

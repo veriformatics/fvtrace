@@ -251,7 +251,8 @@ A reviewer checks that each sentence says what its theorem proves.
 ## Development
 
 - `bash tools/gate.sh` runs every check: build, proofs and their independent replay, tests,
-  the browser tests, the scanners and the format checks. CI runs the same command.
+  the browser tests, the scanners and the format checks. CI runs the same command in parallel
+  jobs, one for each group of checks.
 - `bash tools/fast-gate.sh` runs the quick checks while you work.
 - `bash tools/gate-probe.sh` shows that each purpose-built check fails on a planted error.
 - `bash tools/pin-wasm.sh emsdk VERSION` or `bash tools/pin-wasm.sh lean VERSION` updates the

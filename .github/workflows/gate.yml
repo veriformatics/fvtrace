@@ -1,10 +1,11 @@
-# CI runs the same command a human and an agent run (tools/gate.sh); calling a tool directly
-# here would let CI and the local gate drift into two claims.
+# CI runs the same command a human and an agent run (tools/gate.sh), one job per shard of its
+# stages; calling a tool directly here would let CI and the local gate drift into two claims.
 name: gate
 
 on:
   push:
-    branches: [main]
+    # ci/* = an agent's unit under test before it lands on main (.claude/rules/ops.md: CI gate).
+    branches: [main, "ci/**"]
   pull_request:
   # Advisory databases + scanner rules move without commits; a weekly run surfaces that.
   schedule:
@@ -18,10 +19,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Shards run in parallel, each on a fresh checkout (tools/gate.sh STAGES; its `fanout` stage holds
+  # this matrix equal to the shards there).
   gate:
-    name: gate
+    name: gate (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [lean, e2e, checks]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      SHARD: ${{ matrix.shard }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,11 +47,14 @@ jobs:
 
       # The exported page's engine is built by `lake build`: Emscripten runs on Python >= 3.10.
       - name: Install Python for the page engine build
+        if: matrix.shard != 'checks'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
 
+      # The lean shard's Node stage (engine) imports no package.
       - name: Install pnpm
+        if: matrix.shard != 'lean'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Install Node.js
@@ -50,10 +62,13 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Install the dev toolchain + browser
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm exec playwright install --with-deps chromium-headless-shell
+      - name: Install the dev toolchain
+        if: matrix.shard != 'lean'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install the browser
+        if: matrix.shard == 'e2e'
+        run: pnpm exec playwright install --with-deps chromium-headless-shell
 
       # `lake check` sandboxes the replay in bubblewrap, which needs unprivileged user
       # namespaces; Ubuntu 24.04 restricts them through AppArmor by default.
@@ -63,8 +78,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends bubblewrap shellcheck jq
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Run the gate
-        run: bash tools/gate.sh
+      - name: Run the gate shard
+        run: bash tools/gate.sh --shard "$SHARD"
 
   # The shipped binary must build + pass its tests on every platform a user may run.
   portability:

@@ -12,8 +12,8 @@ source tools/gate.sh
 log="$(mktemp -d)"
 trap 'rm -rf "$log"' EXIT
 pids=()
-names=(lean-style js-format js-lint js-types js-test spec shell meta)
-fns=(lean_style js_format js_lint js_types js_test spec shell meta)
+names=(lean-style js-format js-lint js-types js-test fanout spec shell meta)
+fns=(lean_style js_format js_lint js_types js_test fanout spec shell meta)
 # Each parallel stage records its own wall-clock beside its log.
 for i in "${!names[@]}"; do
     (
