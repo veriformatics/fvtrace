@@ -1,6 +1,6 @@
 // Mutation credit for Lean code (Lean ships no mutation tool): applies the default operators below
 // to one source file, one site at a time, rebuilds, runs the tests, and lists every survivor.
-// Usage: node tools/mutate.mjs <file.lean> [--lines A-B] [--test "<cmd>"] [--timeout <s>] [--list]
+// Usage: node tools/mutate.mjs <file.lean> [--lines A-B[,C-D…]] [--test "<cmd>"] [--timeout <s>] [--list]
 // `--list` prints the mutant sites + their count and runs nothing (campaign sizing).
 // Outcome per mutant: killed (tests fail) · survived (tests pass) · incompetent (build fails).
 // Default operators: == ↔ !=, < ↔ ≤ (<=), > ↔ ≥ (>=), && ↔ ||, true ↔ false, binary + ↔ -,
@@ -21,10 +21,18 @@ const { values, positionals } = parseArgs({
 });
 const file = positionals[0];
 if (!file) {
-  process.stderr.write("usage: node tools/mutate.mjs <file.lean> [--lines A-B] [--test CMD]\n");
+  process.stderr.write(
+    "usage: node tools/mutate.mjs <file.lean> [--lines A-B[,C-D…]] [--test CMD]\n",
+  );
   process.exit(2);
 }
-const [lo = 1, hi = 999999] = (values.lines ?? "1-999999").split("-").map(Number);
+// `--lines A-B[,C-D…]`: the line ranges to mutate (default: the whole file).
+const ranges = (values.lines ?? "1-999999").split(",").map((r) => {
+  const [a = 1, b = a] = r.split("-").map(Number);
+  return [a, b];
+});
+const inRanges = (/** @type {number} */ line) =>
+  ranges.some(([a = 1, b = a]) => a <= line && line <= b);
 const timeoutMs = Number(values.timeout) * 1000;
 const original = readFileSync(file, "utf8");
 // A copy on disk + signal handlers restore the target even when the run is interrupted.
@@ -130,7 +138,7 @@ for (const op of operators) {
   for (const m of original.matchAll(op.re)) {
     const pos = m.index;
     const line = lineOf(pos);
-    if (mask[pos] || line < lo || line > hi) continue;
+    if (mask[pos] || !inRanges(line)) continue;
     // Lean `#[`/`#guard`, arrows and attribute brackets carry no operator semantics.
     const before = original.slice(Math.max(0, pos - 1), pos);
     if (m[0] === "<" && before === "@") continue;
