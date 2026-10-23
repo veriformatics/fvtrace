@@ -55,3 +55,9 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | U6 export page + GUI engine | kernel (shell, security: Export, E-abi bridge + `web/engine.js`) + data (GUI rendering) | E-page, E-abi, E-gui, E-sec; `.claude/rules/web.md` | Tests/Export; differential test (E-wasm classes; Node + Chromium); e2e file:// offline (two-fact stack, linked spec, refused spec, legacy action, engine failure, latest request wins); axe; mutation credit on Export; L-SEC (MAIN) |
 | U7 docs + rules | docs | README, skill, SECURITY, rules (web.md exported flow), Decisions | consistency pass (L-CLAIM): proofs of definitions vs tests of the compiled adapter vs export-time receipts |
 | U8 closing review | — | lenses fixed before reading | `.agent/review.md` |
+
+# Units → tier → contract → evidence (MAINTAIN — dependency upgrade)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| pins at latest eligible release | data (pins: the gate runs every tool they feed) | `.claude/rules/deps.md` (release age, user ruling) | CI gate on the commit (run in its body); fast gate + e2e under Node 26.12.1 (signed SHASUMS checked); HACL* `--check` at the new rev rc 0, planted digest rc 1; actionlint planted label rc 1; every `fvtrace` command driven |
