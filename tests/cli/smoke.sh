@@ -93,11 +93,13 @@ if [[ "$(uname -s)" == Linux ]]; then
     # shellcheck disable=SC2016 # $1 + $OPENED belong to the fake opener
     printf '#!/bin/sh\nprintf "%%s\\n" "$1" >"$OPENED"\n' >"$tmp/bin/xdg-open"
     chmod +x "$tmp/bin/xdg-open"
-    # Starts serve with the given assignments, waits for its last line, keeps its output.
+    # Starts serve with the given assignments, then flags; waits for its last line, keeps its output.
     serve_until_ready() {
+        local vars=()
+        while [[ "${1:-}" == *=* ]]; do vars+=("$1"); shift; done
         rm -f "$tmp/opened" "$tmp/serve.out"
         (cd "$tmp/proj" && exec env -i PATH="$tmp/bin:$PATH" OPENED="$tmp/opened" \
-            FVTRACE_HOME="$tmp/fv" "$@" "$bin" serve --port 0 >"$tmp/serve.out" 2>&1) &
+            FVTRACE_HOME="$tmp/fv" "${vars[@]}" "$bin" serve --port 0 "$@" >"$tmp/serve.out" 2>&1) &
         spid=$!
         for _ in $(seq 200); do
             grep -q 'Stop with Ctrl+C.' "$tmp/serve.out" 2>/dev/null && break
@@ -123,8 +125,9 @@ if [[ "$(uname -s)" == Linux ]]; then
     [[ "$opened" == *"http://fvtrace.localhost:"*"/" && "$opened" != *token* ]] ||
         expect "serve names the address without the token" "Opened … http://fvtrace.localhost:<port>/" \
             "$(cat "$tmp/serve.out")"
-    for env in "DISPLAY=:9 SSH_CONNECTION=x" "DISPLAY=:9 WSL_DISTRO_NAME=x" "NO_DISPLAY=1"; do
-        # shellcheck disable=SC2086 # each word = one assignment
+    for env in "DISPLAY=:9 SSH_CONNECTION=x" "DISPLAY=:9 WSL_DISTRO_NAME=x" "NO_DISPLAY=1" \
+        "DISPLAY=:9 --no-browser"; do
+        # shellcheck disable=SC2086 # each word = one assignment or flag
         serve_until_ready $env
         expect "no browser opens ($env)" "" "$(cat "$tmp/opened" 2>/dev/null)"
         grep -q '^Open http://fvtrace.localhost:[0-9]*/#token=[0-9a-f]*$' "$tmp/serve.out" ||
