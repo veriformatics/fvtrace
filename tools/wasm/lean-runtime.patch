@@ -43,6 +43,21 @@ index 422e31c..51d5fb5 100644
      close(fd_urandom);
  #endif
      lean_sarray_set_size(res, nbytes);
+diff --git a/src/runtime/object.cpp b/src/runtime/object.cpp
+index 9ed9039..a0b282b 100644
+--- a/src/runtime/object.cpp
++++ b/src/runtime/object.cpp
+@@ -2231,7 +2231,9 @@ static obj_res string_to_list_core(std::string const & s, bool reverse = false)
+     utf8_decode(s, tmp);
+     if (reverse)
+         std::reverse(tmp.begin(), tmp.end());
+-    obj_res  r = lean_box_uint32(0);
++    // `List.nil`: on 32-bit, `lean_box_uint32` allocates, so `String.ofList` read past a list's end
++    // (Lean 4.36 implements `String.toList` in Lean, lean4#15533).
++    obj_res  r = lean_box(0);
+     unsigned i = tmp.size();
+     while (i > 0) {
+         --i;
 diff --git a/src/runtime/thread.h b/src/runtime/thread.h
 index 71513b1..8feb7e3 100644
 --- a/src/runtime/thread.h

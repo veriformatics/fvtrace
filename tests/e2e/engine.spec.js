@@ -18,6 +18,11 @@ test("the page's engine answers every case in Chromium as the native engine does
   page,
 }) => {
   test.setTimeout(600_000);
+  /** @type {string[]} */
+  const said = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error") said.push(msg.text());
+  });
   const html = exportedPage();
   const loader = readFileSync(new URL("web/engine.js", root), "utf8");
   // A test origin served from memory: nothing leaves the machine.
@@ -78,5 +83,7 @@ test("the page's engine answers every case in Chromium as the native engine does
       answers++;
     });
   });
+  // A panic (`fd_write`, routed to the console) may still give the native answer.
+  expect(said).toEqual([]);
   console.log(`engine differential (Chromium): ${answers} answers equal, seed ${seed}`);
 });

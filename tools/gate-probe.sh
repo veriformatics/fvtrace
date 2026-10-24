@@ -297,6 +297,30 @@ probe_wasm() {
     expect wasm-build-step 'usage: fvtrace-wasm' engine_build
 }
 
+# The page engine's differential (gate stage `engine`) also fails on any engine output to standard
+# error: a panic returns a default value that may still equal the native answer. The plant writes
+# a panic line on one evaluation, as the loader routes the engine's fd_write, and answers correctly.
+probe_engine() {
+    local plant="$backup/plant-panic.mjs"
+    cat >"$plant" <<'PLANT'
+const real = WebAssembly.instantiate.bind(WebAssembly);
+let calls = 0;
+WebAssembly.instantiate = async (bytes, imports) => {
+  const { module, instance } = await real(bytes, imports);
+  const evaluate = instance.exports.fvtrace_evaluate;
+  const exports = {
+    ...instance.exports,
+    fvtrace_evaluate: (...args) => {
+      if (++calls === 7) console.error("fvTrace engine: PANIC planted");
+      return evaluate(...args);
+    },
+  };
+  return { module, instance: { exports } };
+};
+PLANT
+    expect engine-panic 'fvTrace engine: PANIC planted' node --import "$plant" tests/engine/engine.test.mjs
+}
+
 probe_examples() {
     keep Fvtrace/Proofs/Plan.lean
     printf '\n-- planted\n' >>Fvtrace/Proofs/Plan.lean
@@ -339,7 +363,7 @@ probe_compare() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets examples wasm scale compare)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
