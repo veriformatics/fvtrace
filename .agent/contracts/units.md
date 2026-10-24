@@ -66,11 +66,11 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 
 | unit | tier | contract | evidence |
 |---|---|---|---|
-| review ledger | — | check set fixed before reading (`.agent/review.md`) | 15 rows adjudicated; scanners at 53bcecc; probes (cookie, HTTP edge cases, slots, bodies, /dev/zero, parser + checker scale) |
+| review ledger | — | check set fixed before reading (`.agent/archive/review-maintain-security.md`) | 15 rows adjudicated; scanners at 53bcecc; probes (cookie, HTTP edge cases, slots, bodies, /dev/zero, parser + checker scale) |
 | F6 skill ground rule | docs | `skill/fvtrace/SKILL.md` ground rules | `rg` acceptance (53bcecc: rc 1); CI run 39946476496 |
 | F3 bounded trace read | kernel (shell) | `kernel.md` D-json (regular file, refused by size before a read, ≤ limit + 1 bytes) | smoke FIFO / device / 64 GiB red on 53bcecc (rc 124 / 1 / 124); Tests/Cli `readTests`; mutation credit (Session.lean) |
-| F4 parser bounds | kernel (codec, tested) | `kernel.md` D-json (integers ≤ 20 digits, O(n log n) parse) | Tests/Json 21-digit red on 53bcecc (554/556), `json-scale` red (native rc 124 at 180 s); mutation credit (Json.lean); engine differential (wasm) |
-| F2 GUI access | kernel (shell, security) | Decisions GUI access (user rulings); `.claude/rules/server.md` | e2e `access.spec.js` red on 53bcecc; Tests/Server + Tests/Cli + CliStore + smoke opener cases; advisor on the contract before code |
+| F4 parser bounds | kernel (codec, tested) | `kernel.md` D-json (integers ≤ 20 digits, O(n log n) parse) | Tests/Json 21-digit red on 53bcecc (554/556), `json-scale` red (native rc 124 at 180 s); mutation credit (Json.lean, 320c6ab); engine differential (wasm) |
+| F2 GUI access | kernel (shell, security) | Decisions GUI access (user rulings); `.claude/rules/server.md` | e2e `access.spec.js` red on 53bcecc; Tests/Server + Tests/Cli + CliStore + smoke opener cases; advisor on the contract before code; mutation credit (Server.lean + Cli.lean, 320c6ab: Tests/Cli `bindTests` + smoke `--no-browser` for the specified survivors) |
 | F1 capability audit | kernel (gate tool) | `.claude/rules/lean.md` (`fvtrace-trust` capability list) | probes `trust-capability` (file read in Server), `trust-capability-mode` (mode as a value), `trust-capability-unused` (stale entry) fire; 0 findings on the tree |
 
 # Units → tier → contract → evidence (IMPLEMENT — engine speed-up)
@@ -82,4 +82,4 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | U3 lookups: check, lint, receipts | kernel + kernel (shell) | P-shared, P-claims (`LookupsAgree`, `SortMembersAgree`), P-shell | proofs; P1/P2 replayed; Tests Check/Receipt/Json unchanged; old ↔ new binary byte-equal; Tests/Scale check rows red at af5a2f1 |
 | U4 answers: engine, envelope, CLI text | kernel | P-shared, P-claims (`AnswersAgree`), P-delta | proofs; tester differential suite (fast vs reference, generated traces); engine differential (wasm); old ↔ new binary byte-equal; Tests/Scale eval rows red at af5a2f1 |
 | U5 measurements + docs + self-trace | data (measurements) + docs | P-bound; README, rules, self-trace | `tools/scale.sh` on an idle host → ledger F5; consistency pass; self-trace facts for the agreement claims, re-pinned |
-| U6 closing review | — | lenses fixed before reading | `.agent/review.md` section |
+| U6 closing review | — | lenses fixed before reading | `.agent/archive/review-implement-engine.md` (+ reviewers' deliverables) |
