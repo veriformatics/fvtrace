@@ -37,6 +37,16 @@ def bindTests : TestM Unit := do
   check "serve: a host name is refused"
     ((Fvtrace.Cli.bindAddress (some "lab") 8642).toOption.isNone)
   checkEq "serve: the default port is 8718" Fvtrace.Cli.defaultPort 8718
+  -- A recording `start` (bound port = 40000 + call number), `[::1]` busy on its first try.
+  let log ← IO.mkRef (#[] : Array String)
+  let served ← Fvtrace.Cli.serveLoopback 0 fun a => do
+    let n := (← log.get).size
+    log.modify (·.push (toString a))
+    if a matches .v6 _ && n == 1 then throw (.resourceBusy 98 "address already in use")
+    return ((40000 + n).toUInt16, log.modify (·.push s!"stop {a}"))
+  checkEq "serve: under --port 0 a busy [::1] stops the IPv4 listener and takes another port"
+    ((match served with | .ok p => s!"ok {p}" | .error e => e), (← log.get).toList)
+    ("ok 40003", ["127.0.0.1:0", "[::1]:40000", "stop 127.0.0.1:0", "127.0.0.1:0", "[::1]:40003"])
   let opener := fun (vars : List (String × String)) (windows macos : Bool) =>
     Fvtrace.Cli.browserOpener (fun n => vars.lookup n) windows macos
   checkEq "serve: Linux with a display opens through xdg-open"
@@ -56,6 +66,11 @@ def bindTests : TestM Unit := do
   check "serve: the redirect page sends the browser on to the link"
     ((page.splitOn s!"content=\"0;url={link}\"").length == 2 &&
       (page.splitOn s!"href=\"{link}\"").length == 2 && (page.splitOn "http://").length == 3) page
+  -- A missing opener only exits non-zero; a folder it cannot write is what throws.
+  IO.FS.withTempDir fun dir => do
+    IO.FS.writeFile (dir / "serve") ""
+    checkEq "serve: a redirect page it cannot write leaves the link to open by hand"
+      (← Fvtrace.Cli.openBrowser { home := dir, cwd := dir } "xdg-open" 8718 link) false
 
 /-- `skills install --dir` + `skills show` (no store: pure suite). -/
 def skillTests : TestM Unit := do

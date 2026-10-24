@@ -775,21 +775,23 @@ def loopbackHosts (port : UInt16) : List String :=
 
 /-- Serves on `127.0.0.1:port` and `[::1]:port`: `localhost` names reach either address (Chromium
 tries `::1` first), so a program holding the other one would own the page's origin. `[::1]` busy:
-refused on a fixed port, another free port under `port = 0`; no IPv6: IPv4 alone. -/
-def serveLoopback (cfg : IO.Ref Server.Config) (cache : IO.Ref Receipt.Cache) (port : UInt16) :
+refused on a fixed port, another free port under `port = 0`; no IPv6: IPv4 alone. `start` binds one
+address → the bound port + the action that stops that listener (a test stands in for the OS, which
+cannot be made to pick a port another program holds on `[::1]`). -/
+def serveLoopback (port : UInt16) (start : Std.Net.SocketAddress → IO (UInt16 × IO Unit)) :
     IO (Except String UInt16) := do
   for _ in [0:5] do
-    let (v4, bound) ← Server.start cfg (.v4 { addr := .ofParts 127 0 0 1, port }) cache
+    let (bound, stopV4) ← start (.v4 { addr := .ofParts 127 0 0 1, port })
     try
-      let _ ← Server.start cfg (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := bound }) cache
+      let _ ← start (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := bound })
       return .ok bound
     catch e =>
       match e with
       | .unsupportedOperation .. => return .ok bound
       | .resourceBusy .. =>
-        Server.stop v4
+        stopV4
         if port != 0 then return .error s!"another program serves [::1]:{bound}"
-      | e => Server.stop v4; throw e
+      | e => stopV4; throw e
   return .error "no port is free on both loopback addresses"
 
 /-- The program that opens a file in this computer's browser, or `none` where that browser would
@@ -855,7 +857,9 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
                         cached := p.has "--cached" } : Server.Config)
   let started ← try
       if host.isSome then pure (.ok (← Server.start cfg addr cache).2)
-      else serveLoopback cfg cache port
+      else serveLoopback port fun a => do
+        let (server, bound) ← Server.start cfg a cache
+        return (bound, Server.stop server)
     catch e => pure (.error (toString e))
   let bound ← match started with
     | .ok b => pure b

@@ -46,7 +46,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 4d7968f F6 skill ground rule
 - [x] 4958aff F3 bounded trace read (CI 39960172366) · a936d55 F4 parser bounds (CI 39960172522) · 61d97d9 F2 GUI access (CI 39960172393; user rulings: `fvtrace.localhost:8718`, browser opened by `serve`)
 - [x] a390abb F3 mutation credit (Session.lean: 6 + 1 killed, 3 equivalent, advisor rulings)
-- [ ] mutation credit F4 + F2 (resume note): campaign running in `.scratch/mut2` (`.scratch/mut2-run.sh` → `.scratch/mut2-f2f4.log`; the review rows' commands, Cli ranges +40 lines since 61d97d9: 756, 779-821, 822-897) → results + survivor rulings into those rows
+- [ ] mutation credit F4 + F2: results + advisor rulings in ledger rows F2 + F4 (Cli lines at f439ef7 = 61d97d9 + 34); ticks with the close
 - [x] 5b098c9 F1 capability audit (CI 39962416380; user ruling: build now)
 - [x] a782e4e · fa7f307 · 84da642 · 2835138 F5 engine speed-up (CI 40033408023; IMPLEMENT — engine speed-up: `.agent/archive/implement-engine.md`)
 - [ ] close: full gate green on a clean tree; ledger → `.agent/archive/`; rules upkeep
