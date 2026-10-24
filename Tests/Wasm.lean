@@ -158,6 +158,21 @@ def markerTests : TestM Unit := do
     check "wasm: replacing a folder removes its marker first"
       (!(← marker.pathExists) && !(← tree.pathExists))
 
+/-- A step that fails after writing its temporary leaves neither the temporary nor its target, so
+the cache never holds a module that failed its checks beside the one that passed. -/
+def writeTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let out := dir / "engine.wasm"
+    let r ← (Build.writeAtomic out fun tmp => do
+      IO.FS.writeFile tmp "planted"
+      throw (IO.userError "planted failure")).toBaseIO
+    check "wasm: a failed write fails" (r matches .error _)
+    check "wasm: a failed write leaves no temporary" (!(← (dir / "engine.tmp.wasm").pathExists))
+    check "wasm: a failed write leaves no target" (!(← out.pathExists))
+    Build.writeAtomic out fun tmp => IO.FS.writeFile tmp "module"
+    check "wasm: a write replaces its target whole"
+      ((← IO.FS.readFile out) == "module" && !(← (dir / "engine.tmp.wasm").pathExists))
+
 /-- The archive check on a planted file (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do
   IO.FS.withTempDir fun dir => do

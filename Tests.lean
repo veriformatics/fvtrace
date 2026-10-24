@@ -44,7 +44,7 @@ def pure : TestM Unit := do
   area "fields" Tests.Fields.tests
   area "replay-pure" Tests.Replay.pureTests
   area "snapshot" Tests.Snapshot.pureTests
-  area "wasm" do Tests.Wasm.pureTests; Tests.Wasm.markerTests
+  area "wasm" do Tests.Wasm.pureTests; Tests.Wasm.markerTests; Tests.Wasm.writeTests
 
 /-- Suites that call the C digest code, or run too long interpreted (plan-scale: 3 s, rerun by
 every mutant): native binary alone (`lake test`). -/
