@@ -27,22 +27,39 @@ void test("the exported page's engine answers every case as the native engine do
     ...cases(seed),
   ];
   let answers = 0;
-  for (const c of all) {
-    const native = nativeAnswers(c.snapshot, c.specs);
-    c.specs.forEach((spec, i) => {
-      const wasm = engine.answer(c.snapshot, spec);
-      const want = native[i] ?? "";
-      if (wasm !== want) {
-        let at = 0;
-        while (at < wasm.length && wasm[at] === want[at]) at++;
-        const near = (/** @type {string} */ t) => JSON.stringify(t.slice(at, at + 60));
-        assert.fail(
-          `${c.name}, what-if ${JSON.stringify(spec.slice(0, 80))}: answers differ at ${at}: ` +
-            `wasm ${near(wasm)} vs native ${near(want)}`,
-        );
-      }
-      answers++;
-    });
+  // A panic (`fd_write`, routed to the console) returns a default value, which may still give the
+  // native answer: equal bytes alone would miss it.
+  /** @type {string[]} */
+  const said = [];
+  const original = console.error;
+  console.error = (/** @type {unknown[]} */ ...args) => void said.push(args.join(" "));
+  try {
+    for (const c of all) {
+      const native = nativeAnswers(c.snapshot, c.specs);
+      c.specs.forEach((spec, i) => {
+        const where = `${c.name}, what-if ${JSON.stringify(spec.slice(0, 80))}`;
+        /** @type {string} */
+        let wasm;
+        try {
+          wasm = engine.answer(c.snapshot, spec);
+        } catch (e) {
+          assert.fail(`${where}: the engine failed (${String(e)})`);
+        }
+        const want = native[i] ?? "";
+        if (wasm !== want) {
+          let at = 0;
+          while (at < wasm.length && wasm[at] === want[at]) at++;
+          const near = (/** @type {string} */ t) => JSON.stringify(t.slice(at, at + 60));
+          assert.fail(
+            `${where}: answers differ at ${at}: wasm ${near(wasm)} vs native ${near(want)}`,
+          );
+        }
+        assert.deepEqual(said, [], where);
+        answers++;
+      });
+    }
+  } finally {
+    console.error = original;
   }
   console.log(
     `engine differential (Node): ${answers} answers on ${all.length} snapshots equal, seed ${seed}`,

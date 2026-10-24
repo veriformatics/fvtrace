@@ -252,6 +252,13 @@ function wide() {
   };
 }
 
+/** `trace` with the review record `fvtrace review` writes (a copy): its date decodes through
+ * `String.toList` + `String.ofList`. @param {Json} trace @param {string} date @returns {Json} */
+const withReview = (trace, date) => ({
+  ...trace,
+  review: { reviewer: "A. Reviewer", date, digest: "cd".repeat(32), note: "Read every claim." },
+});
+
 /** A snapshot whose trace text D-json refuses. @param {string} trace */
 const refusedTrace = (trace) =>
   JSON.stringify({
@@ -285,6 +292,21 @@ export function cases(seed) {
     ["verified exclusion, stale receipt", verifiedExclusion(), { stale: ["X1"] }],
     ["twenty-one experiments (tooLarge)", wide(), {}],
     ["a 4 MB legal trace (memory growth)", big, {}],
+    [
+      "synthetic, its review record (reviewed)",
+      withReview(synthetic, "2026-10-23"),
+      { review: "reviewed" },
+    ],
+    [
+      "synthetic, its review record (stale) + a stale receipt",
+      withReview(synthetic, "2026-01-31"),
+      { stale: ["O1"], review: "stale" },
+    ],
+    [
+      "feature fixture, its review record (reviewed)",
+      withReview(traceAt("tests/fixtures/synthetic.trace.json"), "1999-12-01"),
+      { review: "reviewed" },
+    ],
   ];
   /** @type {Case[]} */
   const out = traced.map(([name, trace, opts]) => {
@@ -313,6 +335,7 @@ export function cases(seed) {
     ["a trace nested deeper than D-json allows", refusedTrace(tooDeep())],
     ["a trace above 16 MiB", refusedTrace(" ".repeat(16 * 1024 * 1024 + 1))],
     ["a damaged snapshot", '{"schema":"fvtrace.snapshot/1"}'],
+    ["a review date outside the calendar", snapshotOf(withReview(synthetic, "2026-13-01"))],
   ];
   for (const [name, snapshot] of refused) out.push({ name, snapshot, specs: ["", "O1=proved"] });
   return out;

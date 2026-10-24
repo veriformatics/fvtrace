@@ -37,8 +37,9 @@ const card = (page, id) =>
 const verdict = (c) => c.locator(".tag-soft .cap-trim");
 
 /** The page in a context with the network off; every non-file request is refused + counted.
- * @param {import("@playwright/test").Browser} browser @param {string} [hash] */
-async function openOffline(browser, hash = "") {
+ * @param {import("@playwright/test").Browser} browser @param {string} [hash]
+ * @param {string} [file] another exported page */
+async function openOffline(browser, hash = "", file = fixture.page) {
   const context = await browser.newContext({ offline: true });
   const counts = { requests: 0 };
   await context.route("**/*", (route) => {
@@ -53,16 +54,15 @@ async function openOffline(browser, hash = "") {
     if (msg.type() === "error") errors.push(msg.text());
   });
   page.on("pageerror", (err) => errors.push(err.message));
-  return { context, page, counts, errors, url: `${pathToFileURL(fixture.page).href}${hash}` };
+  return { context, page, counts, errors, url: `${pathToFileURL(file).href}${hash}` };
 }
 
 /** Each claim's verdict as `fvtrace claims --whatif SPEC --json` words it.
- * @param {string} spec @returns {Map<string, string>} */
-function nativeVerdicts(spec) {
+ * @param {string} spec @param {{ project: string, env: NodeJS.ProcessEnv }} [study]
+ * @returns {Map<string, string>} */
+function nativeVerdicts(spec, { project, env } = fixture) {
   /** @type {unknown} */
-  const out = JSON.parse(
-    fvtrace(["claims", "--whatif", spec, "--json"], fixture.project, fixture.env),
-  );
+  const out = JSON.parse(fvtrace(["claims", "--whatif", spec, "--json"], project, env));
   const claims = isRecord(out) && Array.isArray(out["claims"]) ? out["claims"] : [];
   return new Map(
     claims.flatMap((c) =>
@@ -134,6 +134,36 @@ test("a linked what-if goes to the page's engine as written", async ({ browser }
     '"O9" is not a fact on record. This page shows the facts as recorded instead.',
   );
   await context.close();
+});
+
+test("a reviewed study's page runs a linked what-if", async ({ browser }) => {
+  const study = await prepareStudy("synthetic");
+  try {
+    fvtrace(["review", "--reviewer", "A. Reviewer"], study.project, study.env);
+    const file = join(study.dir, "reviewed.html");
+    fvtrace(["export", "--html", file], study.project, study.env);
+    const { context, page, counts, errors, url } = await openOffline(
+      browser,
+      "#whatif=O2%3Dchecked",
+      file,
+    );
+    await page.goto(url);
+    await expect(page.locator("#review")).toContainText("Reviewed by A. Reviewer on ");
+    await expect(page.getByRole("status")).toHaveText(
+      "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
+    );
+    await expect(page.locator("#error")).toBeHidden();
+    await Promise.all(
+      [...nativeVerdicts("O2=checked", study)].map(([id, words]) =>
+        expect(verdict(card(page, id))).toHaveText(words),
+      ),
+    );
+    expect(errors).toEqual([]);
+    expect(counts.requests).toBe(0);
+    await context.close();
+  } finally {
+    await rm(study.dir, { recursive: true, force: true });
+  }
 });
 
 test("an older export's action link becomes its what-if; an unknown one says so", async ({
