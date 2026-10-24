@@ -45,6 +45,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 523f108 reviewed export runs its what-ifs (row 1): runtime patch `List.nil` = `lean_box(0)` (Lean 4.35 `string_to_list_core`); review-record differential + e2e cases, standard-error check + probe `engine-panic`; reviewer-24 6/6 pass; CI 40065957296 green
 - [ ] update automation (row 2): owed (user): GitHub's sudo prompt on the resubmitted install form
 - [ ] waiting on triggers: CI cache weekly run (row 3, Mon 2026-10-26 06:17 UTC); npm holds (row 4, from 10-25; fast-uri entry pruned: b80974e entered it); Emscripten 6.0.13 (row 5, 10-26); Actions (row 6, 10-28); libuv (row 7, a Lean release naming a newer tag)
+- [ ] build-cache temporary (find, 1e8a17d): `writeAtomic` removes its temporary when the write fails; Tests/Wasm red → green; probes `wasm` leave no `engine.tmp.wasm`
 - [ ] output-quadratic envelopes (row 8): user ruling = references, routed to its own IMPLEMENT session after every other row; hosted plan → Decisions
 - [ ] close: rules upkeep, Tasks → `.agent/archive/maintain-deferred-4.md`, scratch + temp cleanup, full gate on a clean tree
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`

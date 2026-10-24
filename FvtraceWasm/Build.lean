@@ -96,12 +96,16 @@ def replaceDir (dir marker : FilePath) : IO Unit := do
   if ← marker.pathExists then IO.FS.removeFile marker
   if ← dir.pathExists then IO.FS.removeDirAll dir
 
-/-- Writes `path` whole or not at all (a stopped build leaves no half-written file). The
-temporary keeps the extension: Emscripten picks its output format by it. -/
+/-- Writes `path` whole or not at all (a stopped build leaves no half-written file; a failed write,
+such as a link that breaks the contract, leaves no temporary either). The temporary keeps the
+extension: Emscripten picks its output format by it. -/
 def writeAtomic (path : FilePath) (write : FilePath → IO Unit) : IO Unit := do
   let ext := (path.extension.map ("." ++ ·)).getD ""
   let tmp := path.withFileName s!"{path.fileStem.getD "out"}.tmp{ext}"
-  write tmp
+  try write tmp
+  catch e =>
+    if ← tmp.pathExists then IO.FS.removeFile tmp
+    throw e
   IO.FS.rename tmp path
 
 /-- Every file under `paths` (folders end in `/`) of `dir`: (path relative to `dir` with `/`,
