@@ -59,7 +59,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] c3ab522 U5 cutover: envelope v2, export v3, GUI decoder v2 (+ `ceiling`, subject conflicts, excluded pairs per card from claim details, creator title by id)
 - [x] 21148b8 U5b `fvtrace_evaluate` + GET route + the v1 test hooks retired; `tools/compare.sh` v1 → v2 transform + expansion + details oracles
 - [x] d2369f6 U6 server cache + launch evaluation; page engine state (bc53e1c)
-- [ ] U7 compute: P-forest, P-plan-local, P-raisers (fast, proved), shared-path speed to P-time
+- [ ] U7 compute: P-forest, P-plan-local, P-raisers (fast, proved), shared-path speed to P-time — landed e95e7fa (rows, plan summaries, raisers fields), 6d4090c (forest closures), 4c5da70 (walk), f2b5bb5 (raisers), 96f80ba (shared path); open: mutation credit (Json + Evaluate lines), tester differential, Tests/Scale rows red on v1
 - [ ] U8 GUI responsiveness (U-*: lookups once, selection + updates without rebuild, long lists + access, request numbers, indicator past 1 s) + `tools/scale-gui.mjs`
 - [ ] U9 scale tools + measurements (P-bound rows, idle host)
 - [ ] U10 docs, rules, skill, self-trace re-pin
