@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { isRecord, serveFvtrace } from "./fvtrace-server.js";
+
+const root = new URL("../../", import.meta.url).pathname;
 
 /** @type {Awaited<ReturnType<typeof serveFvtrace>>} */
 let web;
@@ -187,6 +191,22 @@ test.describe("the synthetic study", () => {
     await page.goto(`${web.url}&whatif=O9%3Dchecked`);
     await expect(page.locator("#error")).toHaveText(
       '"O9" is not a fact on record. This page shows the facts as recorded instead.',
+    );
+  });
+
+  test("details follow the evidence: a file changed after the page loaded shows the claims again", async ({
+    page,
+  }) => {
+    await page.goto(web.url);
+    const inspector = page.locator("#inspector");
+    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    // kernel.md V-serve: the details request names the shown view; the server answers 409.
+    await appendFile(join(web.project, "proofs", "Contrast.lean"), "-- edited\n");
+    await card(page, "C1").locator(".contact-label").filter({ hasText: "O1" }).click();
+    await expect(inspector).toContainText("Changed since it was pinned");
+    await writeFile(
+      join(web.project, "proofs", "Contrast.lean"),
+      await readFile(join(root, "examples", "synthetic", "project", "proofs", "Contrast.lean")),
     );
   });
 

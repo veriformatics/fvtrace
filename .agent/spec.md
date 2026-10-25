@@ -53,8 +53,9 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 - [x] 01cf228 U1 contract: `kernel.md` V-*, P-bound + P-rows/forest/plan-local/raisers/cache, E-*, U-*; units in `.agent/contracts/units.md`; consultant-7 (2 pass · 9 fix · 1 risk, fixes adopted)
 - [x] c5e0ee5 U2 page engine call depth (E-wasm: `List.zip` over claims overflowed the wasm stack near 9,600 claims)
-- [ ] U3 reference paths beside v1: CLI `--action` + `--details` + `eval --complete`, details document, `POST /api/answer` (view header, body cap), page engine `fvtrace_load` / `fvtrace_answer` in a Worker beside `fvtrace_evaluate`, `Answers` fields (reference first)
-- [ ] U4 GUI on the reference paths (details on selection, actions by reference, legacy links through the engine, engine-off lines, Worker), the envelope still v1
+- [x] 7963d7c U3 reference paths beside v1: CLI `--action` + `--details` + `eval --complete`, details document, `POST /api/answer` (view header, body cap), page engine `fvtrace_load` / `fvtrace_answer` in a Worker beside `fvtrace_evaluate`, `Answers` fields (reference first)
+- [ ] U4 GUI on the reference paths (details on selection, actions by reference, legacy links through the engine, engine-off lines), the envelope still v1
+- [ ] U4b exported page engine in a Worker (CSP `worker-src blob:` + one Trusted Types policy; user ruling)
 - [ ] U5 cutover: envelope v2, export v3, GUI decoder v2, `fvtrace_evaluate` + GET route retired, `tools/compare.sh` v1 → v2
 - [ ] U6 server cache + launch evaluation; page engine state
 - [ ] U7 compute: P-forest, P-plan-local, P-raisers (fast, proved), shared-path speed to P-time

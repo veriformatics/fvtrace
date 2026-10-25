@@ -195,6 +195,11 @@ test("without WebAssembly the page keeps the recorded view and says why", async 
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
   await expect(page.getByRole("status")).toContainText(recorded);
   await expect(page.locator("#error")).toHaveText(engineFailed);
+  // Engine only (user ruling): a detail section that needs the engine says so.
+  await page.locator(".experiment-row").filter({ hasText: "Check the result" }).click();
+  await expect(page.locator("#inspector")).toContainText(
+    "This browser cannot run the what-ifs on this page, so it cannot show these details.",
+  );
   await context.close();
 });
 
@@ -212,8 +217,8 @@ test("an engine that fails mid-session is never called again", async ({ browser 
         const { module, instance } = await real(bytes, imports);
         /** @type {Record<string, WebAssembly.ExportValue>} */
         const exports = { ...instance.exports };
-        const evaluate = exports["fvtrace_evaluate"];
-        exports["fvtrace_evaluate"] = (/** @type {number[]} */ ...args) => {
+        const evaluate = exports["fvtrace_answer"];
+        exports["fvtrace_answer"] = (/** @type {number[]} */ ...args) => {
           calls++;
           if (calls > 1) throw new WebAssembly.RuntimeError("planted trap");
           /** @type {unknown} */
@@ -262,8 +267,8 @@ async function slowEngine(page, { ms = 1500, corruptFirst = false } = {}) {
         const { module, instance } = await real(bytes, imports);
         /** @type {Record<string, WebAssembly.ExportValue>} */
         const exports = { ...instance.exports };
-        const evaluate = exports["fvtrace_evaluate"];
-        exports["fvtrace_evaluate"] = (/** @type {number[]} */ ...args) => {
+        const evaluate = exports["fvtrace_answer"];
+        exports["fvtrace_answer"] = (/** @type {number[]} */ ...args) => {
           calls++;
           /** @type {unknown} */
           const out = typeof evaluate === "function" ? Reflect.apply(evaluate, undefined, args) : 0;

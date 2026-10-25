@@ -62,7 +62,7 @@ export async function prepareStudy(study, edit) {
 
 /**
  * @param {string} [study] @param {(trace: Record<string, unknown>) => void} [edit]
- * @returns {Promise<{ url: string, base: string, close: () => Promise<void> }>}
+ * @returns {Promise<{ url: string, base: string, project: string, close: () => Promise<void> }>}
  */
 export async function serveFvtrace(study = "synthetic", edit) {
   const { dir, project, env } = await prepareStudy(study, edit);
@@ -81,6 +81,7 @@ export async function serveFvtrace(study = "synthetic", edit) {
   return {
     url,
     base: new URL(url).origin,
+    project,
     close: async () => {
       server.kill();
       await rm(dir, { recursive: true, force: true });

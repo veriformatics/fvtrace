@@ -61,6 +61,14 @@
  *   actions: Action[] }} Envelope
  */
 
+/**
+ * One item's details (`fvtrace.details/1`, kernel.md V-details): an experiment's lists, a claim's
+ * plan + sentence + excluded pairs, or the experiments that raise a fact.
+ * @typedef {{ item: string, overrides: Override[], closure?: string[], raises?: Override[],
+ *   wins?: Move[], losses?: Move[], plan?: Plan, sentence?: string, incompatible?: string[],
+ *   raisedBy?: string[] }} Details
+ */
+
 export class DecodeError extends Error {}
 
 /** @param {string} path @param {string} want @returns {never} */
@@ -427,6 +435,26 @@ export function decodeProblem(json) {
   if (typeof json !== "object" || json === null || !("problem" in json)) return undefined;
   const p = obj(json.problem, "/problem");
   return { kind: str(p["kind"], "/problem/kind"), message: str(p["message"], "/problem/message") };
+}
+
+/** A details answer (kernel.md V-details). @param {unknown} json @returns {Details} */
+export function decodeDetails(json) {
+  const r = obj(json, "");
+  if (r["schema"] !== "fvtrace.details/1") fail("/schema", '"fvtrace.details/1"');
+  const item = str(r["item"], "/item");
+  /** @type {Details} */
+  const d = { item, overrides: overrides(r["overrides"], "/overrides") };
+  if (item.startsWith("experiment:")) {
+    d.closure = strs(r["closure"], "/closure");
+    d.raises = overrides(r["raises"], "/raises");
+    d.wins = moves(r["wins"], "/wins");
+    d.losses = moves(r["losses"], "/losses");
+  } else if (item.startsWith("claim:")) {
+    d.plan = plan(r["plan"], "/plan");
+    d.sentence = str(r["sentence"], "/sentence");
+    d.incompatible = strs(r["incompatible"], "/incompatible");
+  } else d.raisedBy = strs(r["raisedBy"], "/raisedBy");
+  return d;
 }
 
 /**
