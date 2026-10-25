@@ -334,8 +334,16 @@ probe_scale() {
     local stub="$backup/fvtrace-stub"
     cat >"$stub" <<'STUB'
 #!/usr/bin/env bash
-dir="${3%/trace.json}"
-sleep "$(awk -v n="${dir##*-}" -v k="${STUB_K:-0}" 'BEGIN { printf "%.3f", k * n * n }')"
+# Stand-in fvtrace: sleeps k·n², prints STUB_B·n² bytes and holds STUB_M·n² MiB (STUB_SHAPE: that
+# shape alone), n = the size in the trace folder's name; exits STUB_RC.
+trace=""
+for ((i = 1; i < $#; i++)); do [[ ${!i} == --trace ]] && { j=$((i + 1)); trace="${!j}"; }; done
+dir="${trace%/trace.json}" n="${dir##*-}" shape="${dir##*/}"
+sleep "$(awk -v n="$n" -v k="${STUB_K:-0}" 'BEGIN { printf "%.3f", k * n * n }')"
+[[ -n "${STUB_B:-}" ]] && head -c "$((STUB_B * n * n))" /dev/zero
+if [[ -n "${STUB_M:-}" && ( -z "${STUB_SHAPE:-}" || $shape == "${STUB_SHAPE}"-* ) ]]; then
+    exec python3 -c "import sys; b = bytearray($((STUB_M * n * n)) << 20); sys.exit(${STUB_RC:-0})"
+fi
 exit "${STUB_RC:-0}"
 STUB
     chmod +x "$stub"
@@ -344,6 +352,11 @@ STUB
     STUB_K=0.02 expect scale-ratio 'FAIL wide check n=2→4: ratio [0-9.]+ > 2.5 per doubling' "${run[@]}"
     STUB_K=0.02 expect scale-wall 'FAIL wide check n=4: wall [0-9.]+ s > 0.1 s' "${run[@]}" --max-wall 0.1
     STUB_K=0.2 expect scale-timeout 'FAIL wide check n=4: timeout after 1 s' "${run[@]}" --timeout 1
+    STUB_M=20 expect scale-rss 'FAIL wide check n=2→4: rss ratio [0-9.]+ > 2.5 per doubling' "${run[@]}"
+    STUB_B=100000 expect scale-bytes 'FAIL wide eval n=2→4: bytes ratio [0-9.]+ > 2.2 per doubling' \
+        "${run[@]}"
+    STUB_M=10 STUB_SHAPE=outcomes expect scale-rss-cap 'FAIL outcomes eval: rss [0-9]+ MiB > 1.25' \
+        "${run[@]}" outcomes --max-ratio 100
     allow scale-pass "${run[@]}"
 }
 

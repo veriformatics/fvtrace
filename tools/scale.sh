@@ -8,9 +8,10 @@
 # bytes, command, rc, wall s, user s, max RSS MiB, output bytes); per shape + command, the wall
 # ratio of consecutive rows, scaled to one doubling of n.
 # --assert grades the graded shapes (wide deep experiments exclusions outcomes prereqs whatif):
-# exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit)
-# or a per-doubling ratio above --max-ratio (2.5), one `FAIL` line per breach. Other shapes are
-# reported, never graded. Time it where the host is idle: the bounds are wall-clock (load is
+# exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit),
+# a per-doubling wall or RSS ratio above --max-ratio (2.5) or eval output ratio above 2.2 (P-bound),
+# or an outcomes, prereqs or whatif eval at its largest n above 1.25 × the worst eval RSS of the F5
+# four (P-memory), one `FAIL` line per breach. Other shapes are reported, never graded. Time it where the host is idle: the bounds are wall-clock (load is
 # printed at start + end).
 set -uo pipefail
 
@@ -40,6 +41,13 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 fails=()
 fail() { fails+=("$1"); printf 'FAIL %s\n' "$1"; }
+declare -A last_rss=()
+# The ratio of b to a scaled to one doubling of n (na → nb) + 1 when it is over the bound m,
+# graded as a double before any rounding (2.504 prints as 2.50 but exceeds 2.5).
+doubling() {
+    awk -v a="$1" -v b="$2" -v na="$3" -v nb="$4" -v m="$5" 'BEGIN { if (a > 0 && b > 0 && nb > na) {
+        r = exp(log(b / a) * log(2) / log(nb / na)); printf "%.4f %d\n", r, (r > m) } }'
+}
 printf 'binary %s sha256 %s\n' "$bin" "$(sha256sum "$bin" | cut -d' ' -f1)"
 printf 'host %s, %s CPUs, load %s at start\n' "$(uname -n)" "$(nproc)" "$(cut -d' ' -f1-3 /proc/loadavg)"
 printf '%-12s %8s %9s %-6s %4s %9s %9s %8s %11s\n' shape n bytes cmd rc wall user rss_mib out_bytes
@@ -85,14 +93,15 @@ for shape in "${shapes[@]}"; do
             printf '%-12s %8s %9s %-6s %4s %9s %9s %8s %11s\n' "$shape" "$n" \
                 "$(stat -c %s "$dir/trace.json")" "$cmd" "$rc" "$wall" "$user" "$((rss / 1024))" \
                 "$(<"$work/bytes")"
-            # awk grades the ratio as a double, before any rounding (2.504 prints as 2.50 but
-            # exceeds 2.5): it prints the ratio + 1 when it is over the bound.
-            ratio="" over=0
+            ratio="" over=0 rratio="" rover=0 bratio="" bover=0
+            bytes="$(<"$work/bytes")"
             if [[ -n "$prev" && "$wall" != timeout && "$prev" != timeout ]]; then
-                read -r ratio over < <(awk -v a="$prev" -v b="$wall" -v na="$prev_n" -v nb="$n" \
-                    -v m="$max_ratio" 'BEGIN { if (a > 0 && nb > na) {
-                        r = exp(log(b / a) * log(2) / log(nb / na)); printf "%.4f %d\n", r, (r > m) } }')
-                [[ -n "$ratio" ]] && printf '%-12s ratio %.2f per doubling\n' "" "$ratio"
+                read -r ratio over < <(doubling "$prev" "$wall" "$prev_n" "$n" "$max_ratio")
+                read -r rratio rover < <(doubling "$prev_rss" "$rss" "$prev_n" "$n" "$max_ratio")
+                [[ $cmd == eval ]] &&
+                    read -r bratio bover < <(doubling "$prev_bytes" "$bytes" "$prev_n" "$n" 2.2)
+                [[ -n "$ratio" ]] && printf '%-12s ratio %.2f per doubling (rss %s, bytes %s)\n' "" \
+                    "$ratio" "${rratio:--}" "${bratio:--}"
             fi
             if [[ $grade -eq 1 ]]; then
                 if [[ $wall == timeout ]]; then
@@ -102,14 +111,33 @@ for shape in "${shapes[@]}"; do
                 elif awk -v w="$wall" -v m="$max_wall" 'BEGIN { exit !(w > m) }'; then
                     fail "$shape $cmd n=$n: wall $wall s > $max_wall s"
                 fi
+                [[ "$rover" == 1 ]] &&
+                    fail "$shape $cmd n=$prev_n→$n: rss ratio $rratio > $max_ratio per doubling"
+                [[ "$bover" == 1 ]] &&
+                    fail "$shape $cmd n=$prev_n→$n: bytes ratio $bratio > 2.2 per doubling"
                 if [[ "$over" == 1 ]]; then
                     fail "$shape $cmd n=$prev_n→$n: ratio $ratio > $max_ratio per doubling"
                 fi
             fi
-            prev="$wall" prev_n="$n"
+            prev="$wall" prev_n="$n" prev_rss="$rss" prev_bytes="$bytes"
+            last_rss["$shape:$cmd"]="$rss"
         done
     done
 done
+# P-memory: at their largest n, outcomes + prereqs + whatif eval within 1.25 × the worst eval RSS
+# of the F5 four (same binary, same run).
+worst=0
+for f5 in wide deep experiments exclusions; do
+    r="${last_rss["$f5:eval"]:-0}"
+    ((r > worst)) && worst=$r
+done
+if [[ $assert -eq 1 && $worst -gt 0 ]]; then
+    for big in outcomes prereqs whatif; do
+        r="${last_rss["$big:eval"]:-}"
+        [[ -n "$r" ]] && awk -v r="$r" -v w="$worst" 'BEGIN { exit !(r > 1.25 * w) }' &&
+            fail "$big eval: rss $((r / 1024)) MiB > 1.25 × $((worst / 1024)) MiB (the F5 four's worst)"
+    done
+fi
 printf 'load %s at end\n' "$(cut -d' ' -f1-3 /proc/loadavg)"
 if [[ $assert -eq 1 ]]; then
     [[ ${#fails[@]} -eq 0 ]] || { printf 'scale: %d bound(s) exceeded\n' "${#fails[@]}"; exit 1; }
