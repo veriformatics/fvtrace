@@ -82,8 +82,8 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
 - **Text** shows the same claims as plain sentences.
 - To go to a claim, a fact or an experiment, type its id or words from its text in **Find a
   claim, fact or experiment**. Then press its id, or press Enter for the first match.
-- On a large trace, the page adds claims and rows while you scroll. A line at the end of a list
-  tells how many items it does not show yet.
+- A line above each list tells how many items it has. On a large trace, the page adds claims and
+  rows while you scroll, and a line at the end of a list tells how many items it does not show yet.
 - When an answer takes more than one second, the page shows **Working…**.
 - Below the claims, the page shows the suggested experiments, the facts whose verification makes
   the most claims available, the violated facts, and what each claim may be missing.
