@@ -13,8 +13,8 @@
 # then the same steps; `gui:<served|page>:<step>` = the GUI in Chromium (tools/scale-gui.mjs or
 # --gui: U-time, each row with its own bound). One row per run (shape, n, input bytes, command,
 # rc, wall s, user s, max RSS MiB, output bytes; serve: the server's CPU + peak RSS so far; gui:
-# the page's JS heap); per shape + command, the wall ratio of consecutive rows, scaled to one
-# doubling of n.
+# the page's live JS memory once the mode's steps end); per shape + command, the wall ratio of
+# consecutive rows, scaled to one doubling of n.
 # --assert grades the graded shapes (wide deep experiments exclusions outcomes prereqs whatif):
 # exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit)
 # or a GUI row's own bound, a per-doubling wall or RSS ratio above --max-ratio (2.5) or eval output
