@@ -1481,14 +1481,18 @@ def firstsFrom {β : Type} : Option Nat → List (Nat × β) → List (Nat × β
   | _, [] => []
   | prev, (p, x) :: rest => (if prev != some p then [(p, x)] else []) ++ firstsFrom (some p) rest
 
-theorem zip_firsts {β : Type} : ∀ (l : List (Nat × β)) (prev : Option Nat),
-    ((l.zip (prev :: l.map (some ·.1))).filter fun x => x.2 != some x.1.1).map (·.1) =
-      firstsFrom prev l
-  | [], _ => rfl
-  | (p, x) :: rest, prev => by
-    simp only [List.map_cons, List.zip_cons_cons, List.filter_cons, firstsFrom]
-    rw [← zip_firsts rest (some p)]
+theorem foldl_firsts {β : Type} : ∀ (l : List (Nat × β)) (acc : Array (Nat × β))
+    (prev : Option Nat),
+    (l.foldl (fun st x => (if st.2 != some x.1 then st.1.push x else st.1, some x.1))
+      (acc, prev)).1.toList = acc.toList ++ firstsFrom prev l
+  | [], _, _ => by simp [firstsFrom]
+  | (p, x) :: rest, acc, prev => by
+    simp only [List.foldl_cons, firstsFrom]
+    rw [foldl_firsts rest]
     split <;> simp_all
+
+theorem firstPerRun_eq (l : List (Nat × Status)) : firstPerRun l = firstsFrom none l := by
+  simp only [firstPerRun, foldl_firsts, Array.toList_empty, List.nil_append]
 
 theorem firstsFrom_skip {β : Type} (p : Nat) : ∀ (L : List β) (rest : List (Nat × β)),
     firstsFrom (some p) (L.map (p, ·) ++ rest) = firstsFrom (some p) rest
@@ -1577,8 +1581,8 @@ abbrev relIxOf (c : Claim) : Index Nat :=
 
 theorem alternativesFor_eq (c : Claim) (n : String) :
     alternativesFor (cxOf s) (coreOf s) (relIxOf s c) n = altsRef s c n := by
-  unfold alternativesFor firstPerRun
-  rw [zip_firsts, seen_eq, entries_groups,
+  unfold alternativesFor
+  rw [firstPerRun_eq, seen_eq, entries_groups,
     firstsFrom_groups _ none (groups_nodup s n) (fun _ _ h => by cases h), List.filterMap_filterMap]
   show _ = (s.trace.experiments.filter (relPred s c)).filterMap _
   rw [List.filterMap_filter, ← List.zipIdx_map_fst 0 s.trace.experiments, List.filterMap_map,

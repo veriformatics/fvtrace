@@ -727,7 +727,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "bf5a98288ba9bed351fa02d78a10a9523f7f15d98e4887840492b958d99007a4",
+            "sha256": "6cca7508507821cbe5da31758f1497bca5d048d585148c4b9bbb625e04c77938",
             "role": "proof"
           },
           {
@@ -745,7 +745,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.AnswersAgree"
           ],
-          "output": "9b11851ce149ef6ed30a9d26787eca60d91676f16b67d1c93e755c45e78389d7"
+          "output": "e3bb4205cf0ec11f4b5ef49597ef765ba3de52b08962a3ba6cdf0e931767b0ed"
         }
       },
       "trusts": [
@@ -857,7 +857,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "bf5a98288ba9bed351fa02d78a10a9523f7f15d98e4887840492b958d99007a4"
+            "sha256": "6cca7508507821cbe5da31758f1497bca5d048d585148c4b9bbb625e04c77938"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",

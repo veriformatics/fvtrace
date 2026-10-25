@@ -19,15 +19,21 @@ inductive Value where
   | obj (kvs : List (String × Value))
   deriving Repr, Inhabited
 
+/-- `f` holds for every pair of same-position elements, a loop (`List.zip` recurses once per
+element: the page engine's WebAssembly stack overflows near 9,600). -/
+def allPairs {α β : Type} (f : α → β → Bool) : List α → List β → Bool
+  | a :: as, b :: bs => f a b && allPairs f as bs
+  | _, _ => true
+
 /-- Structural equality; objects compare in member order. -/
 partial def Value.beq : Value → Value → Bool
   | .null, .null => true
   | .bool a, .bool b => a == b
   | .num a, .num b => a == b
   | .str a, .str b => a == b
-  | .arr a, .arr b => a.length == b.length && (a.zip b).all fun (x, y) => x.beq y
+  | .arr a, .arr b => a.length == b.length && allPairs (fun x y => x.beq y) a b
   | .obj a, .obj b =>
-    a.length == b.length && (a.zip b).all fun ((k, x), (l, y)) => k == l && x.beq y
+    a.length == b.length && allPairs (fun x y => x.1 == y.1 && x.2.beq y.2) a b
   | _, _ => false
 
 instance : BEq Value := ⟨Value.beq⟩
@@ -170,14 +176,16 @@ def number (b : ByteArray) (i : Nat) : Result Value := Id.run do
 
 /-- The earliest repeated key among an object's `(key, offset)` pairs, the place where a scan
 comparing each key with every earlier one stops, found in O(k log k) instead of k²: a stable sort
-by key keeps equal keys in document order, so every entry after the first of its key repeats it. -/
+by key keeps equal keys in document order, so every entry after the first of its key repeats it.
+One left fold carrying the previous key (an object may hold tens of thousands of keys, past the
+page engine's WebAssembly stack for a recursion per key). -/
 def firstRepeat (keys : List (String × Nat)) : Option (String × Nat) :=
   let sorted := keys.mergeSort fun a b => a.1 ≤ b.1
-  (sorted.zip (sorted.drop 1)).foldl (init := none) fun best (a, b) =>
-    if a.1 != b.1 then best
-    else match best with
-      | some r => if b.2 < r.2 then some b else best
-      | none => some b
+  (sorted.foldl (init := ((none : Option (String × Nat)), (none : Option String))) fun st b =>
+    (if st.2 != some b.1 then st.1
+     else match st.1 with
+       | some r => if b.2 < r.2 then some b else st.1
+       | none => some b, some b.1)).1
 
 mutual
   /-- One value after optional whitespace. `fuel` bounds the recursion (≥ remaining bytes). -/

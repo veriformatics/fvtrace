@@ -252,6 +252,45 @@ function wide() {
   };
 }
 
+/** `n` claims, each needing its own premise + reasoning fact: past `n` ≈ 9,600 a recursion with one
+ * frame per claim overflows V8's stack in the page engine (native threads have 8 MB). @param {number} n */
+function manyClaims(n) {
+  const ids = Array.from({ length: n }, (_, i) => i);
+  return {
+    fvtrace: 1,
+    analysis: { id: "many", title: "Many claims", summary: "One claim per premise." },
+    subjects: [{ id: "S", title: "Many", kind: "existing" }],
+    questions: [{ id: "Q", title: "Q", text: "Does it hold?" }],
+    facts: ids.flatMap((i) => [
+      {
+        id: `F${i}`,
+        subject: "S",
+        kind: "statistical",
+        text: `F${i} holds.`,
+        status: "assumed",
+        route: "human-ruling",
+      },
+      {
+        id: `E${i}`,
+        subject: "S",
+        kind: "entailment",
+        text: `E${i} holds.`,
+        status: "open",
+        route: "lean",
+      },
+    ]),
+    claims: ids.map((i) => ({
+      id: `C${i}`,
+      question: "Q",
+      subject: "S",
+      level: "inferential",
+      text: `Claim ${i} holds.`,
+      needs: [`F${i}`],
+      entailment: `E${i}`,
+    })),
+  };
+}
+
 /** `trace` with the review record `fvtrace review` writes (a copy): its date decodes through
  * `String.toList` + `String.ofList`. @param {Json} trace @param {string} date @returns {Json} */
 const withReview = (trace, date) => ({
@@ -292,6 +331,7 @@ export function cases(seed) {
     ["verified exclusion, stale receipt", verifiedExclusion(), { stale: ["X1"] }],
     ["twenty-one experiments (tooLarge)", wide(), {}],
     ["a 4 MB legal trace (memory growth)", big, {}],
+    ["12,000 claims (past the wasm call depth)", manyClaims(12000), {}],
     [
       "synthetic, its review record (reviewed)",
       withReview(synthetic, "2026-10-23"),
@@ -317,6 +357,7 @@ export function cases(seed) {
     // Each call decodes the snapshot again (both sides): the 4 MB case keeps to a few.
     if (name.startsWith("a 4 MB"))
       return { name, snapshot, specs: ["", "O2=checked,EN2=proved", "ZZ=proved", ""] };
+    if (name.startsWith("12,000 claims")) return { name, snapshot, specs: ["", "E0=proved"] };
     return {
       name,
       snapshot,
