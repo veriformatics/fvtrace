@@ -19,7 +19,7 @@ const seed = Number(process.env["FVTRACE_ENGINE_SEED"] ?? "20261022");
 
 void test("the exported page's engine answers every case as the native engine does", async () => {
   const html = exportedPage();
-  const engine = await startEngine(engineOfPage(html));
+  const base64 = engineOfPage(html);
   const all = [
     {
       name: "the exported page's own snapshot",
@@ -42,14 +42,24 @@ void test("the exported page's engine answers every case as the native engine do
   const original = console.error;
   console.error = (/** @type {unknown[]} */ ...args) => void said.push(args.join(" "));
   try {
-    for (const c of all) {
+    // One instance per snapshot: a refused snapshot ends its engine (E-state).
+    const engines = await Promise.all(all.map(() => startEngine(base64)));
+    for (const [k, c] of all.entries()) {
+      const engine = engines[k];
+      if (!engine) throw new Error("no engine");
+      const problem = engine.load(c.snapshot);
+      if (problem !== null) {
+        assert.equal(problem, nativeAnswers(c.snapshot, [""])[0], `${c.name}: load refusal`);
+        answers++;
+        continue;
+      }
       const native = nativeAnswers(c.snapshot, c.specs);
       c.specs.forEach((spec, i) => {
         const where = `${c.name}, what-if ${JSON.stringify(spec.slice(0, 80))}`;
         /** @type {string} */
         let wasm;
         try {
-          wasm = engine.answer(c.snapshot, spec);
+          wasm = engine.request(JSON.stringify({ whatif: spec }));
         } catch (e) {
           assert.fail(`${where}: the engine failed (${String(e)})`);
         }

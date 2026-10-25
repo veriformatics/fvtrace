@@ -103,27 +103,14 @@ export function snapshotOfPage(html) {
 export const engineOfPage = (html) =>
   html.split('id="fvtrace-engine">')[1]?.split("</script>")[0] ?? "";
 
-/** The native engine's answers for `specs` on `snapshot`, in order. @param {string} snapshot
+/** The native engine's answers for the what-ifs `specs` on `snapshot`, in order (requests
+ * `{whatif}`; a refused snapshot answers its problem alone). @param {string} snapshot
  * @param {string[]} specs @returns {string[]} */
-export function nativeAnswers(snapshot, specs) {
-  const dir = mkdtempSync(join(tmpdir(), "fvtrace-engine-"));
-  try {
-    writeFileSync(join(dir, "snapshot.json"), snapshot);
-    writeFileSync(join(dir, "specs.json"), JSON.stringify(specs));
-    const out = execFileSync(
-      testsBin,
-      ["--evaluate-snapshot", join(dir, "snapshot.json"), join(dir, "specs.json")],
-      { encoding: "utf8", maxBuffer: 1 << 30 },
-    );
-    /** @type {unknown} */
-    const answers = JSON.parse(out);
-    if (!Array.isArray(answers) || !answers.every((a) => typeof a === "string"))
-      throw new Error("fvtrace-tests --evaluate-snapshot printed no list of strings");
-    return answers;
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
+export const nativeAnswers = (snapshot, specs) =>
+  nativeRequests(
+    snapshot,
+    specs.map((whatif) => JSON.stringify({ whatif })),
+  );
 
 /** The native engine's answers to `requests` (`kernel.md` E-request), in order through one engine.
  * @param {string} snapshot @param {string[]} requests @returns {string[]} */

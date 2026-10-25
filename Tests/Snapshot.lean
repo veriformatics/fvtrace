@@ -157,17 +157,6 @@ def nativeTests : TestM Unit := do
           (rc == 2 && count err m == 1) err
       | other => check "snapshot: a refused what-if is a what-if problem" false s!"{repr other}"
 
-/-- `fvtrace-tests --evaluate-snapshot SNAPSHOT SPECS`: SPECS = a JSON list of what-if strings;
-prints the JSON list of `evaluate` outputs, in order. -/
-def evaluateFile (snapshot specs : String) : IO UInt32 := do
-  let snap ← IO.FS.readFile snapshot
-  let .ok (.arr xs) := Json.parse (← IO.FS.readBinFile specs)
-    | IO.eprintln s!"{specs}: not a JSON list"; return 2
-  let outs ← xs.mapM fun | .str spec => pure (Value.str (evaluate snap spec))
-                         | _ => throw (IO.userError s!"{specs}: a what-if is not a string")
-  IO.print (Value.arr outs).canonical
-  return 0
-
 /-- `fvtrace-tests --answer-snapshot SNAPSHOT REQUESTS`: REQUESTS = a JSON list of request texts,
 answered in order through one engine (its state carries across, as in the page); prints the JSON
 list of answers, a refused snapshot as one answer: its problem text. -/

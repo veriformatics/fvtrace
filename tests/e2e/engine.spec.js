@@ -7,7 +7,6 @@ import {
   cases,
   engineOfPage,
   exportedPage,
-  nativeAnswers,
   nativeRequests,
   requestsFor,
   root,
@@ -41,14 +40,6 @@ test("the page's engine answers every case in Chromium as the native engine does
   );
   await page.goto("http://engine.test/");
   await page.waitForFunction(() => "fvtraceStart" in globalThis);
-  await page.evaluate(async (base64) => {
-    /** @type {unknown} */
-    const start = Reflect.get(globalThis, "fvtraceStart");
-    if (typeof start !== "function") throw new Error("no loader");
-    /** @type {unknown} */
-    const engine = await Reflect.apply(start, undefined, [base64]);
-    Reflect.set(globalThis, "fvtraceEngine", engine);
-  }, engineOfPage(html));
   const all = [
     {
       name: "the exported page's own snapshot",
@@ -57,37 +48,13 @@ test("the page's engine answers every case in Chromium as the native engine does
     },
     ...cases(seed),
   ];
-  /** @type {[string, string[]][]} */
-  const inputs = all.map((c) => [c.snapshot, c.specs]);
-  // One call for every case: the engine answers in order, in the page.
-  const wasm = await page.evaluate((cs) => {
-    /** @type {unknown} */
-    const engine = Reflect.get(globalThis, "fvtraceEngine");
-    if (typeof engine !== "object" || engine === null) throw new Error("no engine");
-    /** @type {unknown} */
-    const answer = Reflect.get(engine, "answer");
-    if (typeof answer !== "function") throw new Error("no answer");
-    return cs.map(([snapshot, specs]) =>
-      specs.map((spec) => {
-        /** @type {unknown} */
-        const out = Reflect.apply(answer, engine, [snapshot, spec]);
-        return typeof out === "string" ? out : "";
-      }),
-    );
-  }, inputs);
   let answers = 0;
-  all.forEach((c, k) => {
-    const native = nativeAnswers(c.snapshot, c.specs);
-    c.specs.forEach((spec, i) => {
-      expect(wasm[k]?.[i], `${c.name}, what-if ${JSON.stringify(spec.slice(0, 80))}`).toBe(
-        native[i],
-      );
-      answers++;
-    });
-  });
   // Request sequences (E-request), one engine per snapshot: a refused snapshot ends its engine.
   /** @type {[string, string[]][]} */
-  const sequences = all.map((c) => [c.snapshot, requestsFor(c)]);
+  const sequences = all.map((c) => [
+    c.snapshot,
+    [...c.specs.map((whatif) => JSON.stringify({ whatif })), ...requestsFor(c)],
+  ]);
   const replies = await page.evaluate(
     async ([base64, seqs]) => {
       /** @type {unknown} */
