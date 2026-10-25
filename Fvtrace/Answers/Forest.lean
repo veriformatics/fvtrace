@@ -72,6 +72,33 @@ def Ctx.closureWith (cx : Ctx) (fo : Forest) (ids : List String) : List String :
       | none => cx.positions (cx.reach (Array.replicate cx.experiments.size false) [id]).2
     | none => [])).filterMap fun p => (cx.experiments[p]?).map (·.id)
 
+/-! ## Which experiments raise a fact -/
+
+/-- `e`'s success raises `f` over the base on its own (the merged `.assumed` floor included). -/
+def raisesOwn (core : Core) (f : String) (e : Experiment) : Bool :=
+  e.success.any fun x => x.1 == f && max 2 (EStatus.ofStatus x.2).strength > (core.eff1 f).strength
+
+/-- One position of `pathRaises`: itself, or its parent's entry. -/
+def pathRaisesStep (core : Core) (fo : Forest) (f : String) (acc : Array Bool)
+    (e : Experiment) : Array Bool :=
+  acc.push (raisesOwn core f e || match fo.parent[acc.size]? with
+    | some (some p) => acc[p]?.getD false
+    | _ => false)
+
+/-- Per position: some experiment on its forest path raises `f` on its own. -/
+def pathRaises (cx : Ctx) (core : Core) (fo : Forest) (f : String) : Array Bool :=
+  cx.experiments.foldl (pathRaisesStep core fo f) #[]
+
+/-- The experiments of `order` whose success closure raises `f` (`kernel.md` P-raisers): a forest
+experiment's when one on its path raises `f` on its own, any other's from its closure. -/
+def raisersWith (cx : Ctx) (core : Core) (fo : Forest) (closure : List String → List String)
+    (order : List Experiment) (f : String) : List String :=
+  let reach := pathRaises cx core fo f
+  let viaClosure := fun (e : Experiment) => (raisedBy cx core (closure [e.id])).any (·.1 == f)
+  (order.filter fun e => match cx.firstPos e.id with
+    | some j => if fo.good[j]?.getD false then reach[j]?.getD false else viaClosure e
+    | none => viaClosure e).map (·.id)
+
 /-! ## The walk: each forest experiment's success on top of its parent's -/
 
 /-- The forest's preconditions on the facts the walk keeps per position: every success key + both

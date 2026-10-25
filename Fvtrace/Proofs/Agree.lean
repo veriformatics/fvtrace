@@ -157,11 +157,10 @@ theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := b
     exact summary_of_walk s _ _ hrow hfail c
   case e_raisers =>
     funext f
-    refine congrArg (fun (x : List Experiment × (List String → List String) ×
-      (List String → Overrides)) => raisersOf x.1 x.2.1 x.2.2 f) (?_ : (_, _, _) = (_, _, _))
-    refine Prod.ext ?_ (Prod.ext (funext (closure_eq s)) (funext (raised_eq s)))
-    exact (congrArg (List.map (·.experiment)) (sorted_walk s _ _ hrow hfail)).trans
-      (experimentOrder_eq s)
+    exact (congrArg (fun o => raisersWith (cxOf s) (coreOf s) (Forest.build (cxOf s))
+        ((cxOf s).closureWith (Forest.build (cxOf s))) o f)
+      ((congrArg (List.map (·.experiment)) (sorted_walk s _ _ hrow hfail)).trans
+        (experimentOrder_eq s))).trans (raisersWith_eq s _ f)
 
 theorem answersAgree : Spec.AnswersAgree := answers_agree
 
