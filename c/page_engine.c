@@ -8,7 +8,6 @@
 void lean_initialize_runtime_module(void);
 void lean_io_mark_end_initialization(void);
 lean_object *initialize_fvtrace_Fvtrace_Snapshot(uint8_t builtin);
-lean_object *fvtrace_snapshot_evaluate(lean_object *snapshot, lean_object *spec);
 lean_object *fvtrace_snapshot_load(lean_object *snapshot);
 lean_object *fvtrace_snapshot_answer(lean_object *engine, lean_object *request);
 
@@ -29,21 +28,6 @@ int fvtrace_init(void) {
 void *fvtrace_alloc(size_t n) { return malloc(n); }
 
 void fvtrace_free(void *p) { free(p); }
-
-/* The result's bytes (the caller frees them) and its length at *len; NULL when out of memory. */
-char *fvtrace_evaluate(const char *snapshot, size_t snapshot_len, const char *spec,
-                       size_t spec_len, size_t *len) {
-  lean_object *out = fvtrace_snapshot_evaluate(lean_mk_string_from_bytes(snapshot, snapshot_len),
-                                               lean_mk_string_from_bytes(spec, spec_len));
-  size_t n = lean_string_size(out) - 1;
-  char *buf = malloc(n + 1);
-  if (buf != NULL) {
-    memcpy(buf, lean_string_cstr(out), n);
-    *len = n;
-  }
-  lean_dec_ref(out);
-  return buf;
-}
 
 /* A fresh copy of a Lean string's bytes + its length at *len; NULL when out of memory. */
 static char *copy_out(lean_object *text, size_t *len) {

@@ -52,10 +52,10 @@ async function recorded(nullAt = 0) {
         if (!allocated.delete(at)) counts.outputs++;
         return call(real, "fvtrace_free")(at);
       },
-      fvtrace_evaluate: (/** @type {number[]} */ ...args) => {
-        calls.push("evaluate");
+      fvtrace_answer: (/** @type {number[]} */ ...args) => {
+        calls.push("answer");
         counts.evaluations++;
-        return counts.evaluations === nullAt ? 0 : call(real, "fvtrace_evaluate")(...args);
+        return counts.evaluations === nullAt ? 0 : call(real, "fvtrace_answer")(...args);
       },
     };
     return { module, instance: { exports } };
@@ -68,22 +68,27 @@ async function recorded(nullAt = 0) {
   }
 }
 
-void test("every answer frees its three buffers and the engine's output", async () => {
+void test("every call frees its two buffers and the engine's output", async () => {
   const r = await recorded();
+  assert.equal(r.engine.load(snapshot), null);
   const n = 20;
-  for (let i = 0; i < n; i++) r.engine.answer(snapshot, i % 2 ? "O2=checked,EN2=proved" : "ZZ=x");
-  assert.equal(r.calls.filter((c) => c === "alloc").length, 3 * n);
-  assert.equal(r.calls.filter((c) => c === "free").length, 4 * n);
+  for (let i = 0; i < n; i++)
+    r.engine.request(JSON.stringify({ whatif: i % 2 ? "O2=checked,EN2=proved" : "ZZ=x" }));
+  assert.equal(r.calls.filter((c) => c === "alloc").length, 2 * (n + 1));
+  assert.equal(r.calls.filter((c) => c === "free").length, 3 * (n + 1));
   assert.equal(r.allocated.size, 0, "a loader buffer was not freed");
-  assert.equal(r.counts.outputs, n, "an engine output was not freed");
+  assert.equal(r.counts.outputs, n + 1, "an engine output was not freed");
 });
 
 void test("after a NULL answer no call enters the instance, a free included", async () => {
   const r = await recorded(1);
-  assert.throws(() => r.engine.answer(snapshot, "O2=checked"), EngineError);
-  const afterNull = () => r.calls.slice(r.calls.indexOf("evaluate") + 1);
+  assert.equal(r.engine.load(snapshot), null);
+  assert.throws(() => r.engine.request(JSON.stringify({ whatif: "O2=checked" })), EngineError);
+  const afterNull = () => r.calls.slice(r.calls.indexOf("answer") + 1);
   assert.deepEqual(afterNull(), []);
-  assert.throws(() => r.engine.answer(snapshot, ""), EngineError);
+  assert.throws(() => r.engine.request(JSON.stringify({ whatif: "" })), EngineError);
+  assert.deepEqual(afterNull(), []);
+  assert.throws(() => r.engine.load(snapshot), EngineError);
   assert.deepEqual(afterNull(), []);
 });
 

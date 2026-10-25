@@ -7,11 +7,11 @@
 /** The page cannot run its engine, or the engine stopped. */
 export class EngineError extends Error {}
 
-/** The engine: `answer` evaluates a what-if on a snapshot (one call); `load` decodes a snapshot
- * once (null = loaded, else the problem's text) and `request` answers a request against it
- * (`kernel.md` E-request: envelope, details or problem JSON text).
- * @typedef {{ answer: (snapshot: string, spec: string) => string,
- *   load: (snapshot: string) => string | null, request: (text: string) => string }} Engine */
+/** The engine: `load` decodes a snapshot once (null = loaded, else the problem's text) and
+ * `request` answers a request against it (`kernel.md` E-request: envelope, details or problem
+ * JSON text).
+ * @typedef {{ load: (snapshot: string) => string | null, request: (text: string) => string }}
+ *   Engine */
 /** @typedef {(...args: number[]) => number} WasmFunction */
 
 /** WASI errno for a file descriptor the engine has no business with. */
@@ -117,7 +117,6 @@ export const startEngine = async (base64) => {
     memory = exports["memory"];
     const alloc = wasmFunction(exports, "fvtrace_alloc");
     const free = wasmFunction(exports, "fvtrace_free");
-    const evaluate = wasmFunction(exports, "fvtrace_evaluate");
     const load = wasmFunction(exports, "fvtrace_load");
     const ask = wasmFunction(exports, "fvtrace_answer");
     wasmFunction(exports, "_initialize")();
@@ -129,23 +128,6 @@ export const startEngine = async (base64) => {
       if (at === 0) throw new EngineError("the engine ran out of memory");
       new Uint8Array(mem().buffer, at, bytes.length).set(bytes);
       return at;
-    };
-    const call = (/** @type {string} */ snapshot, /** @type {string} */ spec) => {
-      const snapshotBytes = encoder.encode(snapshot);
-      const specBytes = encoder.encode(spec);
-      const snapAt = put(snapshotBytes);
-      const specAt = put(specBytes);
-      const lengthAt = put(new Uint8Array(4));
-      const out = evaluate(snapAt, snapshotBytes.length, specAt, specBytes.length, lengthAt) >>> 0;
-      // A failure ends the instance before any further call, a free included (E-abi).
-      if (out === 0) throw new EngineError("the engine ran out of memory");
-      free(snapAt);
-      free(specAt);
-      const length = view().getUint32(lengthAt, true);
-      free(lengthAt);
-      const text = decoder.decode(new Uint8Array(mem().buffer, out, length));
-      free(out);
-      return text;
     };
     /** One string in, the engine's fresh buffer out (NULL = out of memory, E-abi). */
     const pass = (/** @type {WasmFunction} */ f, /** @type {string} */ input) => {
@@ -173,7 +155,6 @@ export const startEngine = async (base64) => {
       }
     };
     return {
-      answer: (snapshot, spec) => guarded(() => call(snapshot, spec)),
       load: (snapshot) =>
         guarded(() => {
           const problem = pass(load, snapshot);

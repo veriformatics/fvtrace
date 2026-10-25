@@ -299,7 +299,7 @@ probe_wasm() {
 
 # The page engine's differential (gate stage `engine`) also fails on any engine output to standard
 # error: a panic returns a default value that may still equal the native answer. The plant writes
-# a panic line on one evaluation, as the loader routes the engine's fd_write, and answers correctly.
+# a panic line on one answer, as the loader routes the engine's fd_write, and answers correctly.
 probe_engine() {
     local plant="$backup/plant-panic.mjs"
     cat >"$plant" <<'PLANT'
@@ -307,12 +307,12 @@ const real = WebAssembly.instantiate.bind(WebAssembly);
 let calls = 0;
 WebAssembly.instantiate = async (bytes, imports) => {
   const { module, instance } = await real(bytes, imports);
-  const evaluate = instance.exports.fvtrace_evaluate;
+  const answer = instance.exports.fvtrace_answer;
   const exports = {
     ...instance.exports,
-    fvtrace_evaluate: (...args) => {
+    fvtrace_answer: (...args) => {
       if (++calls === 7) console.error("fvTrace engine: PANIC planted");
-      return evaluate(...args);
+      return answer(...args);
     },
   };
   return { module, instance: { exports } };

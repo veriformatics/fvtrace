@@ -70,21 +70,6 @@ def decode (input : String) : Except String Snapshot := do
 def problem (kind message : String) : Value :=
   .obj [("problem", .obj [("kind", .str kind), ("message", .str message)])]
 
-/-- The page's one call: the envelope `fvtrace eval --whatif spec` prints for the frozen state, or
-the problem the server would answer. -/
-@[export fvtrace_snapshot_evaluate]
-def evaluate (snapshot spec : String) : String :=
-  match decode snapshot with
-  | .error m => (problem "invalid" m).pretty
-  | .ok s =>
-    match Overrides.parse s.trace spec with
-    | .error m => (problem "what-if" m).pretty
-    | .ok o =>
-      let byId := Receipt.BindingIndex.of s.bindings
-      let current := fun id => (byId.find id).any (·.current)
-      (Evaluate.envelope { trace := s.trace, current, overrides := o } s.bindings s.digest
-        s.review).pretty
-
 /-- The page engine's state (`kernel.md` E-state): the snapshot, decoded once. -/
 structure Engine where
   snap : Snapshot
@@ -123,6 +108,14 @@ def Engine.answer (e : Engine) (request : String) : Engine × String :=
             | .error m => (problem "item" m).pretty
           | none => (Evaluate.envelope sc' s.bindings s.digest s.review).pretty
   (e, text)
+
+/-- The envelope `fvtrace eval --whatif spec` prints for the frozen state, or the problem the
+server answers: the engine's answer to `{whatif: spec}` (a test + export helper; the page calls
+`load` + `answer`). -/
+def evaluate (snapshot spec : String) : String :=
+  match Engine.load snapshot with
+  | .error problem => problem
+  | .ok e => (e.answer (Value.obj [("whatif", .str spec)]).canonical).2
 
 /-- The page's start-up call: the engine, or the problem text. -/
 @[export fvtrace_snapshot_load]

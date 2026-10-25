@@ -133,10 +133,10 @@ def allowedImports : List (String × String) :=
     "environ_sizes_get", "environ_get", "clock_time_get", "random_get"].map
     ("wasi_snapshot_preview1", ·))
 
-/-- What the page's loader uses, with its kind: the memory + seven functions. -/
+/-- What the page's loader uses, with its kind: the memory + six functions. -/
 def requiredExports : List (String × Nat) :=
   [("memory", 2)] ++ (["_initialize", "fvtrace_init", "fvtrace_alloc", "fvtrace_free",
-    "fvtrace_evaluate", "fvtrace_load", "fvtrace_answer"].map (·, 0))
+    "fvtrace_load", "fvtrace_answer"].map (·, 0))
 
 /-- Why the module breaks the link contract (empty = it keeps it). -/
 def problems (m : Module) : List String :=
