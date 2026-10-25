@@ -205,7 +205,8 @@ test("without WebAssembly the page keeps the recorded view and says why", async 
 
 /**
  * Plants faults between the page and its engine's Worker (the engine runs off the page's thread,
- * so the page's own `WebAssembly` never sees it): `delay` holds the start message back, `trapAt`
+ * so the page's own `WebAssembly` never sees it): `delay` holds the start message back (and the
+ * messages posted after it, which a worker takes in order), `trapAt`
  * answers that request with a failure instead of forwarding it, `corrupt` garbles the first
  * request's answer, `hold` delays every answer; the page reads the request count
  * (`fvtraceCalls`), the workers made (`fvtraceWorkers`) + a ready flag.
@@ -228,6 +229,9 @@ async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold 
         this.handler = null;
         /** @type {unknown} */
         this.startId = undefined;
+        /** Messages posted while the start is held back, forwarded after it in order.
+         * @type {unknown[] | undefined} */
+        this.behind = undefined;
         let firstAnswer = true;
         super.addEventListener("message", (/** @type {MessageEvent} */ event) => {
           /** @type {unknown} */
@@ -265,7 +269,12 @@ async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold 
           typeof message === "object" && message !== null ? Reflect.get(message, "id") : undefined;
         if (op === "start") {
           this.startId = id;
-          setTimeout(() => super.postMessage(message, []), ms);
+          this.behind = [];
+          setTimeout(() => {
+            super.postMessage(message, []);
+            for (const m of this.behind ?? []) super.postMessage(m, []);
+            this.behind = undefined;
+          }, ms);
           return;
         }
         if (op === "request") {
@@ -281,7 +290,8 @@ async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold 
             return;
           }
         }
-        super.postMessage(message, []);
+        if (this.behind) this.behind.push(message);
+        else super.postMessage(message, []);
       }
     }
     Reflect.set(globalThis, "Worker", Planted);

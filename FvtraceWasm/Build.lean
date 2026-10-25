@@ -301,7 +301,8 @@ def link (cfg : Config) (t : Tools) (objs : Array FilePath) (wasm : FilePath) : 
     "\"" ++ ((slashed o).replace "\\" "\\\\").replace "\"" "\\\"" ++ "\"\n"
   let out ← runOut t.python (#[slashed t.emxx, "-O2", "-fwasm-exceptions", s!"@{slashed rsp}",
       "-o", slashed wasm, "-sSTANDALONE_WASM", "--no-entry", "-sALLOW_MEMORY_GROWTH=1",
-      "-sSTACK_SIZE=1MB", "-sMALLOC=mimalloc", s!"-sEXPORTED_FUNCTIONS={exportedFunctions}", "-Wl,--gc-sections"])
+      "-sSTACK_SIZE=1MB", "-sMALLOC=mimalloc", s!"-sEXPORTED_FUNCTIONS={exportedFunctions}",
+      "-Wl,--gc-sections"])
     (env := t.env)
   let extra := unexpectedWarnings out.stderr
   unless extra.isEmpty do fail s!"unexpected linker warnings:\n{"\n".intercalate extra}"

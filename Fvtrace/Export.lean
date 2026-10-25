@@ -132,10 +132,10 @@ def cspHash (text : String) : IO String := do
 def snapshot (l : Session.Loaded) : Snapshot.Snapshot :=
   { trace := l.scenario.trace, bindings := l.bindings, digest := l.digest, review := l.review }
 
-/-- The data block: the recorded envelope (the page's first view) + the engine's snapshot. -/
+/-- The data block: the recorded envelope (the page's first view). The snapshot sits in a block of
+its own, so the engine's Worker starts on its text before the page parses the envelope. -/
 def data (l : Session.Loaded) : Value :=
-  .obj [("schema", .str "fvtrace.export/3"), ("recorded", Session.envelope l),
-    ("snapshot", Snapshot.encode (snapshot l))]
+  .obj [("schema", .str "fvtrace.export/4"), ("recorded", Session.envelope l)]
 
 /-- The engine block holds base64 alone, so it cannot close its `<script>`. -/
 def base64Text (s : String) : Bool :=
@@ -164,6 +164,8 @@ def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
     s!"    <style>{css}</style>\n" ++
     s!"    <script type=\"application/json\" id=\"fvtrace-data\">\
       {htmlSafe (data l).canonical}</script>\n" ++
+    s!"    <script type=\"application/json\" id=\"fvtrace-snapshot\">\
+      {htmlSafe (Snapshot.encode (snapshot l)).canonical}</script>\n" ++
     s!"    <script type=\"application/octet-stream\" id=\"fvtrace-engine\">{engineText}\
       </script>\n" ++
     s!"    <script type=\"text/plain\" id=\"fvtrace-worker\">{worker}</script>\n" ++

@@ -111,6 +111,9 @@ def nativeTests : TestM Unit := do
     let island := ((html.splitOn "id=\"fvtrace-data\">")[1]!.splitOn "</script>")[0]!
     check "export: the page's receipts come from a fresh read (no cache)"
       (count island "\"current\":false" == 0 && count island "\"current\":true" ≥ 1)
+    let snap := ((html.splitOn "id=\"fvtrace-snapshot\">")[1]!.splitOn "</script>")[0]!
+    check "export: the page carries its snapshot block once"
+      (count html "id=\"fvtrace-snapshot\"" == 1)
     match Json.parse island.toUTF8 with
     | .error e => check "export: the data block is JSON" false e.message
     | .ok (.obj kvs) =>
@@ -118,17 +121,17 @@ def nativeTests : TestM Unit := do
       match ← Session.load tg false none false (← IO.mkRef {}) with
       | .error _ => check "export: the data block holds the recorded envelope" false
       | .ok l =>
-        checkEq "export: the data block = schema 2, the recorded envelope + the snapshot"
-          (kvs.map (·.1)) ["recorded", "schema", "snapshot"]
+        checkEq "export: the data block = schema 4 + the recorded envelope"
+          (kvs.map (·.1)) ["recorded", "schema"]
+        checkEq "export: the data block's schema" (kvs.lookup "schema")
+          (some (.str "fvtrace.export/4"))
         check "export: the data block holds the recorded envelope (canonical: sorted keys)"
           ((kvs.lookup "recorded").map (·.canonical) == some (Session.envelope l).canonical)
-        match kvs.lookup "snapshot" with
-        | some v =>
-          check "export: the snapshot is what the load read (E-snap)"
-            ((Snapshot.decode v.canonical).toOption == some (Export.snapshot l))
-          check "export: the engine's recorded answer = the recorded envelope (first paint)"
-            (Snapshot.evaluate v.canonical "" == (Session.envelope l).pretty)
-        | none => check "export: the data block holds a snapshot" false
+        -- The block's text, as the page hands it to its engine (`htmlSafe` escapes included).
+        check "export: the snapshot is what the load read (E-snap)"
+          ((Snapshot.decode snap).toOption == some (Export.snapshot l))
+        check "export: the engine's recorded answer = the recorded envelope (first paint)"
+          (Snapshot.evaluate snap "" == (Session.envelope l).pretty)
     | .ok _ => check "export: the data block is an object" false
     let tg ← IO.ofExcept (← Store.resolve env none none)
     match ← Session.load tg false none true (← IO.mkRef {}) with

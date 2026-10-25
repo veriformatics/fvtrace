@@ -2,6 +2,7 @@
 
 import { claimTag, conditions, exactStatement, headline, lamp } from "./circuit.js";
 import { clickToOpen, h, idButton, s } from "./dom.js";
+import { listOf } from "./lazy.js";
 import {
   andList,
   count,
@@ -20,9 +21,11 @@ import {
 /** @typedef {import("./envelope.js").Move} Move */
 /** @typedef {import("./envelope.js").Override} Override */
 /** @typedef {import("./envelope.js").Plan} Plan */
+/** @typedef {import("./envelope.js").Alternative} Alternative */
 /** @typedef {import("./dom.js").Children} Children */
 /** @typedef {import("./envelope.js").Details} Details */
 /** @typedef {import("./app.js").DetailsView} DetailsView */
+/** @typedef {import("./lookups.js").Lookups} Lookups */
 
 /**
  * @typedef {{ select: (kind: "fact" | "claim" | "experiment", id: string) => void,
@@ -46,14 +49,17 @@ function ref(/** @type {"fact" | "claim" | "experiment"} */ kind, /** @type {str
   );
 }
 
-/** `O1, O2` as selectable references. @param {string[]} ids @param {Handlers} on */
+/** `O1, O2` as selectable references (a long run mounts as it nears the viewport).
+ * @param {string[]} ids @param {Handlers} on */
 function refs(/** @type {"fact" | "claim" | "experiment"} */ kind, ids, on) {
-  return ids.flatMap((id, i) => (i ? [", ", ref(kind, id, on)] : [ref(kind, id, on)]));
+  return listOf(h("span", { class: "refs" }), ids, (id, i) =>
+    h("span", {}, i ? ", " : "", ref(kind, id, on)),
+  );
 }
 
-/** @param {Envelope} env @param {string} id */
-function factText(env, id) {
-  return env.facts.find((f) => f.id === id)?.text ?? id;
+/** @param {Lookups} ix @param {string} id */
+function factText(ix, id) {
+  return ix.facts.get(id)?.text ?? id;
 }
 
 /** @param {string} label @param {string} action @param {Handlers} on @param {boolean} [primary] */
@@ -72,43 +78,35 @@ function actionButton(label, action, on, primary = true) {
     : null;
 }
 
-/** @param {Move[]} ms @param {Envelope} env @param {Handlers} on @param {string} none */
-function moveList(ms, env, on, none) {
+/** @param {Move[]} ms @param {Lookups} ix @param {Handlers} on @param {string} none */
+function moveList(ms, ix, on, none) {
   if (!ms.length) return h("p", { class: "note" }, none);
-  return h(
-    "ul",
-    { class: "moves" },
-    ms.map((m) => {
-      const c = env.claims.find((x) => x.id === m.claim);
-      return h(
-        "li",
+  return listOf(h("ul", { class: "moves" }), ms, (m) => {
+    const c = ix.claims.get(m.claim);
+    return h(
+      "li",
+      {},
+      lamp(m.to, "small"),
+      h(
+        "span",
         {},
-        lamp(m.to, "small"),
-        h(
-          "span",
-          {},
-          ref("claim", m.claim, on),
-          ` changes from ${word(verdicts, m.from)} to ${word(verdicts, m.to)}`,
-          c ? h("small", { class: "move-text" }, headline(c)) : null,
-        ),
-      );
-    }),
-  );
+        ref("claim", m.claim, on),
+        ` changes from ${word(verdicts, m.from)} to ${word(verdicts, m.to)}`,
+        c ? h("small", { class: "move-text" }, headline(c)) : null,
+      ),
+    );
+  });
 }
 
-/** @param {Override[]} os @param {Envelope} env @param {Handlers} on */
-function changeList(os, env, on) {
-  return h(
-    "ul",
-    { class: "changes" },
-    os.map((o) =>
-      h(
-        "li",
-        {},
-        ref("fact", o.fact, on),
-        ` becomes ${word(statuses, o.status).toLowerCase()}: `,
-        h("span", { class: "quote" }, factText(env, o.fact)),
-      ),
+/** @param {Override[]} os @param {Lookups} ix @param {Handlers} on */
+function changeList(os, ix, on) {
+  return listOf(h("ul", { class: "changes" }), os, (o) =>
+    h(
+      "li",
+      {},
+      ref("fact", o.fact, on),
+      ` becomes ${word(statuses, o.status).toLowerCase()}: `,
+      h("span", { class: "quote" }, factText(ix, o.fact)),
     ),
   );
 }
@@ -130,11 +128,11 @@ function detailed(d, show) {
   return null;
 }
 
-/** @param {Envelope} env @param {string} id @param {Handlers} on @param {DetailsView} [d] */
-function inspectFact(env, id, on, d) {
-  const f = env.facts.find((x) => x.id === id);
+/** @param {Lookups} ix @param {string} id @param {Handlers} on @param {DetailsView} [d] */
+function inspectFact(ix, id, on, d) {
+  const f = ix.facts.get(id);
   if (!f) return [h("p", {}, `No fact ${id}.`)];
-  const neededBy = env.claims.filter((c) => c.needs.includes(id) || c.entailment === id);
+  const neededBy = ix.neededBy.get(id) ?? [];
   const status =
     f.effective === f.recorded
       ? word(statuses, f.effective)
@@ -167,12 +165,8 @@ function inspectFact(env, id, on, d) {
           h("h3", {}, "Evidence"),
           h("p", {}, f.evidence.summary),
           f.evidence.artifacts.length
-            ? h(
-                "ul",
-                {},
-                f.evidence.artifacts.map((a) =>
-                  h("li", {}, h("code", {}, a.path), a.role ? ` (${a.role})` : ""),
-                ),
+            ? listOf(h("ul", {}), f.evidence.artifacts, (a) =>
+                h("li", {}, h("code", {}, a.path), a.role ? ` (${a.role})` : ""),
               )
             : null,
           f.evidence.verifier ? h("p", {}, `Verifier: ${f.evidence.verifier}`) : null,
@@ -189,14 +183,7 @@ function inspectFact(env, id, on, d) {
         )
       : null,
     f.trusts.length
-      ? [
-          h("h3", {}, "Trusted base"),
-          h(
-            "ul",
-            {},
-            f.trusts.map((t) => h("li", {}, t)),
-          ),
-        ]
+      ? [h("h3", {}, "Trusted base"), listOf(h("ul", {}), f.trusts, (t) => h("li", {}, t))]
       : null,
     h("h3", {}, "Needed by"),
     neededBy.length
@@ -236,36 +223,35 @@ function inspectFact(env, id, on, d) {
 /** @param {Plan} p @param {Handlers} on */
 function alternatives(p, on) {
   if (!p.alternatives.length) return null;
-  const needs = [...new Set(p.alternatives.map((a) => a.need))];
+  /** @type {Map<string, Alternative[]>} */
+  const byNeed = new Map();
+  for (const a of p.alternatives) {
+    const list = byNeed.get(a.need);
+    if (list) list.push(a);
+    else byNeed.set(a.need, [a]);
+  }
   return [
     h("h3", {}, "Experiments for each fact"),
-    h(
-      "ul",
-      { class: "changes" },
-      needs.map((n) =>
-        h(
-          "li",
-          {},
-          ref("fact", n, on),
-          ": ",
-          p.alternatives
-            .filter((a) => a.need === n)
-            .flatMap((a, i) => [
-              i ? ", " : "",
-              ref("experiment", a.experiment, on),
-              ` sets ${a.status}`,
-            ]),
-        ),
+    listOf(h("ul", { class: "changes" }), [...byNeed], ([n, alts]) =>
+      h(
+        "li",
+        {},
+        ref("fact", n, on),
+        ": ",
+        alts.flatMap((a, i) => [
+          i ? ", " : "",
+          ref("experiment", a.experiment, on),
+          ` sets ${a.status}`,
+        ]),
       ),
     ),
   ];
 }
 
-/** @param {Claim} c @param {Plan} p @param {Handlers} on @param {Envelope} env */
-function planSection(c, p, on, env) {
-  const closable = (/** @type {string} */ id) => env.facts.some((f) => f.id === id && f.closable);
-  const isViolated = (/** @type {string} */ id) =>
-    env.facts.some((f) => f.id === id && f.effective === "violated");
+/** @param {Claim} c @param {Plan} p @param {Handlers} on @param {Lookups} ix */
+function planSection(c, p, on, ix) {
+  const closable = (/** @type {string} */ id) => ix.facts.get(id)?.closable === true;
+  const isViolated = (/** @type {string} */ id) => ix.facts.get(id)?.effective === "violated";
   const violated = p.uncovered.filter(isViolated);
   const raisable = p.uncovered.filter(closable);
   const settled = p.uncovered.filter((id) => !closable(id) && !isViolated(id));
@@ -333,12 +319,12 @@ function planSection(c, p, on, env) {
   return [h("p", {}, "Too many suggested experiments apply: no best plan is claimed.")];
 }
 
-/** @param {Envelope} env @param {string} id @param {Handlers} on @param {DetailsView} [d] */
-function inspectClaim(env, id, on, d) {
-  const c = env.claims.find((x) => x.id === id);
+/** @param {Lookups} ix @param {string} id @param {Handlers} on @param {DetailsView} [d] */
+function inspectClaim(ix, id, on, d) {
+  const c = ix.claims.get(id);
   if (!c) return [h("p", {}, `No claim ${id}.`)];
-  const conflicts = env.subjects.find((x) => x.id === c.subject)?.conflicts ?? [];
-  const waivers = env.lints.filter((l) => l.claim === c.id && l.waived !== undefined);
+  const conflicts = ix.subjects.get(c.subject)?.conflicts ?? [];
+  const waivers = (ix.lintsOf.get(c.id) ?? []).filter((l) => l.waived !== undefined);
   /** @type {[string, string[]][]} */
   const parts = [
     ["Verified", c.verified],
@@ -390,10 +376,7 @@ function inspectClaim(env, id, on, d) {
       : null,
     c.final === "can"
       ? null
-      : [
-          h("h3", {}, "Plan"),
-          detailed(d, (v) => (v.plan ? planSection(c, v.plan, on, env) : null)),
-        ],
+      : [h("h3", {}, "Plan"), detailed(d, (v) => (v.plan ? planSection(c, v.plan, on, ix) : null))],
   ];
 }
 
@@ -426,9 +409,9 @@ export function kindTag(e) {
   );
 }
 
-/** @param {Envelope} env @param {string} id @param {Handlers} on @param {DetailsView} [d] */
-function inspectExperiment(env, id, on, d) {
-  const e = env.experiments.find((x) => x.id === id);
+/** @param {Lookups} ix @param {string} id @param {Handlers} on @param {DetailsView} [d] */
+function inspectExperiment(ix, id, on, d) {
+  const e = ix.experiments.get(id);
   if (!e) return [h("p", {}, `No experiment ${id}.`)];
   return [
     h("span", { class: "reference" }, `Experiment ${e.id}`),
@@ -455,16 +438,16 @@ function inspectExperiment(env, id, on, d) {
     h("h3", {}, e.contingent ? "If it succeeds and the result is observed" : "If it succeeds"),
     detailed(d, (v) => [
       v.raises?.length
-        ? changeList(v.raises, env, on)
+        ? changeList(v.raises, ix, on)
         : h("p", {}, "No fact rises: each one already has this status or a stronger one."),
-      moveList(v.wins ?? [], env, on, "No claim changes."),
+      moveList(v.wins ?? [], ix, on, "No claim changes."),
     ]),
     actionButton("Suppose it succeeds", `success:${e.id}`, on),
     e.failure.length
       ? [
           h("h3", {}, "If it fails"),
-          changeList(e.failure, env, on),
-          detailed(d, (v) => moveList(v.losses ?? [], env, on, "No claim changes.")),
+          changeList(e.failure, ix, on),
+          detailed(d, (v) => moveList(v.losses ?? [], ix, on, "No claim changes.")),
           actionButton("Suppose it fails", `failure:${e.id}`, on, false),
         ]
       : null,
@@ -474,12 +457,12 @@ function inspectExperiment(env, id, on, d) {
 }
 
 /**
- * @param {Envelope} env
+ * @param {Lookups} ix
  * @param {{ kind: "fact" | "claim" | "experiment", id: string } | undefined} sel
  * @param {Handlers} on
  * @param {DetailsView} [d] the selection's details for the shown view
  */
-export function inspector(env, sel, on, d) {
+export function inspector(ix, sel, on, d) {
   if (!sel) {
     return [
       h("h2", {}, "Select a claim, a fact or an experiment"),
@@ -490,9 +473,9 @@ export function inspector(env, sel, on, d) {
       ),
     ];
   }
-  if (sel.kind === "fact") return inspectFact(env, sel.id, on, d);
-  if (sel.kind === "claim") return inspectClaim(env, sel.id, on, d);
-  return inspectExperiment(env, sel.id, on, d);
+  if (sel.kind === "fact") return inspectFact(ix, sel.id, on, d);
+  if (sel.kind === "claim") return inspectClaim(ix, sel.id, on, d);
+  return inspectExperiment(ix, sel.id, on, d);
 }
 
 /** @param {Experiment} e */
@@ -506,91 +489,105 @@ function impact(e) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** @param {Envelope} env @param {"all" | "dry" | "wet"} filter @param {string | undefined} selected @param {Handlers} on */
-export function experimentList(env, filter, selected, on) {
-  const shown = env.experiments.filter((e) => filter === "all" || e.kind === filter);
-  if (!shown.length) return [h("p", {}, "No suggested experiment of this kind.")];
-  return shown.map((e) =>
+/** One experiment's card in the experiments list (its selection is drawn apart: `markRow`).
+ * @param {Experiment} e @param {Handlers} on */
+export function experimentRow(e, on) {
+  return h(
+    "li",
+    {
+      class: "experiment-row",
+      onclick: clickToOpen(() => on.select("experiment", e.id)),
+    },
+    kindTag(e),
+    h("span", { class: "experiment-title" }, e.title),
     h(
-      "div",
-      {
-        class: `experiment-row${selected === e.id ? " selected" : ""}`,
-        onclick: clickToOpen(() => on.select("experiment", e.id)),
-      },
-      kindTag(e),
-      h("span", { class: "experiment-title" }, e.title),
+      "small",
+      { class: "experiment-meta" },
+      idButton(e.id, `experiment:${e.id}`, () => on.select("experiment", e.id), false),
+      ` / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
+    ),
+    h("span", { class: `impact${e.lights ? " lit" : ""}` }, impact(e)),
+  );
+}
+
+/** Draws an experiment card selected or not. @param {HTMLElement} row @param {boolean} selected */
+export function markRow(row, selected) {
+  row.classList.toggle("selected", selected);
+  row.querySelector(".experiment-meta .ref")?.setAttribute("aria-pressed", String(selected));
+}
+
+/** The line in place of an empty experiments list. */
+export const noExperiments = () => h("li", {}, "No suggested experiment of this kind.");
+
+/** The line in place of an empty work list. */
+export const noWork = () =>
+  h(
+    "li",
+    {},
+    "No fact that a claim needs can rise further: each one is violated or has the strongest status that its route allows.",
+  );
+
+/**
+ * One fact's row in "Facts that make the most claims available"; `counted` = some row shows a
+ * count (a zero row keeps the column).
+ * @param {import("./envelope.js").Envelope["work"][number]} w @param {Lookups} ix
+ * @param {Handlers} on @param {boolean} counted
+ */
+export function workRow(w, ix, on, counted) {
+  return h(
+    "li",
+    { class: "work-item", onclick: clickToOpen(() => on.select("fact", w.fact)) },
+    counted
+      ? h(
+          "span",
+          { class: `work-count${w.unlocks.length ? "" : " none"}`, "aria-hidden": "true" },
+          w.unlocks.length ? String(w.unlocks.length) : "",
+        )
+      : null,
+    h(
+      "span",
+      {},
+      h(
+        "strong",
+        {},
+        idButton(w.fact, `work:${w.fact}`, () => on.select("fact", w.fact)),
+      ),
+      ` ${factText(ix, w.fact)}`,
       h(
         "small",
-        { class: "experiment-meta" },
-        idButton(
-          e.id,
-          `experiment:${e.id}`,
-          () => on.select("experiment", e.id),
-          selected === e.id,
-        ),
-        ` / ${word(efforts, e.effort)}${e.creates ? " / creates new data" : e.prospective ? " / on new data" : ""}`,
+        { class: "list-meta" },
+        w.unlocks.length
+          ? `Makes ${count(w.unlocks.length, "claim", "claims")} available alone.`
+          : null,
+        togetherWith(ix, w, on),
       ),
-      h("span", { class: `impact${e.lights ? " lit" : ""}` }, impact(e)),
     ),
   );
 }
 
-/** @param {Envelope} env @param {Handlers} on */
-export function workList(env, on) {
-  if (!env.work.length) {
-    return [
-      h(
-        "p",
-        {},
-        "No fact that a claim needs can rise further: each one is violated or has the strongest status that its route allows.",
-      ),
-    ];
-  }
-  // A count shows only above 0; a zero row keeps the column when another row has a count.
-  const counted = env.work.some((w) => w.unlocks.length > 0);
-  return env.work.map((w) =>
-    h(
-      "div",
-      { class: "work-item", onclick: clickToOpen(() => on.select("fact", w.fact)) },
-      counted
-        ? h(
-            "span",
-            { class: `work-count${w.unlocks.length ? "" : " none"}`, "aria-hidden": "true" },
-            w.unlocks.length ? String(w.unlocks.length) : "",
-          )
-        : null,
-      h(
-        "span",
-        {},
-        h(
-          "strong",
-          {},
-          idButton(w.fact, `work:${w.fact}`, () => on.select("fact", w.fact)),
-        ),
-        ` ${factText(env, w.fact)}`,
-        h(
-          "small",
-          { class: "list-meta" },
-          w.unlocks.length
-            ? `Makes ${count(w.unlocks.length, "claim", "claims")} available alone.`
-            : null,
-          togetherWith(env, w, on),
-        ),
-      ),
-    ),
-  );
+/** What a work row shows (its fact's text, each gated claim's gaps + final state).
+ * @param {import("./envelope.js").Envelope["work"][number]} w @param {Lookups} ix
+ * @param {boolean} counted */
+export function workSig(w, ix, counted) {
+  const gates = w.gates.map((id) => {
+    const c = ix.claims.get(id);
+    return c ? [c.final, c.gaps] : [];
+  });
+  return JSON.stringify([w, factText(ix, w.fact), gates, counted]);
 }
 
 /**
  * Each claim that needs a work fact without being made available by it alone, with what that
  * claim needs together with it (its other gaps, from the engine's lists).
- * @param {Envelope} env @param {Envelope["work"][number]} w @param {Handlers} on
+ * @param {Lookups} ix @param {import("./envelope.js").Envelope["work"][number]} w
+ * @param {Handlers} on
  */
-function togetherWith(env, w, on) {
+function togetherWith(ix, w, on) {
+  const unlocks = new Set(w.unlocks);
   return w.gates
-    .filter((id) => !w.unlocks.includes(id))
+    .filter((id) => !unlocks.has(id))
     .map((id, i) => {
-      const c = env.claims.find((x) => x.id === id);
+      const c = ix.claims.get(id);
       const others = (c?.gaps ?? []).filter((f) => f !== w.fact);
       const together = others.length
         ? [", together with ", andList(others.map((f) => ref("fact", f, on)))]
@@ -607,98 +604,74 @@ function togetherWith(env, w, on) {
     });
 }
 
-/** @param {Envelope} env @param {Handlers} on */
-export function blockerList(env, on) {
-  return env.blockers.map((b) =>
+/** @param {import("./envelope.js").Envelope["blockers"][number]} b @param {Lookups} ix
+ * @param {Handlers} on */
+export function blockerRow(b, ix, on) {
+  return h(
+    "li",
+    { class: "plain-row" },
+    ref("fact", b.fact, on),
+    ` ${factText(ix, b.fact)} `,
+    h("small", { class: "list-meta" }, "Blocks ", refs("claim", b.claims, on), "."),
+  );
+}
+
+/** @param {import("./envelope.js").Envelope["lints"][number]} l @param {Handlers} on */
+export function checkRow(l, on) {
+  return h("li", { class: "plain-row" }, ref("claim", l.claim, on), ` ${l.message}`);
+}
+
+/** A group's heading + count; an untitled group has none. @param {string} title @param {number} n */
+export const groupTitle = (title, n) =>
+  title
+    ? h("h3", { class: "group-title" }, title, h("span", { class: "group-count" }, ` ${n}`))
+    : null;
+
+/**
+ * One claim's row in the text view: its label, headline, exact statement + what it waits on.
+ * @param {Claim} c @param {Lookups} ix @param {Handlers} on
+ */
+export function textRow(c, ix, on) {
+  return h(
+    "li",
+    { class: "text-row", onclick: clickToOpen(() => on.select("claim", c.id)) },
     h(
-      "li",
-      { class: "plain-row" },
-      ref("fact", b.fact, on),
-      ` ${factText(env, b.fact)} `,
-      h("small", { class: "list-meta" }, "Blocks ", refs("claim", b.claims, on), "."),
+      "span",
+      { class: "claim-words" },
+      claimTag(c, () => on.select("claim", c.id), `text:${c.id}`),
+      h("span", { class: "text-sentence" }, headline(c)),
+      exactStatement(c),
+      conditions(c, ix, on),
     ),
   );
 }
 
-/** @param {Envelope} env @param {Handlers} on */
-export function checkList(env, on) {
-  return env.lints
-    .filter((l) => l.waived === undefined)
-    .map((l) => h("li", { class: "plain-row" }, ref("claim", l.claim, on), ` ${l.message}`));
+/**
+ * One open fact's row under "Facts to verify" in the text view.
+ * @param {string} id @param {Lookups} ix @param {Handlers} on
+ */
+export function openFactRow(id, ix, on) {
+  const f = ix.facts.get(id);
+  const raisers = ix.raiserCount.get(id) ?? 0;
+  return h(
+    "li",
+    { class: "text-row stacked", onclick: clickToOpen(() => on.select("fact", id)) },
+    h(
+      "span",
+      { class: "text-sentence" },
+      idButton(id, `text:${id}`, () => on.select("fact", id)),
+      ` ${f?.text ?? ""}`,
+    ),
+    h(
+      "small",
+      { class: "list-meta" },
+      `${word(statuses, f?.effective ?? "open")}. ${word(routes, f?.route ?? "")}. ${count(raisers, "suggested experiment", "suggested experiments")}.`,
+    ),
+  );
 }
 
-/** A group's heading + count; an untitled group has none. @param {string} title @param {Claim[]} cs */
-export const groupTitle = (title, cs) =>
-  title
-    ? h("h3", { class: "group-title" }, title, h("span", { class: "group-count" }, ` ${cs.length}`))
-    : null;
-
-/**
- * The text view of one question: each group's sentences, then each open fact once.
- * @param {Envelope} env @param {[string, Claim[]][]} groups @param {Handlers} on
- */
-export function textView(env, groups, on) {
-  const claims = groups.flatMap(([, cs]) => cs);
-  const open = [...new Set(claims.flatMap((c) => c.gaps.concat(c.premises)))];
-  return [
-    groups.map(([title, cs]) => [
-      groupTitle(title, cs),
-      h(
-        "ul",
-        { class: "text-list" },
-        cs.map((c) =>
-          h(
-            "li",
-            { class: "text-row", onclick: clickToOpen(() => on.select("claim", c.id)) },
-            h(
-              "span",
-              { class: "claim-words" },
-              claimTag(c, () => on.select("claim", c.id), `text:${c.id}`),
-              h("span", { class: "text-sentence" }, headline(c)),
-              exactStatement(c),
-              conditions(c, env, on),
-            ),
-          ),
-        ),
-      ),
-    ]),
-    open.length
-      ? [
-          h(
-            "h3",
-            { class: "group-title" },
-            "Facts to verify",
-            h("span", { class: "group-count" }, ` ${open.length}`),
-          ),
-          h(
-            "ul",
-            { class: "text-list" },
-            open.map((id) => {
-              const f = env.facts.find((x) => x.id === id);
-              const raisers = env.experiments.filter((e) =>
-                e.success.some((o) => o.fact === id),
-              ).length;
-              return h(
-                "li",
-                {
-                  class: "text-row stacked",
-                  onclick: clickToOpen(() => on.select("fact", id)),
-                },
-                h(
-                  "span",
-                  { class: "text-sentence" },
-                  idButton(id, `text:${id}`, () => on.select("fact", id)),
-                  ` ${f?.text ?? ""}`,
-                ),
-                h(
-                  "small",
-                  { class: "list-meta" },
-                  `${word(statuses, f?.effective ?? "open")}. ${word(routes, f?.route ?? "")}. ${count(raisers, "suggested experiment", "suggested experiments")}.`,
-                ),
-              );
-            }),
-          ),
-        ]
-      : null,
-  ];
+/** What an open fact's row shows. @param {string} id @param {Lookups} ix */
+export function openFactSig(id, ix) {
+  const f = ix.facts.get(id);
+  return JSON.stringify([id, f?.text, f?.effective, f?.route, ix.raiserCount.get(id) ?? 0]);
 }
