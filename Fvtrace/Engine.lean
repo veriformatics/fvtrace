@@ -387,6 +387,30 @@ def plan (c : Claim) : PlanResult :=
 
 end Scenario
 
+/-- One experiment's row in the envelope (`kernel.md` P-rows): its counts + flags, read once. -/
+structure ExperimentRow where
+  experiment : Experiment
+  lights : Nat
+  clears : Nat
+  lowers : Nat
+  breaks : Nat
+  applied : Bool
+  contingent : Bool
+
+/-- A plan's result kind + its state when planned (the envelope's plan, `kernel.md` V-env). -/
+inductive PlanSummary where
+  | inconsistent
+  | tooLarge
+  | noImprovement
+  | planned (state : State)
+  deriving DecidableEq, Repr
+
+def PlanResult.summary : PlanResult → PlanSummary
+  | .inconsistent _ => .inconsistent
+  | .tooLarge _ => .tooLarge
+  | .noImprovement _ => .noImprovement
+  | .planned _ _ st .. => .planned st
+
 /-! ## What-if input -/
 
 /-- S-override validity: each key names a fact, once, with a status the fact allows. -/

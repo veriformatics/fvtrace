@@ -60,11 +60,11 @@ def factJson (A : Answers) (bindingFor : String → Option Receipt.Binding) (f :
      | none => []))
 
 /-- A plan's result kind + its state when planned (the envelope's plan; the whole = details). -/
-def planSummaryJson : PlanResult → Value
-  | .planned _ _ st .. => .obj [("result", .str "planned"), ("state", .str st.name)]
-  | .inconsistent _ => .obj [("result", .str "inconsistent")]
-  | .tooLarge _ => .obj [("result", .str "tooLarge")]
-  | .noImprovement _ => .obj [("result", .str "noImprovement")]
+def planSummaryJson : PlanSummary → Value
+  | .planned st => .obj [("result", .str "planned"), ("state", .str st.name)]
+  | .inconsistent => .obj [("result", .str "inconsistent")]
+  | .tooLarge => .obj [("result", .str "tooLarge")]
+  | .noImprovement => .obj [("result", .str "noImprovement")]
 
 /-- The claim's label: its verdict + qualifiers, the creator's title as the token
 `if-creator-runs` + `creator` = that experiment's id (`kernel.md` V-env: no text repeats per
@@ -79,7 +79,7 @@ def labelJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) : Value :
   .obj ([("verdict", .str (A.final c).verdict), ("qualifiers", strs quals)] ++
     (match creator with | some e => [("creator", .str e)] | none => []))
 
-def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : PlanResult) :
+def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : PlanSummary) :
     Value :=
   .obj ([("id", .str c.id), ("question", .str c.question), ("subject", .str c.subject),
     ("level", .str c.level.name), ("text", .str c.text)] ++
@@ -107,21 +107,18 @@ def experimentLists (A : Answers) (e : Experiment) : List (String × Value) :=
   [("closure", strs cl), ("raises", overridesJson (A.raised cl)),
    ("wins", .arr ((A.successMoves cl).map moveJson)), ("losses", .arr (losses.map moveJson))]
 
-def experimentJson (A : Answers) (e : Experiment) : Value :=
-  let cl := A.closure [e.id]
-  let wins := A.successMoves cl
-  let losses := if e.failure.isEmpty then [] else A.failureMoves e
-  let mergedHere := A.merged cl
+/-- An experiment's member of the envelope, its counts + flags read off its row (P-rows). -/
+def experimentJson (A : Answers) (r : ExperimentRow) : Value :=
+  let e := r.experiment
   .obj [("id", .str e.id), ("subject", .str e.subject), ("kind", .str e.kind.name),
     ("effort", .str e.effort.name), ("title", .str e.title), ("method", .str e.method),
     ("resources", .str e.resources), ("caveat", .str e.caveat),
     ("success", Encode.outcome e.success), ("failure", Encode.outcome e.failure),
-    ("requires", strs e.requires),
-    ("applied", .bool (mergedHere.all fun (k, st) => A.override? k == some st)),
-    ("contingent", .bool (mergedHere.any fun (k, _) => A.isResult k)),
+    ("requires", strs e.requires), ("applied", .bool r.applied),
+    ("contingent", .bool r.contingent),
     ("prospective", .bool (A.prospective e.subject)), ("creates", .bool (A.creates e)),
-    ("lights", .num (Scenario.lights wins)), ("clears", .num (Scenario.clears wins)),
-    ("lowers", .num (Scenario.lowers wins)), ("breaks", .num (Scenario.breaks losses))]
+    ("lights", .num r.lights), ("clears", .num r.clears), ("lowers", .num r.lowers),
+    ("breaks", .num r.breaks)]
 
 /-- The one-click what-ifs from this scenario, each as the complete what-if it leads to (so a
 click replaces the what-if): suppose a closable fact at its route's ceiling, an experiment's
@@ -142,7 +139,7 @@ def actionsWith (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResul
 
 /-- The one-click domain as references (`kernel.md` V-env actions): the ids, kinds + targets
 `actionsWith` lists, in its order, without building any what-if. -/
-def actionRefs (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResult)) :
+def actionRefs (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanSummary)) :
     List (String × String × String) :=
   (t.facts.filter A.closable).map (fun f => (s!"suppose:{f.id}", "suppose", f.id)) ++
   t.experiments.map (fun e => (s!"success:{e.id}", "success", e.id)) ++
@@ -150,7 +147,7 @@ def actionRefs (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResult
     (fun e => (s!"failure:{e.id}", "failure", e.id)) ++
   claimPlans.filterMap fun (c, p) =>
     match p with
-    | .planned .. => some (s!"plan:{c.id}", "plan", c.id)
+    | .planned _ => some (s!"plan:{c.id}", "plan", c.id)
     | _ => none
 
 /-- The one-click what-ifs from this scenario (`actionsWith` on its fast answers). -/
@@ -208,8 +205,7 @@ def itemLists (t : Trace) (A : Answers) : Item → Except String (List (String �
         ("plan", planJson (A.plan c))]
     | none => .error s!"\"{id}\" is not a claim on record"
   | .fact id => match A.lookups.fact? id with
-    | some _ => .ok [("raisedBy", strs (((A.experimentOrder ()).filter fun e =>
-        (A.raised (A.closure [e.id])).any (·.1 == id)).map (·.id)))]
+    | some _ => .ok [("raisedBy", strs (A.raisers id))]
     | none => .error s!"\"{id}\" is not a fact on record"
 
 /-- The details document of one item (`fvtrace.details/1`), or the item's refusal. -/
@@ -230,7 +226,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
   let existing := t.claims.filter fun c => !A.prospective c.subject
   -- Paired by `map`, never `List.zip`: Init's zip specialization recurses once per claim, which
   -- overflows the page engine's WebAssembly stack near 9,600 claims.
-  let claimPlans := t.claims.map fun c => (c, A.plan c)
+  let claimPlans := t.claims.map fun c => (c, A.planSummary c)
   let byId := Receipt.BindingIndex.of bindings
   .obj [("schema", .str "fvtrace.evaluation/2"),
     ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
@@ -250,7 +246,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
       .obj [("fact", .str w.fact), ("unlocks", strs w.unlocks), ("gates", strs w.gates)])),
     ("blockers", .arr ((A.blockerFacts ()).map fun (f, cs) =>
       .obj [("fact", .str f), ("claims", strs cs)])),
-    ("experiments", .arr ((A.experimentOrder ()).map (experimentJson A))),
+    ("experiments", .arr ((A.experimentRows ()).map (experimentJson A))),
     ("exclusions", .arr (t.exclusions.map fun x =>
       .obj [("id", .str x.id), ("subject", .str x.subject),
         ("between", strs [x.between.1, x.between.2]), ("text", .str x.text),

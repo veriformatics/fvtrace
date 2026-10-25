@@ -52,8 +52,42 @@ structure Answers where
   experimentOrder : Unit → List Experiment
   /-- The complete what-if after `extra` (`Scenario.withOverrides`). -/
   withOverrides : Overrides → Overrides
+  /-- Each experiment's row, in `experimentOrder` (`kernel.md` P-rows). -/
+  experimentRows : Unit → List ExperimentRow
+  /-- A claim's plan result kind + state (`kernel.md` V-env). -/
+  planSummary : Claim → PlanSummary
+  /-- The experiments, in `experimentOrder`, whose success closure raises a fact (V-details). -/
+  raisers : String → List String
 
 namespace Answers
+
+/-- An experiment's row from the answers it reads: its closure's success moves, its failure's,
+whether the what-if already holds its success, whether that touches a `result` fact. -/
+def rowOf (closure : List String → List String) (merged : List String → List (String × Status))
+    (successMoves : List String → List Scenario.Move)
+    (failureMoves : Experiment → List Scenario.Move) (override? : String → Option Status)
+    (isResult : String → Bool) (e : Experiment) : ExperimentRow :=
+  let cl := closure [e.id]
+  let wins := successMoves cl
+  let losses := if e.failure.isEmpty then [] else failureMoves e
+  let m := merged cl
+  { experiment := e, lights := Scenario.lights wins, clears := Scenario.clears wins,
+    lowers := Scenario.lowers wins, breaks := Scenario.breaks losses,
+    applied := m.all fun x => override? x.1 == some x.2,
+    contingent := m.any fun x => isResult x.1 }
+
+/-- The experiments of `order` whose success closure raises `f`, by id. -/
+def raisersOf (order : List Experiment) (closure : List String → List String)
+    (raised : List String → Overrides) (f : String) : List String :=
+  (order.filter fun e => (raised (closure [e.id])).any (·.1 == f)).map (·.id)
+
+/-- `Evaluate.experimentBefore` on rows: more lights, then more clears, then less effort, then the
+smaller id. -/
+def rowBefore (a b : ExperimentRow) : Bool :=
+  let ea := Effort.all.idxOf a.experiment.effort
+  let eb := Effort.all.idxOf b.experiment.effort
+  a.lights > b.lights || (a.lights == b.lights && (a.clears > b.clears || (a.clears == b.clears &&
+    (ea < eb || (ea == eb && a.experiment.id < b.experiment.id)))))
 
 /-- The `Scenario` functions themselves. -/
 def reference (s : Scenario) : Answers where
@@ -90,6 +124,12 @@ def reference (s : Scenario) : Answers where
   failureMoves e := s.moves (s.applyFailure e)
   experimentOrder _ := s.trace.experiments.mergeSort (Evaluate.experimentBefore s)
   withOverrides extra := (s.withOverrides extra).overrides
+  experimentRows _ := (s.trace.experiments.mergeSort (Evaluate.experimentBefore s)).map
+    (rowOf s.closure s.merged (fun ids => s.moves (s.applySuccess ids))
+      (fun e => s.moves (s.applyFailure e)) (s.overrides.lookup ·) (s.resultFacts.contains ·))
+  planSummary c := (s.plan c).summary
+  raisers := raisersOf (s.trace.experiments.mergeSort (Evaluate.experimentBefore s)) s.closure
+    s.raised
 
 end Answers
 
