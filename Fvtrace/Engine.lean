@@ -425,9 +425,8 @@ def Overrides.normalize (o : Overrides) : Overrides := o.mergeSort fun a b => a.
 opens with the token it rejects: the GUI shows it as a sentence, the CLI after `fvtrace: `. Facts
 + earlier keys are looked up through indexes (`kernel.md` P-shell): every entry before the current
 one passed (the first refusal ends the loop), so an earlier entry naming the key = a repeat. -/
-def Overrides.parse (t : Trace) (spec : String) : Except String Overrides := do
+def Overrides.parseWith (L : Lookups) (spec : String) : Except String Overrides := do
   let entries := (spec.splitOn ",").filter (!·.isEmpty)
-  let L := Lookups.fast t
   let seen := Index.ofKeys compare (entries.map fun e => (e.splitOn "=").headD "")
   let mut out : Array (String × Status) := #[]
   for (e, i) in entries.zipIdx do
@@ -444,5 +443,9 @@ def Overrides.parse (t : Trace) (spec : String) : Except String Overrides := do
       out := out.push (k, st)
     | _ => throw s!"\"{e}\" is not of the form FACT=STATUS"
   return Overrides.normalize out.toList
+
+/-- `parseWith` on the trace's own lookups. -/
+def Overrides.parse (t : Trace) (spec : String) : Except String Overrides :=
+  Overrides.parseWith (Lookups.fast t) spec
 
 end Fvtrace

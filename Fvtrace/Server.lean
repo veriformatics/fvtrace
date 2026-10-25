@@ -37,7 +37,7 @@ SHA-256 of its bytes, and the last answer's answers + its envelope text once pri
 Answers read from it equal fresh ones, byte for byte; the launch evaluation's text answers the
 page's first request. -/
 structure Kept where
-  trace : Option (String × Trace) := none
+  trace : Option (String × Trace × Session.Prepared) := none
   last : Option (String × Answers × Option String) := none
 
 /-- A response before transport. -/
@@ -144,15 +144,16 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
     let key ← Digest.ofBytes bytes
     let st ← get
     let fresh := fun _ : Unit => Session.checked cfg.target (decodeTraceWithin maxTraceBytes bytes)
-    let tr ← match st.trace with
-      | some (k, tr) => if k == key then pure tr else match fresh () with
-        | .ok tr => pure tr
+    -- The trace + what its content alone decides, kept by its bytes (kernel.md P-cache).
+    let (tr, prep) ← match st.trace with
+      | some (k, tr, prep) => if k == key then pure (tr, prep) else match fresh () with
+        | .ok tr => pure (tr, ← Session.prepare tr)
         | .error p => set ({} : Kept); return problemReply p
       | none => match fresh () with
-        | .ok tr => pure tr
+        | .ok tr => pure (tr, ← Session.prepare tr)
         | .error p => set ({} : Kept); return problemReply p
-    set { st with trace := some (key, tr) }
-    let loaded ← Session.bindChecked cfg.target tr (some r.whatif) (!cfg.cached) cache
+    set { st with trace := some (key, tr, prep) }
+    let loaded ← Session.bindPrepared cfg.target tr prep (some r.whatif) (!cfg.cached) cache
     Session.closeCache cfg.target cache
     let l ← match loaded with
       | .ok l => pure l
@@ -162,17 +163,18 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
       | some (v', A, _) => if v' == v then A else Answers.fast l.scenario
       | none => Answers.fast l.scenario
     let v0 ← Session.viewOf l
-    let l' ← match r.action with
+    let (l', v) ← match r.action with
       | some a => match Evaluate.expandWith tr (answersAt l v0) a with
-        | .ok o => pure { l with scenario := { l.scenario with overrides := o } }
+        | .ok o =>
+          let l' := { l with scenario := { l.scenario with overrides := o } }
+          pure (l', ← Session.viewOf l')
         | .error m => return problemReply (.badAction m)
-      | none => pure l
-    let v ← Session.viewOf l'
+      | none => pure (l, v0)
     let A := answersAt l' v
     let text := match st.last with
       | some (v', _, t) => if v' == v then t else none
       | none => none
-    set { st with trace := some (key, tr), last := some (v, A, text) }
+    set { st with trace := some (key, tr, prep), last := some (v, A, text) }
     let tagged := fun (rep : Reply) =>
       { rep with headers := rep.headers ++ [("X-Fvtrace-View", v)] }
     if view.any (· != v) then
@@ -185,7 +187,7 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
     | none =>
       let body := text.getD
         (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest l'.review).pretty
-      set { st with trace := some (key, tr), last := some (v, A, some body) }
+      set { st with trace := some (key, tr, prep), last := some (v, A, some body) }
       return tagged { status := .ok, contentType := "application/json", body }
 
 /-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem. -/

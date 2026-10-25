@@ -78,21 +78,37 @@ def readWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
 def read : Store.Target → Bool → IO (Except Problem (Except (Array Decode.Diag) Trace)) :=
   readWithin maxTraceBytes
 
-/-- Binds a checked trace + applies the what-if (`FACT=STATUS,…`): `load` past its reading. -/
-def bindChecked (t : Store.Target) (tr : Trace) (whatif : Option String) (rehash : Bool)
-    (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
+/-- What a checked trace's content alone decides: its lookups, review digest + review state
+(`fvtrace serve` keeps it beside the trace, both keyed by the trace's bytes: kernel.md P-cache). -/
+structure Prepared where
+  digest : String
+  review : Receipt.ReviewState
+
+def prepare (tr : Trace) : IO Prepared := do
+  let digest ← Receipt.reviewDigest tr
+  return { digest, review := Receipt.reviewStateOf tr digest }
+
+/-- `bindChecked` on the trace's prepared parts: receipts bound afresh (evidence is read again),
+then the what-if. -/
+def bindPrepared (t : Store.Target) (tr : Trace) (p : Prepared) (whatif : Option String)
+    (rehash : Bool) (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
   let L := Lookups.fast tr
   let overrides ← match whatif with
     | none => pure []
     | some spec =>
-      match Overrides.parse tr spec with
+      match Overrides.parseWith L spec with
       | .ok o => pure o
       | .error m => return .error (.badWhatif m)
   let bindings ← Receipt.bindings tr t.project cache rehash L
   let byId := Receipt.BindingIndex.of bindings
   let current := fun id => (byId.find id).any (·.current)
   return .ok { target := t, scenario := { trace := tr, current, overrides }, bindings,
-               digest := ← Receipt.reviewDigest tr, review := ← Receipt.reviewState tr }
+               digest := p.digest, review := p.review }
+
+/-- Binds a checked trace + applies the what-if (`FACT=STATUS,…`): `load` past its reading. -/
+def bindChecked (t : Store.Target) (tr : Trace) (whatif : Option String) (rehash : Bool)
+    (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
+  bindPrepared t tr (← prepare tr) whatif rehash cache
 
 /-- A trace decoded + checked: the trace, or why not. -/
 def checked (t : Store.Target) (decoded : Except (Array Decode.Diag) Trace) :
