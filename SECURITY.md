@@ -21,9 +21,11 @@ These parts of fvTrace read data that can come from other people:
   carry the token; the server reads a request's body only after it accepts the token, and it
   refuses a body larger than 16 MiB.
 - The page that `fvtrace export --html` writes and the folder that `fvtrace export --bundle`
-  writes. The page runs the fvTrace engine, compiled to WebAssembly, in the browser. Its content
-  security policy allows only the page's own script and style, and the compilation of
-  WebAssembly. The page loads nothing from the network. A link to the page can carry a what-if;
+  writes. The page runs the fvTrace engine, compiled to WebAssembly, in the browser, in a
+  background worker that the page makes from its own copy of the engine's code. Its content
+  security policy allows only the page's own script and style, the compilation of WebAssembly,
+  and that one worker: one Trusted Types policy accepts the address of the page's own worker
+  and refuses every other. The page loads nothing from the network. A link to the page can carry a what-if;
   the engine reads it as text.
 - Trace files and the evidence files that they name.
 - The build: `lake build` downloads Emscripten and the Lean runtime sources, and refuses each

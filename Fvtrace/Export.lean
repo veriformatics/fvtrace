@@ -24,6 +24,13 @@ def modules : List (String × String) :=
   FvtraceWeb.files.filterMap fun (path, _, body) =>
     if path.endsWith ".js" then some ((path.drop 1).dropEnd 3 |>.toString, body) else none
 
+/-- The page's modules: every one but the engine worker's entry, which runs in its Worker. -/
+def pageModules : List (String × String) := modules.filter (·.1 != "worker")
+
+/-- The engine worker's script (user ruling: the engine in a Worker): its entry + the loader. -/
+def workerModules : List (String × String) :=
+  modules.filter fun (n, _) => n == "worker" || n == "engine"
+
 /-- `import { a, b } from "./m.js";` ↦ `(["a", "b"], "m")`. -/
 def parseImport (line : String) : Option (List String × String) := do
   let [_, rest] := line.splitOn "{" | none
@@ -143,19 +150,23 @@ def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
   let some (_, _, html) := FvtraceWeb.files.find? (·.1 == "/") | throw (IO.userError "no page")
   let some (_, _, css) := FvtraceWeb.files.find? (·.1 == "/style.css")
     | throw (IO.userError "no stylesheet")
-  let script ← IO.ofExcept (bundle modules)
+  let script ← IO.ofExcept (bundle pageModules)
+  let worker ← IO.ofExcept (bundle workerModules)
   unless !engineText.isEmpty && base64Text engineText do
     throw (IO.userError "the embedded engine is not base64 text; rebuild fvtrace")
-  -- `'wasm-unsafe-eval'` admits WebAssembly compilation alone (JavaScript `eval` stays refused).
+  -- `'wasm-unsafe-eval'` admits WebAssembly compilation alone (JavaScript `eval` stays refused);
+  -- `worker-src blob:` + one Trusted Types policy admit the engine's Worker, made from the page's
+  -- own worker block (the policy accepts that one URL alone: `web/app.js`).
   let csp := s!"default-src 'none'; script-src {← cspHash script} 'wasm-unsafe-eval'; " ++
-    s!"style-src {← cspHash css}; base-uri 'none'; form-action 'none'; " ++
-    "require-trusted-types-for 'script'; trusted-types 'none'"
+    s!"style-src {← cspHash css}; worker-src blob:; base-uri 'none'; form-action 'none'; " ++
+    "require-trusted-types-for 'script'; trusted-types fvtrace-engine"
   let head := s!"<meta http-equiv=\"Content-Security-Policy\" content=\"{csp}\" />\n" ++
     s!"    <style>{css}</style>\n" ++
     s!"    <script type=\"application/json\" id=\"fvtrace-data\">\
       {htmlSafe (data l).canonical}</script>\n" ++
     s!"    <script type=\"application/octet-stream\" id=\"fvtrace-engine\">{engineText}\
       </script>\n" ++
+    s!"    <script type=\"text/plain\" id=\"fvtrace-worker\">{worker}</script>\n" ++
     s!"    <script type=\"module\">{script}</script>"
   let linked := "<link rel=\"stylesheet\" href=\"style.css\" />\n" ++
     "    <script type=\"module\" src=\"app.js\"></script>"

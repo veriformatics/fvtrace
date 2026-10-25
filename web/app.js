@@ -7,7 +7,7 @@
 
 import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
-import { EngineError, startEngine } from "./engine.js";
+import { EngineError } from "./engine.js";
 import {
   DecodeError,
   decodeDetails,
@@ -109,8 +109,10 @@ function takeToken() {
   history.replaceState(null, "", rest ? `#${rest}` : `${location.pathname}${location.search}`);
 }
 /** The exported page's engine, started once; after any failure it is never called again. */
-/** @type {Promise<import("./engine.js").Engine> | undefined} */
+/** @type {Promise<{ request: (text: string) => Promise<string> }> | undefined} */
 let engineStart;
+/** The page engine's requests, in order (`ask`). @type {Promise<void>} */
+let engineQueue = Promise.resolve();
 let engineDead = false;
 /** An older export's `#action=…` link, translated once the recorded envelope is known. */
 /** @type {string | undefined} */
@@ -119,15 +121,102 @@ let legacyAction;
 /** The snapshot as the engine reads it (JSON text). */
 const snapshotText = exported ? JSON.stringify(exported.snapshot) : "";
 
-/** The page's engine, started + loaded with the page's snapshot once (kernel.md E-state). */
-function engine() {
-  engineStart ??= startEngine(document.getElementById("fvtrace-engine")?.textContent ?? "").then(
-    (e) => {
-      const problem = e.load(snapshotText);
-      if (problem !== null) throw new EngineError("the engine refused the page's snapshot");
-      return e;
-    },
+/** The engine's Worker, made from the page's own worker block through the one Trusted Types
+ * policy the page's CSP names; the policy accepts that URL alone (kernel.md E-page, E-sec). */
+function makeWorker() {
+  // A page without WebAssembly has no worker that runs it: no worker is started.
+  if (typeof WebAssembly !== "object" || typeof DecompressionStream !== "function")
+    throw new EngineError("this browser lacks WebAssembly or DecompressionStream");
+  const made = URL.createObjectURL(
+    new Blob([document.getElementById("fvtrace-worker")?.textContent ?? ""], {
+      type: "text/javascript",
+    }),
   );
+  /** @type {unknown} */
+  let url = made;
+  /** @type {unknown} */
+  const tt = Reflect.get(globalThis, "trustedTypes");
+  /** @type {unknown} */
+  const create =
+    typeof tt === "object" && tt !== null ? Reflect.get(tt, "createPolicy") : undefined;
+  if (typeof create === "function") {
+    /** @type {unknown} */
+    const policy = Reflect.apply(create, tt, [
+      "fvtrace-engine",
+      {
+        createScriptURL: (/** @type {string} */ u) => {
+          if (u !== made) throw new TypeError("only the page's own worker runs");
+          return u;
+        },
+      },
+    ]);
+    /** @type {unknown} */
+    const toUrl =
+      typeof policy === "object" && policy !== null
+        ? Reflect.get(policy, "createScriptURL")
+        : undefined;
+    if (typeof toUrl === "function") url = Reflect.apply(toUrl, policy, [made]);
+  }
+  /** @type {unknown} */
+  const worker = Reflect.construct(Worker, [url]);
+  if (!(worker instanceof Worker)) throw new EngineError("the engine's worker did not start");
+  return worker;
+}
+
+/** The page's engine in its Worker (user ruling): started, loaded with the page's snapshot once
+ * (kernel.md E-state), then answering requests by message; any failure ends it. */
+function engine() {
+  engineStart ??= (async () => {
+    const worker = makeWorker();
+    let next = 0;
+    /** @type {Map<number, { resolve: (v: string | null) => void, reject: (e: Error) => void }>} */
+    const waiting = new Map();
+    /** @param {Error} e */
+    const failAll = (e) => {
+      for (const w of waiting.values()) w.reject(e);
+      waiting.clear();
+    };
+    worker.addEventListener("message", (/** @type {MessageEvent} */ event) => {
+      /** @type {unknown} */
+      const data = event.data;
+      if (typeof data !== "object" || data === null) return;
+      /** @type {unknown} */
+      const id = Reflect.get(data, "id");
+      const w = typeof id === "number" ? waiting.get(id) : undefined;
+      if (!w || typeof id !== "number") return;
+      waiting.delete(id);
+      /** @type {unknown} */
+      const failed = Reflect.get(data, "failed");
+      /** @type {unknown} */
+      const value = Reflect.get(data, "value");
+      if (typeof failed === "string") w.reject(new EngineError(failed));
+      else if (typeof value === "string" || value === null) w.resolve(value);
+      else w.reject(new EngineError("the engine answered no text"));
+    });
+    worker.addEventListener("error", () => failAll(new EngineError("the engine's worker failed")));
+    worker.addEventListener("messageerror", () =>
+      failAll(new EngineError("the engine's worker failed")),
+    );
+    /** @param {"start" | "load" | "request"} op @param {string} arg
+     * @returns {Promise<string | null>} */
+    const call = (op, arg) =>
+      new Promise((resolve, reject) => {
+        const id = next++;
+        waiting.set(id, { resolve, reject });
+        worker.postMessage({ id, op, arg }, []);
+      });
+    await call("start", document.getElementById("fvtrace-engine")?.textContent ?? "");
+    const problem = await call("load", snapshotText);
+    if (problem !== null) throw new EngineError("the engine refused the page's snapshot");
+    return {
+      /** @param {string} text */
+      request: async (text) => {
+        const answer = await call("request", text);
+        if (answer === null) throw new EngineError("the engine answered no text");
+        return answer;
+      },
+    };
+  })();
   return engineStart;
 }
 
@@ -198,18 +287,26 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
  */
 async function ask(request, shown) {
   if (exported) {
-    const e = await engine();
-    // Checked after the await + decided before returning: a request queued behind a failing one
-    // never enters the instance (several requests can wait on one start-up).
-    if (engineDead) throw new EngineError("the engine stopped earlier");
-    try {
-      /** @type {unknown} */
-      const json = JSON.parse(e.request(JSON.stringify(request)));
-      return { json, view: undefined };
-    } catch (err) {
-      engineDead = true;
-      throw err;
-    }
+    // One request at a time, each checked after the one before it settled: a request queued
+    // behind a failing one never enters the engine (several can wait on one start-up).
+    const run = async () => {
+      const e = await engine();
+      if (engineDead) throw new EngineError("the engine stopped earlier");
+      try {
+        /** @type {unknown} */
+        const json = JSON.parse(await e.request(JSON.stringify(request)));
+        return { json, view: /** @type {string | undefined} */ (undefined) };
+      } catch (err) {
+        engineDead = true;
+        throw err;
+      }
+    };
+    const answer = engineQueue.then(run, run);
+    engineQueue = answer.then(
+      () => undefined,
+      () => undefined,
+    );
+    return answer;
   }
   const send = (/** @type {string} */ token) =>
     fetch("/api/answer", {
