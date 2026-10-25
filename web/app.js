@@ -8,7 +8,13 @@
 import { circuit, lamp, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
 import { EngineError, startEngine } from "./engine.js";
-import { DecodeError, decodeEnvelope, decodeExported, decodeProblem } from "./envelope.js";
+import {
+  DecodeError,
+  decodeDetails,
+  decodeEnvelope,
+  decodeExported,
+  decodeProblem,
+} from "./envelope.js";
 import {
   blockerList,
   checkList,
@@ -25,6 +31,11 @@ import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./
 /** @typedef {import("./envelope.js").Claim} Claim */
 /** @typedef {import("./envelope.js").State} State */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
+/** @typedef {{ whatif: string, action?: string, details?: string }} Request */
+/** The selection's details for the shown view (kernel.md V-details): pending, ready, refused, or
+ * unavailable (the page's engine cannot run).
+ * @typedef {{ item: string, spec: string, state: "pending" | "ready" | "problem" | "off",
+ *   value?: import("./envelope.js").Details, message?: string }} DetailsView */
 
 /** The view: what-if (the spec sent to the engine + the overrides it accepted), question,
 layout, selection, experiment filter. */
@@ -41,7 +52,14 @@ const view = {
 
 /** @type {Envelope | undefined} */
 let env;
-let requested = "";
+/** Request numbers (U-coalesce): an answer older than the newest request of its kind is dropped. */
+let evaluations = 0;
+let detailsAsked = 0;
+/** The view the shown envelope read (served: `X-Fvtrace-View`), sent with each details request. */
+/** @type {string | undefined} */
+let shownView;
+/** @type {DetailsView | undefined} */
+let details;
 
 const island = document.getElementById("fvtrace-data");
 /** @type {unknown} */
@@ -101,8 +119,15 @@ let legacyAction;
 /** The snapshot as the engine reads it (JSON text). */
 const snapshotText = exported ? JSON.stringify(exported.snapshot) : "";
 
+/** The page's engine, started + loaded with the page's snapshot once (kernel.md E-state). */
 function engine() {
-  engineStart ??= startEngine(document.getElementById("fvtrace-engine")?.textContent ?? "");
+  engineStart ??= startEngine(document.getElementById("fvtrace-engine")?.textContent ?? "").then(
+    (e) => {
+      const problem = e.load(snapshotText);
+      if (problem !== null) throw new EngineError("the engine refused the page's snapshot");
+      return e;
+    },
+  );
   return engineStart;
 }
 
@@ -156,18 +181,6 @@ function showRecorded(/** @type {NonNullable<typeof exported>} */ ex) {
   render();
 }
 
-/** An older export's `#action=X` link: X's complete what-if from the recorded envelope, or a
- * notice over the recorded view when it holds no such action. */
-function translateLegacy(/** @type {NonNullable<typeof exported>} */ ex) {
-  const id = legacyAction;
-  legacyAction = undefined;
-  if (id === undefined) return;
-  const a = decodeEnvelope(ex.recorded).actions.find((x) => x.id === id);
-  if (a) view.spec = whatifSpec(new Map(a.overrides.map((o) => [o.fact, o.status])));
-  else showError(`This page holds no what-if "${id}", so it shows the facts as recorded.`);
-  writeHash();
-}
-
 /** The page's engine failed: the recorded view for the rest of the session. */
 function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
   engineDead = true;
@@ -177,68 +190,88 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
   showError(engineFailed);
 }
 
-/** The envelope or problem for `spec`: from the page's engine, or the server's route. */
-/** @param {string} spec @returns {Promise<unknown>} */
-async function evaluate(spec) {
+/**
+ * The answer to `request` (kernel.md V-request: envelope, details or problem) + the view it read:
+ * from the page's engine, or the server's answer route (`shown` = the view the page shows).
+ * @param {Request} request @param {string} [shown]
+ * @returns {Promise<{ json: unknown, view: string | undefined }>}
+ */
+async function ask(request, shown) {
   if (exported) {
     const e = await engine();
     // Checked after the await + decided before returning: a request queued behind a failing one
-    // never enters the instance (several loads can wait on one start-up).
+    // never enters the instance (several requests can wait on one start-up).
     if (engineDead) throw new EngineError("the engine stopped earlier");
     try {
       /** @type {unknown} */
-      const json = JSON.parse(e.answer(snapshotText, spec));
-      const problem = decodeProblem(json);
-      if (problem ? problem.kind !== "what-if" : !decodeEnvelope(json))
-        throw new EngineError("the engine answered neither an envelope nor a what-if problem");
-      return json;
+      const json = JSON.parse(e.request(JSON.stringify(request)));
+      return { json, view: undefined };
     } catch (err) {
       engineDead = true;
       throw err;
     }
   }
-  const url = `/api/evaluation${spec ? `?whatif=${encodeURIComponent(spec)}` : ""}`;
-  const ask = (/** @type {string} */ token) =>
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const send = (/** @type {string} */ token) =>
+    fetch("/api/answer", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(shown === undefined ? {} : { "X-Fvtrace-View": shown }),
+      },
+      body: JSON.stringify(request),
+    });
   const stored = storedToken();
-  let res = await ask(offered ?? stored ?? "");
+  let res = await send(offered ?? stored ?? "");
   if (offered !== undefined) {
     // Any answer but 403 accepts it: a refused what-if counts, since access is decided first.
     if (res.status !== 403) keepToken(offered);
-    else if (stored !== undefined) res = await ask(stored);
+    else if (stored !== undefined) res = await send(stored);
     offered = undefined;
   }
   /** @type {unknown} */
   const json = await res.json();
-  return json;
+  return { json, view: res.headers.get("X-Fvtrace-View") ?? undefined };
 }
 
-// The latest request wins (`requested`): a slower earlier answer, or the engine's start-up, never
-// overwrites a later what-if, reset or click.
-async function load() {
-  if (exported) {
+/** A problem the page's engine may answer without failing (kernel.md E-gui). */
+const recoverable = new Set(["what-if", "action", "item"]);
+
+// The newest request wins (`evaluations`): a slower earlier answer, or the engine's start-up,
+// never overwrites a later what-if, action, reset or click.
+/** Evaluates the shown what-if, or the action `action` from it (kernel.md V-action); `link` = the
+ * action came from an older export's link, whose address keeps its other parts.
+ * @param {string} [action] @param {boolean} [link] */
+async function load(action, link = false) {
+  if (exported && !action) {
     try {
-      translateLegacy(exported);
-      // The recorded view paints first, with no engine: alone, or until the what-if's answer.
+      // The recorded view paints first, with no engine: alone, or until the answer.
       if (!view.spec || !env) showRecorded(exported);
     } catch (e) {
       showError(e instanceof DecodeError ? `This page is damaged (${e.message}).` : String(e));
       return;
     }
+    if (legacyAction !== undefined) {
+      // An older export's `#action=X` link: the engine expands X from the recorded view.
+      const id = legacyAction;
+      legacyAction = undefined;
+      return legacy(id);
+    }
     if (!view.spec) {
-      requested = "";
+      evaluations++;
       document.body.removeAttribute("aria-busy");
+      void loadDetails();
       return;
     }
   }
   const spec = view.spec;
-  requested = spec;
+  const n = ++evaluations;
   document.body.setAttribute("aria-busy", "true");
   try {
-    const json = await evaluate(spec);
-    if (spec !== requested) return;
+    const { json, view: read } = await ask(action ? { whatif: spec, action } : { whatif: spec });
+    if (n !== evaluations) return;
     const problem = decodeProblem(json);
-    if (problem && exported && problem.kind !== "what-if") {
+    if (problem && exported && !recoverable.has(problem.kind)) {
       engineFailure(exported);
       return;
     }
@@ -253,15 +286,26 @@ async function load() {
       return;
     }
     env = decodeEnvelope(json);
+    shownView = read;
     view.whatif = new Map(env.overrides.map((o) => [o.fact, o.status]));
+    if (action) {
+      view.spec = whatifSpec(view.whatif);
+      if (link) {
+        const p = new URLSearchParams(location.hash.slice(1));
+        p.delete("action");
+        p.set("whatif", view.spec);
+        history.replaceState(null, "", `#${p.toString()}`);
+      } else writeHash();
+    }
     byId("error").hidden = true;
     render();
+    void loadDetails();
   } catch (e) {
     // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine;
     // the notice shows whichever view is current, the view resets when this load is the latest.
     if (exported) {
       engineDead = true;
-      if (spec === requested) engineFailure(exported);
+      if (n === evaluations) engineFailure(exported);
       else showError(engineFailed);
     } else
       showError(
@@ -270,8 +314,62 @@ async function load() {
           : "The server did not answer. Is fvtrace serve still running?",
       );
   } finally {
-    if (spec === requested) document.body.removeAttribute("aria-busy");
+    if (n === evaluations) document.body.removeAttribute("aria-busy");
   }
+}
+
+/** An older export's `#action=X`: the engine's expansion of X from the recorded view, or a notice
+ * over the recorded view when it suggests no such what-if. */
+async function legacy(/** @type {string} */ id) {
+  if (engineDead) {
+    showError(engineFailed);
+    return;
+  }
+  view.spec = "";
+  await load(id, true);
+  if (!view.spec) {
+    showError(`This page holds no what-if "${id}", so it shows the facts as recorded.`);
+    writeHash();
+  }
+}
+
+/** The selection's details for the shown view (kernel.md V-details); the inspector shows the
+ * summary meanwhile. */
+async function loadDetails() {
+  const sel = view.selection;
+  if (!sel || !env) {
+    details = undefined;
+    return;
+  }
+  const item = `${sel.kind}:${sel.id}`;
+  const spec = view.spec;
+  if (exported && engineDead) {
+    details = { item, spec, state: "off" };
+    render();
+    return;
+  }
+  details = { item, spec, state: "pending" };
+  render();
+  const n = ++detailsAsked;
+  try {
+    const { json } = await ask({ whatif: spec, details: item }, shownView);
+    if (n !== detailsAsked || spec !== view.spec) return;
+    const problem = decodeProblem(json);
+    if (problem?.kind === "view") {
+      // The claims or their evidence changed since this page's answer: show them again first.
+      await load();
+      return;
+    }
+    details = problem
+      ? { item, spec, state: "problem", message: problem.message }
+      : { item, spec, state: "ready", value: decodeDetails(json) };
+  } catch {
+    if (n !== detailsAsked) return;
+    details = exported
+      ? { item, spec, state: "off" }
+      : { item, spec, state: "problem", message: "The server did not answer." };
+  }
+  render();
 }
 
 /** Sets the what-if, then asks the engine. @param {Map<string, string>} w */
@@ -296,16 +394,23 @@ const on = {
     writeHash();
     render();
     byId("inspector").focus();
+    void loadDetails();
   },
   canToggle(fact) {
     return view.whatif.has(fact) || on.hasAction(`suppose:${fact}`);
   },
   toggle(fact) {
+    // A symbol stacks or removes its fact within the shown what-if (kernel.md E-gui), at the status
+    // the engine names for it.
+    const status = on.supposeStatus(fact);
     if (view.whatif.has(fact)) {
       const w = new Map(view.whatif);
       w.delete(fact);
       setWhatif(w);
-    } else on.apply(`suppose:${fact}`);
+    } else if (status) {
+      // The new fact first, as the expansion orders it (the action's keys, then the rest).
+      setWhatif(new Map([[fact, status], ...view.whatif]));
+    }
   },
   supposeStatus(fact) {
     const a = (env?.actions ?? []).find((x) => x.id === `suppose:${fact}`);
@@ -315,8 +420,11 @@ const on = {
     return env?.actions.some((a) => a.id === action) ?? false;
   },
   apply(action) {
-    const a = env?.actions.find((x) => x.id === action);
-    if (a) setWhatif(new Map(a.overrides.map((o) => [o.fact, o.status])));
+    if (exported && engineDead) {
+      showError(engineFailed);
+      return;
+    }
+    void load(action);
   },
 };
 
@@ -461,7 +569,9 @@ function draw(e) {
           ),
         ),
   );
-  fill(byId("inspector"), inspector(e, sel, on));
+  const shown = details && sel && details.item === `${sel.kind}:${sel.id}` ? details : undefined;
+  fill(byId("inspector"), inspector(e, sel, on, shown));
+  byId("inspector").toggleAttribute("aria-busy", shown?.state === "pending");
   for (const b of document.querySelectorAll("[data-filter]")) {
     b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === view.filter));
   }

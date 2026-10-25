@@ -19,6 +19,10 @@ import {
 /** @typedef {import("./envelope.js").Experiment} Experiment */
 /** @typedef {import("./envelope.js").Move} Move */
 /** @typedef {import("./envelope.js").Override} Override */
+/** @typedef {import("./envelope.js").Plan} Plan */
+/** @typedef {import("./dom.js").Children} Children */
+/** @typedef {import("./envelope.js").Details} Details */
+/** @typedef {import("./app.js").DetailsView} DetailsView */
 
 /**
  * @typedef {{ select: (kind: "fact" | "claim" | "experiment", id: string) => void,
@@ -108,12 +112,28 @@ function changeList(os, env, on) {
   );
 }
 
-/** @param {Envelope} env @param {string} id @param {Handlers} on */
-function inspectFact(env, id, on) {
+/** The line in place of a detail section the page's engine cannot answer (user ruling). */
+const detailsOff =
+  "This browser cannot run the what-ifs on this page, so it cannot show these details.";
+
+/**
+ * A detail section from the selection's details (kernel.md V-details): its content once ready,
+ * the engine-off line or the refusal, nothing while pending (the inspector reads as busy).
+ * @param {DetailsView | undefined} d @param {(v: Details) => Children} show
+ * @returns {Children}
+ */
+function detailed(d, show) {
+  if (d?.state === "ready" && d.value) return show(d.value);
+  if (d?.state === "off") return h("p", { class: "note" }, detailsOff);
+  if (d?.state === "problem") return h("p", { class: "note" }, d.message ?? "");
+  return null;
+}
+
+/** @param {Envelope} env @param {string} id @param {Handlers} on @param {DetailsView} [d] */
+function inspectFact(env, id, on, d) {
   const f = env.facts.find((x) => x.id === id);
   if (!f) return [h("p", {}, `No fact ${id}.`)];
   const neededBy = env.claims.filter((c) => c.needs.includes(id) || c.entailment === id);
-  const raisedBy = env.experiments.filter((e) => e.raises.some((o) => o.fact === id));
   const status =
     f.effective === f.recorded
       ? word(statuses, f.effective)
@@ -129,10 +149,10 @@ function inspectFact(env, id, on) {
           "p",
           {},
           "Violated because ",
-          f.derivedFrom.flatMap((d, i) => [
+          f.derivedFrom.flatMap((w, i) => [
             i ? "; " : "",
-            ref("fact", d.source, on),
-            ` is verified and exclusion ${d.exclusion} rules out both.`,
+            ref("fact", w.source, on),
+            ` is verified and exclusion ${w.exclusion} rules out both.`,
           ]),
         )
       : null,
@@ -189,20 +209,11 @@ function inspectFact(env, id, on) {
           ),
         )
       : h("p", {}, "No claim."),
-    raisedBy.length
-      ? [
-          h("h3", {}, "Experiments that raise it"),
-          h(
-            "p",
-            {},
-            refs(
-              "experiment",
-              raisedBy.map((e) => e.id),
-              on,
-            ),
-          ),
-        ]
-      : null,
+    detailed(d, (v) =>
+      v.raisedBy?.length
+        ? [h("h3", {}, "Experiments that raise it"), h("p", {}, refs("experiment", v.raisedBy, on))]
+        : null,
+    ),
     on.canToggle(f.id)
       ? h(
           "button",
@@ -249,9 +260,8 @@ function alternatives(p, on) {
   ];
 }
 
-/** @param {Claim} c @param {Handlers} on @param {Envelope} env */
-function planSection(c, on, env) {
-  const p = c.plan;
+/** @param {Claim} c @param {Plan} p @param {Handlers} on @param {Envelope} env */
+function planSection(c, p, on, env) {
   const closable = (/** @type {string} */ id) => env.facts.some((f) => f.id === id && f.closable);
   const isViolated = (/** @type {string} */ id) =>
     env.facts.some((f) => f.id === id && f.effective === "violated");
@@ -322,8 +332,8 @@ function planSection(c, on, env) {
   return [h("p", {}, "Too many suggested experiments apply: no best plan is claimed.")];
 }
 
-/** @param {Envelope} env @param {string} id @param {Handlers} on */
-function inspectClaim(env, id, on) {
+/** @param {Envelope} env @param {string} id @param {Handlers} on @param {DetailsView} [d] */
+function inspectClaim(env, id, on, d) {
   const c = env.claims.find((x) => x.id === id);
   if (!c) return [h("p", {}, `No claim ${id}.`)];
   const waivers = env.lints.filter((l) => l.claim === c.id && l.waived !== undefined);
@@ -370,7 +380,12 @@ function inspectClaim(env, id, on) {
           ),
         ]
       : null,
-    c.final === "can" ? null : [h("h3", {}, "Plan"), planSection(c, on, env)],
+    c.final === "can"
+      ? null
+      : [
+          h("h3", {}, "Plan"),
+          detailed(d, (v) => (v.plan ? planSection(c, v.plan, on, env) : null)),
+        ],
   ];
 }
 
@@ -403,11 +418,10 @@ export function kindTag(e) {
   );
 }
 
-/** @param {Envelope} env @param {string} id @param {Handlers} on */
-function inspectExperiment(env, id, on) {
+/** @param {Envelope} env @param {string} id @param {Handlers} on @param {DetailsView} [d] */
+function inspectExperiment(env, id, on, d) {
   const e = env.experiments.find((x) => x.id === id);
   if (!e) return [h("p", {}, `No experiment ${id}.`)];
-  const first = e.closure.filter((x) => x !== e.id);
   return [
     h("span", { class: "reference" }, `Experiment ${e.id}`),
     h("p", { class: "inspector-kind" }, kindTag(e)),
@@ -422,22 +436,27 @@ function inspectExperiment(env, id, on) {
             : "It works on new data that another experiment creates; the existing analysis keeps its gaps.",
         )
       : null,
-    first.length ? h("p", {}, "Runs after ", refs("experiment", first, on), ".") : null,
+    detailed(d, (v) => {
+      const first = (v.closure ?? []).filter((x) => x !== e.id);
+      return first.length ? h("p", {}, "Runs after ", refs("experiment", first, on), ".") : null;
+    }),
     h("h3", {}, "Method"),
     h("p", {}, e.method),
     h("h3", {}, "Resources"),
     h("p", {}, e.resources),
     h("h3", {}, e.contingent ? "If it succeeds and the result is observed" : "If it succeeds"),
-    e.raises.length
-      ? changeList(e.raises, env, on)
-      : h("p", {}, "No fact rises: each one already has this status or a stronger one."),
-    moveList(e.wins, env, on, "No claim changes."),
+    detailed(d, (v) => [
+      v.raises?.length
+        ? changeList(v.raises, env, on)
+        : h("p", {}, "No fact rises: each one already has this status or a stronger one."),
+      moveList(v.wins ?? [], env, on, "No claim changes."),
+    ]),
     actionButton("Suppose it succeeds", `success:${e.id}`, on),
     e.failure.length
       ? [
           h("h3", {}, "If it fails"),
           changeList(e.failure, env, on),
-          moveList(e.losses, env, on, "No claim changes."),
+          detailed(d, (v) => moveList(v.losses ?? [], env, on, "No claim changes.")),
           actionButton("Suppose it fails", `failure:${e.id}`, on, false),
         ]
       : null,
@@ -450,8 +469,9 @@ function inspectExperiment(env, id, on) {
  * @param {Envelope} env
  * @param {{ kind: "fact" | "claim" | "experiment", id: string } | undefined} sel
  * @param {Handlers} on
+ * @param {DetailsView} [d] the selection's details for the shown view
  */
-export function inspector(env, sel, on) {
+export function inspector(env, sel, on, d) {
   if (!sel) {
     return [
       h("h2", {}, "Select a claim, a fact or an experiment"),
@@ -462,9 +482,9 @@ export function inspector(env, sel, on) {
       ),
     ];
   }
-  if (sel.kind === "fact") return inspectFact(env, sel.id, on);
-  if (sel.kind === "claim") return inspectClaim(env, sel.id, on);
-  return inspectExperiment(env, sel.id, on);
+  if (sel.kind === "fact") return inspectFact(env, sel.id, on, d);
+  if (sel.kind === "claim") return inspectClaim(env, sel.id, on, d);
+  return inspectExperiment(env, sel.id, on, d);
 }
 
 /** @param {Experiment} e */
