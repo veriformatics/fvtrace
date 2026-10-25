@@ -134,7 +134,7 @@ def snapshot (l : Session.Loaded) : Snapshot.Snapshot :=
 
 /-- The data block: the recorded envelope (the page's first view) + the engine's snapshot. -/
 def data (l : Session.Loaded) : Value :=
-  .obj [("schema", .str "fvtrace.export/2"), ("recorded", Session.envelope l),
+  .obj [("schema", .str "fvtrace.export/3"), ("recorded", Session.envelope l),
     ("snapshot", Snapshot.encode (snapshot l))]
 
 /-- The engine block holds base64 alone, so it cannot close its `<script>`. -/

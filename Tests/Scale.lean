@@ -140,10 +140,17 @@ def evalTests : TestM Unit := do
   checkEq "eval-scale: experiments → order: lights, clears, cheaper effort, then id"
     ((xs.headD .null |> (field · "id")), (xs.getLast? |>.bind (field · "effort")))
     (some (.str "R0"), some (.str "months"))
-  checkEq "eval-scale: experiments → each claim's plan = its own R_i, conditional"
+  checkEq "eval-scale: experiments → each claim's plan = planned, conditional (the envelope)"
     ((items e "claims").filter fun c => (field c "plan").any fun p =>
-      field p "result" == some (.str "planned") && field p "state" == some (.str "conditional") &&
-        items p "experiments" == [.str ("R" ++ ((text c "id").drop 1).toString)]).length n
+      field p "result" == some (.str "planned") && field p "state" == some (.str "conditional")
+      ).length n
+  -- The plan's experiments (details, kernel.md V-details): its own R_i.
+  let ex := experiments n
+  let A := Answers.fast { trace := ex, current := fun _ => true }
+  checkEq "eval-scale: experiments → each claim's plan = its own R_i"
+    (ex.claims.filter fun c => match A.plan c with
+      | .planned _ exps .. => exps == ["R" ++ (c.id.drop 1).toString]
+      | _ => false).length n
   -- exclusions: X_i between E_i + F_(i+1); proving E_i unlocks C_i for odd i alone (even i:
   -- F_i open, or X_i makes the subject conflict).
   let n := 2000

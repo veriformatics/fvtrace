@@ -28,7 +28,8 @@ import {
  * @typedef {{ select: (kind: "fact" | "claim" | "experiment", id: string) => void,
  *   toggle: (fact: string) => void, canToggle: (fact: string) => boolean,
  *   supposeStatus: (fact: string) => string | undefined,
- *   apply: (action: string) => void, hasAction: (action: string) => boolean }} Handlers
+ *   apply: (action: string) => void, hasAction: (action: string) => boolean,
+ *   pairsOf: (claim: string) => string[] | undefined }} Handlers
  */
 
 /** A link-styled button that selects `id`. @param {Handlers} on */
@@ -232,7 +233,7 @@ function inspectFact(env, id, on, d) {
 }
 
 /** Every suggested experiment that raises each unverified need (the plan picks among them). */
-/** @param {Claim["plan"]} p @param {Handlers} on */
+/** @param {Plan} p @param {Handlers} on */
 function alternatives(p, on) {
   if (!p.alternatives.length) return null;
   const needs = [...new Set(p.alternatives.map((a) => a.need))];
@@ -336,6 +337,7 @@ function planSection(c, p, on, env) {
 function inspectClaim(env, id, on, d) {
   const c = env.claims.find((x) => x.id === id);
   if (!c) return [h("p", {}, `No claim ${id}.`)];
+  const conflicts = env.subjects.find((x) => x.id === c.subject)?.conflicts ?? [];
   const waivers = env.lints.filter((l) => l.claim === c.id && l.waived !== undefined);
   /** @type {[string, string[]][]} */
   const parts = [
@@ -357,14 +359,20 @@ function inspectClaim(env, id, on, d) {
         ids.length ? [h("dt", {}, label), h("dd", {}, refs("fact", ids, on))] : [],
       ),
     ),
-    c.incompatible.length
-      ? h("p", { class: "warning" }, `Needs both sides of exclusion ${c.incompatible.join(", ")}.`)
-      : null,
-    c.conflicts.length
+    detailed(d, (v) =>
+      v.incompatible?.length
+        ? h(
+            "p",
+            { class: "warning" },
+            `Needs both sides of exclusion ${v.incompatible.join(", ")}.`,
+          )
+        : null,
+    ),
+    conflicts.length
       ? h(
           "p",
           { class: "warning" },
-          `The what-if conflicts on this subject (${c.conflicts.join(", ")}).`,
+          `The what-if conflicts on this subject (${conflicts.join(", ")}).`,
         )
       : null,
     waivers.length

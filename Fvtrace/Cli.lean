@@ -61,7 +61,7 @@ def usage : String :=
   "      Show the cheapest coherent experiments that raise CLAIM as far as the\n" ++
   "      suggestions allow.\n" ++
   "  eval [--details ITEM | --complete]\n" ++
-  "      Print the full evaluation as JSON (fvtrace.evaluation/1). --details ITEM\n" ++
+  "      Print the full evaluation as JSON (fvtrace.evaluation/2). --details ITEM\n" ++
   "      prints the details of one item: experiment:ID (its prerequisites, what\n" ++
   "      its success raises and the claims it changes), claim:ID (its sentence,\n" ++
   "      the facts it needs that exclude each other, and its full plan) or fact:ID\n" ++
@@ -612,7 +612,8 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
           | _ => none
         | _ => none
       IO.print (Value.obj ((match project env projectionKeys with
-        | .obj kvs => kvs | _ => []) ++ [("claim", claim.getD .null)])).pretty
+        | .obj kvs => kvs | _ => []) ++ [("claim", claim.getD .null),
+          ("plan", Evaluate.planJson (A.plan c))])).pretty
       return 0
     say s!"{c.id} {(A.final c).verdict}: {A.sentence c}"
     let uncovered := fun (cov : Coverage) => do

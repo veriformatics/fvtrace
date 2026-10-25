@@ -415,7 +415,7 @@ test("an explicit what-if, even empty, wins over an older action link", async ({
 test("a damaged recorded view says so, also behind an older action link", async ({ browser }) => {
   const damaged = join(fixture.dir, "damaged.html");
   const html = await readFile(fixture.page, "utf8");
-  await writeFile(damaged, html.replace('"schema":"fvtrace.evaluation/1"', '"schema":"x"'));
+  await writeFile(damaged, html.replace('"schema":"fvtrace.evaluation/2"', '"schema":"x"'));
   const { context, page } = await openOffline(browser);
   await page.goto(`${pathToFileURL(damaged).href}#action=suppose%3AO2`);
   await expect(page.locator("#error")).toContainText("This page is damaged");

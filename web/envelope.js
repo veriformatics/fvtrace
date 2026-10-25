@@ -1,4 +1,4 @@
-// Decodes the engine's evaluation envelope (fvtrace.evaluation/1). Fetched JSON stays `unknown`
+// Decodes the engine's evaluation envelope (fvtrace.evaluation/2). Fetched JSON stays `unknown`
 // until it passes here; a shape the GUI does not know is an error, never a guess.
 
 /** @typedef {"can" | "conditional" | "open" | "cannot"} State */
@@ -11,7 +11,7 @@
  */
 /**
  * @typedef {{ id: string, subject: string, kind: string, text: string, route: string,
- *   recorded: string, effective: string, closable: boolean, supposed: boolean,
+ *   recorded: string, effective: string, ceiling: string, closable: boolean, supposed: boolean,
  *   derivedFrom: { exclusion: string, source: string }[], trusts: string[],
  *   instantiates?: string, why?: string, evidence?: Evidence,
  *   receipt?: { current: boolean, reasons: string[] } }} Fact
@@ -27,22 +27,21 @@
  * @typedef {{ id: string, question: string, subject: string, level: string, text: string,
  *   latent: boolean, needs: string[], entailment?: string, restates: boolean, final: State,
  *   intrinsic: State,
- *   sentence: string, verdict: string, qualifiers: string[], verified: string[],
- *   premises: string[], gaps: string[], blockers: string[], incompatible: string[],
- *   conflicts: string[], hypothetical: boolean, provisional: boolean, plan: Plan,
+ *   verdict: string, qualifiers: string[], creator?: string, verified: string[],
+ *   premises: string[], gaps: string[], blockers: string[], incompatibleCount: number,
+ *   hypothetical: boolean, provisional: boolean, plan: PlanSummary,
  *   variantOf?: string, headline?: string }} Claim
  */
 /**
  * @typedef {{ id: string, subject: string, kind: "dry" | "wet", effort: string, title: string,
  *   method: string, resources: string, caveat: string, success: Override[],
- *   failure: Override[], requires: string[], closure: string[], raises: Override[],
+ *   failure: Override[], requires: string[],
  *   applied: boolean, contingent: boolean, prospective: boolean, creates: boolean,
- *   wins: Move[], losses: Move[], lights: number, clears: number, lowers: number,
- *   breaks: number }} Experiment
+ *   lights: number, clears: number, lowers: number, breaks: number }} Experiment
  */
 /**
- * @typedef {{ id: string, kind: "suppose" | "success" | "failure" | "plan", target: string,
- *   overrides: Override[] }} Action
+ * @typedef {{ id: string, kind: "suppose" | "success" | "failure" | "plan", target: string }}
+ *   Action
  */
 /**
  * @typedef {{ id: string, subject: string, between: string[], text: string, recorded: string,
@@ -52,7 +51,7 @@
  * @typedef {{ mode: "recorded" | "what-if", overrides: Override[],
  *   review: { state: "draft" | "stale" | "reviewed", reviewer?: string, date?: string },
  *   analysis: { id: string, title: string, summary: string },
- *   subjects: { id: string, title: string, kind: string, valid: boolean }[],
+ *   subjects: { id: string, title: string, kind: string, valid: boolean, conflicts: string[] }[],
  *   counts: Record<State, number>, questions: { id: string, title: string, text: string }[],
  *   facts: Fact[], claims: Claim[], work: { fact: string, unlocks: string[], gates: string[] }[],
  *   blockers: { fact: string, claims: string[] }[], experiments: Experiment[],
@@ -209,6 +208,7 @@ function fact(v, path) {
     route: str(r["route"], `${path}/route`),
     recorded: str(r["recorded"], `${path}/recorded`),
     effective: str(r["effective"], `${path}/effective`),
+    ceiling: str(r["ceiling"], `${path}/ceiling`),
     closable: bool(r["closable"], `${path}/closable`),
     supposed: bool(r["supposed"], `${path}/supposed`),
     derivedFrom: arr(r["derivedFrom"], `${path}/derivedFrom`, (d, at) => {
@@ -266,6 +266,24 @@ function plan(v, path) {
   return p;
 }
 
+/** @typedef {{ result: Plan["result"], state?: State }} PlanSummary */
+/** The envelope's plan: its result + state when planned (the whole plan = details).
+ * @param {unknown} v @param {string} path @returns {PlanSummary} */
+function planSummary(v, path) {
+  const r = obj(v, path);
+  /** @type {PlanSummary} */
+  const p = {
+    result: oneOf(r["result"], `${path}/result`, [
+      "planned",
+      "noImprovement",
+      "inconsistent",
+      "tooLarge",
+    ]),
+  };
+  if (p.result === "planned") p.state = state(r["state"], `${path}/state`);
+  return p;
+}
+
 /** @param {unknown} v @param {string} path @returns {Claim} */
 function claim(v, path) {
   const r = obj(v, path);
@@ -282,19 +300,18 @@ function claim(v, path) {
     restates: bool(r["restates"], `${path}/restates`),
     final: state(r["final"], `${path}/final`),
     intrinsic: state(r["intrinsic"], `${path}/intrinsic`),
-    sentence: str(r["sentence"], `${path}/sentence`),
     verdict: str(label["verdict"], `${path}/label/verdict`),
     qualifiers: strs(label["qualifiers"], `${path}/label/qualifiers`),
     verified: strs(r["verified"], `${path}/verified`),
     premises: strs(r["premises"], `${path}/premises`),
     gaps: strs(r["gaps"], `${path}/gaps`),
     blockers: strs(r["blockers"], `${path}/blockers`),
-    incompatible: strs(r["incompatible"], `${path}/incompatible`),
-    conflicts: strs(r["conflicts"], `${path}/conflicts`),
+    incompatibleCount: num(r["incompatibleCount"], `${path}/incompatibleCount`),
     hypothetical: bool(r["hypothetical"], `${path}/hypothetical`),
     provisional: bool(r["provisional"], `${path}/provisional`),
-    plan: plan(r["plan"], `${path}/plan`),
+    plan: planSummary(r["plan"], `${path}/plan`),
   };
+  if ("creator" in label) c.creator = str(label["creator"], `${path}/label/creator`);
   if ("entailment" in r) c.entailment = str(r["entailment"], `${path}/entailment`);
   if ("variantOf" in r) c.variantOf = str(r["variantOf"], `${path}/variantOf`);
   if ("headline" in r) c.headline = str(r["headline"], `${path}/headline`);
@@ -316,14 +333,10 @@ function experiment(v, path) {
     success: outcome(r["success"], `${path}/success`),
     failure: outcome(r["failure"], `${path}/failure`),
     requires: strs(r["requires"], `${path}/requires`),
-    closure: strs(r["closure"], `${path}/closure`),
-    raises: overrides(r["raises"], `${path}/raises`),
     applied: bool(r["applied"], `${path}/applied`),
     contingent: bool(r["contingent"], `${path}/contingent`),
     prospective: bool(r["prospective"], `${path}/prospective`),
     creates: bool(r["creates"], `${path}/creates`),
-    wins: moves(r["wins"], `${path}/wins`),
-    losses: moves(r["losses"], `${path}/losses`),
     lights: num(r["lights"], `${path}/lights`),
     clears: num(r["clears"], `${path}/clears`),
     lowers: num(r["lowers"], `${path}/lowers`),
@@ -334,7 +347,7 @@ function experiment(v, path) {
 /** @param {unknown} json @returns {Envelope} */
 export function decodeEnvelope(json) {
   const r = obj(json, "");
-  if (r["schema"] !== "fvtrace.evaluation/1") fail("/schema", '"fvtrace.evaluation/1"');
+  if (r["schema"] !== "fvtrace.evaluation/2") fail("/schema", '"fvtrace.evaluation/2"');
   const trace = obj(r["trace"], "/trace");
   const review = obj(trace["review"], "/trace/review");
   /** @type {Envelope["review"]} */
@@ -345,7 +358,8 @@ export function decodeEnvelope(json) {
   if ("date" in review) rv.date = str(review["date"], "/trace/review/date");
   const analysis = obj(r["analysis"], "/analysis");
   const counts = obj(r["counts"], "/counts");
-  return {
+  /** @type {Envelope} */
+  const env = {
     mode: oneOf(r["mode"], "/mode", ["recorded", "what-if"]),
     overrides: overrides(r["overrides"], "/overrides"),
     review: rv,
@@ -361,6 +375,7 @@ export function decodeEnvelope(json) {
         title: str(x["title"], `${at}/title`),
         kind: str(x["kind"], `${at}/kind`),
         valid: bool(x["valid"], `${at}/valid`),
+        conflicts: strs(x["conflicts"], `${at}/conflicts`),
       };
     }),
     counts: {
@@ -421,10 +436,18 @@ export function decodeEnvelope(json) {
         id: str(x["id"], `${at}/id`),
         kind: oneOf(x["kind"], `${at}/kind`, ["suppose", "success", "failure", "plan"]),
         target: str(x["target"], `${at}/target`),
-        overrides: overrides(x["overrides"], `${at}/overrides`),
       };
     }),
   };
+  // The prospective qualifier names its creator by id (no text repeats per claim, kernel.md
+  // V-env); shown with that experiment's title, as the engine words it on the CLI.
+  const titles = new Map(env.experiments.map((e) => [e.id, e.title]));
+  for (const c of env.claims) {
+    const title = c.creator === undefined ? undefined : (titles.get(c.creator) ?? c.creator);
+    if (title !== undefined)
+      c.qualifiers = c.qualifiers.map((q) => (q === "if-creator-runs" ? `if ${title} runs` : q));
+  }
+  return env;
 }
 
 /**
@@ -464,7 +487,7 @@ export function decodeDetails(json) {
  */
 export function decodeExported(json) {
   const r = obj(json, "");
-  if (r["schema"] !== "fvtrace.export/2") fail("/schema", '"fvtrace.export/2"');
+  if (r["schema"] !== "fvtrace.export/3") fail("/schema", '"fvtrace.export/3"');
   // The snapshot stays opaque here: the engine decodes it and refuses a damaged one.
   return { recorded: r["recorded"], snapshot: obj(r["snapshot"], "/snapshot") };
 }

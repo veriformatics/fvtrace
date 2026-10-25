@@ -8,22 +8,6 @@ complete what-if v1 listed, every item's lists = the ones v1's envelope carried.
 namespace Tests.Details
 open Tests Fvtrace Fvtrace.Json
 
-/-- The v1 lists of one experiment record in an envelope. -/
-def experimentListsOf (env : Value) (id : String) : List (String × Value) :=
-  match recordOf env "experiments" id with
-  | some e => ["closure", "raises", "wins", "losses"].filterMap fun k => (field e k).map (k, ·)
-  | none => []
-
-/-- The ids of the envelope's experiments whose `raises` names `f` (v1's GUI list). -/
-def raisedByOf (env : Value) (f : String) : Value :=
-  match field env "experiments" with
-  | some (.arr es) => .arr (es.filterMap fun e =>
-      match field e "raises", field e "id" with
-      | some (.arr rs), some id => if rs.any (fun r => field r "fact" == some (.str f)) then some id
-        else none
-      | _, _ => none)
-  | _ => .arr []
-
 /-- An answer as (value, refusal), comparable. -/
 def outcome {α : Type} (r : Except String α) : Option α × String :=
   match r with
@@ -33,11 +17,12 @@ def outcome {α : Type} (r : Except String α) : Option α × String :=
 def detailsOf (sc : Scenario) (item : String) : Except String Value :=
   Evaluate.detailsWith sc (Answers.fast sc) "digest" .draft item
 
-/-- The oracles on one scenario. -/
+/-- The oracles on one scenario: each item's lists = the reference answers' (the `Scenario`
+functions v1's envelope read), each expansion = v1's complete what-if. -/
 def oracles (name : String) (sc : Scenario) : TestM Unit := do
   let t := sc.trace
   let A := Answers.fast sc
-  let env := Evaluate.envelope sc [] "digest" .draft
+  let R := Answers.reference sc
   for (id, _, _, o) in Evaluate.actions sc do
     checkEq s!"details ({name}): {id} expands to v1's complete what-if, normalized"
       (Evaluate.expandWith t A id).toOption (some (Overrides.normalize o))
@@ -45,21 +30,23 @@ def oracles (name : String) (sc : Scenario) : TestM Unit := do
     let got := match detailsOf sc s!"experiment:{e.id}" with
       | .ok d => ["closure", "raises", "wins", "losses"].filterMap fun k => (field d k).map (k, ·)
       | .error _ => []
-    checkEq s!"details ({name}): experiment:{e.id} = v1's lists" got (experimentListsOf env e.id)
+    checkEq s!"details ({name}): experiment:{e.id} = v1's lists" got (Evaluate.experimentLists R e)
   for c in t.claims do
     let got := match detailsOf sc s!"claim:{c.id}" with
       | .ok d => (field d "plan", field d "sentence", field d "incompatible")
       | .error _ => (none, none, none)
-    let of := fun k => (claimOf env c.id).bind (field · k)
-    let want := (of "plan", of "sentence", of "incompatible")
+    let want := (some (Evaluate.planJson (R.plan c)), some (Value.str (R.sentence c)),
+      some (Evaluate.strs (R.incompatible c)))
     checkEq s!"details ({name}): claim:{c.id} = v1's plan, sentence + incompatible" got want
   for f in t.facts do
     checkEq s!"details ({name}): fact:{f.id} raisedBy = v1's derived list"
       ((detailsOf sc s!"fact:{f.id}").toOption.bind (field · "raisedBy"))
-      (some (raisedByOf env f.id))
+      (some (Evaluate.strs (((R.experimentOrder ()).filter fun e =>
+        (R.raised (R.closure [e.id])).any (·.1 == f.id)).map (·.id))))
   -- The batch document: the envelope + every item's lists, one header.
   let all := Evaluate.completeWith sc A [] "digest" .draft
-  checkEq s!"details ({name}): complete carries the envelope" (field all "envelope") (some env)
+  checkEq s!"details ({name}): complete carries the envelope" (field all "envelope")
+    (some (Evaluate.envelope sc [] "digest" .draft))
   checkEq s!"details ({name}): complete lists every experiment, claim + fact"
     (match field all "items" with | some (.arr xs) => xs.length | _ => 0)
     (t.experiments.length + t.claims.length + t.facts.length)
