@@ -157,6 +157,26 @@ def nativeTests : TestM Unit := do
           (rc == 2 && count err m == 1) err
       | other => check "snapshot: a refused what-if is a what-if problem" false s!"{repr other}"
 
+/-- E-state is transparent: a request sequence through one engine (the last answer kept) = each
+request to a fresh engine, byte for byte. -/
+def stateTests : TestM Unit := do
+  let t ← traceOf "examples/synthetic/trace.json"
+  let snap := (encode (snapOf t .draft)).canonical
+  let req := fun (w : String) (more : List (String × String)) =>
+    (Value.obj ([("whatif", .str w)] ++ more.map fun (k, v) => (k, .str v))).canonical
+  let requests := [req "" [], req "" [("details", "claim:C2")], req "" [("action", "plan:C2")],
+    req "" [("details", "experiment:E1")], req "O2=checked" [], req "O2=checked" [("details",
+      "fact:O3")], req "O2=checked" [("action", "suppose:O3"), ("details", "claim:C2")], req "" [],
+    req "" [("details", "fact:O2")], req "ZZ=proved" [], req "" [("details", "claim:C2")]]
+  match Engine.load snap with
+  | .error p => check "snapshot: the synthetic snapshot loads" false p
+  | .ok e =>
+    let (_, kept) := requests.foldl (init := (e, ([] : List String))) fun (e, acc) r =>
+      let (e', out) := e.answer r
+      (e', acc ++ [out])
+    let fresh := requests.map fun r => (e.answer r).2
+    checkEq "snapshot: answers through one engine = answers from fresh engines" kept fresh
+
 /-- `fvtrace-tests --answer-snapshot SNAPSHOT REQUESTS`: REQUESTS = a JSON list of request texts,
 answered in order through one engine (its state carries across, as in the page); prints the JSON
 list of answers, a refused snapshot as one answer: its problem text. -/

@@ -45,7 +45,7 @@ def pure : TestM Unit := do
   area "export" Tests.Export.pureTests
   area "fields" Tests.Fields.tests
   area "replay-pure" Tests.Replay.pureTests
-  area "snapshot" Tests.Snapshot.pureTests
+  area "snapshot" do Tests.Snapshot.pureTests; Tests.Snapshot.stateTests
   area "wasm" do Tests.Wasm.pureTests; Tests.Wasm.markerTests; Tests.Wasm.writeTests
 
 /-- Suites that call the C digest code, or run too long interpreted (plan-scale: 3 s, rerun by
