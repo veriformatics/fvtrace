@@ -51,13 +51,28 @@ for shape in "${shapes[@]}"; do
     fi
     grade=0
     [[ $assert -eq 1 && "$graded" == *" $shape "* ]] && grade=1
-    for cmd in check eval; do
+    first="$work/$shape-${ns%% *}"
+    [[ -f "$first/trace.json" ]] || node "$root/tools/scale.mjs" "$shape" "${ns%% *}" "$first" ||
+        exit 2
+    # P-time's CLI rows: the costliest action + the costliest item of each kind (tools/scale.mjs).
+    cmds=(check eval action)
+    while read -r item; do cmds+=("details:${item%%:*}"); done <"$first/items.txt"
+    cmds+=(export)
+    for cmd in "${cmds[@]}"; do
         prev="" prev_n=""
         for n in $ns; do
             dir="$work/$shape-$n"
             [[ -f "$dir/trace.json" ]] || node "$root/tools/scale.mjs" "$shape" "$n" "$dir" || exit 2
-            args=("$cmd" --trace "$dir/trace.json" --project "$dir/project")
-            [[ $cmd == eval && -f "$dir/whatif.txt" ]] && args+=(--whatif "$(<"$dir/whatif.txt")")
+            whatif=()
+            [[ -f "$dir/whatif.txt" ]] && whatif=(--whatif "$(<"$dir/whatif.txt")")
+            case "$cmd" in
+            check) args=(check) ;;
+            eval) args=(eval "${whatif[@]}") ;;
+            action) args=(eval "${whatif[@]}" --action "$(<"$dir/action.txt")") ;;
+            details:*) args=(eval "${whatif[@]}" --details "$(grep -m1 "^${cmd#details:}:" "$dir/items.txt")") ;;
+            export) args=(export --html "$work/page.html") ;;
+            esac
+            args+=(--trace "$dir/trace.json" --project "$dir/project")
             : >"$work/time"
             # Output is counted, never stored: the tail shapes print gigabytes at their cap.
             FVTRACE_HOME="$work/home" timeout "$limit" /usr/bin/time -o "$work/time" -f '%e %U %M' \
