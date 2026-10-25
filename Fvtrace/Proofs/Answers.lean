@@ -1,5 +1,5 @@
 import Fvtrace.Proofs.Positions
-import Fvtrace.Proofs.Closure
+import Fvtrace.Proofs.Forest
 import Fvtrace.Proofs.Plan
 
 /-! `Answers.fast s = Answers.reference s` (`kernel.md` P-claims `AnswersAgree`), field by field:
@@ -898,10 +898,10 @@ section Experiments
 
 variable (s : Scenario)
 
-/-- The fast closure (`Ctx.closureOf` over the per-experiment memo) = `Scenario.closure`. -/
+/-- The fast closure (`Ctx.closureWith` over the forest) = `Scenario.closure`. -/
 theorem closure_eq (ids : List String) :
-    (cxOf s).closureOf (Thunk.mk fun _ => (cxOf s).closures).get ids = s.closure ids :=
-  congrFun (Fvtrace.Proofs.Closure.closureOf_eq s) ids
+    (cxOf s).closureWith (Forest.build (cxOf s)) ids = s.closure ids :=
+  congrFun (Fvtrace.Proofs.Forest.closureWith_eq s) ids
 
 theorem successPairs_eq (ids : List String) :
     (cxOf s).successPairs ids = s.successPairs ids := by
@@ -1722,7 +1722,7 @@ theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := b
   dsimp only
   have hbe : (baseOf s).eff = s.baseline.eff := base_eff s
   have hbv : Core.valid (baseOf s) = s.baseline.valid := base_valid s
-  have hrow : rowOf (fun ids => (cxOf s).closureOf (cxOf s).closures ids) (cxOf s).merged
+  have hrow : rowOf (fun ids => (cxOf s).closureWith (Forest.build (cxOf s)) ids) (cxOf s).merged
       (fun ids => movesUnder (cxOf s) s (coreOf s)
         (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s)))
         (raisedBy (cxOf s) (coreOf s) ids))
@@ -1810,7 +1810,8 @@ theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := b
     refine (congrArg (fun F => (s.trace.experiments.map F).mergeSort rowBefore)
       (?_ : _ = rowRefOf s)).trans (rows_eq s)
     exact hrow
-  case e_planSummary => funext c; rw [plan_eq s _ (funext (closure_eq s)) c]
+  case e_planSummary =>
+    funext c; exact congrArg PlanResult.summary (plan_eq s _ (funext (closure_eq s)) c)
   case e_raisers =>
     funext f
     refine congrArg (fun (x : List Experiment × (List String → List String) ×
