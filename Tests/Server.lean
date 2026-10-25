@@ -21,7 +21,6 @@ def bearerOk : Option String := some s!"Bearer {token}"
 def outcome (a : Action) (header : String := "") : Nat × Option String × String :=
   match a with
   | .reply r => (r.status.toCode.toNat, r.headers.lookup header, r.body)
-  | .evaluate w => (0, w, "")
   | .answer v => (1, v, "")
 
 /-- A decided reply's JSON problem kind. -/
@@ -53,7 +52,7 @@ def pureTests : TestM Unit := do
     (outcome (decide c (req "/api/answer" (authorization := bearerOk) (method := .post)
       (host := some "evil.example:8718")))).1 421
   checkEq "server: a foreign Host is refused (DNS rebinding)"
-    (outcome (decide c (req "/api/evaluation" (authorization := bearerOk)
+    (outcome (decide c (req "/api/answer" (authorization := bearerOk) (method := .post)
       (host := some "evil.example:8718")))).1 421
   checkEq "server: a missing Host is refused" (outcome (decide c (req "/" (host := none)))).1 421
   checkEq "server: the loopback names" (Cli.loopbackHosts 8718)
@@ -72,21 +71,21 @@ def pureTests : TestM Unit := do
   checkEq "server: an unknown path" (outcome (decide c (req "/etc/passwd"))).1 404
   let refused := fun (name : String) (a : Action) =>
     checkEq name ((outcome a).1, decidedKind a) (403, some "access")
-  refused "server: no credential, no claims" (decide c (req "/api/evaluation"))
+  refused "server: no credential, no claims" (decide c (req "/api/answer" (method := .post)))
   refused "server: the token in the query opens nothing (old links)"
-    (decide c (req "/api/evaluation" [("token", token)]))
+    (decide c (req "/api/answer" [("token", token)] (method := .post)))
   refused "server: a wrong token is refused"
-    (decide c (req "/api/evaluation" (authorization := some "Bearer x")))
+    (decide c (req "/api/answer" (authorization := some "Bearer x") (method := .post)))
   let near := String.ofList (token.toList.take 31) ++ "0"
   refused "server: a token differing in one character is refused"
-    (decide c (req "/api/evaluation" (authorization := some s!"Bearer {near}")))
+    (decide c (req "/api/answer" (authorization := some s!"Bearer {near}") (method := .post)))
   refused "server: a token prefix is refused"
-    (decide c (req "/api/evaluation" (authorization := some s!"Bearer {token.take 8}")))
+    (decide c (req "/api/answer" (authorization := some s!"Bearer {token.take 8}")
+      (method := .post)))
   refused "server: the token without its scheme is refused"
-    (decide c (req "/api/evaluation" (authorization := some token)))
-  checkEq "server: the evaluation route carries the what-if"
-    (outcome (decide c (req "/api/evaluation" [("whatif", "O2=checked")] bearerOk)))
-    (0, some "O2=checked", "")
+    (decide c (req "/api/answer" (authorization := some token) (method := .post)))
+  checkEq "server: the GET evaluation route is gone (v2: POST /api/answer)"
+    (outcome (decide c (req "/api/evaluation" [("whatif", "O2=checked")] bearerOk))).1 404
   checkEq "server: bearer parsing" (bearer "Bearer abc", bearer "Basic abc", bearer "bearer abc")
     (some "abc", none, none)
   check "server: equal secrets match" (sameSecret token token)
@@ -153,8 +152,9 @@ def nativeTests : TestM Unit := do
   IO.FS.withTempDir fun dir => do
     let c := cfgAt dir
     let cache ← IO.mkRef ({} : Receipt.Cache)
-    let ask := fun (w : Option String) => respond c cache (req "/api/evaluation"
-      (w.toList.map fun v => ("whatif", v)) bearerOk)
+    let requestOf := fun (w : Option String) =>
+      some (Json.Value.obj [("whatif", .str (w.getD ""))]).canonical.toUTF8
+    let ask := fun (w : Option String) => answerBody c cache none (requestOf w)
     let r ← ask none
     checkEq "server: no trace yet" (r.status.toCode, problemKind r) (409, some "no-trace")
     IO.FS.writeBinFile c.target.trace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json")
@@ -178,10 +178,9 @@ def nativeTests : TestM Unit := do
     let m ← real.metadata
     let planted : Receipt.Cache :=
       ({} : Receipt.Cache).insert real.toString (m.byteSize, m.modified.sec, m.modified.nsec, "x")
-    let fresh ← respond c (← IO.mkRef planted) (req "/api/evaluation" [] bearerOk)
+    let fresh ← answerBody c (← IO.mkRef planted) none (requestOf none)
     checkEq "server: evidence is read again by default" (receiptCurrent fresh "O1") (some true)
-    let reused ← respond { c with cached := true } (← IO.mkRef planted)
-      (req "/api/evaluation" [] bearerOk)
+    let reused ← answerBody { c with cached := true } (← IO.mkRef planted) none (requestOf none)
     checkEq "server: cached reuses a recorded digest" (receiptCurrent reused "O1") (some false)
     let r ← ask (some "O3=proved")
     checkEq "server: a what-if above the route" (r.status.toCode, problemKind r)

@@ -56,7 +56,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 7963d7c U3 reference paths beside v1: CLI `--action` + `--details` + `eval --complete`, details document, `POST /api/answer` (view header, body cap), page engine `fvtrace_load` / `fvtrace_answer` in a Worker beside `fvtrace_evaluate`, `Answers` fields (reference first)
 - [x] 511281b U4 GUI on the reference paths (details on selection, actions by reference, legacy links through the engine, engine-off lines), the envelope still v1
 - [x] 87a3640 U4b exported page engine in a Worker (CSP `worker-src blob:` + one Trusted Types policy; user ruling)
-- [ ] U5 cutover: envelope v2, export v3, GUI decoder v2 (+ `ceiling`, subject conflicts, excluded pairs per card from claim details, creator title by id)
+- [x] c3ab522 U5 cutover: envelope v2, export v3, GUI decoder v2 (+ `ceiling`, subject conflicts, excluded pairs per card from claim details, creator title by id)
 - [ ] U5b `fvtrace_evaluate` + GET route + the v1 test hooks retired; `tools/compare.sh` v1 → v2 transform + expansion + details oracles
 - [ ] U6 server cache + launch evaluation; page engine state
 - [ ] U7 compute: P-forest, P-plan-local, P-raisers (fast, proved), shared-path speed to P-time

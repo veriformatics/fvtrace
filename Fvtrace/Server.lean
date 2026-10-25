@@ -11,7 +11,7 @@ digest cache.
 
 Access: every request must use GET and name an allowed `Host` (a page on another site that rebinds
 its DNS name to this address is refused). The GUI files, open source, answer anyone who passes
-that; the claims (`/api/evaluation`) answer only a request carrying the run's random token as
+that; the claims (`POST /api/answer`) answer only a request carrying the run's random token as
 `Authorization: Bearer`. The page keeps the token in its own origin's storage: no cookie, since
 cookies ignore ports and would reach every server on the host. Responses forbid framing, sniffing,
 inline script and HTML-string DOM sinks (Trusted Types).
@@ -71,7 +71,6 @@ def bearer (header : String) : Option String :=
 
 inductive Action where
   | reply (r : Reply)
-  | evaluate (whatif : Option String)
   /-- `POST /api/answer`: its body (a request) is read only now, after access passed. -/
   | answer (view : Option String)
 
@@ -97,9 +96,8 @@ def decide (cfg : Config) (req : Req) : Action :=
              headers := [("Allow", only)] }
   else if !(req.host.any cfg.hosts.contains) then
     text .misdirectedRequest "This server answers its own address only."
-  else if req.path == "/api/evaluation" || api then
-    if (req.authorization.bind bearer).any (sameSecret · cfg.token) then
-      if api then .answer req.view else .evaluate (req.query "whatif")
+  else if api then
+    if (req.authorization.bind bearer).any (sameSecret · cfg.token) then .answer req.view
     else
       .reply (problemJson .forbidden "access" ("This page has no access to the claims. Use the " ++
         "link that fvtrace serve prints, or run fvtrace serve again."))
@@ -119,15 +117,6 @@ def problemReply : Session.Problem → Reply
   | .badWhatif m => problemJson .badRequest "what-if" m
   | .badAction m => problemJson .badRequest "action" m
   | .badItem m => problemJson .badRequest "item" m
-
-/-- The evaluation route: the envelope, or the problem in the GUI's words. -/
-def evaluation (cfg : Config) (cache : IO.Ref Receipt.Cache) (whatif : Option String) :
-    IO Reply := do
-  let r ← Session.load cfg.target cfg.explicit whatif (!cfg.cached) cache
-  Session.closeCache cfg.target cache
-  return match r with
-  | .ok l => json .ok (Session.envelope l)
-  | .error p => problemReply p
 
 /-- `POST /api/answer` (`kernel.md` V-serve, V-request): the envelope at the action's what-if, the
 details of an item there, or a problem; the view the answer reads travels in `X-Fvtrace-View`, and
@@ -157,15 +146,11 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (view : Option String) 
         | .error p => problemReply p
       | none => return tagged (json .ok (Session.envelope l))
 
-def respond (cfg : Config) (cache : IO.Ref Receipt.Cache) (req : Req) : IO Reply := do
+/-- The decided reply; the answer route reads its body first (`handler`). -/
+def respond (cfg : Config) (req : Req) : Reply :=
   match decide cfg req with
-  | .reply r => return r
-  | .answer _ => return problemJson .badRequest "invalid" Request.malformed
-  | .evaluate w =>
-    try evaluation cfg cache w
-    catch e =>
-      return problemJson .internalServerError "io" s!"fvtrace could not read the project: \
-        {(toString e).replace "\n" " "}"
+  | .reply r => r
+  | .answer _ => problemJson .badRequest "invalid" Request.malformed
 
 /-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem. -/
 def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (view : Option String)
@@ -201,7 +186,7 @@ def handler (cfg : IO.Ref Config) (cache : IO.Ref Receipt.Cache) : Server.Statel
             some <$> (Body.Stream.readAll (α := ByteArray) req.body (some bodyCap.toUInt64))
           catch _ => pure none
         (answerBody c cache view body : IO Reply)
-      | _ => (respond c cache (reqOf req) : IO Reply)
+      | .reply r => pure r
     let resp ← toResponse reply
     return (resp : Response Body.Any)
 

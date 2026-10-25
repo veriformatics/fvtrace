@@ -22,8 +22,13 @@ test("another server on this computer learns no credential", async ({ page }) =>
         const report = (k, v) => fetch("/report?" + new URLSearchParams({ [k]: v }));
         await fetch("/steal");
         try {
-          const r = await fetch(${JSON.stringify(`${web.base}/api/evaluation`)}, {
-            headers: { Authorization: ${JSON.stringify(`Bearer ${token}`)} },
+          const r = await fetch(${JSON.stringify(`${web.base}/api/answer`)}, {
+            method: "POST",
+            headers: {
+              Authorization: ${JSON.stringify(`Bearer ${token}`)},
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ whatif: "" }),
           });
           await report("crossOrigin", String(r.status));
         } catch {
@@ -44,7 +49,13 @@ test("another server on this computer learns no credential", async ({ page }) =>
     await page.goto(web.url);
     await page.locator("article.circuit").first().waitFor();
     expect(await page.context().cookies()).toEqual([]);
-    expect(await page.evaluate(() => fetch("/api/evaluation").then((r) => r.status))).toBe(403);
+    expect(
+      await page.evaluate(() =>
+        fetch("/api/answer", { method: "POST", body: JSON.stringify({ whatif: "" }) }).then(
+          (r) => r.status,
+        ),
+      ),
+    ).toBe(403);
     await page.goto(`http://127.0.0.1:${thiefPort}/`);
     // The other page needs three requests; a loaded host stretches them past expect's 5 s.
     await expect.poll(() => seen["done"], { timeout: 60_000 }).toBe("yes");
