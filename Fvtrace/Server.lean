@@ -57,6 +57,8 @@ structure Req where
   query : String → Option String
   host : Option String
   authorization : Option String
+  /-- `X-Fvtrace-View`: the view the page shows (`kernel.md` V-serve). -/
+  view : Option String := none
 
 /-- Equal strings, compared in time independent of where they differ. -/
 def sameSecret (a b : String) : Bool :=
@@ -70,6 +72,11 @@ def bearer (header : String) : Option String :=
 inductive Action where
   | reply (r : Reply)
   | evaluate (whatif : Option String)
+  /-- `POST /api/answer`: its body (a request) is read only now, after access passed. -/
+  | answer (view : Option String)
+
+/-- The largest request body: a what-if naming every fact of the largest trace fits. -/
+def bodyCap : Nat := maxTraceBytes + 1024
 
 def text (status : Std.Http.Status) (body : String) : Action :=
   .reply { status, body := body ++ "\n" }
@@ -83,14 +90,16 @@ def problemJson (status : Std.Http.Status) (kind message : String) : Reply :=
 /-- Method, host, route + access, decided from the request alone: no request without the token
 reaches `Overrides.parse` or the trace. -/
 def decide (cfg : Config) (req : Req) : Action :=
-  if req.method != .get then
-    .reply { status := .methodNotAllowed, body := "Only GET is served.\n",
-             headers := [("Allow", "GET")] }
+  let api := req.path == "/api/answer"
+  if req.method != (if api then .post else .get) then
+    let only := if api then "POST" else "GET"
+    .reply { status := .methodNotAllowed, body := s!"Only {only} is served.\n",
+             headers := [("Allow", only)] }
   else if !(req.host.any cfg.hosts.contains) then
     text .misdirectedRequest "This server answers its own address only."
-  else if req.path == "/api/evaluation" then
+  else if req.path == "/api/evaluation" || api then
     if (req.authorization.bind bearer).any (sameSecret · cfg.token) then
-      .evaluate (req.query "whatif")
+      if api then .answer req.view else .evaluate (req.query "whatif")
     else
       .reply (problemJson .forbidden "access" ("This page has no access to the claims. Use the " ++
         "link that fvtrace serve prints, or run fvtrace serve again."))
@@ -99,6 +108,18 @@ def decide (cfg : Config) (req : Req) : Action :=
     | some (_, contentType, body) => .reply { status := .ok, contentType, body }
     | none => text .notFound "Not found."
 
+/-- A problem in the GUI's words. -/
+def problemReply : Session.Problem → Reply
+  | .noTrace p =>
+    problemJson .conflict "no-trace" s!"No trace for the project {p} yet. Run fvtrace init."
+  | .unreadable f why => problemJson .conflict "unreadable" s!"Cannot read {f}: {why}"
+  | .undecodable f _ => problemJson .conflict "invalid" s!"{f} does not decode. Run fvtrace check."
+  | .illFormed f _ =>
+    problemJson .conflict "invalid" s!"{f} is not well-formed. Run fvtrace check."
+  | .badWhatif m => problemJson .badRequest "what-if" m
+  | .badAction m => problemJson .badRequest "action" m
+  | .badItem m => problemJson .badRequest "item" m
+
 /-- The evaluation route: the envelope, or the problem in the GUI's words. -/
 def evaluation (cfg : Config) (cache : IO.Ref Receipt.Cache) (whatif : Option String) :
     IO Reply := do
@@ -106,29 +127,63 @@ def evaluation (cfg : Config) (cache : IO.Ref Receipt.Cache) (whatif : Option St
   Session.closeCache cfg.target cache
   return match r with
   | .ok l => json .ok (Session.envelope l)
-  | .error (.noTrace p) =>
-    problemJson .conflict "no-trace" s!"No trace for the project {p} yet. Run fvtrace init."
-  | .error (.unreadable f why) => problemJson .conflict "unreadable" s!"Cannot read {f}: {why}"
-  | .error (.undecodable f _) =>
-    problemJson .conflict "invalid" s!"{f} does not decode. Run fvtrace check."
-  | .error (.illFormed f _) =>
-    problemJson .conflict "invalid" s!"{f} is not well-formed. Run fvtrace check."
-  | .error (.badWhatif m) => problemJson .badRequest "what-if" m
+  | .error p => problemReply p
+
+/-- `POST /api/answer` (`kernel.md` V-serve, V-request): the envelope at the action's what-if, the
+details of an item there, or a problem; the view the answer reads travels in `X-Fvtrace-View`, and
+a request naming another view gets 409 (the files changed since the page's answer). -/
+def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (view : Option String) (body : String) :
+    IO Reply := do
+  match Request.parse body with
+  | .error m => return problemJson .badRequest "invalid" m
+  | .ok r =>
+    let res ← Session.load cfg.target cfg.explicit (some r.whatif) (!cfg.cached) cache
+    Session.closeCache cfg.target cache
+    let res := res.bind fun l => match r.action with
+      | some a => Session.expand l a
+      | none => .ok l
+    match res with
+    | .error p => return problemReply p
+    | .ok l =>
+      let v ← Session.viewOf l
+      let tagged := fun (rep : Reply) =>
+        { rep with headers := rep.headers ++ [("X-Fvtrace-View", v)] }
+      if view.any (· != v) then
+        return tagged (problemJson .conflict "view"
+          "The claims or their evidence changed, so this page shows them again.")
+      match r.details with
+      | some item => return match Session.details l item with
+        | .ok d => tagged (json .ok d)
+        | .error p => problemReply p
+      | none => return tagged (json .ok (Session.envelope l))
 
 def respond (cfg : Config) (cache : IO.Ref Receipt.Cache) (req : Req) : IO Reply := do
   match decide cfg req with
   | .reply r => return r
+  | .answer _ => return problemJson .badRequest "invalid" Request.malformed
   | .evaluate w =>
     try evaluation cfg cache w
     catch e =>
       return problemJson .internalServerError "io" s!"fvtrace could not read the project: \
         {(toString e).replace "\n" " "}"
 
-def reqOf (r : Request Body.Stream) : Req :=
+/-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem. -/
+def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (view : Option String)
+    (body : Option ByteArray) : IO Reply := do
+  let some b := body
+    | return problemJson .payloadTooLarge "invalid"
+        "The request is larger than any what-if on the largest trace."
+  let some text := String.fromUTF8? b | return problemJson .badRequest "invalid" Request.malformed
+  try answer cfg cache view text
+  catch e =>
+    return problemJson .internalServerError "io" s!"fvtrace could not read the project: \
+      {(toString e).replace "\n" " "}"
+
+def reqOf (r : Std.Http.Request Body.Stream) : Req :=
   let header := fun (n : String) => (r.line.headers.get? (Header.Name.ofString! n)).map toString
   { method := r.line.method, path := toString r.line.uri.path,
     query := fun k => r.line.uri.query.get k, host := header "host",
-    authorization := header "authorization" }
+    authorization := header "authorization", view := header "x-fvtrace-view" }
 
 def toResponse (r : Reply) : Async (Response Body.Full) := do
   let b := (fixedHeaders ++ [("Content-Type", r.contentType)] ++ r.headers).foldl
@@ -139,12 +194,19 @@ def toResponse (r : Reply) : Async (Response Body.Full) := do
 and a request before that meets no allowed host. -/
 def handler (cfg : IO.Ref Config) (cache : IO.Ref Receipt.Cache) : Server.StatelessHandler :=
   Server.Handler.ofFn fun req => do
-    let reply ← (do respond (← cfg.get) cache (reqOf req) : IO Reply)
+    let c ← cfg.get
+    let reply ← match decide c (reqOf req) with
+      | .answer view => do
+        let body ← try
+            some <$> (Body.Stream.readAll (α := ByteArray) req.body (some bodyCap.toUInt64))
+          catch _ => pure none
+        (answerBody c cache view body : IO Reply)
+      | _ => (respond c cache (reqOf req) : IO Reply)
     let resp ← toResponse reply
     return (resp : Response Body.Any)
 
 def httpConfig : Std.Http.Config :=
-  { maxConnections := 64, serverName := some (.mk "fvtrace") }
+  { maxConnections := 64, serverName := some (.mk "fvtrace"), maxBodySize := bodyCap }
 
 /-- Binds `addr` (port 0 = any free port) and serves in the background; returns the server + the
 bound port. -/

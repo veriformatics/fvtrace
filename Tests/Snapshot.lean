@@ -168,4 +168,20 @@ def evaluateFile (snapshot specs : String) : IO UInt32 := do
   IO.print (Value.arr outs).canonical
   return 0
 
+/-- `fvtrace-tests --answer-snapshot SNAPSHOT REQUESTS`: REQUESTS = a JSON list of request texts,
+answered in order through one engine (its state carries across, as in the page); prints the JSON
+list of answers, a refused snapshot as one answer: its problem text. -/
+def answerFile (snapshot requests : String) : IO UInt32 := do
+  let .ok (.arr xs) := Json.parse (← IO.FS.readBinFile requests)
+    | IO.eprintln s!"{requests}: not a JSON list"; return 2
+  match Engine.load (← IO.FS.readFile snapshot) with
+  | .error problem => IO.print (Value.arr [.str problem]).canonical
+  | .ok e =>
+    let (_, outs) ← xs.foldlM (init := (e, (#[] : Array Value))) fun (e, acc) x => do
+      let .str r := x | throw (IO.userError s!"{requests}: a request is not a string")
+      let (e', out) := e.answer r
+      return (e', acc.push (.str out))
+    IO.print (Value.arr outs.toList).canonical
+  return 0
+
 end Tests.Snapshot

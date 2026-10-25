@@ -11,6 +11,7 @@ import Tests.Args
 import Tests.CliStore
 import Tests.Engine
 import Tests.Evaluate
+import Tests.Details
 import Tests.Server
 import Tests.Export
 import Tests.Fields
@@ -39,6 +40,7 @@ def pure : TestM Unit := do
     Tests.Engine.tests; Tests.Engine.witnessTests; Tests.Engine.kindTests
     Tests.Engine.acceptanceTests
   area "evaluate" Tests.Evaluate.tests
+  area "details" Tests.Details.tests
   area "server" Tests.Server.pureTests
   area "export" Tests.Export.pureTests
   area "fields" Tests.Fields.tests
@@ -51,8 +53,8 @@ every mutant): native binary alone (`lake test`). -/
 def native : TestM Unit := do
   area "digest" Tests.Digest.tests
   area "receipt" Tests.Receipt.tests
-  area "cli-store" Tests.CliStore.tests
-  area "server-native" Tests.Server.nativeTests
+  area "cli-store" do Tests.CliStore.tests; Tests.CliStore.referenceTests
+  area "server-native" do Tests.Server.nativeTests; Tests.Server.answerTests
   area "export-native" Tests.Export.nativeTests
   area "plan-scale" Tests.Engine.scaleTests
   area "check-scale" Tests.Scale.checkTests

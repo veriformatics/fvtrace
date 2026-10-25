@@ -7,8 +7,11 @@
 /** The page cannot run its engine, or the engine stopped. */
 export class EngineError extends Error {}
 
-/** The engine's answer (envelope or problem JSON text) for a snapshot + what-if.
- * @typedef {{ answer: (snapshot: string, spec: string) => string }} Engine */
+/** The engine: `answer` evaluates a what-if on a snapshot (one call); `load` decodes a snapshot
+ * once (null = loaded, else the problem's text) and `request` answers a request against it
+ * (`kernel.md` E-request: envelope, details or problem JSON text).
+ * @typedef {{ answer: (snapshot: string, spec: string) => string,
+ *   load: (snapshot: string) => string | null, request: (text: string) => string }} Engine */
 /** @typedef {(...args: number[]) => number} WasmFunction */
 
 /** WASI errno for a file descriptor the engine has no business with. */
@@ -115,6 +118,8 @@ export const startEngine = async (base64) => {
     const alloc = wasmFunction(exports, "fvtrace_alloc");
     const free = wasmFunction(exports, "fvtrace_free");
     const evaluate = wasmFunction(exports, "fvtrace_evaluate");
+    const load = wasmFunction(exports, "fvtrace_load");
+    const ask = wasmFunction(exports, "fvtrace_answer");
     wasmFunction(exports, "_initialize")();
     if (wasmFunction(exports, "fvtrace_init")() !== 0)
       throw new EngineError("the engine did not start");
@@ -142,17 +147,42 @@ export const startEngine = async (base64) => {
       free(out);
       return text;
     };
+    /** One string in, the engine's fresh buffer out (NULL = out of memory, E-abi). */
+    const pass = (/** @type {WasmFunction} */ f, /** @type {string} */ input) => {
+      const bytes = encoder.encode(input);
+      const at = put(bytes);
+      const lengthAt = put(new Uint8Array(4));
+      const out = f(at, bytes.length, lengthAt) >>> 0;
+      if (out === 0) throw new EngineError("the engine ran out of memory");
+      free(at);
+      const length = view().getUint32(lengthAt, true);
+      free(lengthAt);
+      const text = decoder.decode(new Uint8Array(mem().buffer, out, length));
+      free(out);
+      return text;
+    };
     let dead = false;
+    /** Runs one call; any failure ends the engine for good. @template T @param {() => T} f */
+    const guarded = (f) => {
+      if (dead) throw new EngineError("the engine stopped earlier");
+      try {
+        return f();
+      } catch (e) {
+        dead = true;
+        throw e instanceof EngineError ? e : new EngineError(String(e));
+      }
+    };
     return {
-      answer(snapshot, spec) {
-        if (dead) throw new EngineError("the engine stopped earlier");
-        try {
-          return call(snapshot, spec);
-        } catch (e) {
+      answer: (snapshot, spec) => guarded(() => call(snapshot, spec)),
+      load: (snapshot) =>
+        guarded(() => {
+          const problem = pass(load, snapshot);
+          if (problem === "") return null;
+          // A snapshot the engine refuses ends it, as any failure does (E-state).
           dead = true;
-          throw e instanceof EngineError ? e : new EngineError(String(e));
-        }
-      },
+          return problem;
+        }),
+      request: (text) => guarded(() => pass(ask, text)),
     };
   } catch (e) {
     throw e instanceof EngineError ? e : new EngineError(String(e));

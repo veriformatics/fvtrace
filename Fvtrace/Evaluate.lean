@@ -1,6 +1,7 @@
 import Fvtrace.Encode
 import Fvtrace.Json
 import Fvtrace.Lint
+import Fvtrace.Request
 import Fvtrace.Answers.Fast
 
 /-!
@@ -79,6 +80,14 @@ def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : P
 def overridesJson (o : Overrides) : Value :=
   .arr (o.map fun (k, st) => .obj [("fact", .str k), ("status", .str st.name)])
 
+/-- An experiment's lists (`kernel.md` V-details): its closure, the overrides its success raises,
+the moves of its success + its failure. -/
+def experimentLists (A : Answers) (e : Experiment) : List (String × Value) :=
+  let cl := A.closure [e.id]
+  let losses := if e.failure.isEmpty then [] else A.failureMoves e
+  [("closure", strs cl), ("raises", overridesJson (A.raised cl)),
+   ("wins", .arr ((A.successMoves cl).map moveJson)), ("losses", .arr (losses.map moveJson))]
+
 def experimentJson (A : Answers) (e : Experiment) : Value :=
   let cl := A.closure [e.id]
   let wins := A.successMoves cl
@@ -118,6 +127,70 @@ def actions (sc : Scenario) : List (String × String × String × Overrides) :=
   let A := Answers.fast sc
   actionsWith sc.trace A (sc.trace.claims.map fun c => (c, A.plan c))
 
+/-- The action `id`'s complete what-if (`kernel.md` V-action): the first entry `actionsWith` lists
+under that id, computed alone (a plan action plans its own claim only), normalized as a parsed
+what-if is. -/
+def expandWith (t : Trace) (A : Answers) (id : String) : Except String Overrides :=
+  let refuse : Except String Overrides := .error s!"\"{id}\" is not a suggested what-if"
+  let done := fun (extra : Overrides) => Except.ok (Overrides.normalize (A.withOverrides extra))
+  match id.splitOn ":" with
+  | [kind, target] =>
+    match kind with
+    | "suppose" =>
+      match t.facts.find? (fun f => f.id == target && A.closable f) with
+      | some f => done [(f.id, f.ceiling)]
+      | none => refuse
+    | "success" =>
+      match t.experiments.find? (·.id == target) with
+      | some e => done (A.raised (A.closure [e.id]))
+      | none => refuse
+    | "failure" =>
+      match t.experiments.find? (fun e => e.id == target && !e.failure.isEmpty) with
+      | some e => done (e.failure.map fun (k, _) => (k, .violated))
+      | none => refuse
+    | "plan" =>
+      let planned := t.claims.findSome? fun c =>
+        if c.id != target then none
+        else match A.plan c with
+          | .planned _ exps .. => some exps
+          | _ => none
+      match planned with
+      | some exps => done (A.raised exps)
+      | none => refuse
+    | _ => refuse
+  | _ => refuse
+
+/-- The envelope's `trace` member: the review digest + the review state. -/
+def traceJson (t : Trace) (digest : String) (review : Receipt.ReviewState) : Value :=
+  .obj ([("digest", .str digest), ("review", .obj ([("state", .str review.name)] ++
+    (match t.review with
+     | some r => [("reviewer", .str r.reviewer), ("date", .str r.date)]
+     | none => [])))])
+
+/-- An item's lists (`kernel.md` V-details), the item resolved by its first match. -/
+def itemLists (t : Trace) (A : Answers) : Item → Except String (List (String × Value))
+  | .experiment id => match t.experiments.find? (·.id == id) with
+    | some e => .ok (experimentLists A e)
+    | none => .error s!"\"{id}\" is not an experiment on record"
+  | .claim id => match A.lookups.claim? id with
+    | some c => .ok [("sentence", .str (A.sentence c)), ("incompatible", strs (A.incompatible c)),
+        ("plan", planJson (A.plan c))]
+    | none => .error s!"\"{id}\" is not a claim on record"
+  | .fact id => match A.lookups.fact? id with
+    | some _ => .ok [("raisedBy", strs (((A.experimentOrder ()).filter fun e =>
+        (A.raised (A.closure [e.id])).any (·.1 == id)).map (·.id)))]
+    | none => .error s!"\"{id}\" is not a fact on record"
+
+/-- The details document of one item (`fvtrace.details/1`), or the item's refusal. -/
+def detailsWith (sc : Scenario) (A : Answers) (digest : String) (review : Receipt.ReviewState)
+    (item : String) : Except String Value := do
+  let it ← Item.parse item
+  let lists ← itemLists sc.trace A it
+  return .obj ([("schema", .str "fvtrace.details/1"),
+    ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
+    ("overrides", overridesJson sc.overrides), ("trace", traceJson sc.trace digest review),
+    ("item", .str it.name)] ++ lists)
+
 /-- The full envelope for one snapshot (trace + receipt bindings + overrides + review state), read
 off the answers `A`. -/
 def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding) (digest : String)
@@ -131,10 +204,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
   .obj [("schema", .str "fvtrace.evaluation/1"),
     ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
     ("overrides", overridesJson sc.overrides),
-    ("trace", .obj ([("digest", .str digest), ("review", .obj ([("state", .str review.name)] ++
-      (match t.review with
-       | some r => [("reviewer", .str r.reviewer), ("date", .str r.date)]
-       | none => [])))])),
+    ("trace", traceJson t digest review),
     ("analysis", Encode.analysis t.analysis),
     ("subjects", .arr (t.subjects.map fun sub =>
       .obj [("id", .str sub.id), ("title", .str sub.title), ("kind", .str sub.kind.name),
@@ -168,6 +238,26 @@ proved equal to the `Scenario` functions for every scenario: `Spec.AnswersAgree`
 def envelope (sc : Scenario) (bindings : List Receipt.Binding) (digest : String)
     (review : Receipt.ReviewState) : Value :=
   envelopeWith sc (Answers.fast sc) bindings digest review
+
+/-- The batch document (`fvtrace.complete/1`, `kernel.md` V-complete): the envelope + the lists of
+every item, one header for all: each experiment (envelope order), each claim, each fact. -/
+def completeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding) (digest : String)
+    (review : Receipt.ReviewState) : Value :=
+  let t := sc.trace
+  let item := fun (name : String) (lists : List (String × Value)) =>
+    Value.obj ([("item", .str name)] ++ lists)
+  let claimLists := fun (c : Claim) => [("sentence", Value.str (A.sentence c)),
+    ("incompatible", strs (A.incompatible c)), ("plan", planJson (A.plan c))]
+  let order := (A.experimentOrder ()).toArray
+  -- Each experiment's raised facts once, inverted: a fact's raisers in experiment order.
+  let raisers := Index.build compare (order.toList.zipIdx.flatMap fun (e, p) =>
+    (A.raised (A.closure [e.id])).map fun x => (x.1, p))
+  .obj [("schema", .str "fvtrace.complete/1"),
+    ("envelope", envelopeWith sc A bindings digest review),
+    ("items", .arr (order.toList.map (fun e => item s!"experiment:{e.id}" (experimentLists A e)) ++
+      t.claims.map (fun c => item s!"claim:{c.id}" (claimLists c)) ++
+      t.facts.map (fun f => item s!"fact:{f.id}" [("raisedBy", strs
+        ((raisers.group (cmp := compare) f.id).filterMap fun p => (order[p]?).map (·.id)))])))]
 
 end Evaluate
 end Fvtrace

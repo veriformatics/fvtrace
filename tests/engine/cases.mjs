@@ -125,6 +125,63 @@ export function nativeAnswers(snapshot, specs) {
   }
 }
 
+/** The native engine's answers to `requests` (`kernel.md` E-request), in order through one engine.
+ * @param {string} snapshot @param {string[]} requests @returns {string[]} */
+export function nativeRequests(snapshot, requests) {
+  const dir = mkdtempSync(join(tmpdir(), "fvtrace-engine-"));
+  try {
+    writeFileSync(join(dir, "snapshot.json"), snapshot);
+    writeFileSync(join(dir, "requests.json"), JSON.stringify(requests));
+    const out = execFileSync(
+      testsBin,
+      ["--answer-snapshot", join(dir, "snapshot.json"), join(dir, "requests.json")],
+      { encoding: "utf8", maxBuffer: 1 << 30 },
+    );
+    /** @type {unknown} */
+    const answers = JSON.parse(out);
+    if (!Array.isArray(answers) || !answers.every((a) => typeof a === "string"))
+      throw new Error("fvtrace-tests --answer-snapshot printed no list of strings");
+    return answers;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** One request's JSON text. @param {Record<string, string>} r */
+const req = (r) => JSON.stringify(r);
+
+/** A request sequence for one case (`kernel.md` E-wasm): what-ifs, every one-click action, the
+ * details of every item (a few on the large cases), refusals of each kind, and state carried
+ * across (back to recorded, repeats). @param {Case} c @returns {string[]} */
+export function requestsFor(c) {
+  /** @type {unknown} */
+  const env = JSON.parse(nativeAnswers(c.snapshot, [""])[0] ?? "null");
+  const ids = (/** @type {string} */ key) =>
+    isJson(env) ? records(env[key]).map((r) => String(r["id"])) : [];
+  const large = c.name.startsWith("a 4 MB") || c.name.startsWith("12,000");
+  const few = (/** @type {string[]} */ xs) => (large ? xs.slice(0, 3) : xs);
+  const firstWhatif = c.specs.find((x) => x !== "") ?? "";
+  return [
+    req({ whatif: "" }),
+    ...few(c.specs.slice(1, 6)).map((whatif) => req({ whatif })),
+    ...few(ids("actions")).map((action) => req({ whatif: "", action })),
+    ...few(ids("actions"))
+      .slice(0, 2)
+      .map((action) => req({ whatif: firstWhatif, action })),
+    ...few(ids("experiments")).map((id) => req({ whatif: "", details: `experiment:${id}` })),
+    ...few(ids("claims")).map((id) => req({ whatif: "", details: `claim:${id}` })),
+    ...few(ids("facts")).map((id) => req({ whatif: firstWhatif, details: `fact:${id}` })),
+    req({ whatif: "", action: "plan:C9" }),
+    req({ whatif: "", details: "E9" }),
+    req({ whatif: "", details: "experiment:E9" }),
+    req({ whatif: "ZZ=proved", action: "x", details: "y" }),
+    req({ whatif: "", action: "x", details: "y" }),
+    '{"whatif":1}',
+    "not json",
+    req({ whatif: "" }),
+  ];
+}
+
 /** The recorded envelope's one-click actions, as what-if specs. @param {string} snapshot */
 function actionSpecs(snapshot) {
   /** @type {unknown} */

@@ -22,6 +22,7 @@ def outcome (a : Action) (header : String := "") : Nat × Option String × Strin
   match a with
   | .reply r => (r.status.toCode.toNat, r.headers.lookup header, r.body)
   | .evaluate w => (0, w, "")
+  | .answer v => (1, v, "")
 
 /-- A decided reply's JSON problem kind. -/
 def decidedKind (a : Action) : Option String :=
@@ -31,13 +32,26 @@ def decidedKind (a : Action) : Option String :=
       | some (.str k) => some k
       | _ => none
     | _ => none
-  | .evaluate _ => none
+  | _ => none
 
 /-- Access, host + routing decisions (no I/O). -/
 def pureTests : TestM Unit := do
   let c := cfgAt "/nowhere"
   checkEq "server: only GET" (outcome (decide c (req "/" (method := .post))) "Allow")
     (405, some "GET", "Only GET is served.\n")
+  -- The answer route (kernel.md V-serve): POST alone, the token before the body is read.
+  checkEq "server: the answer route takes POST alone"
+    (outcome (decide c (req "/api/answer" (authorization := bearerOk))) "Allow")
+    (405, some "POST", "Only POST is served.\n")
+  checkEq "server: a POST with the token reaches the answer, with its view"
+    (outcome (decide c { req "/api/answer" (authorization := bearerOk) (method := .post) with
+      view := some "v1" })) (1, some "v1", "")
+  checkEq "server: a POST without the token is refused before its body is read"
+    (let a := decide c (req "/api/answer" (method := .post)); ((outcome a).1, decidedKind a))
+    (403, some "access")
+  checkEq "server: a POST to a foreign Host is refused"
+    (outcome (decide c (req "/api/answer" (authorization := bearerOk) (method := .post)
+      (host := some "evil.example:8718")))).1 421
   checkEq "server: a foreign Host is refused (DNS rebinding)"
     (outcome (decide c (req "/api/evaluation" (authorization := bearerOk)
       (host := some "evil.example:8718")))).1 421
@@ -54,7 +68,7 @@ def pureTests : TestM Unit := do
   | .reply r =>
     checkEq "server: a GUI module" (r.status.toCode, r.contentType)
       (200, "text/javascript; charset=utf-8")
-  | .evaluate _ => check "server: a GUI module" false
+  | _ => check "server: a GUI module" false
   checkEq "server: an unknown path" (outcome (decide c (req "/etc/passwd"))).1 404
   let refused := fun (name : String) (a : Action) =>
     checkEq name ((outcome a).1, decidedKind a) (403, some "access")
@@ -97,6 +111,42 @@ def receiptCurrent (r : Reply) (id : String) : Option Bool := do
   let .obj rk ← fk.lookup "receipt" | none
   let .bool b ← rk.lookup "current" | none
   pure b
+
+/-- `POST /api/answer` = the CLI's answer, byte for byte; refusals by kind; the view header. -/
+def answerTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    -- The synthetic study's own project folder: its receipts read current.
+    let project ← IO.FS.realPath "examples/synthetic/project"
+    let c := { cfgAt dir with target := { (cfgAt dir).target with project } }
+    let cache ← IO.mkRef ({} : Receipt.Cache)
+    IO.FS.writeBinFile c.target.trace (← IO.FS.readBinFile "examples/synthetic/trace.json")
+    let repo : Store.Env := { home := dir / "home", cwd := ← IO.currentDir }
+    let cli := fun (args : List String) => do
+      let (_, out, _) ← capture (Cli.runIn repo (["eval", "--trace", c.target.trace.toString,
+        "--project", project.toString] ++ args))
+      return out
+    let viewOf := fun (r : Reply) => r.headers.lookup "X-Fvtrace-View"
+    for (body, args) in [("{\"whatif\":\"\"}", []),
+        ("{\"whatif\":\"O2=checked\",\"details\":\"claim:C2\"}",
+          ["--whatif", "O2=checked", "--details", "claim:C2"]),
+        ("{\"whatif\":\"\",\"action\":\"plan:C2\"}", ["--action", "plan:C2"])] do
+      let r ← answer c cache none body
+      checkEq s!"server: {body} = fvtrace eval's bytes" (r.status.toCode, r.body) (200, ← cli args)
+      check s!"server: {body} names its view" (viewOf r).isSome
+    for (body, kind) in [("{\"whatif\":\"O9=proved\"}", "what-if"),
+        ("{\"whatif\":\"\",\"action\":\"plan:C9\"}", "action"),
+        ("{\"whatif\":\"\",\"details\":\"E9\"}", "item"), ("{}", "invalid"), ("[", "invalid"),
+        ("{\"whatif\":\"O9=proved\",\"action\":\"x\",\"details\":\"y\"}", "what-if")] do
+      let r ← answer c cache none body
+      checkEq s!"server: {body} refused" (r.status.toCode, problemKind r) (400, some kind)
+    let first ← answer c cache none "{\"whatif\":\"\"}"
+    let same ← answer c cache (viewOf first) "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
+    checkEq "server: details for the page's view" same.status.toCode 200
+    let other ← answer c cache (some "00ff") "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
+    checkEq "server: details for another view = 409 view" (other.status.toCode, problemKind other)
+      (409, some "view")
+    checkEq "server: an answer past the body cap = 413"
+      ((← answerBody c cache none none).status.toCode) 413
 
 /-- The evaluation route against a real project folder (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do

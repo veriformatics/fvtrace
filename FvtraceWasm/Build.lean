@@ -275,7 +275,8 @@ def compile (cfg : Config) (t : Tools) (toolchain : String) (flags : Array Strin
 
 /-- What the page's loader names (`FvtraceWasm.Binary.requiredExports`, Emscripten spelling). -/
 def exportedFunctions : String :=
-  ",".intercalate (["fvtrace_init", "fvtrace_alloc", "fvtrace_free", "fvtrace_evaluate"].map
+  ",".intercalate (["fvtrace_init", "fvtrace_alloc", "fvtrace_free", "fvtrace_evaluate",
+    "fvtrace_load", "fvtrace_answer"].map
     ("_" ++ ·))
 
 /-- Linker warnings the build accepts: `Init` declares the temporary-file primitives without the

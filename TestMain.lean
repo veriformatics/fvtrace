@@ -7,4 +7,6 @@ def main (args : List String) : IO UInt32 := do
   -- native evaluation, for what-ifs a command line cannot carry (a NUL) too.
   if let ["--evaluate-snapshot", snapshot, specs] := args then
     return ← Tests.Snapshot.evaluateFile snapshot specs
+  if let ["--answer-snapshot", snapshot, requests] := args then
+    return ← Tests.Snapshot.answerFile snapshot requests
   Tests.report (← Tests.exec Tests.all)

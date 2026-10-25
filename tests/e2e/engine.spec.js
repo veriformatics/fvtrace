@@ -8,6 +8,8 @@ import {
   engineOfPage,
   exportedPage,
   nativeAnswers,
+  nativeRequests,
+  requestsFor,
   root,
   snapshotOfPage,
 } from "../engine/cases.mjs";
@@ -82,6 +84,54 @@ test("the page's engine answers every case in Chromium as the native engine does
       );
       answers++;
     });
+  });
+  // Request sequences (E-request), one engine per snapshot: a refused snapshot ends its engine.
+  /** @type {[string, string[]][]} */
+  const sequences = all.map((c) => [c.snapshot, requestsFor(c)]);
+  const replies = await page.evaluate(
+    async ([base64, seqs]) => {
+      /** @type {unknown} */
+      const start = Reflect.get(globalThis, "fvtraceStart");
+      if (typeof start !== "function") throw new Error("no loader");
+      /** @type {string[][]} */
+      const out = [];
+      const make = async () => {
+        /** @type {unknown} */
+        const engine = await Reflect.apply(start, undefined, [base64]);
+        return engine;
+      };
+      const engines = await Promise.all(seqs.map(() => make()));
+      for (const [k, [snapshot, requests]] of seqs.entries()) {
+        const engine = engines[k];
+        if (typeof engine !== "object" || engine === null) throw new Error("no engine");
+        /** @type {unknown} */
+        const load = Reflect.get(engine, "load");
+        /** @type {unknown} */
+        const request = Reflect.get(engine, "request");
+        if (typeof load !== "function" || typeof request !== "function")
+          throw new Error("no calls");
+        /** @type {unknown} */
+        const problem = Reflect.apply(load, engine, [snapshot]);
+        if (typeof problem === "string") {
+          out.push([problem]);
+          continue;
+        }
+        out.push(
+          requests.map((r) => {
+            /** @type {unknown} */
+            const reply = Reflect.apply(request, engine, [r]);
+            return typeof reply === "string" ? reply : "";
+          }),
+        );
+      }
+      return out;
+    },
+    /** @type {[string, [string, string[]][]]} */ ([engineOfPage(html), sequences]),
+  );
+  all.forEach((c, k) => {
+    const native = nativeRequests(c.snapshot, sequences[k]?.[1] ?? []);
+    expect(replies[k], `${c.name}: request sequence`).toEqual(native);
+    answers += native.length;
   });
   // A panic (`fd_write`, routed to the console) may still give the native answer.
   expect(said).toEqual([]);

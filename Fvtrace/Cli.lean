@@ -60,8 +60,13 @@ def usage : String :=
   "  plan CLAIM\n" ++
   "      Show the cheapest coherent experiments that raise CLAIM as far as the\n" ++
   "      suggestions allow.\n" ++
-  "  eval\n" ++
-  "      Print the full evaluation as JSON (fvtrace.evaluation/1).\n" ++
+  "  eval [--details ITEM | --complete]\n" ++
+  "      Print the full evaluation as JSON (fvtrace.evaluation/1). --details ITEM\n" ++
+  "      prints the details of one item: experiment:ID (its prerequisites, what\n" ++
+  "      its success raises and the claims it changes), claim:ID (its sentence,\n" ++
+  "      the facts it needs that exclude each other, and its full plan) or fact:ID\n" ++
+  "      (the experiments that raise it). --complete prints the evaluation and the\n" ++
+  "      details of every item.\n" ++
   "  export --html FILE | --bundle DIR\n" ++
   "      Share the claims. --html writes one page that opens in any browser and\n" ++
   "      evaluates what-ifs there, offline. --bundle writes the trace and copies of\n" ++
@@ -80,10 +85,11 @@ def usage : String :=
   "  skills show\n" ++
   "      Print the skill's instructions.\n\n" ++
   "claims, gaps, experiments, plan and eval accept --whatif FACT=STATUS,... to\n" ++
-  "suppose statuses, and --cached to reuse the digest of an evidence file that kept\n" ++
-  "its size and modification time (faster for large files, but it misses an edit\n" ++
-  "that keeps both). check, claims, gaps, experiments and plan accept --json for\n" ++
-  "machine output.\n" ++
+  "suppose statuses, --action ID to apply a suggested what-if from the evaluation\n" ++
+  "(such as plan:C2) on top of them, and --cached to reuse the digest of an\n" ++
+  "evidence file that kept its size and modification time (faster for large\n" ++
+  "files, but it misses an edit that keeps both). check, claims, gaps,\n" ++
+  "experiments and plan accept --json for machine output.\n" ++
   "  --version   Print the fvTrace version.\n" ++
   "  --help      Print this help.\n\n" ++
   "Exit status: 0 = success, 1 = an invalid or failing trace, 2 = a usage or read\n" ++
@@ -150,6 +156,8 @@ def report : Session.Problem → IO UInt32
     complain s!"fvtrace: {file} is not well-formed; run fvtrace check"
     return 1
   | .badWhatif m => usageError m
+  | .badAction m => usageError m
+  | .badItem m => usageError m
 
 /-- Reads the target's trace (decoded or not), reporting a missing or unreadable file. -/
 def readTarget (p : Args.Parsed) (t : Store.Target) :
@@ -389,8 +397,13 @@ def review (env : Store.Env) (args : List String) : IO UInt32 := do
 /-! ## Evaluation commands -/
 
 def evalSpec (positional : Nat) : Args.Spec :=
-  { valued := located ++ ["--whatif", "--question"], switches := ["--json", "--cached"],
+  { valued := located ++ ["--whatif", "--action", "--question"], switches := ["--json", "--cached"],
     positional := [positional] }
+
+/-- `eval` also takes `--details ITEM` + `--complete`. -/
+def evalOnlySpec : Args.Spec :=
+  { evalSpec 0 with valued := (evalSpec 0).valued ++ ["--details"],
+                    switches := (evalSpec 0).switches ++ ["--complete"] }
 
 abbrev Loaded := Session.Loaded
 
@@ -404,6 +417,9 @@ def load (env : Store.Env) (p : Args.Parsed) : IO (Except UInt32 Loaded) := do
   let r ← Session.load tg (p.value? "--trace").isSome (p.value? "--whatif") (!p.has "--cached")
     cache
   Session.closeCache tg cache
+  let r := r.bind fun l => match p.value? "--action" with
+    | some a => Session.expand l a
+    | none => .ok l
   match r with
   | .ok l => return .ok l
   | .error prob => return .error (← report prob)
@@ -419,8 +435,9 @@ def project (env : Value) (keys : List String) : Value :=
 def projectionKeys : List String := ["schema", "mode", "overrides", "trace"]
 
 def withLoaded (env : Store.Env) (args : List String) (positional : Nat)
-    (k : Args.Parsed → Loaded → IO UInt32) : IO UInt32 := do
-  let p ← match ← parseArgs (evalSpec positional) args with
+    (k : Args.Parsed → Loaded → IO UInt32) (spec : Args.Spec := evalSpec positional) :
+    IO UInt32 := do
+  let p ← match ← parseArgs spec args with
     | .ok p => pure p
     | .error rc => return rc
   match ← load env p with
@@ -629,9 +646,15 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     return 0
 
 def evalCmd (env : Store.Env) (args : List String) : IO UInt32 :=
-  withLoaded env args 0 fun _ l => do
-    IO.print (envelopeOf l).pretty
-    return 0
+  withLoaded env args 0 (spec := evalOnlySpec) fun p l => do
+    match p.value? "--details", p.has "--complete" with
+    | some _, true => usageError "give --details or --complete, not both"
+    | some item, false =>
+      match Session.details l item with
+      | .ok v => IO.print v.pretty; return 0
+      | .error prob => report prob
+    | none, true => IO.print (Session.complete l).pretty; return 0
+    | none, false => IO.print (envelopeOf l).pretty; return 0
 
 /-! ## Agent skill -/
 

@@ -29,6 +29,8 @@ cmp_run() { # label, project, trace, args...
         fi
     done
     runs=$((runs + 1))
+    # A refusal's usage text names the options each binary has: compared apart (kernel.md V-cli).
+    for b in old new; do sed -i '/^usage: fvtrace/,$d' "$work/$b.err"; done
     for out in out err rc; do
         if ! cmp -s "$work/old.$out" "$work/new.$out"; then
             diffs=$((diffs + 1)); printf 'DIFF %s %s (%s)\n' "$label" "$*" "$out"
