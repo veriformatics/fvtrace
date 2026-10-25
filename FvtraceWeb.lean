@@ -16,6 +16,7 @@ def files : List (String × String × String) :=
    ("/envelope.js", "text/javascript; charset=utf-8", include_str "web/envelope.js"),
    ("/panels.js", "text/javascript; charset=utf-8", include_str "web/panels.js"),
    ("/tour.js", "text/javascript; charset=utf-8", include_str "web/tour.js"),
-   ("/words.js", "text/javascript; charset=utf-8", include_str "web/words.js")]
+   ("/words.js", "text/javascript; charset=utf-8", include_str "web/words.js"),
+   ("/worker.js", "text/javascript; charset=utf-8", include_str "web/worker.js")]
 
 end FvtraceWeb

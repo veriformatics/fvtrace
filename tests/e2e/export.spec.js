@@ -203,32 +203,119 @@ test("without WebAssembly the page keeps the recorded view and says why", async 
   await context.close();
 });
 
+/**
+ * Plants faults between the page and its engine's Worker (the engine runs off the page's thread,
+ * so the page's own `WebAssembly` never sees it): `delay` holds the start message back, `trapAt`
+ * answers that request with a failure instead of forwarding it, `corrupt` garbles the first
+ * request's answer, `hold` delays every answer; the page reads the request count
+ * (`fvtraceCalls`), the workers made (`fvtraceWorkers`) + a ready flag.
+ * @param {import("@playwright/test").Page} page
+ * @param {{ delay?: number, trapAt?: number, corrupt?: boolean, hold?: number }} opts
+ */
+async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold = 0 }) {
+  await page.addInitScript(([ms, trap, garble, held]) => {
+    const Real = globalThis.Worker;
+    let calls = 0;
+    let workers = 0;
+    Reflect.set(globalThis, "fvtraceCalls", () => calls);
+    Reflect.set(globalThis, "fvtraceWorkers", () => workers);
+    class Planted extends Real {
+      /** @param {string | URL} url @param {WorkerOptions} [options] */
+      constructor(url, options) {
+        super(url, options);
+        workers++;
+        /** @type {((e: MessageEvent) => void) | null} */
+        this.handler = null;
+        /** @type {unknown} */
+        this.startId = undefined;
+        let firstAnswer = true;
+        super.addEventListener("message", (/** @type {MessageEvent} */ event) => {
+          /** @type {unknown} */
+          const data = event.data;
+          if (typeof data !== "object" || data === null) return;
+          /** @type {unknown} */
+          const id = Reflect.get(data, "id");
+          if (id === this.startId) Reflect.set(globalThis, "fvtraceReady", true);
+          /** @type {unknown} */
+          const value = Reflect.get(data, "value");
+          if (garble && id !== this.startId && typeof value === "string" && firstAnswer) {
+            firstAnswer = false;
+            this.handler?.(
+              new MessageEvent("message", { data: { id, value: `!${value.slice(1)}` } }),
+            );
+            return;
+          }
+          if (held && id !== this.startId) setTimeout(() => this.handler?.(event), held);
+          else this.handler?.(event);
+        });
+      }
+      /** The page's one message listener; the planted one above hands it each reply.
+       * @param {string} type @param {EventListenerOrEventListenerObject} listener */
+      addEventListener(type, listener) {
+        if (type !== "message") return super.addEventListener(type, listener);
+        if (typeof listener === "function") this.handler = (e) => listener(e);
+      }
+      /** @param {unknown} message */
+      postMessage(message) {
+        /** @type {unknown} */
+        const op =
+          typeof message === "object" && message !== null ? Reflect.get(message, "op") : undefined;
+        /** @type {unknown} */
+        const id =
+          typeof message === "object" && message !== null ? Reflect.get(message, "id") : undefined;
+        if (op === "start") {
+          this.startId = id;
+          setTimeout(() => super.postMessage(message, []), ms);
+          return;
+        }
+        if (op === "request") {
+          calls++;
+          if (trap && calls >= trap) {
+            setTimeout(
+              () =>
+                this.handler?.(
+                  new MessageEvent("message", { data: { id, failed: "planted trap" } }),
+                ),
+              0,
+            );
+            return;
+          }
+        }
+        super.postMessage(message, []);
+      }
+    }
+    Reflect.set(globalThis, "Worker", Planted);
+  }, /** @type {[number, number, boolean, number]} */ ([delay, trapAt, corrupt, hold]));
+}
+
+test("the page's engine works in a Worker: a selection shows while it answers", async ({
+  browser,
+}) => {
+  const { context, page, url } = await openOffline(browser);
+  await plantWorker(page, { hold: 4000 });
+  await page.goto(url);
+  await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceReady") === true);
+  await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+  // The answer is held for 4 s; the page answers a selection meanwhile (user ruling: Worker).
+  await card(page, "C1").locator(".tag-id").getByRole("button").click();
+  await expect(page.locator("#inspector").getByRole("heading", { level: 2 })).toBeVisible({
+    timeout: 1000,
+  });
+  const workers = await page.evaluate(() => {
+    /** @type {unknown} */
+    const count = Reflect.get(globalThis, "fvtraceWorkers");
+    /** @type {unknown} */
+    const n = typeof count === "function" ? Reflect.apply(count, undefined, []) : -1;
+    return typeof n === "number" ? n : -1;
+  });
+  expect(workers).toBe(1);
+  await context.close();
+});
+
 test("an engine that fails mid-session is never called again", async ({ browser }) => {
   const { context, page, url } = await openOffline(browser);
-  // The second evaluation traps: a stand-in for any failure inside the engine.
-  await page.addInitScript(() => {
-    const real = WebAssembly.instantiate.bind(WebAssembly);
-    let calls = 0;
-    Reflect.set(globalThis, "fvtraceCalls", () => calls);
-    Reflect.set(
-      WebAssembly,
-      "instantiate",
-      async (/** @type {BufferSource} */ bytes, /** @type {WebAssembly.Imports} */ imports) => {
-        const { module, instance } = await real(bytes, imports);
-        /** @type {Record<string, WebAssembly.ExportValue>} */
-        const exports = { ...instance.exports };
-        const evaluate = exports["fvtrace_answer"];
-        exports["fvtrace_answer"] = (/** @type {number[]} */ ...args) => {
-          calls++;
-          if (calls > 1) throw new WebAssembly.RuntimeError("planted trap");
-          /** @type {unknown} */
-          const out = typeof evaluate === "function" ? Reflect.apply(evaluate, undefined, args) : 0;
-          return typeof out === "number" ? out : 0;
-        };
-        return { module, instance: { exports } };
-      },
-    );
-  });
+  // The second request traps: a stand-in for any failure inside the engine.
+  await plantWorker(page, { trapAt: 2 });
   await page.goto(url);
   const c2 = card(page, "C2");
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
@@ -255,34 +342,7 @@ test("an engine that fails mid-session is never called again", async ({ browser 
  * @param {import("@playwright/test").Page} page
  * @param {{ ms?: number, corruptFirst?: boolean }} [opts] */
 async function slowEngine(page, { ms = 1500, corruptFirst = false } = {}) {
-  await page.addInitScript(([delay, corrupt]) => {
-    const real = WebAssembly.instantiate.bind(WebAssembly);
-    let calls = 0;
-    Reflect.set(globalThis, "fvtraceCalls", () => calls);
-    Reflect.set(
-      WebAssembly,
-      "instantiate",
-      async (/** @type {BufferSource} */ bytes, /** @type {WebAssembly.Imports} */ imports) => {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        const { module, instance } = await real(bytes, imports);
-        /** @type {Record<string, WebAssembly.ExportValue>} */
-        const exports = { ...instance.exports };
-        const evaluate = exports["fvtrace_answer"];
-        exports["fvtrace_answer"] = (/** @type {number[]} */ ...args) => {
-          calls++;
-          /** @type {unknown} */
-          const out = typeof evaluate === "function" ? Reflect.apply(evaluate, undefined, args) : 0;
-          const at = typeof out === "number" ? out : 0;
-          const memory = exports["memory"];
-          if (corrupt && calls === 1 && at !== 0 && memory instanceof WebAssembly.Memory)
-            new Uint8Array(memory.buffer, at, 1).set([0x21]);
-          return at;
-        };
-        Reflect.set(globalThis, "fvtraceReady", true);
-        return { module, instance: { exports } };
-      },
-    );
-  }, /** @type {[number, boolean]} */ ([ms, corruptFirst]));
+  await plantWorker(page, { delay: ms, corrupt: corruptFirst });
 }
 
 /** Waits until the slow engine has started, then for queued answers to settle. @param {import("@playwright/test").Page} page */
@@ -326,8 +386,9 @@ test("a failure ends the engine before a queued what-if enters it", async ({ bro
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
   await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
   await engineStarted(page);
-  expect(await evaluations(page)).toBe(1);
+  // The engine works off the page's thread: the count settles once the failure shows.
   await expect(page.locator("#error")).toHaveText(engineFailed);
+  expect(await evaluations(page)).toBe(1);
   await expect(page.getByRole("status")).toContainText(recorded);
   await context.close();
 });

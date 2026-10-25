@@ -99,8 +99,14 @@ def nativeTests : TestM Unit := do
     check "export: the page carries the engine block once, as built"
       (count html "id=\"fvtrace-engine\"" == 1 && block == Export.engine && !block.isEmpty &&
         Export.base64Text block)
-    check "export: the page requires Trusted Types"
-      (count html "require-trusted-types-for 'script'; trusted-types 'none'" == 1)
+    check "export: the page requires Trusted Types, one policy for its engine's Worker"
+      (count html "require-trusted-types-for 'script'; trusted-types fvtrace-engine" == 1 &&
+        count html "worker-src blob:;" == 1)
+    let worker := ((html.splitOn "id=\"fvtrace-worker\">")[1]!.splitOn "</script>")[0]!
+    check "export: the page carries its engine worker once, apart from the page's script"
+      (count html "id=\"fvtrace-worker\"" == 1 &&
+        some worker == (Export.bundle Export.workerModules).toOption &&
+        count script "const __worker" == 0)
     check "export: the page links no file" (count html "src=\"" == 0 && count html "href=\"" == 0)
     let island := ((html.splitOn "id=\"fvtrace-data\">")[1]!.splitOn "</script>")[0]!
     check "export: the page's receipts come from a fresh read (no cache)"
