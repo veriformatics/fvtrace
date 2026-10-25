@@ -64,6 +64,20 @@
               <button class="filter" type="button" data-layout="text">Text</button>
             </div>
           </div>
+          <div class="find" role="search">
+            <label class="find-label" for="find">Find a claim, fact or experiment</label>
+            <input
+              id="find"
+              class="find-input"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="An id, or words from its text"
+              aria-describedby="find-count"
+            />
+            <p id="find-count" class="find-count" aria-live="polite" hidden></p>
+            <ul id="find-results" class="find-results" aria-label="Matches" hidden></ul>
+          </div>
           <div id="board" class="board"></div>
         </section>
         <aside id="inspector" class="inspector" tabindex="-1" aria-label="Details"></aside>

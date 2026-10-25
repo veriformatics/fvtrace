@@ -49,11 +49,21 @@ function ref(/** @type {"fact" | "claim" | "experiment"} */ kind, /** @type {str
   );
 }
 
+/** Each kind's word, singular + plural. */
+const nouns = {
+  fact: /** @type {[string, string]} */ (["fact", "facts"]),
+  claim: /** @type {[string, string]} */ (["claim", "claims"]),
+  experiment: /** @type {[string, string]} */ (["experiment", "experiments"]),
+};
+
 /** `O1, O2` as selectable references (a long run mounts as it nears the viewport).
  * @param {string[]} ids @param {Handlers} on */
 function refs(/** @type {"fact" | "claim" | "experiment"} */ kind, ids, on) {
-  return listOf(h("span", { class: "refs" }), ids, (id, i) =>
-    h("span", {}, i ? ", " : "", ref(kind, id, on)),
+  return listOf(
+    h("span", { class: "refs" }),
+    ids,
+    (id, i) => h("span", {}, i ? ", " : "", ref(kind, id, on)),
+    nouns[kind],
   );
 }
 
@@ -81,33 +91,42 @@ function actionButton(label, action, on, primary = true) {
 /** @param {Move[]} ms @param {Lookups} ix @param {Handlers} on @param {string} none */
 function moveList(ms, ix, on, none) {
   if (!ms.length) return h("p", { class: "note" }, none);
-  return listOf(h("ul", { class: "moves" }), ms, (m) => {
-    const c = ix.claims.get(m.claim);
-    return h(
-      "li",
-      {},
-      lamp(m.to, "small"),
-      h(
-        "span",
+  return listOf(
+    h("ul", { class: "moves" }),
+    ms,
+    (m) => {
+      const c = ix.claims.get(m.claim);
+      return h(
+        "li",
         {},
-        ref("claim", m.claim, on),
-        ` changes from ${word(verdicts, m.from)} to ${word(verdicts, m.to)}`,
-        c ? h("small", { class: "move-text" }, headline(c)) : null,
-      ),
-    );
-  });
+        lamp(m.to, "small"),
+        h(
+          "span",
+          {},
+          ref("claim", m.claim, on),
+          ` changes from ${word(verdicts, m.from)} to ${word(verdicts, m.to)}`,
+          c ? h("small", { class: "move-text" }, headline(c)) : null,
+        ),
+      );
+    },
+    nouns.claim,
+  );
 }
 
 /** @param {Override[]} os @param {Lookups} ix @param {Handlers} on */
 function changeList(os, ix, on) {
-  return listOf(h("ul", { class: "changes" }), os, (o) =>
-    h(
-      "li",
-      {},
-      ref("fact", o.fact, on),
-      ` becomes ${word(statuses, o.status).toLowerCase()}: `,
-      h("span", { class: "quote" }, factText(ix, o.fact)),
-    ),
+  return listOf(
+    h("ul", { class: "changes" }),
+    os,
+    (o) =>
+      h(
+        "li",
+        {},
+        ref("fact", o.fact, on),
+        ` becomes ${word(statuses, o.status).toLowerCase()}: `,
+        h("span", { class: "quote" }, factText(ix, o.fact)),
+      ),
+    nouns.fact,
   );
 }
 
@@ -232,18 +251,22 @@ function alternatives(p, on) {
   }
   return [
     h("h3", {}, "Experiments for each fact"),
-    listOf(h("ul", { class: "changes" }), [...byNeed], ([n, alts]) =>
-      h(
-        "li",
-        {},
-        ref("fact", n, on),
-        ": ",
-        alts.flatMap((a, i) => [
-          i ? ", " : "",
-          ref("experiment", a.experiment, on),
-          ` sets ${a.status}`,
-        ]),
-      ),
+    listOf(
+      h("ul", { class: "changes" }),
+      [...byNeed],
+      ([n, alts]) =>
+        h(
+          "li",
+          {},
+          ref("fact", n, on),
+          ": ",
+          alts.flatMap((a, i) => [
+            i ? ", " : "",
+            ref("experiment", a.experiment, on),
+            ` sets ${a.status}`,
+          ]),
+        ),
+      nouns.fact,
     ),
   ];
 }
@@ -589,8 +612,14 @@ function togetherWith(ix, w, on) {
     .map((id, i) => {
       const c = ix.claims.get(id);
       const others = (c?.gaps ?? []).filter((f) => f !== w.fact);
+      // A long run mounts as it comes near (U-long), commas alone.
       const together = others.length
-        ? [", together with ", andList(others.map((f) => ref("fact", f, on)))]
+        ? [
+            ", together with ",
+            others.length > 40
+              ? refs("fact", others, on)
+              : andList(others.map((f) => ref("fact", f, on))),
+          ]
         : null;
       const tail =
         c?.final === "cannot"

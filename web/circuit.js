@@ -149,8 +149,6 @@ export function circuit(c, ix, on) {
     const f = ix.facts.get(id);
     return f ? [f] : [];
   });
-  /** @type {(Fact | null)[]} */
-  const parts = [...needs, null];
   return h(
     "article",
     { class: `circuit${c.latent ? " latent" : ""}${needs.length > 6 ? " tall" : ""}` },
@@ -166,25 +164,27 @@ export function circuit(c, ix, on) {
     ),
     exactStatement(c),
     conditions(c, ix, on),
-    listOf(h("ul", { class: "contacts", "aria-label": `Facts that ${c.id} needs` }), parts, (f) =>
-      f
-        ? contact(f, on, c.id)
-        : h(
-            "li",
-            { class: "terminal" },
-            lamp(c.final),
-            h(
-              "button",
-              {
-                class: "contact-label",
-                "data-key": `terminal:${c.id}`,
-                type: "button",
-                onclick: () => on.select("claim", c.id),
-              },
-              h("strong", {}, c.id),
-              h("span", { class: "contact-kind" }, word(levels, c.level)),
-            ),
-          ),
+    listOf(
+      h("ul", { class: "contacts", "aria-label": `Facts that ${c.id} needs` }),
+      needs,
+      (f) => contact(f, on, c.id),
+      ["fact", "facts"],
+      h(
+        "li",
+        { class: "terminal" },
+        lamp(c.final),
+        h(
+          "button",
+          {
+            class: "contact-label",
+            "data-key": `terminal:${c.id}`,
+            type: "button",
+            onclick: () => on.select("claim", c.id),
+          },
+          h("strong", {}, c.id),
+          h("span", { class: "contact-kind" }, word(levels, c.level)),
+        ),
+      ),
     ),
   );
 }
@@ -313,12 +313,16 @@ export function conditions(c, ix, on) {
     { class: "conditions" },
     shown.map(([label, lines]) => [
       h("p", { class: "conditions-label" }, label),
-      listOf(h("ul", { class: "conditions-list" }), lines, (l) =>
-        "fact" in l
-          ? factLine(l.fact)
-          : "pair" in l
-            ? exclusionLine(l.pair, `${c.id} needs`)
-            : exclusionLine(l.conflict, "The what-if supposes"),
+      listOf(
+        h("ul", { class: "conditions-list" }),
+        lines,
+        (l) =>
+          "fact" in l
+            ? factLine(l.fact)
+            : "pair" in l
+              ? exclusionLine(l.pair, `${c.id} needs`)
+              : exclusionLine(l.conflict, "The what-if supposes"),
+        ["fact", "facts"],
       ),
     ]),
   );

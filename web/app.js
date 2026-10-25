@@ -15,6 +15,7 @@ import {
   decodeExported,
   decodeProblem,
 } from "./envelope.js";
+import { entriesOf, results, search } from "./find.js";
 import { LazyList } from "./lazy.js";
 import { lookupsOf } from "./lookups.js";
 import {
@@ -296,10 +297,15 @@ function showError(message) {
   el.hidden = false;
 }
 
+/** The find route's entries for the shown envelope, made on its first search. */
+/** @type {import("./find.js").Entry[] | undefined} */
+let entries;
+
 /** Makes `e` the shown envelope, its lookups built once (U-lookups). */
 function adopt(/** @type {Envelope} */ e) {
   env = e;
   ix = lookupsOf(e);
+  entries = undefined;
 }
 
 /** An exported page's recorded view: its first paint, and its view after any engine failure. */
@@ -653,6 +659,61 @@ const on = {
   },
 };
 
+/**
+ * The find route's choice: selected like a click, its card or row mounted (U-access: the route
+ * reaches rows not mounted), scrolled into view and focused; a fact, which has no row, focuses
+ * the inspector. @param {Selection["kind"]} kind @param {string} id
+ */
+function reveal(kind, id) {
+  view.selection = { kind, id };
+  const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
+  writeHash();
+  if (q && q !== view.question) {
+    view.question = q;
+    renderQuestions();
+    renderBoard();
+  }
+  /** @type {HTMLElement | undefined} */
+  let row;
+  if (kind === "claim") for (const g of boardGroups.values()) row ??= g.list.show(`claim:${id}`);
+  else if (kind === "experiment") row = experimentList.show(`experiment:${id}`);
+  drawSelection();
+  renderInspector();
+  void loadDetails();
+  const button = row?.querySelector(".tag-id .ref, .experiment-meta .ref");
+  if (row && button instanceof HTMLElement) {
+    row.scrollIntoView({ block: "center" });
+    button.focus();
+  } else byId("inspector").focus();
+}
+
+/** Shows the matches of the find field's text (none for an empty field). */
+function find() {
+  const input = byIdAs("find", HTMLInputElement);
+  const list = byId("find-results");
+  const line = byId("find-count");
+  if (!env || !ix || !input.value.trim()) {
+    list.hidden = true;
+    line.hidden = true;
+    fill(list);
+    return [];
+  }
+  entries ??= entriesOf(env);
+  const found = search(entries, input.value);
+  const e = env;
+  const shown = results(
+    input.value,
+    found,
+    (q) => (q === view.question ? undefined : e.questions.find((x) => x.id === q)?.title),
+    (m) => reveal(m.kind, m.id),
+  );
+  line.textContent = shown.line;
+  line.hidden = false;
+  fill(list, shown.rows);
+  list.hidden = shown.rows.length === 0;
+  return found.matches;
+}
+
 /** The selection drawn on the mounted cards + rows (a kept element keeps its marks). */
 /** @type {Selection | undefined} */
 let drawn;
@@ -762,10 +823,12 @@ let boardShows = "";
 /** The board's groups by layout + title: each a section with its own feed (U-long). */
 /** @type {Map<string, { section: HTMLElement, head: string, list: LazyList }>} */
 const boardGroups = new Map();
-const experimentList = new LazyList(byId("experiment-list"), { posinset: true, sentinel: "li" });
-const workList = new LazyList(byId("work-list"), { posinset: true, sentinel: "li" });
-const blockerList = new LazyList(byId("blocker-list"), { posinset: true, sentinel: "li" });
-const checkList = new LazyList(byId("check-list"), { posinset: true, sentinel: "li" });
+/** @param {string} id @param {[string, string]} noun */
+const rowList = (id, noun) => new LazyList(byId(id), { posinset: true, sentinel: "li", noun });
+const experimentList = rowList("experiment-list", ["experiment", "experiments"]);
+const workList = rowList("work-list", ["fact", "facts"]);
+const blockerList = rowList("blocker-list", ["fact", "facts"]);
+const checkList = rowList("check-list", ["check", "checks"]);
 /** The first board drawn: `tools/scale-gui.mjs` times the first view to the frame after it. */
 let boardShown = false;
 
@@ -924,6 +987,7 @@ function renderBoard() {
       const list = new LazyList(feed, {
         posinset: true,
         sentinel: view.layout === "text" ? "li" : "div",
+        noun: title === "Facts to verify" ? ["fact", "facts"] : ["claim", "claims"],
       });
       g = { section, head: "", list };
       boardGroups.set(name, g);
@@ -999,6 +1063,19 @@ function renderWork() {
 }
 
 function wire() {
+  const findInput = byIdAs("find", HTMLInputElement);
+  findInput.addEventListener("input", () => void find());
+  findInput.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      // Focus moves to the match: the key's own activation must not press the button it lands on.
+      ev.preventDefault();
+      const [first] = find();
+      if (first) reveal(first.kind, first.id);
+    } else if (ev.key === "Escape") {
+      findInput.value = "";
+      find();
+    }
+  });
   byId("reset").addEventListener("click", () => setWhatif(new Map()));
   byId("export-note").hidden = !exported;
   byId("question-select").addEventListener("change", (ev) => {
@@ -1065,7 +1142,7 @@ const factCell = (st) => [
 /** @param {Record<State, number>} counts @param {State} st */
 const verdictCell = (counts, st) => [
   lamp(st),
-  h("b", { class: "stat-count" }, String(counts[st])),
+  h("b", { class: "stat-count" }, counts[st].toLocaleString("en-US")),
   h(
     "span",
     { class: "key-text" },
