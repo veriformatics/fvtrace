@@ -5,7 +5,7 @@
 // page).
 //   node tools/scale-gui.mjs <fvtrace binary> <trace dir> <page.html>
 // The trace dir is tools/scale.mjs's (trace.json, project/, whatif.txt when the shape has one).
-// Rows on stdout: `<step> <rc> <wall s> - <JS heap KiB> 0 <bound s>`, rc 1 = the change never
+// Rows on stdout: `<step> <rc> <wall s> - <live JS KiB> 0 <bound s>`, rc 1 = the change never
 // showed within 60 s or the page failed. Steps per mode (`served`, `page`): `first` (navigation →
 // the board painted), `select` (a click on the first card's id → its highlight + summary),
 // `details` (a click on the second card's id → its details, the view already held), `busy` (a click
@@ -33,11 +33,11 @@ const cardId = "article.circuit .claim-head .tag-id .ref";
 // shape's what-if (every fact supposed there).
 const symbol = 'article.circuit button.switch:not([aria-disabled="true"])';
 
-/** @param {string} step @param {number | undefined} ms @param {number} bound @param {number} heap */
-function row(step, ms, bound, heap) {
+/** @param {string} step @param {number | undefined} ms @param {number} bound @param {number} bytes */
+function row(step, ms, bound, bytes) {
   const wall = ms === undefined ? "timeout" : (ms / 1000).toFixed(3);
   const rc = ms === undefined ? 1 : 0;
-  process.stdout.write(`${step} ${rc} ${wall} - ${Math.round(heap / 1024)} 0 ${bound}\n`);
+  process.stdout.write(`${step} ${rc} ${wall} - ${Math.round(bytes / 1024)} 0 ${bound}\n`);
 }
 
 /**
@@ -129,24 +129,35 @@ async function first(p, url) {
   );
 }
 
-/** The page's JS heap in bytes (Chromium's `performance.memory`). @param {import("@playwright/test").Page} p */
-const heap = (p) =>
-  p.evaluate(() => {
-    /** @type {unknown} */
-    const m = Reflect.get(performance, "memory");
-    /** @type {unknown} */
-    const used = typeof m === "object" && m !== null ? Reflect.get(m, "usedJSHeapSize") : 0;
-    return typeof used === "number" ? used : 0;
-  });
+/**
+ * The page's live JS memory in bytes after a full collection: V8's heap + ArrayBuffer backing
+ * stores (what `performance.memory.usedJSHeapSize` counts). Chromium's own `performance.memory`
+ * is bucketed + cached for 20 minutes, so it repeated one early reading, uncollected buffers
+ * included (wide 23,040 → 46,081: 68.9 → 189.8 MiB; live 66.3 → 128.7 MiB).
+ * @param {import("@playwright/test").Page} p
+ */
+async function heap(p) {
+  const cdp = await p.context().newCDPSession(p);
+  try {
+    await cdp.send("HeapProfiler.collectGarbage");
+    const u = await cdp.send("Runtime.getHeapUsage");
+    return u.usedSize + u.backingStorageSize;
+  } finally {
+    await cdp.detach();
+  }
+}
 
-/** Every step of one mode. @param {import("@playwright/test").Browser} browser
+/** Every step of one mode; the page's memory is read once its steps end (a collection between
+ * timed steps would change the next one's time). @param {import("@playwright/test").Browser} browser
  * @param {"served" | "page"} mode @param {string} url */
 async function steps(browser, mode, url) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const p = await context.newPage();
   p.setDefaultTimeout(patience);
+  /** @type {[string, number | undefined, number, number?][]} */
+  const rows = [];
   try {
-    row(`gui:${mode}:first`, await first(p, url), 10, await heap(p));
+    rows.push([`gui:${mode}:first`, await first(p, url), 10]);
     // The engine (or server) holds the shown view before a selection's details are timed.
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
     const ids = await p
@@ -156,7 +167,7 @@ async function steps(browser, mode, url) {
     const [select] = await timed(p, [{ kind: "shown", id: a }], () =>
       p.locator(cardId).first().click(),
     );
-    row(`gui:${mode}:select`, select, 0.1, await heap(p));
+    rows.push([`gui:${mode}:select`, select, 0.1]);
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
     const [ready] = await timed(p, [{ kind: "ready", id: b }], () =>
       p
@@ -164,14 +175,13 @@ async function steps(browser, mode, url) {
         .nth(b === a ? 0 : 1)
         .click(),
     );
-    row(`gui:${mode}:details`, ready, 1, await heap(p));
+    rows.push([`gui:${mode}:details`, ready, 1]);
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
     if ((await p.locator(symbol).count()) === 0) return;
     const [busy, answered] = await timed(p, [{ kind: "busy" }, { kind: "answered" }], () =>
       p.locator(symbol).first().click(),
     );
-    row(`gui:${mode}:busy`, busy, 0.1, await heap(p));
-    row(`gui:${mode}:whatif`, answered, 10, await heap(p));
+    rows.push([`gui:${mode}:busy`, busy, 0.1], [`gui:${mode}:whatif`, answered, 10]);
     if (mode === "page") {
       // A click while the engine starts: a fresh page, its symbol clicked once the board shows.
       const q = await context.newPage();
@@ -180,11 +190,13 @@ async function steps(browser, mode, url) {
       const [startup] = await timed(q, [{ kind: "answered" }], () =>
         q.locator(symbol).first().click(),
       );
-      row("gui:page:startup", startup, 10, await heap(q));
+      rows.push(["gui:page:startup", startup, 10, await heap(q)]);
     }
   } catch (e) {
     process.stderr.write(`${mode}: ${String(e)}\n`);
   } finally {
+    const live = await heap(p).catch(() => 0);
+    for (const [step, ms, bound, own] of rows) row(step, ms, bound, own ?? live);
     await context.close();
   }
 }
