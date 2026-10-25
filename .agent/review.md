@@ -4,10 +4,10 @@ Open rows gate the phase close; the closing-diff `reviewer`s (U10) rule each. Ea
 
 | id | finding | owner | status |
 |---|---|---|---|
-| M1 | Mutation survivor `Fvtrace/Json.lean:187` `<` → `<=` in `firstRepeat` (U2; `node tools/mutate.mjs Fvtrace/Json.lean --lines 22-38,179-189 --timeout 900`: 15 of 16 killed). MAIN reads it as equivalent: each member's key sits at its own byte offset, so two offsets never tie; the code before U2 carried the same comparison | closing-diff reviewer | open |
-| M2 | U3 mutation campaign (`.scratch/refs/mutate-u3.sh`, pool), complete: Request.lean 5/5 killed, Evaluate.lean 9/9 killed, Cli.lean 4 killed · 3 survived · 4 incompetent. Survivors (MAIN reads all three as equivalent): Cli.lean:405 + :406 `evalSpec 0` → `evalSpec 1` inside `evalOnlySpec` (the valued + switch lists do not read the positional count); Cli.lean:649 `withLoaded env args 0` → `1` with `spec := evalOnlySpec` given (the positional count feeds only the default spec) | closing-diff reviewer | open |
+| M1 | Mutation survivor `Fvtrace/Json.lean:187` `<` → `<=` in `firstRepeat` (U2; `node tools/mutate.mjs Fvtrace/Json.lean --lines 22-38,179-189 --timeout 900`: 15 of 16 killed). MAIN reads it as equivalent: each member's key sits at its own byte offset, so two offsets never tie; the code before U2 carried the same comparison | closing-diff reviewer | closed (reviewer-4: equivalent on D-json's input domain: each key sits at its own consumed offset, so offsets never tie) |
+| M2 | U3 mutation campaign (`.scratch/refs/mutate-u3.sh`, pool), complete: Request.lean 5/5 killed, Evaluate.lean 9/9 killed, Cli.lean 4 killed · 3 survived · 4 incompetent. Survivors (MAIN reads all three as equivalent): Cli.lean:405 + :406 `evalSpec 0` → `evalSpec 1` inside `evalOnlySpec` (the valued + switch lists do not read the positional count); Cli.lean:649 `withLoaded env args 0` → `1` with `spec := evalOnlySpec` given (the positional count feeds only the default spec) | closing-diff reviewer | closed (reviewer-4: the three survivors equivalent; the positional count feeds only an unevaluated default) |
 | M3 | U6 page engine state: `Snapshot.lean` changed lines (`.scratch/refs/mutate-u6.sh`, pool): 1 mutant (the kept-answers test `if o' == o`), killed; no survivor | — | closed |
-| M4 | U6 server-cache campaign (`.scratch/refs/mutate-u6b.sh`, pool): Server.lean 4/4 killed; Session.lean 1/2 killed, survivor Session.lean:65 `readPrefix t.trace (limit + 1)` → `limit + 2` (moved, unchanged, from `readWithin`). D-json specifies "at most one byte past the limit is read": the bound matters only for a file that grows between its size check and its read, so no test observes it; a deterministic test needs an injected reader (a byte-counting `readPrefix`) | closing-diff reviewer (ruling: add that test, or record the race as untestable) | open |
+| M4 | U6 server-cache campaign (`.scratch/refs/mutate-u6b.sh`, pool): Server.lean 4/4 killed; Session.lean 1/2 killed, survivor Session.lean:65 `readPrefix t.trace (limit + 1)` → `limit + 2` (moved, unchanged, from `readWithin`). D-json specifies "at most one byte past the limit is read": the bound matters only for a file that grows between its size check and its read, so no test observes it; a deterministic test needs an injected reader (a byte-counting `readPrefix`) | closing-diff reviewer (ruling: add that test, or record the race as untestable) | fixed with R4-F6 (the injected-reader test; its kill of `limit + 2` in the R4-F5 campaign) |
 
 ## Closing review (U11)
 
@@ -42,31 +42,46 @@ Target = `01cf228^..f3bc87f` (U1–U10 as committed; later commits get a re-revi
 
 | id | sev | finding | acceptance | status |
 |---|---|---|---|---|
-| R1-F1 | major | exported page: a details-request engine failure leaves the what-if shown, no notice (E-gui) | the probe `engine-details-failure` passes: recorded view + engine notice, no later call | open |
-| R1-F2 | minor | a rebuilt deep card loses focus on a late contact (U-access) | probe `nested-focus`: focus stays on `switch:C0:F251` after its what-if | open |
-| R1-F3 | minor | nested long lists: rows carry no aria-posinset/-setsize (U-access; = operator Q14) | probe `nested-aria`: position + size on nested rows | open |
-| R1-F4 | major | an old excluded-pairs answer overwrites the newer view's card (U-select, U-coalesce) | `pairs-probe`: the card keeps the current view's pairs | open |
-| R1-F5 | minor | an over-cap body streamed by its client meets a connection reset, not 413 (V-serve) | ruling or fix + test at the HTTP boundary | open |
-| R2-F1 | minor | README says compare.sh fails on one differing byte; v1 → v2 compares transformed JSON (= G2) | README names both modes | open |
-| G1 | minor | README's "seconds on an idle computer" covers seven shapes before the idle run | README scoped to what was measured, or U9 measured | open |
+| R1-F1 | major | exported page: a details-request engine failure leaves the what-if shown, no notice (E-gui) | the probe `engine-details-failure` passes: recorded view + engine notice, no later call | fixed (review-fix): `gui-probe.mjs engine-details-failure` PASS (recorded view + notice); e2e export "a details request that fails ends the engine" |
+| R1-F2 | minor | a rebuilt deep card loses focus on a late contact (U-access) | probe `nested-focus`: focus stays on `switch:C0:F251` after its what-if | fixed (review-fix): `gui-probe.mjs nested-focus` PASS; e2e "a deep card's long list … keeps a late contact's focus" |
+| R1-F3 | minor | nested long lists: rows carry no aria-posinset/-setsize (U-access; = operator Q14) | probe `nested-aria`: position + size on nested rows | fixed (review-fix): `gui-probe.mjs nested-aria` PASS; e2e checks posinset 1 / setsize 301 |
+| R1-F4 | major | an old excluded-pairs answer overwrites the newer view's card (U-select, U-coalesce) | `pairs-probe`: the card keeps the current view's pairs | fixed (review-fix): pairs answers tied to the envelope generation; corrected pairs probe shows ["X2"]; e2e "an excluded-pair answer for an earlier view never reaches the card" |
+| R1-F5 | minor | an over-cap body streamed by its client meets a connection reset, not 413 (V-serve) | ruling or fix + test at the HTTP boundary | ruled: Std.Http answers 413 from the declared length and closes; V-serve now states it (headers-only clients read 413; a streaming client may see the close) |
+| R2-F1 | minor | README says compare.sh fails on one differing byte; v1 → v2 compares transformed JSON (= G2) | README names both modes | fixed (review-fix): README names byte equality for the same format and the translated structural comparison for v1 |
+| G1 | minor | README's "seconds on an idle computer" covers seven shapes before the idle run | README scoped to what was measured, or U9 measured | fixed (review-fix): README states the graded limits, no idle result until U9 |
 | G3 | minor | 511281b body: Playwright 34/34 (32 + 2); the run shows 33/33 (one new test, one strengthened) | corrected here | fixed (this row) |
-| G4 | minor | 191121e calls a green slow run (1321/1321, eval-scale 337,566 ms) a red witness | = R4-F1 | open |
+| G4 | minor | 191121e calls a green slow run (1321/1321, eval-scale 337,566 ms) a red witness | = R4-F1 | fixed with R4-F1 |
 | G5 | minor | 01cf228 body: serve peak RSS 457–660 MiB; VmHWM 457,288–659,592 kB = 447–644 MiB | corrected here | fixed (this row) |
-| R4-F1 | major | Tests/Scale rows pass on v1 (no bound); no whatif row (P-evidence) | each row red on 4f82d44 (bounded), whatif row added; revision + command recorded | open |
-| R4-F2 | major | compare.sh `cmp_json` + oracles ignore timeouts | probe plants a JSON-path + oracle timeout; compare fails | open |
-| R4-F3 | major | scale.sh grades no text command (claims, gaps, experiments, plan on the F5 four; P-time) | rows + a planted failing text command | open |
-| R4-F4 | major | scale-gui counts an existing what-if as the new answer | answer tied to the click's own change; planted delayed answer fires | open |
+| R4-F1 | major | Tests/Scale rows pass on v1 (no bound); no whatif row (P-evidence) | each row red on 4f82d44 (bounded), whatif row added; revision + command recorded | fixed (review-fix): 20 s bounds + whatif row; red at 4f82d44 (outcomes 414,777 ms, prereqs 37,646 ms) + 87a3640 (whatif 619,771,017 bytes > 8,000,000; outcomes 458,649 ms; prereqs 42,659 ms); HEAD eval-scale area 729 ms |
+| R4-F2 | major | compare.sh `cmp_json` + oracles ignore timeouts | probe plants a JSON-path + oracle timeout; compare fails | fixed (review-fix): one bounded runner (`run_one`) for cmp_run, cmp_json, both oracles + the form detection; probes compare-json-timeout + compare-oracle-timeout fire; compare-timeout repaired (its stall had moved into the uncounted form detection) |
+| R4-F3 | major | scale.sh grades no text command (claims, gaps, experiments, plan on the F5 four; P-time) | rows + a planted failing text command | fixed (review-fix): claims, gaps, experiments, plan rows on the F5 four; probe scale-text fires ('FAIL wide plan n=2: rc 3'); reviewer probe-scale-text PASS |
+| R4-F4 | major | scale-gui counts an existing what-if as the new answer | answer tied to the click's own change; planted delayed answer fires | fixed (review-fix): the answer = the scenario line changed since the click + not busy; corrected timer harness: 20,016 ms (fix) vs 16 ms (f3bc87f) |
 | R4-F5 | major | mutation credit missing: Evaluate 78, 148; Server 87, 101–102, 222, 230; Export 28, 32 (+ Json, below) | campaign or explicit ruling per site, recorded | open |
-| R4-F6 | major | M4: Session.lean:65 `limit + 1` survivor = specified read bound | deterministic test (injected reader) kills `+2` | open |
-| R4-F7 | major | scale-gui finds no "Suppose" switch on the whatif shape (6 of 11 rows) | driver clicks any enabled toggle; whatif emits 11 rows | open |
-| R4-F8 | major | tests/engine: v2 actions carry no overrides → action specs empty; fact details tested under a refused what-if | action specs from native expansion; details under a valid view assert the details schema | open |
-| F5.1 | minor | dead proof scaffold Proofs/Forest.lean:162–165 | removed; proofs + trust replay green | open |
-| F5.2 | minor | body-cap message says "trace", names no fix (GUI copy) | reworded; 413 + kind kept | open |
-| F5.3 | minor | e2e: serveScale duplicates serveFvtrace's launch + close | one shared launcher | open |
-| F5.4 | minor | spec Tasks U7 row still lists the landed differential | row current | open |
-| F5.5 | minor | stale comments: Server.lean:12 (GET only), cases.mjs:3 + engine.test.mjs:4 (`--evaluate-snapshot`), cases.mjs:396 (decode per call) | rewritten | open |
-| X2 | minor | SECURITY.md: "refuses a body larger than 16 MiB" (cap = 16 MiB + 1 KiB) | text = the cap | open |
-| Q7 | low | What may be missing repeats the claim id (pre-U8) | the id once, as the link | open |
-| Q10 | low | a chosen find result keeps "In another question" after the board switches | results refreshed after a choice | open |
-| Q11 | low | a tall card's end line breaks the vertical wire | wire continues past the end line | open |
-| U-count | user | user ruling: an always-visible count line above each long list (besides the end line) | shown + e2e | open |
+| R4-F6 | major | M4: Session.lean:65 `limit + 1` survivor = specified read bound | deterministic test (injected reader) kills `+2` | fixed (review-fix): `readRawWithin` takes its prefix reader; test "a file grown after its size check yields the limit + 1 bytes"; kill of `limit + 2` in the R4-F5 campaign |
+| R4-F7 | major | scale-gui finds no "Suppose" switch on the whatif shape (6 of 11 rows) | driver clicks any enabled toggle; whatif emits 11 rows | fixed (review-fix): any enabled switch (Suppose or Restore); whatif emits 11 of 11 rows (reviewer probe-gui-rows PASS) |
+| R4-F8 | major | tests/engine: v2 actions carry no overrides → action specs empty; fact details tested under a refused what-if | action specs from native expansion; details under a valid view assert the details schema | fixed (review-fix): actionSpecs from native expansions (12 of 12), details asked at an accepted what-if + asserted as details documents (8 of 8), each action = its expanded what-if |
+| F5.1 | minor | dead proof scaffold Proofs/Forest.lean:162–165 | removed; proofs + trust replay green | fixed (review-fix): removed; lake build + trust 26/0 + 26 replays |
+| F5.2 | minor | body-cap message says "trace", names no fix (GUI copy) | reworded; 413 + kind kept | fixed (review-fix): "The what-if is too long to evaluate. Suppose fewer facts, then try again." |
+| F5.3 | minor | e2e: serveScale duplicates serveFvtrace's launch + close | one shared launcher | fixed (review-fix): one `launch` helper for serveFvtrace + serveScale (close awaits the exit) |
+| F5.4 | minor | spec Tasks U7 row still lists the landed differential | row current | fixed (review-fix): the U7 row names landed + open work |
+| F5.5 | minor | stale comments: Server.lean:12 (GET only), cases.mjs:3 + engine.test.mjs:4 (`--evaluate-snapshot`), cases.mjs:396 (decode per call) | rewritten | fixed (review-fix): Server access comment (GET files, POST answers), `--answer-snapshot`, the large-case comment |
+| X2 | minor | SECURITY.md: "refuses a body larger than 16 MiB" (cap = 16 MiB + 1 KiB) | text = the cap | fixed (review-fix): 16 MiB and 1 KiB |
+| Q7 | low | What may be missing repeats the claim id (pre-U8) | the id once, as the link | fixed (review-fix): the id once, as the link; e2e anchored to the row start |
+| Q10 | low | a chosen find result keeps "In another question" after the board switches | results refreshed after a choice | fixed (review-fix): find refreshes after a choice; e2e "a chosen match of another question no longer says so" |
+| Q11 | low | a tall card's end line breaks the vertical wire | wire continues past the end line | fixed (review-fix): a dashed wire runs through a tall card's end line |
+| U-count | user | user ruling: an always-visible count line above each long list (besides the end line) | shown + e2e | fixed (review-fix): count line over the board's untitled group + the experiments, facts, violated facts, checks lists; e2e "every list shows its size above it" |
+
+### U7 Json campaign survivors (`.scratch/u8/mutate-u7c.log`: `node tools/mutate.mjs Fvtrace/Json.lean --lines 108-112,116-119,126-126,157-167,287-288,304-337,350-364,366-375,377-382,385-385 --timeout 900 --test 'lake test'` on the pool at 7c536ee: 62 mutants · 47 killed · 12 survived · 3 incompetent; with campaign 1's first 12: 74 · 56 killed · 12 survived · 6 incompetent)
+
+| id | site | ruling | status |
+|---|---|---|---|
+| J1 | :117 `copySlice … false` → `true` | equivalent: the capacity policy (doubling vs exact) changes speed alone; every output byte is the same | ruled |
+| J2 | :162 `b[e]? == some 34` → `35` | equivalent: the plain-token shortcut is never taken, and `stringSlow` decodes every token completely | ruled |
+| J3 | :307 `needsEscape` `\|\|` → `&&` | its quote + backslash disjuncts were dead (`escapeInto`'s match handles both first) → removed; the line re-mutated in the R4-F5 campaign | fixed (review fix commit) |
+| J4 | :314 `c == 34` → `!=` | gap: a string of quotes alone took the plain path under the mutant → test "json: a lone quote escapes" | fixed (review fix commit; kill confirmed by the R4-F5 campaign) |
+| J5 | :314 `c == 92` → `!=` | gap: a string of backslashes alone → test "json: a lone backslash escapes" | fixed (as J4) |
+| J6 | :314 `92` → `93` | gap: a backslash without other special bytes → the same test | fixed (as J4) |
+| J7 | :314 `<` → `<=`, `32` → `33`, `&&` → `\|\|` | equivalent: more strings take the escaping path, whose output is the same | ruled |
+| J8 | :314 `≥` → `>` | gap: a printed string whose one special byte is DEL → test "json: printed JSON escapes a lone DEL" | fixed (as J4) |
+| J9 | :316 `else false` → `true` | equivalent: every string takes the escaping path | ruled |
+| J10 | :337 `escape`'s default `shown` | dead definition (no caller) → removed | fixed (review fix commit) |

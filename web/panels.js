@@ -63,7 +63,7 @@ function refs(/** @type {"fact" | "claim" | "experiment"} */ kind, ids, on) {
     h("span", { class: "refs" }),
     ids,
     (id, i) => h("span", {}, i ? ", " : "", ref(kind, id, on)),
-    nouns[kind],
+    { noun: nouns[kind] },
   );
 }
 
@@ -109,7 +109,7 @@ function moveList(ms, ix, on, none) {
         ),
       );
     },
-    nouns.claim,
+    { noun: nouns.claim },
   );
 }
 
@@ -126,7 +126,7 @@ function changeList(os, ix, on) {
         ` becomes ${word(statuses, o.status).toLowerCase()}: `,
         h("span", { class: "quote" }, factText(ix, o.fact)),
       ),
-    nouns.fact,
+    { noun: nouns.fact },
   );
 }
 
@@ -266,7 +266,7 @@ function alternatives(p, on) {
             ` sets ${a.status}`,
           ]),
         ),
-      nouns.fact,
+      { noun: nouns.fact },
     ),
   ];
 }
@@ -647,7 +647,11 @@ export function blockerRow(b, ix, on) {
 
 /** @param {import("./envelope.js").Envelope["lints"][number]} l @param {Handlers} on */
 export function checkRow(l, on) {
-  return h("li", { class: "plain-row" }, ref("claim", l.claim, on), ` ${l.message}`);
+  // The engine's message opens with its claim's id: that id becomes the link, once.
+  const rest = l.message.startsWith(`${l.claim} `)
+    ? l.message.slice(l.claim.length)
+    : ` ${l.message}`;
+  return h("li", { class: "plain-row" }, ref("claim", l.claim, on), rest);
 }
 
 /** A group's heading + count; an untitled group has none. @param {string} title @param {number} n */

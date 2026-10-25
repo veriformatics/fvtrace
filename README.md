@@ -239,8 +239,8 @@ decoded trace is proved to accept exactly the well-formed traces; the JSON decod
 tested, not proved.
 
 The `fvtrace` program does not run those definitions directly. It reads a trace through sorted
-indexes and keeps the results that it uses again. On the generated traces that
-`tools/scale.sh` grades, a trace of 16 MiB takes seconds on an idle computer. Lean theorems
+indexes and keeps the results that it uses again. `tools/scale.sh` times it on generated traces
+of up to 16 MiB against fixed limits (see "Development"). Lean theorems
 prove that these fast paths give the same answers as the definitions, for every trace and every
 what-if (`Fvtrace/Spec/Fast.lean`). Thus the other guarantees cover what the program shows.
 
@@ -293,7 +293,10 @@ A reviewer checks that each sentence says what its theorem proves.
   or when the time or the memory grows more than 2.5 times when the trace doubles. It reports
   the other shapes without a limit. Run it on an idle computer.
 - `bash tools/compare.sh OLD NEW` runs two `fvtrace` programs on the same inputs. It fails when
-  their output differs by one byte, or when a run does not finish in time.
+  a run does not finish in time. It also fails when the outputs differ: outputs in the same
+  format must be equal byte for byte. When the older program prints the earlier evaluation
+  format, the tool first translates that output to the current format and then compares the
+  structure.
 - `bash tools/pin-wasm.sh emsdk VERSION` or `bash tools/pin-wasm.sh lean VERSION` updates the
   pinned downloads of the engine build (`tools/wasm.lock`).
 

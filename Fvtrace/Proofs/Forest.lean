@@ -159,10 +159,6 @@ theorem link_inv {st : Array (Option Nat) × Array Bool} (h : LinkInv s st) {e :
     intro x hx q hq hne
     rw [List.mem_filter, List.mem_filterMap, adds_eq]
     exact ⟨⟨x, hx, hq⟩, by simpa using hne⟩
-  -- Links below the new position are the old ones.
-  have keep : ∀ (A : Array (Option Nat)) (G : Array Bool), A = st.1.push (A.back?.getD none) →
-      True := fun _ _ _ => trivial
-  clear keep
   unfold Forest.link
   dsimp only
   split

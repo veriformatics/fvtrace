@@ -18,19 +18,24 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 runs=0 diffs=0 timeouts=0
+# Every run of either binary: bounded, its stdout + stderr + exit code in $work/<old|new>.*, a run
+# past the limit counted (each comparison mode + oracle reads its runs through here).
+run_one() { # old|new, label, project, trace, args...
+    local b="$1" label="$2" project="$3" trace="$4"; shift 4
+    local bin="$old"
+    [[ $b == new ]] && bin="$new"
+    rm -rf "${work:?}/home"
+    (cd "$project" && FVTRACE_HOME="$work/home" timeout "$limit" "$bin" "$@" --trace "$trace" \
+        >"$work/$b.out" 2>"$work/$b.err"; echo "rc=$?" >"$work/$b.rc")
+    if [[ "$(<"$work/$b.rc")" == rc=124 ]]; then
+        timeouts=$((timeouts + 1)); printf 'TIMEOUT %s %s %s (%s s)\n' "$b" "$label" "$*" "$limit"
+    fi
+}
 cmp_run() { # label, project, trace, args...
     local label="$1" project="$2" trace="$3"; shift 3
-    local b out
-    for b in old new; do
-        local bin="$old"
-        [[ $b == new ]] && bin="$new"
-        rm -rf "${work:?}/home"
-        (cd "$project" && FVTRACE_HOME="$work/home" timeout "$limit" "$bin" "$@" --trace "$trace" \
-            >"$work/$b.out" 2>"$work/$b.err"; echo "rc=$?" >"$work/$b.rc")
-        if [[ "$(<"$work/$b.rc")" == rc=124 ]]; then
-            timeouts=$((timeouts + 1)); printf 'TIMEOUT %s %s %s (%s s)\n' "$b" "$label" "$*" "$limit"
-        fi
-    done
+    local out
+    run_one old "$label" "$project" "$trace" "$@"
+    run_one new "$label" "$project" "$trace" "$@"
     runs=$((runs + 1))
     # A refusal's usage text names the options each binary has: compared apart (kernel.md V-cli).
     for b in old new; do sed -i '/^usage: fvtrace/,$d' "$work/$b.err"; done
@@ -70,11 +75,7 @@ cmp_json() { # label, project, trace, args...
     local label="$1" project="$2" trace="$3"; shift 3
     local b
     for b in old new; do
-        local bin="$old"
-        [[ $b == new ]] && bin="$new"
-        rm -rf "${work:?}/home"
-        (cd "$project" && FVTRACE_HOME="$work/home" timeout "$limit" "$bin" "$@" --trace "$trace" \
-            >"$work/$b.out" 2>"$work/$b.err"; echo "rc=$?" >"$work/$b.rc")
+        run_one "$b" "$label" "$project" "$trace" "$@"
         sed -i '/^usage: fvtrace/,$d' "$work/$b.err"
     done
     runs=$((runs + 1))
@@ -94,18 +95,23 @@ cmp_json() { # label, project, trace, args...
 # Oracles (small inputs): every v1 action = its v2 expansion; every v1 list = the v2 details.
 oracles() { # label, project, trace
     local label="$1" project="$2" trace="$3" envelope
-    envelope="$(cd "$project" && FVTRACE_HOME="$work/home" "$old" eval --trace "$trace" 2>/dev/null)" || return 0
+    run_one old "$label" "$project" "$trace" eval
+    [[ "$(<"$work/old.rc")" == rc=0 ]] || return 0
+    envelope="$(<"$work/old.out")"
     local id spec item want got
     while IFS=$'\t' read -r id spec; do
         runs=$((runs + 1))
-        want="$(cd "$project" && FVTRACE_HOME="$work/home" "$old" eval --trace "$trace" ${spec:+--whatif "$spec"} | jq -S "$v1_to_v2")"
-        got="$(cd "$project" && FVTRACE_HOME="$work/home" "$new" eval --trace "$trace" --action "$id" | jq -S .)"
-        [[ "$want" == "$got" ]] || { diffs=$((diffs + 1)); printf 'DIFF %s expansion %s\n' "$label" "$id"; }
+        run_one old "$label" "$project" "$trace" eval ${spec:+--whatif "$spec"}
+        run_one new "$label" "$project" "$trace" eval --action "$id"
+        want="$(jq -S "$v1_to_v2" "$work/old.out" 2>/dev/null)"
+        got="$(jq -S . "$work/new.out" 2>/dev/null)"
+        [[ -n "$want" && "$want" == "$got" ]] || { diffs=$((diffs + 1)); printf 'DIFF %s expansion %s\n' "$label" "$id"; }
     done < <(jq -r '.actions[] | [.id, (.overrides | sort_by(.fact) | map("\(.fact)=\(.status)") | join(","))] | @tsv' <<<"$envelope")
     while IFS=$'\t' read -r item want; do
         runs=$((runs + 1))
-        got="$(cd "$project" && FVTRACE_HOME="$work/home" "$new" eval --trace "$trace" --details "$item" | jq -cS 'del(.schema, .mode, .overrides, .trace, .item)')"
-        [[ "$(jq -cS . <<<"$want")" == "$got" ]] || { diffs=$((diffs + 1)); printf 'DIFF %s details %s\n' "$label" "$item"; }
+        run_one new "$label" "$project" "$trace" eval --details "$item"
+        got="$(jq -cS 'del(.schema, .mode, .overrides, .trace, .item)' "$work/new.out" 2>/dev/null)"
+        [[ -n "$got" && "$(jq -cS . <<<"$want")" == "$got" ]] || { diffs=$((diffs + 1)); printf 'DIFF %s details %s\n' "$label" "$item"; }
     done < <(jq -r '(.experiments[] | ["experiment:\(.id)", ({closure, raises, wins, losses} | tojson)]),
         (.claims[] | ["claim:\(.id)", ({plan, sentence, incompatible} | tojson)]),
         (. as $e | .facts[] | .id as $f | ["fact:\($f)", ({raisedBy: [$e.experiments[] | select(any(.raises[]; .fact == $f)) | .id]} | tojson)]) | @tsv' <<<"$envelope")
@@ -127,7 +133,9 @@ done
 # Same form: every action + every item of OLD's envelope, byte for byte (V-action, V-details).
 same_oracles() { # label, project, trace
     local label="$1" project="$2" trace="$3" envelope id
-    envelope="$(cd "$project" && FVTRACE_HOME="$work/home" "$old" eval --trace "$trace" 2>/dev/null)" || return 0
+    run_one old "$label" "$project" "$trace" eval
+    [[ "$(<"$work/old.rc")" == rc=0 ]] || return 0
+    envelope="$(<"$work/old.out")"
     while read -r id; do
         cmp_run "$label" "$project" "$trace" eval --action "$id"
     done < <(jq -r '.actions[].id' <<<"$envelope")
@@ -136,8 +144,9 @@ same_oracles() { # label, project, trace
     done < <(jq -r '(.experiments[] | "experiment:\(.id)"), (.claims[] | "claim:\(.id)"),
         (.facts[] | "fact:\(.id)")' <<<"$envelope")
 }
-form="$(cd "$root/examples/synthetic/project" && FVTRACE_HOME="$work/home" timeout "$limit" "$old" \
-    eval --trace "$root/examples/synthetic/trace.json" 2>/dev/null | jq -r '.schema? // empty' 2>/dev/null)"
+# OLD's form: a run like any other (bounded, its timeout counted).
+run_one old form "$root/examples/synthetic/project" "$root/examples/synthetic/trace.json" eval
+form="$(jq -r '.schema? // empty' "$work/old.out" 2>/dev/null)"
 if [[ "$form" == fvtrace.evaluation/2 ]]; then
     cmp_json() { cmp_run "$@"; }
     oracles() { same_oracles "$@"; }

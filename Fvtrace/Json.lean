@@ -301,10 +301,10 @@ def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
 def uEscape (n : Nat) : String :=
   "\\u" ++ String.ofList ([12, 8, 4, 0].map fun k => hexDigit (n >>> k))
 
-/-- A character `escapeInto` rewrites. -/
+/-- A character outside the short escapes that `escapeInto` writes as `\uxxxx`. -/
 def needsEscape (shown : Bool) (c : Char) : Bool :=
   let n := c.toNat
-  c == '"' || c == '\\' || n < 0x20 || (shown && ((0x7f ≤ n && n ≤ 0x9f) || Render.bidi n))
+  n < 0x20 || (shown && ((0x7f ≤ n && n ≤ 0x9f) || Render.bidi n))
 
 /-- Some byte of `s` from `i` on may need `escapeInto`'s rewriting: a quote, a backslash, a C0
 control or, when `shown`, any byte from DEL up (the per-character path then decides). -/
@@ -333,8 +333,6 @@ def escapeInto (acc s : String) (shown : Bool := false) : String :=
       | '\t' => acc ++ "\\t"
       | c => if needsEscape shown c then acc ++ uEscape c.toNat else acc.push c).push '"'
   else ((acc.push '"') ++ s).push '"'
-
-def escape (s : String) (shown : Bool := false) : String := escapeInto "" s shown
 
 /-- Inserts `k` after every member whose key is not above its own. -/
 def insertBy (k : String × Value) : List (String × Value) → List (String × Value)

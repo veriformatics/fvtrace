@@ -16,7 +16,7 @@ import {
   decodeProblem,
 } from "./envelope.js";
 import { entriesOf, results, search } from "./find.js";
-import { LazyList } from "./lazy.js";
+import { LazyList, showIn } from "./lazy.js";
 import { lookupsOf } from "./lookups.js";
 import {
   blockerRow,
@@ -306,7 +306,11 @@ function adopt(/** @type {Envelope} */ e) {
   env = e;
   ix = lookupsOf(e);
   entries = undefined;
+  generation++;
 }
+
+/** Adopted envelopes so far: an item answer asked for an earlier one is dropped (U-select). */
+let generation = 0;
 
 /** An exported page's recorded view: its first paint, and its view after any engine failure. */
 function showRecorded(/** @type {NonNullable<typeof exported>} */ ex) {
@@ -324,6 +328,8 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
   writeHash();
   showRecorded(ex);
   showError(engineFailed);
+  // The selection's detail sections say that the engine cannot answer.
+  void loadDetails();
 }
 
 /** Requests still running (U-busy): the page reads as busy from a request's start, and shows that
@@ -541,16 +547,19 @@ async function legacy(/** @type {string} */ id) {
  * and view as the card mounts; an answer for an older view is dropped. @param {Claim} c */
 function askPairs(c) {
   const spec = view.spec;
-  if (c.incompatibleCount === 0 || pairsAsked.has(c.id)) return;
+  const asked = generation;
+  if (c.incompatibleCount === 0 || pairsAsked.has(c.id) || (exported && engineDead)) return;
   pairsAsked.add(c.id);
   void (async () => {
     try {
       const { json } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
-      if (spec !== view.spec || decodeProblem(json)) return;
+      // An answer for an earlier envelope (another view, even with the same what-if) is dropped.
+      if (asked !== generation || decodeProblem(json)) return;
       excludedPairs.set(c.id, decodeDetails(json).incompatible ?? []);
       renderBoard();
     } catch {
-      // The card keeps its other lines.
+      // Served: the card keeps its other lines. Exported: the engine failed, for good (E-gui).
+      if (exported && asked === generation) engineFailure(exported);
     }
   })();
 }
@@ -586,10 +595,14 @@ async function loadDetails() {
       ? { item, spec, state: "problem", message: problem.message }
       : { item, spec, state: "ready", value: decodeDetails(json) };
   } catch {
+    // Exported: any failure ends the engine for the session (E-gui), whichever request met it;
+    // the reset's own details request finds the engine dead and asks nothing.
+    if (exported) {
+      engineFailure(exported);
+      return;
+    }
     if (n !== detailsAsked) return;
-    details = exported
-      ? { item, spec, state: "off" }
-      : { item, spec, state: "problem", message: "The server did not answer." };
+    details = { item, spec, state: "problem", message: "The server did not answer." };
   }
   renderInspector();
 }
@@ -685,6 +698,8 @@ function reveal(kind, id) {
     row.scrollIntoView({ block: "center" });
     button.focus();
   } else byId("inspector").focus();
+  // The matches name the question the board now shows.
+  if (byIdAs("find", HTMLInputElement).value.trim()) find();
 }
 
 /** Shows the matches of the find field's text (none for an empty field). */
@@ -814,8 +829,32 @@ function refocus(key) {
     (document.activeElement instanceof HTMLElement && document.activeElement.dataset["key"] === key)
   )
     return;
-  const el = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+  let el = keyed(key);
+  // A control on a card's long list whose row a rebuilt card no longer mounts: mount it first
+  // (U-access: focus stays on its item).
+  const m = el ? null : /^(switch|label|cond):([^:]+):(.+)$/.exec(key);
+  if (m?.[2] && m[3]) {
+    const card = boardNode(`claim:${m[2]}`);
+    for (const list of card?.querySelectorAll(m[1] === "cond" ? ".conditions-list" : ".contacts") ??
+      [])
+      showIn(list, m[3]);
+    el = keyed(key);
+  }
   if (el instanceof HTMLElement) el.focus();
+}
+
+/** The element carrying `data-key` = `key`. @param {string} key */
+function keyed(key) {
+  return document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+}
+
+/** The mounted node of a board row. @param {string} key */
+function boardNode(key) {
+  for (const g of boardGroups.values()) {
+    const n = g.list.node(key);
+    if (n) return n;
+  }
+  return undefined;
 }
 
 /** The question + layout the board's groups show. */
@@ -856,6 +895,7 @@ function render() {
     })),
   );
   byId("blockers").hidden = e.blockers.length === 0;
+  byId("blocker-count").textContent = count(e.blockers.length, "fact", "facts");
   const checks = e.lints.filter((l) => l.waived === undefined);
   checkList.set(
     checks.map((l, i) => ({
@@ -865,6 +905,7 @@ function render() {
     })),
   );
   byId("checks").hidden = checks.length === 0;
+  byId("check-count").textContent = count(checks.length, "check", "checks");
   refocus(key);
   if (!boardShown) {
     boardShown = true;
@@ -994,9 +1035,12 @@ function renderBoard() {
     }
     if (g.head !== head) {
       const n = Number(head.slice(head.lastIndexOf("|") + 1));
-      g.section.querySelector(".group-title")?.remove();
-      const t = groupTitle(title, n);
-      if (t) g.section.prepend(t);
+      g.section.querySelector(".group-title, .list-count")?.remove();
+      // A titled group names its count in its title; the untitled one in a count line (user
+      // ruling: every long list shows its size, besides its end line).
+      g.section.prepend(
+        groupTitle(title, n) ?? h("p", { class: "list-count" }, count(n, "claim", "claims")),
+      );
       g.head = head;
     }
     g.list.set(rows);
@@ -1030,6 +1074,7 @@ function renderExperiments() {
     b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === view.filter));
   }
   const shown = env.experiments.filter((e) => view.filter === "all" || e.kind === view.filter);
+  byId("experiment-count").textContent = count(shown.length, "experiment", "experiments");
   experimentList.set(
     shown.length
       ? shown.map((e) => ({
@@ -1051,6 +1096,7 @@ function renderWork() {
   const x = ix;
   // A count shows only above 0; a zero row keeps the column when another row has a count.
   const counted = env.work.some((w) => w.unlocks.length > 0);
+  byId("work-count").textContent = count(env.work.length, "fact", "facts");
   workList.set(
     env.work.length
       ? env.work.map((w) => ({
