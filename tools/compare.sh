@@ -6,6 +6,9 @@
 # input: check (+ --json), eval (+ what-ifs, refused ones too), claims, gaps, experiments, plan
 # (+ --json). Every run gets a fresh data folder. Exit 1 on any difference, and on any run either
 # binary does not finish within S seconds (default 600): equal partial output proves nothing.
+# OLD's envelope form picks the JSON comparison: `fvtrace.evaluation/2` → byte equality throughout
+# (+ `eval --complete` on every input; every action + item expanded on the small ones), else v1 →
+# the V-cli transform + oracles below.
 set -uo pipefail
 limit=600
 [[ ${1:-} == --timeout ]] && { limit="$2"; shift 2; }
@@ -121,8 +124,27 @@ for shape in wide deep experiments exclusions hub questions waivers receipts out
         inputs+=("$shape-$n|$dir/project|$dir/trace.json|C0|$whatif")
     done
 done
+# Same form: every action + every item of OLD's envelope, byte for byte (V-action, V-details).
+same_oracles() { # label, project, trace
+    local label="$1" project="$2" trace="$3" envelope id
+    envelope="$(cd "$project" && FVTRACE_HOME="$work/home" "$old" eval --trace "$trace" 2>/dev/null)" || return 0
+    while read -r id; do
+        cmp_run "$label" "$project" "$trace" eval --action "$id"
+    done < <(jq -r '.actions[].id' <<<"$envelope")
+    while read -r id; do
+        cmp_run "$label" "$project" "$trace" eval --details "$id"
+    done < <(jq -r '(.experiments[] | "experiment:\(.id)"), (.claims[] | "claim:\(.id)"),
+        (.facts[] | "fact:\(.id)")' <<<"$envelope")
+}
+form="$(cd "$root/examples/synthetic/project" && FVTRACE_HOME="$work/home" timeout "$limit" "$old" \
+    eval --trace "$root/examples/synthetic/trace.json" 2>/dev/null | jq -r '.schema? // empty' 2>/dev/null)"
+if [[ "$form" == fvtrace.evaluation/2 ]]; then
+    cmp_json() { cmp_run "$@"; }
+    oracles() { same_oracles "$@"; }
+fi
 for spec in "${inputs[@]}"; do
     IFS='|' read -r label project trace claim whatif <<<"$spec"
+    [[ "$form" == fvtrace.evaluation/2 ]] && cmp_run "$label" "$project" "$trace" eval --complete
     cmp_run "$label" "$project" "$trace" check
     cmp_run "$label" "$project" "$trace" check --json
     cmp_json "$label" "$project" "$trace" eval

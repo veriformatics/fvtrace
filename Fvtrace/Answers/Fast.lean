@@ -488,13 +488,6 @@ def unlocksOf (cx : Ctx) (s : Scenario) (core : Core) (memo : Thunk (Array Claim
 def workKeyBefore (a b : Nat × Nat × Scenario.Work) : Bool :=
   a.1 > b.1 || (a.1 == b.1 && (a.2.1 > b.2.1 || (a.2.1 == b.2.1 && a.2.2.fact < b.2.2.fact)))
 
-/-- `Evaluate.experimentBefore` on an experiment with its lights + clears beside it. -/
-def experimentKeyBefore (a b : Nat × Nat × Experiment) : Bool :=
-  let ea := Effort.all.idxOf a.2.2.effort
-  let eb := Effort.all.idxOf b.2.2.effort
-  a.1 > b.1 || (a.1 == b.1 && (a.2.1 > b.2.1 || (a.2.1 == b.2.1 &&
-    (ea < eb || (ea == eb && a.2.2.id < b.2.2.id)))))
-
 /-! ## Plans -/
 
 /-- `Scenario.search` over node answers: `closure`, `valid`/`optimistic`/`final` after a set of
@@ -629,6 +622,14 @@ def fast (s : Scenario) : Answers :=
     c.needsAll.any (fun n => core.eff n != base.eff n) ||
       core.valid c.subject != base.valid c.subject
   let successMoves := fun ids => movesUnder cx s core memo (raisedBy cx core ids)
+  let failureMoves := fun (e : Experiment) =>
+    movesUnder cx s core memo (e.failure.map fun (k, _) => (k, .violated))
+  -- Each experiment's row once (its moves counted once), sorted once: the order, the envelope +
+  -- the raisers read the same rows.
+  let rows := Thunk.mk fun _ =>
+    (t.experiments.map
+      (rowOf closure cx.merged successMoves failureMoves core.override? cx.isResult)).mergeSort
+      rowBefore
   { lookups := cx.L
     override? := core.override?
     eff := core.eff
@@ -673,14 +674,13 @@ def fast (s : Scenario) : Answers :=
     merged := cx.merged
     raised := raisedBy cx core
     successMoves
-    failureMoves := fun e => movesUnder cx s core memo (e.failure.map fun (k, _) => (k, .violated))
-    experimentOrder := fun _ =>
-      ((t.experiments.map fun e =>
-          let ms := successMoves (closure [e.id])
-          (Scenario.lights ms, Scenario.clears ms, e)).mergeSort
-        fun a b => experimentKeyBefore a b).map (·.2.2)
+    failureMoves
+    experimentOrder := fun _ => rows.get.map (·.experiment)
     withOverrides := fun extra =>
       let ex := Index.ofKeys compare (extra.map (·.1))
-      extra ++ s.overrides.filter fun (k, _) => (ex.first? (cmp := compare) k).isNone }
+      extra ++ s.overrides.filter fun (k, _) => (ex.first? (cmp := compare) k).isNone
+    experimentRows := fun _ => rows.get
+    planSummary := fun c => (planOf cx closure s core c).summary
+    raisers := fun f => raisersOf (rows.get.map (·.experiment)) closure (raisedBy cx core) f }
 
 end Fvtrace.Answers

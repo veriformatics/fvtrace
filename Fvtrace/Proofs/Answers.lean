@@ -1253,19 +1253,23 @@ theorem work_eq :
     exact List.map_id _
   · intro a _ b _; rfl
 
+/-- An experiment's row from the `Scenario` functions (the reference record's). -/
+abbrev rowRefOf : Experiment → ExperimentRow :=
+  rowOf s.closure s.merged (fun ids => s.moves (s.applySuccess ids))
+    (fun e => s.moves (s.applyFailure e)) (s.overrides.lookup ·) (s.resultFacts.contains ·)
+
+/-- The rows sorted once by their own keys = the reference rows in the reference order. -/
+theorem rows_eq :
+    (s.trace.experiments.map (rowRefOf s)).mergeSort rowBefore =
+      (s.trace.experiments.mergeSort (Evaluate.experimentBefore s)).map (rowRefOf s) :=
+  (List.map_mergeSort (l := s.trace.experiments) (f := rowRefOf s)
+    (r := Evaluate.experimentBefore s) (s := rowBefore) fun _ _ _ _ => rfl).symm
+
 theorem experimentOrder_eq :
-    ((s.trace.experiments.map fun e =>
-        let ms := s.moves (s.applySuccess (s.closure [e.id]))
-        (Scenario.lights ms, Scenario.clears ms, e)).mergeSort
-      fun a b => experimentKeyBefore a b).map (·.2.2) =
+    ((s.trace.experiments.map (rowRefOf s)).mergeSort rowBefore).map (·.experiment) =
       s.trace.experiments.mergeSort (Evaluate.experimentBefore s) := by
-  rw [← List.map_mergeSort (f := fun e =>
-      let ms := s.moves (s.applySuccess (s.closure [e.id]))
-      (Scenario.lights ms, Scenario.clears ms, e))
-    (r := Evaluate.experimentBefore s)]
-  · rw [List.map_map]
-    exact List.map_id _
-  · intro a _ b _; rfl
+  rw [rows_eq, List.map_map]
+  exact List.map_id _
 
 end Sorted
 
@@ -1718,6 +1722,21 @@ theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := b
   dsimp only
   have hbe : (baseOf s).eff = s.baseline.eff := base_eff s
   have hbv : Core.valid (baseOf s) = s.baseline.valid := base_valid s
+  have hrow : rowOf (fun ids => (cxOf s).closureOf (cxOf s).closures ids) (cxOf s).merged
+      (fun ids => movesUnder (cxOf s) s (coreOf s)
+        (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s)))
+        (raisedBy (cxOf s) (coreOf s) ids))
+      (fun e => movesUnder (cxOf s) s (coreOf s)
+        (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s)))
+        (e.failure.map fun (k, _) => (k, .violated)))
+      (coreOf s).override? (cxOf s).isResult = rowRefOf s := by
+    congr 1
+    · exact funext (closure_eq s)
+    · exact merged_eq s
+    · funext ids; rw [moves_eq, raised_eq]; rfl
+    · funext e; rw [moves_eq]; rfl
+    · funext id; exact override_eq s id
+    · funext k; rw [isResult_eq]; rfl
   congr 1
   case e_lookups => exact ctx_L s.trace
   case e_override? => funext id; exact override_eq s id
@@ -1782,9 +1801,24 @@ theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := b
     rfl
   case e_experimentOrder =>
     funext _
-    simp only [moves_eq, raised_eq, closure_eq]
-    exact experimentOrder_eq s
+    refine (congrArg (fun F => ((s.trace.experiments.map F).mergeSort rowBefore).map
+      (·.experiment)) (?_ : _ = rowRefOf s)).trans (experimentOrder_eq s)
+    exact hrow
   case e_withOverrides => funext extra; exact withOverrides_eq s extra
+  case e_experimentRows =>
+    funext _
+    refine (congrArg (fun F => (s.trace.experiments.map F).mergeSort rowBefore)
+      (?_ : _ = rowRefOf s)).trans (rows_eq s)
+    exact hrow
+  case e_planSummary => funext c; rw [plan_eq s _ (funext (closure_eq s)) c]
+  case e_raisers =>
+    funext f
+    refine congrArg (fun (x : List Experiment × (List String → List String) ×
+      (List String → Overrides)) => raisersOf x.1 x.2.1 x.2.2 f) (?_ : (_, _, _) = (_, _, _))
+    refine Prod.ext ?_ (Prod.ext (funext (closure_eq s)) (funext (raised_eq s)))
+    refine (congrArg (fun F => ((s.trace.experiments.map F).mergeSort rowBefore).map
+      (·.experiment)) (?_ : _ = rowRefOf s)).trans (experimentOrder_eq s)
+    exact hrow
 
 theorem answersAgree : Spec.AnswersAgree := answers_agree
 
