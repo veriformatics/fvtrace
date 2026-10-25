@@ -1,0 +1,17 @@
+offload: local slot 1/2
+[1/2] killed Fvtrace/Evaluate.lean:78 == → !=
+[2/2] killed Fvtrace/Evaluate.lean:148 ! → 
+
+mutants: 2 · killed 2 · survived 0 · incompetent 0
+[1/3] killed Fvtrace/Server.lean:88 + → -
+[2/3] killed Fvtrace/Server.lean:88 1024 → 1025
+[3/3] SURVIVED Fvtrace/Server.lean:231 64 → 65
+
+mutants: 3 · killed 2 · survived 1 · incompetent 0
+survivor Fvtrace/Server.lean:231 64 → 65   | { maxConnections := 64, serverName := some (.mk "fvtrace"), maxBodySize := bodyCap }
+[1/3] killed Fvtrace/Export.lean:32 == → !=
+[2/3] killed Fvtrace/Export.lean:32 || → &&
+[3/3] killed Fvtrace/Export.lean:32 == → !=
+
+mutants: 3 · killed 3 · survived 0 · incompetent 0
+rc=0

@@ -1,0 +1,60 @@
+offload: local slot 2/2
+[1/2] killed Fvtrace/Session.lean:66 + → -
+[2/2] killed Fvtrace/Session.lean:66 1 → 2
+
+mutants: 2 · killed 2 · survived 0 · incompetent 0
+[1/22] killed Fvtrace/Json.lean:307 < → <=
+[2/22] killed Fvtrace/Json.lean:307 || → &&
+[3/22] killed Fvtrace/Json.lean:307 && → ||
+[4/22] killed Fvtrace/Json.lean:307 ≤ → <
+[5/22] killed Fvtrace/Json.lean:307 && → ||
+[6/22] killed Fvtrace/Json.lean:307 ≤ → <
+[7/22] killed Fvtrace/Json.lean:307 || → &&
+[8/22] killed Fvtrace/Json.lean:314 == → !=
+[9/22] killed Fvtrace/Json.lean:314 34 → 35
+[10/22] killed Fvtrace/Json.lean:314 || → &&
+[11/22] killed Fvtrace/Json.lean:314 == → !=
+[12/22] killed Fvtrace/Json.lean:314 92 → 93
+[13/22] killed Fvtrace/Json.lean:314 || → &&
+[14/22] SURVIVED Fvtrace/Json.lean:314 < → <=
+[15/22] SURVIVED Fvtrace/Json.lean:314 32 → 33
+[16/22] killed Fvtrace/Json.lean:314 || → &&
+[17/22] SURVIVED Fvtrace/Json.lean:314 && → ||
+[18/22] killed Fvtrace/Json.lean:314 ≥ → >
+[19/22] killed Fvtrace/Json.lean:314 true → false
+[20/22] incompetent Fvtrace/Json.lean:315 + → -
+[21/22] killed Fvtrace/Json.lean:315 1 → 2
+[22/22] SURVIVED Fvtrace/Json.lean:316 false → true
+
+mutants: 22 · killed 17 · survived 4 · incompetent 1
+survivor Fvtrace/Json.lean:314 < → <=   | if c == 34 || c == 92 || c < 32 || (shown && c ≥ 0x7f) then true
+survivor Fvtrace/Json.lean:314 32 → 33   | if c == 34 || c == 92 || c < 32 || (shown && c ≥ 0x7f) then true
+survivor Fvtrace/Json.lean:314 && → ||   | if c == 34 || c == 92 || c < 32 || (shown && c ≥ 0x7f) then true
+survivor Fvtrace/Json.lean:316 false → true   | else false
+[1/2] SURVIVED Fvtrace/Evaluate.lean:78 == → !=
+[2/2] SURVIVED Fvtrace/Evaluate.lean:148 ! → 
+
+mutants: 2 · killed 0 · survived 2 · incompetent 0
+survivor Fvtrace/Evaluate.lean:78 == → !=   | if title.any (fun t => q == s!"if {t} runs") then "if-creator-runs" else q
+survivor Fvtrace/Evaluate.lean:148 ! →    | (t.experiments.filter (!·.failure.isEmpty)).map
+[1/7] SURVIVED Fvtrace/Server.lean:88 + → -
+[2/7] SURVIVED Fvtrace/Server.lean:88 1024 → 1025
+[3/7] killed Fvtrace/Server.lean:102 == → !=
+[4/7] killed Fvtrace/Server.lean:103 != → ==
+[5/7] incompetent Fvtrace/Server.lean:223 < → <=
+[6/7] incompetent Fvtrace/Server.lean:223 > → >=
+[7/7] SURVIVED Fvtrace/Server.lean:231 64 → 65
+
+mutants: 7 · killed 2 · survived 3 · incompetent 2
+survivor Fvtrace/Server.lean:88 + → -   | def bodyCap : Nat := maxTraceBytes + 1024
+survivor Fvtrace/Server.lean:88 1024 → 1025   | def bodyCap : Nat := maxTraceBytes + 1024
+survivor Fvtrace/Server.lean:231 64 → 65   | { maxConnections := 64, serverName := some (.mk "fvtrace"), maxBodySize := bodyCap }
+[1/4] killed Fvtrace/Export.lean:28 != → ==
+[2/4] SURVIVED Fvtrace/Export.lean:32 == → !=
+[3/4] SURVIVED Fvtrace/Export.lean:32 || → &&
+[4/4] killed Fvtrace/Export.lean:32 == → !=
+
+mutants: 4 · killed 2 · survived 2 · incompetent 0
+survivor Fvtrace/Export.lean:32 == → !=   | modules.filter fun (n, _) => n == "worker" || n == "engine"
+survivor Fvtrace/Export.lean:32 || → &&   | modules.filter fun (n, _) => n == "worker" || n == "engine"
+rc=1

@@ -1,0 +1,5 @@
+offload: nixbox slot 2/2 (8 CPUs, 109% busy) → ~/offload/fvtrace-d0d53ad6
+[1/1] killed Fvtrace/Snapshot.lean:95 == → !=
+
+mutants: 1 · killed 1 · survived 0 · incompetent 0
+campaign rc=0

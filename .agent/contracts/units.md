@@ -47,7 +47,7 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 
 | unit | tier | contract | evidence |
 |---|---|---|---|
-| U1 spike | — | `.agent/route.md` first unit: build route decided before design | `.agent/archive/wasm-spike.md` (parity, size, timing, determinism, CSP control, Chromium + Firefox + WebKit) |
+| U1 spike | — | the route's first unit: build route decided before design | `.agent/archive/wasm-spike.md` (parity, size, timing, determinism, CSP control, Chromium + Firefox + WebKit) |
 | U2 contract | kernel | `kernel.md` § Page engine, envelope actions, trusted base | consultant before code |
 | U3 receipt split | kernel (refactor) | behavior unchanged: `Binding` + `ReviewState` → `Fvtrace/Receipt/Basic.lean` (Std-free) | unchanged suites green; self-trace re-pinned |
 | U4 snapshot | kernel | E-snap, E-eval | Tests/Snapshot: round trip on both examples + fixtures, `evaluate` = native envelope `.pretty` over every action + seeded stacks, problem kinds, damaged + misshapen input; test-binary hook `--evaluate-snapshot`; red first; mutation credit on `Fvtrace/Snapshot.lean` |
@@ -100,4 +100,4 @@ Staged so every commit keeps the full gate green (consultant-7 C12): reference p
 | U8 GUI responsiveness | data (display) | U-* | e2e identity + access checks; `tools/scale-gui.mjs` U-time rows; operator visual QA; long-list look + find route shown to the user |
 | U9 scale tools + measurements | gate tool + data (measurements) | P-bound, P-evidence | `tools/scale.sh --assert` + probes (each new breach); idle-host run in the commit body |
 | U10 docs, rules, skill, self-trace | docs | README, SKILL.md, SECURITY.md (POST route, view header, worker policy), rules (server, web, fast, wasm, ops) in their owning units, Decisions + Artifacts | consistency pass (L-CLAIM); self-trace receipts + statement replays re-pinned |
-| U11 closing review | — | lenses fixed before reading | `.agent/review.md` (one `reviewer` per lens) |
+| U11 closing review | — | lenses fixed before reading | `.agent/archive/review-implement-whatifs.md` (one `reviewer` per lens; their deliverables beside it) |
