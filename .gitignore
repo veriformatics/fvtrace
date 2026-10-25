@@ -10,3 +10,4 @@ blob-report/
 .claude/settings.local.json
 CLAUDE.local.md
 *.mutate-backup
+.claude/worktrees/

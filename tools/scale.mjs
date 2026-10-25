@@ -1,5 +1,7 @@
 // Scale traces for the engine's time bounds (`.agent/contracts/kernel.md` § Performance):
 //   node tools/scale.mjs <shape> <n> <dir>  — writes <dir>/trace.json (compact) + <dir>/project/
+//                                             + <dir>/action.txt (the costliest one-click what-if)
+//                                             + <dir>/items.txt (the costliest item of each kind)
 //                                             (+ <dir>/whatif.txt: the `--whatif` argument, if any)
 //   node tools/scale.mjs <shape> cap        — prints the largest n whose trace fits in 16 MiB (and
 //                                             whose what-if fits in one argument)
@@ -13,6 +15,12 @@
 //   exclusions  wide, F_i open on lean for even i, + X_i between E_i and F_{i+1 mod n}: odd i
 //               proved on lean with a current receipt (raising E_i derives F_{i+1} violated),
 //               even i assumed (raising E_i makes the subject conflict)
+//   outcomes    wide + one experiment whose success proves every E_i
+//   prereqs     wide + R_i (success {E_i: proved}) requiring R_{i-1} (first third: a chain) or
+//               R_t (second third: a star); last third: Y_i on prospective subject P_i, which it
+//               creates (a creator cycle), proving K_i
+//   whatif      wide, evaluated under a what-if naming every fact (F_i assumed, E_i tested: every
+//               E_i stays closable, so each suppose action expands to the whole what-if)
 // Reported, never graded:
 //   hub         n claims C_i: needs [H, F_i] + E_i, all open on lean; X_i between H and G_i (G_i
 //               open, needed by no claim), proved with a current receipt
@@ -22,11 +30,6 @@
 //   receipts    per i, current receipts of every bound kind: G_i proved (plain), E_i proved
 //               (entailment of D_i, needs [G_i]), K_i proved on subject T (instantiation of G_i),
 //               M_i checked (result restated by C_i)
-//   outcomes    wide + one experiment whose success proves every E_i
-//   prereqs     wide + R_i (success {E_i: proved}) requiring R_{i-1} (first third: a chain) or
-//               R_t (second third: a star); last third: Y_i on prospective subject P_i, which it
-//               creates (a creator cycle), proving K_i
-//   whatif      wide, evaluated under a what-if naming every fact (F_i assumed, E_i proved)
 //   invalid     wide with every fact + claim declared twice + R_i naming an undeclared fact U_i
 // A proved receipt pins project/proof.txt + its statement digest (D-canon manifest).
 import { createHash } from "node:crypto";
@@ -352,10 +355,52 @@ const whatifOf = (shape) =>
   shape === "whatif"
     ? (n) => {
         const parts = [];
-        for (let i = 0; i < n; i++) parts.push(`F${i}=assumed`, `E${i}=proved`);
+        for (let i = 0; i < n; i++) parts.push(`F${i}=assumed`, `E${i}=tested`);
         return parts.join(",");
       }
     : undefined;
+
+/**
+ * Each shape's costliest one-click what-if (kernel.md P-time `eval --action`): the action whose
+ * expansion is largest.
+ * @param {string} shape
+ * @param {number} n
+ */
+const actionOf = (shape, n) => {
+  const third = Math.floor(n / 3);
+  switch (shape) {
+    case "outcomes":
+      return "success:R0";
+    case "prereqs":
+      return `success:R${third - 1}`;
+    case "experiments":
+      return "success:R0";
+    case "deep":
+      return "suppose:F1";
+    default:
+      return "suppose:E0";
+  }
+};
+
+/**
+ * Each shape's costliest item of each kind (kernel.md P-time `eval --details`): the experiment
+ * with the longest lists, the claim with the deepest plan, the fact with the most raisers.
+ * @param {string} shape
+ * @param {number} n
+ */
+const itemsOf = (shape, n) => {
+  const third = Math.floor(n / 3);
+  const experiment = {
+    prereqs: `R${third - 1}`,
+    outcomes: "R0",
+    experiments: "R0",
+    questions: "R0",
+    invalid: "R0",
+  }[shape];
+  const claim = shape === "prereqs" ? `C${third - 1}` : "C0";
+  const fact = shape === "deep" ? "F1" : "E0";
+  return [...(experiment ? [`experiment:${experiment}`] : []), `claim:${claim}`, `fact:${fact}`];
+};
 
 /** One argument's byte limit (Linux MAX_ARG_STRLEN = 32 pages), its NUL included. */
 const ARG_LIMIT = 131072 - 1;
@@ -416,4 +461,6 @@ if (arg === "cap") {
   writeFileSync(join(dir, "trace.json"), trace(shape, n));
   const whatif = whatifOf(shape);
   if (whatif) writeFileSync(join(dir, "whatif.txt"), whatif(n));
+  writeFileSync(join(dir, "action.txt"), `${actionOf(shape, n)}\n`);
+  writeFileSync(join(dir, "items.txt"), `${itemsOf(shape, n).join("\n")}\n`);
 }
