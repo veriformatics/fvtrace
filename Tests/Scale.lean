@@ -48,6 +48,38 @@ def experiments (n : Nat) : Trace :=
         success := [(s!"E{i}", .proved)],
         failure := if i % 2 == 0 then [(s!"E{i}", .violated)] else [], caveat := "None." } }
 
+/-- `wide` + one experiment proving every E_i (`tools/scale.mjs` outcomes). -/
+def outcomes (n : Nat) : Trace :=
+  { wide n with
+    experiments := [{ id := "R0", subject := "S", kind := .dry, effort := .days
+                      title := "Prove all", method := "Write the proofs."
+                      resources := "One person.", caveat := "None."
+                      success := (List.range n).map fun i => (s!"E{i}", .proved) }] }
+
+/-- `wide` + R_i proving E_i for the first two thirds (a chain R_i → R_(i-1), then a star on
+R_third), the last third Y_i creating its own subject P_i, proving a fact no claim needs
+(`tools/scale.mjs` prereqs). -/
+def prereqs (n : Nat) : Trace :=
+  let third := n / 3
+  let w := wide n
+  let exp := fun (id subject : String) (success : Overrides) (requires : List String) =>
+    ({ id, subject, kind := .dry, effort := .days, title := s!"Run {id}", method := "Prove it."
+       resources := "One person.", success, requires, caveat := "None." } : Experiment)
+  { w with
+    subjects := w.subjects ++ (List.range n).filterMap fun i =>
+      if i < 2 * third then none
+      else some ({ id := s!"P{i}", title := s!"Cohort {i}", kind := .prospective
+                   createdBy := some s!"Y{i}" } : Subject)
+    facts := w.facts ++ (List.range n).filterMap fun i =>
+      if i < 2 * third then none
+      else some { fact s!"K{i}" .statistical .«open» .lean with subject := s!"P{i}" }
+    experiments := (List.range n).map fun i =>
+      if i < 2 * third then
+        exp s!"R{i}" "S" [(s!"E{i}", .proved)]
+          (if i > 0 && i < third then [s!"R{i - 1}"] else if i > third then [s!"R{third}"]
+            else [])
+      else exp s!"Y{i}" s!"P{i}" [(s!"K{i}", .proved)] [] }
+
 /-- `wide` with F_i open for even i + X_i between E_i and F_{i+1 mod n} (assumed exclusions:
 receipts need files; `tools/scale.mjs` adds the proved ones). -/
 def exclusions (n : Nat) : Trace :=
@@ -162,5 +194,29 @@ def evalTests : TestM Unit := do
   checkEq "eval-scale: exclusions → every claim open, the subject consistent"
     (count e "open", (items e "subjects").map (field · "valid"))
     (some (.num n), [some (.bool true)])
+  -- outcomes: one experiment proves every E_i (U7: each claim's plan read at that experiment's
+  -- node, not a delta over its n outcomes per claim).
+  let n := 3000
+  let e := env (outcomes n)
+  checkEq "eval-scale: outcomes → the experiment lights every claim"
+    ((items e "experiments").map (field · "lights")) [some (.num n)]
+  checkEq "eval-scale: outcomes → each claim's plan = planned, conditional"
+    ((items e "claims").filter fun c => (field c "plan").any fun p =>
+      field p "result" == some (.str "planned") && field p "state" == some (.str "conditional")
+      ).length n
+  -- prereqs: a chain (R_i lights C_0 … C_i), a star (a leaf lights its claim + the root's), own
+  -- creators (light nothing); plans of the first two thirds planned, the last third none.
+  let n := 3000
+  let e := env (prereqs n)
+  let xs := items e "experiments"
+  let lights := fun (id : String) =>
+    (xs.find? (field · "id" == some (.str id))).bind (field · "lights")
+  checkEq "eval-scale: prereqs → chain end, chain start, star root, star leaf, creator"
+    ([lights "R999", lights "R0", lights "R1000", lights "R1999", lights "Y2999"])
+    [some (.num 1000), some (.num 1), some (.num 1), some (.num 2), some (.num 0)]
+  let plans := (items e "claims").filterMap fun c => (field c "plan").bind (field · "result")
+  checkEq "eval-scale: prereqs → planned + no improvement"
+    ((plans.filter (· == .str "planned")).length,
+      (plans.filter (· == .str "noImprovement")).length) (2000, 1000)
 
 end Tests.Scale
