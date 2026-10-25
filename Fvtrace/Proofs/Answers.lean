@@ -1731,11 +1731,21 @@ theorem node_optimistic' (c : Claim) (ids : List String) :
       (!(Core.incompatible (cxOf s) s c).isEmpty) = (s.applySuccess ids).optimistic c :=
   node_optimistic s c ids
 
+theorem memoAt_eq {α : Type} {key : List String} {v : α} {f : List String → α}
+    (h : v = f key) : memoAt key v f = f := by
+  funext ids
+  unfold memoAt
+  split
+  · next h' => rw [beq_iff_eq.mp h', h]
+  · rfl
+
 theorem plan_eq (closure : List String → List String) (hcl : closure = s.closure) (c : Claim) :
     planOf (cxOf s) closure s (coreOf s) c = s.plan c := by
   subst hcl
   unfold planOf Scenario.plan Scenario.best
   dsimp only
+  rw [memoAt_eq
+    (f := fun ids => Delta.build (cxOf s) s (coreOf s) (raisedBy (cxOf s) (coreOf s) ids)) rfl]
   rw [relPos_eq, relevant_read, coverageOf_eq, valid_eq, costWith_eq, final_eq]
   simp only [raised_eq, node_valid, node_final, node_optimistic']
   rw [searchWith_eq s c _ _ _ (fun _ => rfl) (fun _ => rfl) (fun _ => rfl)]

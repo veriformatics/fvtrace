@@ -550,6 +550,10 @@ def coverageOf (cx : Ctx) (core : Core) (needs : List String) (relIx : Index Nat
     uncovered := (per.filter (·.2.isEmpty)).map (·.1)
     alternatives := per.flatMap (·.2) }
 
+/-- `f`, answering `key` with `v` (kept, not recomputed): equal to `f` whenever `v = f key`. -/
+def memoAt {α : Type} (key : List String) (v : α) (f : List String → α) : List String → α :=
+  fun ids => if ids == key then v else f ids
+
 /-- `Scenario.plan` for any claim: relevance + coverage from the success-entry index, a search
 whose nodes read deltas over the claim's own counts. -/
 def planOf (cx : Ctx) (closure : List String → List String) (s : Scenario) (core : Core)
@@ -569,7 +573,12 @@ def planOf (cx : Ctx) (closure : List String → List String) (s : Scenario) (co
     let rests1 := fun (eff1 : String → EStatus) (n : String) =>
       (eff1 n).asserted && (!cx.mustVerify n || (eff1 n).verified)
     let counts1 := Counts.of core.eff1 (rests1 core.eff1) needsAll
-    let delta := fun ids => Delta.build cx s core (raisedBy cx core ids)
+    -- The search's bound at its root, and with one relevant experiment its every costly node +
+    -- the plan, is the closure of all relevant experiments: its delta is built once (a delta reads
+    -- every raised fact: one experiment proving 43,949 facts built it five times per plan).
+    let all := closure (rel.map (·.id))
+    let delta := memoAt all (Delta.build cx s core (raisedBy cx core all))
+      fun ids => Delta.build cx s core (raisedBy cx core ids)
     let needsCount := needsAll.length
     let finalAfter := fun ids =>
       Delta.final cx core (delta ids) needsAll needsCount counts times incompatible c.subject

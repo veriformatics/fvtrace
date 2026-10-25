@@ -461,7 +461,7 @@
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "502a83cfd67735e1293b1a625452407bad1d503898519bc360b23404e647d90e",
+            "sha256": "2a44fddbd1f163adc479ce2b547c5394a9cb6fcb55c8d8e3e1e8925a35351997",
             "role": "tests"
           }
         ],
@@ -731,7 +731,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "ffaabfbd12f4b5e9452ac18aa2899c9cb2d7b6431876bcc227d2d74e0aabe726",
+            "sha256": "01f1e9c1a9dfa7c34f20d9f2d75b167e84c477d59683f0ac834ec5d58270f23e",
             "role": "proof"
           },
           {
@@ -765,7 +765,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.AnswersAgree"
           ],
-          "output": "a86f2adfed342a69ab77fe391d4354da3b68e16fab8f09c85bab3652ae69548b"
+          "output": "5e83f2adb5ad21b83f17798edd0ae7b684a6c5bd984e08e0c789afc5fe75770f"
         }
       },
       "trusts": [
@@ -881,7 +881,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "ffaabfbd12f4b5e9452ac18aa2899c9cb2d7b6431876bcc227d2d74e0aabe726"
+            "sha256": "01f1e9c1a9dfa7c34f20d9f2d75b167e84c477d59683f0ac834ec5d58270f23e"
           },
           {
             "path": "Fvtrace/Proofs/Walk.lean",
