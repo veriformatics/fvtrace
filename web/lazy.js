@@ -1,7 +1,9 @@
 // Long lists (kernel.md U-long, U-access): a list mounts the rows its time budget holds, the rest
 // as an end of the mounted window nears the viewport or keyboard focus reaches it; every row stays
 // reachable by scrolling. A row keeps its node while its key + signature stay the same (U-update:
-// an unchanged card is the same element after a what-if).
+// an unchanged card is the same element after a what-if). An end with rows beyond it says how many.
+
+import { count } from "./words.js";
 
 /**
  * A row: its key, a signature of everything its node shows (computed for mounted rows alone), and
@@ -14,17 +16,21 @@ const budget = 8;
 /** Rows mounted around a row that must show (a selection, a found item). */
 const around = 20;
 /** How near the viewport (px) an unmounted end starts mounting. */
-const margin = "1500px";
+const margin = 1500;
 
 export class LazyList {
   /**
    * @param {HTMLElement} root the list element (its children = the mounted rows)
-   * @param {{ posinset?: boolean, sentinel?: "li" | "div" | "span" }} [opts] `posinset`: rows
-   *   carry `aria-posinset` + `aria-setsize`; `sentinel`: the element type of the end markers
+   * @param {{ posinset?: boolean, sentinel?: "li" | "div" | "span", noun?: [string, string],
+   *   tail?: HTMLElement }} [opts] `posinset`: rows carry `aria-posinset` + `aria-setsize`;
+   *   `sentinel`: the element type of the end markers; `noun`: what a row is (singular, plural),
+   *   for the end markers' words; `tail`: an element that stays after the rows (a circuit's lamp)
    */
   constructor(root, opts = {}) {
     this.root = root;
     this.posinset = opts.posinset ?? false;
+    this.noun = opts.noun ?? ["item", "items"];
+    this.tail = opts.tail;
     const tag = opts.sentinel ?? "div";
     /** @type {Row[]} */
     this.rows = [];
@@ -41,8 +47,14 @@ export class LazyList {
       s.className = "lazy-end";
       s.setAttribute("aria-hidden", "true");
     }
-    this.observer = new IntersectionObserver((entries) => this.near(entries), {
-      rootMargin: `${margin} 0px`,
+    // Each end looks one way: the bottom one below the viewport, the top one above it. An end
+    // the reader has scrolled past stays still (a symmetric margin kept the board's bottom end in
+    // range under scroll anchoring while the reader stood below it: every row mounted).
+    this.below = new IntersectionObserver((entries) => this.near(entries), {
+      rootMargin: `0px 0px ${margin}px 0px`,
+    });
+    this.above = new IntersectionObserver((entries) => this.near(entries), {
+      rootMargin: `${margin}px 0px 0px 0px`,
     });
     // Keyboard: focus inside the last (first) mounted rows mounts the next (earlier) ones before
     // the next Tab looks for them.
@@ -91,7 +103,7 @@ export class LazyList {
     }
     this.lo = lo;
     this.hi = hi;
-    place(this.root, [this.top, ...nodes, this.bottom]);
+    place(this.root, [this.top, ...nodes, this.bottom, ...(this.tail ? [this.tail] : [])]);
     this.observe();
     if (hi === lo) this.step(["bottom"]);
   }
@@ -191,13 +203,19 @@ export class LazyList {
     }
   }
 
-  /** Watches an end only while rows lie beyond it. */
+  /** Watches an end only while rows lie beyond it; each such end says how many. */
   observe() {
-    this.observer.disconnect();
+    this.below.disconnect();
+    this.above.disconnect();
     this.top.hidden = this.lo === 0;
     this.bottom.hidden = this.hi >= this.rows.length;
-    if (!this.top.hidden) this.observer.observe(this.top);
-    if (!this.bottom.hidden) this.observer.observe(this.bottom);
+    const [one, many] = this.noun;
+    if (!this.top.hidden)
+      this.top.textContent = `${count(this.lo, `earlier ${one}`, `earlier ${many}`)} ${this.lo === 1 ? "appears" : "appear"} as you scroll up.`;
+    if (!this.bottom.hidden)
+      this.bottom.textContent = `Showing ${(this.hi - this.lo).toLocaleString("en-US")} of ${count(this.rows.length, one, many)}. More appear as you scroll.`;
+    if (!this.top.hidden) this.above.observe(this.top);
+    if (!this.bottom.hidden) this.below.observe(this.bottom);
   }
 
   /** An end near the viewport: mount rows there within the budget; the fresh observation that
@@ -244,14 +262,20 @@ const short = 40;
 /**
  * A list element holding `items`: drawn whole when short, else mounted as it nears the viewport
  * (`LazyList`). @template T @param {HTMLElement} el the empty list element
- * @param {T[]} items @param {(item: T, i: number) => HTMLElement} make @returns {HTMLElement}
+ * @param {T[]} items @param {(item: T, i: number) => HTMLElement} make
+ * @param {[string, string]} [noun] what an item is (singular, plural)
+ * @param {HTMLElement} [tail] an element after the items @returns {HTMLElement}
  */
-export function listOf(el, items, make) {
+export function listOf(el, items, make, noun, tail) {
   if (items.length <= short) {
-    el.append(...items.map(make));
+    el.append(...items.map(make), ...(tail ? [tail] : []));
     return el;
   }
-  const lazy = new LazyList(el, { sentinel: el instanceof HTMLUListElement ? "li" : "span" });
+  const lazy = new LazyList(el, {
+    sentinel: el instanceof HTMLUListElement ? "li" : "span",
+    ...(noun ? { noun } : {}),
+    ...(tail ? { tail } : {}),
+  });
   lazy.set(items.map((x, i) => ({ key: String(i), sig: () => "", make: () => make(x, i) })));
   return el;
 }

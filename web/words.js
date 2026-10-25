@@ -97,9 +97,9 @@ export function word(table, code) {
   return table[code] ?? code;
 }
 
-/** `1 claim`, `2 claims`. @param {number} n @param {string} one @param {string} many */
+/** `1 claim`, `46,081 claims`. @param {number} n @param {string} one @param {string} many */
 export function count(n, one, many) {
-  return `${n} ${n === 1 ? one : many}`;
+  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 }
 
 /**

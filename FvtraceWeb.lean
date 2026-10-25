@@ -14,6 +14,7 @@ def files : List (String × String × String) :=
    ("/dom.js", "text/javascript; charset=utf-8", include_str "web/dom.js"),
    ("/engine.js", "text/javascript; charset=utf-8", include_str "web/engine.js"),
    ("/envelope.js", "text/javascript; charset=utf-8", include_str "web/envelope.js"),
+   ("/find.js", "text/javascript; charset=utf-8", include_str "web/find.js"),
    ("/lazy.js", "text/javascript; charset=utf-8", include_str "web/lazy.js"),
    ("/lookups.js", "text/javascript; charset=utf-8", include_str "web/lookups.js"),
    ("/panels.js", "text/javascript; charset=utf-8", include_str "web/panels.js"),

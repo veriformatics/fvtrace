@@ -189,3 +189,47 @@ test("details stay absent while pending; an older selection's answer is dropped"
   expect(await page.locator("#inspector").textContent()).toBe(shown);
   await expect(page.locator("#inspector .claim-tag .tag-id")).toHaveText("C1");
 });
+
+test("the find route reaches a claim that is not mounted, selects it and focuses it", async ({
+  page,
+}) => {
+  web = await serveScale("wide", 300);
+  await page.goto(web.url);
+  await page.locator("article.circuit").first().waitFor();
+  await expect(card(page, "C290")).toHaveCount(0);
+  await expect(page.locator("#find-results")).toBeHidden();
+  await page.locator("#find").fill("C290");
+  await expect(page.locator("#find-count")).toHaveText("1 match.");
+  await page.locator("#find").press("Enter");
+  await expect(card(page, "C290")).toHaveClass(/selected/);
+  await expect(card(page, "C290").locator(".claim-head .tag-id .ref")).toBeFocused();
+  await expect(page.locator("#inspector .claim-tag .tag-id")).toHaveText("C290");
+  await expect(card(page, "C290")).toHaveAttribute("aria-posinset", "291");
+  // Words find too; Escape clears the field and its matches.
+  await page.locator("#find").fill("no such words anywhere");
+  await expect(page.locator("#find-count")).toHaveText(
+    "No claim, fact or experiment matches “no such words anywhere”.",
+  );
+  await page.locator("#find").press("Escape");
+  await expect(page.locator("#find")).toHaveValue("");
+  await expect(page.locator("#find-count")).toBeHidden();
+});
+
+test("a board the reader has scrolled past stays as it is; its end mounts more once in view", async ({
+  page,
+}) => {
+  web = await serveScale("wide", 3000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(web.url);
+  const cards = page.locator("article.circuit");
+  await cards.first().waitFor();
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
+  const loaded = await cards.count();
+  await page.locator("#experiments-heading").evaluate((el) => el.scrollIntoView());
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1500)));
+  expect(await cards.count()).toBe(loaded);
+  await page.evaluate(() => window.scrollBy(0, -400));
+  await expect.poll(() => cards.count()).toBeGreaterThan(loaded);
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1500)));
+  expect(await cards.count()).toBeLessThan(3000);
+});
