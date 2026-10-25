@@ -1521,6 +1521,136 @@ theorem attachments_spec :
 
 end Plans
 
+/-! ## The plan summaries no search decides (`presummaries`) -/
+
+section Pre
+
+variable (s : Scenario)
+
+/-- No relevant experiment: the search keeps the empty plan, which improves nothing. -/
+theorem summary_none {c : Claim} (hv : s.valid c.subject = true) (hr : s.relevant c = []) :
+    (s.plan c).summary = .noImprovement := by
+  unfold Scenario.plan Scenario.best
+  rw [hv, hr]
+  simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte, List.length_nil, List.map_nil]
+  rw [ite_eq_right (by unfold maxRelevant; omega)]
+  have hs : s.search c [] [] [] = [] := by
+    unfold Scenario.search
+    rw [Fvtrace.Proofs.Singleton.closure_nil]
+    dsimp only
+    split <;> rfl
+  rw [hs, Fvtrace.Proofs.Plan.applySuccess_nil, ite_eq_left (Nat.le_refl _)]
+  rfl
+
+theorem relevant_of_positions (c : Claim) :
+    (relevantPositions (cxOf s) (coreOf s) c.needsAll c.subject).filterMap
+      ((cxOf s).experiments[·]?) = s.relevant c := by
+  unfold relevantPositions
+  rw [relPos_eq]
+  exact relevant_read s c
+
+theorem positions_length (c : Claim) :
+    (relevantPositions (cxOf s) (coreOf s) c.needsAll c.subject).length =
+      (s.relevant c).length := by
+  rw [← relevant_of_positions s c]
+  unfold relevantPositions
+  rw [relPos_eq]
+  rw [filterMap_eq_map_of (g := fun p => s.trace.experiments[p]!) ?_]
+  · rw [List.length_map]
+  · intro p hp
+    have hpn := List.mem_range.mp (List.mem_filter.mp hp).1
+    simp [cxOf, ctx_experiments, List.getElem?_eq_getElem hpn, hpn]
+
+/-- Every summary `presummaries` fills = the plan's. -/
+theorem presummaries_spec :
+    ∀ q sm, (presummaries (cxOf s) (coreOf s) (memoOf s))[q]? = some (some sm) →
+      ∃ hq : q < s.trace.claims.length, sm = (s.plan s.trace.claims[q]).summary := by
+  unfold presummaries
+  rw [cxOf, ctx_claims, List.foldl_toArray]
+  have key : ∀ (l : List Claim) (acc : Array (Option PlanSummary) × Nat),
+      acc.1.size = acc.2 →
+      (∀ j c, l[j]? = some c → s.trace.claims[acc.2 + j]? = some c) →
+      (∀ q sm, acc.1[q]? = some (some sm) →
+        ∃ hq : q < s.trace.claims.length, sm = (s.plan s.trace.claims[q]).summary) →
+      ∀ q sm, (l.foldl (fun acc c =>
+          (acc.1.push (match (memoOf s)[acc.2]? with
+            | some m =>
+              if !(coreOf s).valid c.subject then some .inconsistent
+              else match relevantPositions (cxOf s) (coreOf s) m.needs c.subject with
+                | [] => some .noImprovement
+                | rel => if rel.length > maxRelevant then some .tooLarge else none
+            | none => none), acc.2 + 1)) acc).1[q]? = some (some sm) →
+        ∃ hq : q < s.trace.claims.length, sm = (s.plan s.trace.claims[q]).summary := by
+    intro l
+    induction l with
+    | nil => intro acc _ _ h; simpa using h
+    | cons c l ih =>
+      intro acc hsz hl hacc
+      rw [List.foldl_cons]
+      have hc : s.trace.claims[acc.2]? = some c := by simpa using hl 0 c rfl
+      have hq0 : acc.2 < s.trace.claims.length := by
+        rcases Nat.lt_or_ge acc.2 s.trace.claims.length with h | h
+        · exact h
+        · rw [List.getElem?_eq_none h] at hc; cases hc
+      have hc' : s.trace.claims[acc.2] = c := by
+        rw [List.getElem?_eq_getElem hq0] at hc; exact Option.some.inj hc
+      apply ih
+      · simp [hsz]
+      · intro j c' hj
+        have := hl (j + 1) c' (by simpa using hj)
+        rw [show acc.2 + 1 + j = acc.2 + (j + 1) by omega]
+        exact this
+      · intro q sm hq
+        rw [Array.getElem?_push] at hq
+        split at hq
+        · rename_i hqs
+          rw [hsz] at hqs
+          subst hqs
+          refine ⟨hq0, ?_⟩
+          rw [hc']
+          simp only [memoOf, cxOf, ctx_claims, List.getElem?_toArray, Array.getElem?_map,
+            List.getElem?_eq_getElem hq0, Option.map_some, Option.some.injEq] at hq
+          rw [show (ClaimMemo.of (Ctx.build s.trace) s (coreOf s) s.trace.claims[acc.2]).needs =
+            c.needsAll by rw [hc']; rfl] at hq
+          by_cases hv : (coreOf s).valid c.subject = true
+          · rw [hv] at hq
+            simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte] at hq
+            have hsv : s.valid c.subject = true := by rw [← valid_eq]; exact hv
+            cases hrp : relevantPositions (cxOf s) (coreOf s) c.needsAll c.subject with
+            | nil =>
+              rw [hrp] at hq
+              simp only [Option.some.injEq] at hq
+              subst hq
+              have : s.relevant c = [] := by
+                rw [← relevant_of_positions s c, hrp]; rfl
+              exact (summary_none s hsv this).symm
+            | cons r rs =>
+              rw [hrp] at hq
+              dsimp only at hq
+              split at hq
+              · rename_i hlen
+                simp only [Option.some.injEq] at hq
+                subst hq
+                unfold Scenario.plan
+                rw [hsv]
+                simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+                rw [ite_eq_left (by rw [← positions_length s c, hrp]; exact hlen)]
+                rfl
+              · cases hq
+          · simp only [Bool.not_eq_true] at hv
+            rw [hv] at hq
+            simp only [Bool.not_false, ↓reduceIte, Option.some.injEq] at hq
+            subst hq
+            have hsv : s.valid c.subject = false := by rw [← valid_eq]; exact hv
+            unfold Scenario.plan
+            rw [hsv]
+            rfl
+        · exact hacc q sm hq
+  exact key s.trace.claims (#[], 0) rfl (fun j c h => by simpa using h)
+    (fun q sm h => by simp at h)
+
+end Pre
+
 /-! ## The walk = the reference rows + the summaries it answers -/
 
 section WalkEq
@@ -1758,16 +1888,15 @@ theorem walk_eq (hfb : fallback = rowRefOf s)
       ∀ q sm, (walk (cxOf s) s (coreOf s) (memoOf s) (fo) fallback failureMoves).2[q]? =
         some (some sm) → ∃ hq : q < s.trace.claims.length,
           sm = (s.plan s.trace.claims[q]).summary := by
-  have h0 : WalkInv s ((#[], #[], Array.replicate (cxOf s).claims.size none) : WalkState) :=
-    ⟨rfl, fun _ hj => by simp at hj, fun _ _ h => by simp at h,
-      fun _ _ h => by simp [Array.getElem?_replicate] at h⟩
+  have h0 : WalkInv s ((#[], #[], presummaries (cxOf s) (coreOf s) (memoOf s)) : WalkState) :=
+    ⟨rfl, fun _ hj => by simp at hj, fun _ _ h => by simp at h, presummaries_spec s⟩
   have hfold := walkFold_inv s fallback failureMoves hfb hfm s.trace.experiments _ h0
     (fun j e h => by simpa using h)
   have hw : walk (cxOf s) s (coreOf s) (memoOf s) (fo) fallback failureMoves =
       (((cxOf s).experiments.foldl (walkStep (envOf s fallback failureMoves))
-        (#[], #[], Array.replicate (cxOf s).claims.size none)).2.1,
+        (#[], #[], presummaries (cxOf s) (coreOf s) (memoOf s))).2.1,
        ((cxOf s).experiments.foldl (walkStep (envOf s fallback failureMoves))
-        (#[], #[], Array.replicate (cxOf s).claims.size none)).2.2) := rfl
+        (#[], #[], presummaries (cxOf s) (coreOf s) (memoOf s))).2.2) := rfl
   rw [hw]
   dsimp only
   rw [cxOf, ctx_experiments, List.foldl_toArray]

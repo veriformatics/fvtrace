@@ -98,9 +98,16 @@ def hex4 (b : ByteArray) (i : Nat) : Option Nat := do
 def pushUtf8 (out : ByteArray) (c : Char) : ByteArray :=
   out ++ (String.singleton c).toUTF8
 
-/-- A string token starting at the opening quote `i`; raw bytes are copied (the whole input was
-UTF-8-validated), escapes decoded, raw control characters rejected. -/
-def string (b : ByteArray) (i : Nat) : Result String := Id.run do
+/-- The end of a run of plain string bytes from `j` (no quote, backslash or control character). -/
+def plainEnd (b : ByteArray) (j : Nat) : Nat :=
+  if h : j < b.size then
+    let c := b[j]
+    if c == 34 || c == 92 || c < 32 then j else plainEnd b (j + 1)
+  else j
+termination_by b.size - j
+
+/-- `string` byte by byte: escapes decoded, raw control characters rejected. -/
+def stringSlow (b : ByteArray) (i : Nat) : Result String := Id.run do
   let mut out := ByteArray.empty
   let mut j := i + 1
   while j < b.size do
@@ -144,6 +151,17 @@ def string (b : ByteArray) (i : Nat) : Result String := Id.run do
       out := out.push c
       j := j + 1
   return fail i "unterminated string"
+
+/-- A string token starting at the opening quote `i`; raw bytes are copied (the whole input was
+UTF-8-validated): a token without escapes is one slice of the input, any other is decoded byte by
+byte (`stringSlow`), raw control characters rejected. -/
+def string (b : ByteArray) (i : Nat) : Result String :=
+  let e := plainEnd b (i + 1)
+  if b[e]? == some 34 then
+    match String.fromUTF8? (b.extract (i + 1) e) with
+    | some s => .ok (s, e + 1)
+    | none => fail i "invalid UTF-8 in string"
+  else stringSlow b i
 
 def isDigit (c : UInt8) : Bool := 48 ≤ c && c ≤ 57
 
@@ -280,24 +298,40 @@ def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
 def uEscape (n : Nat) : String :=
   "\\u" ++ String.ofList ([12, 8, 4, 0].map fun k => hexDigit (n >>> k))
 
-/-- String escaping of D-canon: `JSON.stringify`'s rules (short escapes, other C0 as `\u00xx`,
-everything else raw). `shown` (printed JSON: CLI, server, written files) also writes DEL, C1 +
-bidirectional formatting characters as `\uxxxx`, since a terminal acts on them; digests keep the
-`JSON.stringify` bytes. -/
-def escape (s : String) (shown : Bool := false) : String :=
-  s.foldl (init := "\"") (fun acc c =>
-    match c with
-    | '"' => acc ++ "\\\""
-    | '\\' => acc ++ "\\\\"
-    | '\x08' => acc ++ "\\b"
-    | '\x0c' => acc ++ "\\f"
-    | '\n' => acc ++ "\\n"
-    | '\r' => acc ++ "\\r"
-    | '\t' => acc ++ "\\t"
-    | c =>
-      let n := c.toNat
-      if n < 0x20 || (shown && ((0x7f ≤ n && n ≤ 0x9f) || Render.bidi n)) then acc ++ uEscape n
-      else acc.push c) ++ "\""
+/-- A character `escapeInto` rewrites. -/
+def needsEscape (shown : Bool) (c : Char) : Bool :=
+  let n := c.toNat
+  c == '"' || c == '\\' || n < 0x20 || (shown && ((0x7f ≤ n && n ≤ 0x9f) || Render.bidi n))
+
+/-- Some byte of `s` from `i` on may need `escapeInto`'s rewriting: a quote, a backslash, a C0
+control or, when `shown`, any byte from DEL up (the per-character path then decides). -/
+def rewritesFrom (s : String) (shown : Bool) (i : Nat) : Bool :=
+  if h : i < s.utf8ByteSize then
+    let c := s.getUTF8Byte ⟨i⟩ h
+    if c == 34 || c == 92 || c < 32 || (shown && c ≥ 0x7f) then true
+    else rewritesFrom s shown (i + 1)
+  else false
+termination_by s.utf8ByteSize - i
+
+/-- String escaping of D-canon, appended to `acc`: `JSON.stringify`'s rules (short escapes, other
+C0 as `\u00xx`, everything else raw). `shown` (printed JSON: CLI, server, written files) also
+writes DEL, C1 + bidirectional formatting characters as `\uxxxx`, since a terminal acts on them;
+digests keep the `JSON.stringify` bytes. A string with nothing to rewrite is appended whole. -/
+def escapeInto (acc s : String) (shown : Bool := false) : String :=
+  if rewritesFrom s shown 0 then
+    (s.foldl (init := acc.push '"') fun acc c =>
+      match c with
+      | '"' => acc ++ "\\\""
+      | '\\' => acc ++ "\\\\"
+      | '\x08' => acc ++ "\\b"
+      | '\x0c' => acc ++ "\\f"
+      | '\n' => acc ++ "\\n"
+      | '\r' => acc ++ "\\r"
+      | '\t' => acc ++ "\\t"
+      | c => if needsEscape shown c then acc ++ uEscape c.toNat else acc.push c).push '"'
+  else ((acc.push '"') ++ s).push '"'
+
+def escape (s : String) (shown : Bool := false) : String := escapeInto "" s shown
 
 /-- Inserts `k` after every member whose key is not above its own. -/
 def insertBy (k : String × Value) : List (String × Value) → List (String × Value)
@@ -310,35 +344,41 @@ outcome map or digest cache) and is proved equal to (`Spec.SortMembersAgree`). -
 def sortMembers (kvs : List (String × Value)) : List (String × Value) :=
   kvs.reverse.mergeSort fun a b => a.1 ≤ b.1
 
-/-- D-canon: sorted keys, no insignificant whitespace. -/
-partial def Value.canonical : Value → String
-  | .null => "null"
-  | .bool b => toString b
-  | .num n => toString n
-  | .str s => escape s
-  | .arr xs => "[" ++ ",".intercalate (xs.map Value.canonical) ++ "]"
+/-- D-canon, appended to `acc`: sorted keys, no insignificant whitespace. One buffer for the whole
+document: concatenating each level's pieces copied every byte once per level. -/
+partial def canonicalInto (acc : String) : Value → String
+  | .null => acc ++ "null"
+  | .bool b => acc ++ toString b
+  | .num n => acc ++ toString n
+  | .str s => escapeInto acc s
+  | .arr xs =>
+    (xs.foldl (init := (acc.push '[', true)) fun st x =>
+      (canonicalInto (if st.2 then st.1 else st.1.push ',') x, false)).1.push ']'
   | .obj kvs =>
-    "{" ++ ",".intercalate ((sortMembers kvs).map fun (k, v) => escape k ++ ":" ++ v.canonical) ++
-      "}"
+    ((sortMembers kvs).foldl (init := (acc.push '{', true)) fun st kv =>
+      (canonicalInto ((escapeInto (if st.2 then st.1 else st.1.push ',') kv.1).push ':') kv.2,
+        false)).1.push '}'
+
+/-- D-canon: sorted keys, no insignificant whitespace. -/
+def Value.canonical (v : Value) : String := canonicalInto "" v
+
+/-- The two-space indented form, appended to `acc`. -/
+partial def prettyInto (acc : String) (indent : Nat) : Value → String
+  | .arr [] => acc ++ "[]"
+  | .obj [] => acc ++ "{}"
+  | .arr xs =>
+    ((xs.foldl (init := (acc ++ "[\n", true)) fun st x =>
+      (prettyInto ((if st.2 then st.1 else st.1 ++ ",\n").pushn ' ' (indent + 2)) (indent + 2) x,
+        false)).1.push '\n').pushn ' ' indent |>.push ']'
+  | .obj kvs =>
+    ((kvs.foldl (init := (acc ++ "{\n", true)) fun st kv =>
+      (prettyInto (escapeInto ((if st.2 then st.1 else st.1 ++ ",\n").pushn ' ' (indent + 2))
+          kv.1 (shown := true) ++ ": ") (indent + 2) kv.2,
+        false)).1.push '\n').pushn ' ' indent |>.push '}'
+  | .str s => escapeInto acc s (shown := true)
+  | v => canonicalInto acc v
 
 /-- Two-space indented form in member order, for files fvTrace writes; ends with a newline. -/
-partial def Value.pretty (v : Value) : String :=
-  go 0 v ++ "\n"
-where
-  go (indent : Nat) : Value → String
-    | .arr [] => "[]"
-    | .obj [] => "{}"
-    | .arr xs =>
-      let pad := "".pushn ' ' (indent + 2)
-      "[\n" ++ ",\n".intercalate (xs.map fun x => pad ++ go (indent + 2) x) ++ "\n" ++
-        "".pushn ' ' indent ++ "]"
-    | .obj kvs =>
-      let pad := "".pushn ' ' (indent + 2)
-      "{\n" ++
-        ",\n".intercalate (kvs.map fun (k, x) =>
-          pad ++ escape k (shown := true) ++ ": " ++ go (indent + 2) x) ++
-        "\n" ++ "".pushn ' ' indent ++ "}"
-    | .str s => escape s (shown := true)
-    | v => v.canonical
+def Value.pretty (v : Value) : String := (prettyInto "" 0 v).push '\n'
 
 end Fvtrace.Json

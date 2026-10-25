@@ -293,6 +293,19 @@ def attachments (cx : Ctx) (core : Core) (fo : Forest) (memo : Array ClaimMemo) 
       | none => acc.1
     (next, q + 1)).1
 
+/-- The plan summaries no search decides, by claim position: an inconsistent subject, more relevant
+experiments than a search takes, or none at all. -/
+def presummaries (cx : Ctx) (core : Core) (memo : Array ClaimMemo) : Array (Option PlanSummary) :=
+  (cx.claims.foldl (init := ((#[] : Array (Option PlanSummary)), 0)) fun acc c =>
+    let q := acc.2
+    (acc.1.push (match memo[q]? with
+      | some m =>
+        if !core.valid c.subject then some .inconsistent
+        else match relevantPositions cx core m.needs c.subject with
+          | [] => some .noImprovement
+          | rel => if rel.length > maxRelevant then some .tooLarge else none
+      | none => none), q + 1)).1
+
 /-- Positions with a child on the forest (their state is kept for it). -/
 def Forest.hasChild (fo : Forest) : Array Bool :=
   fo.parent.foldl (init := Array.replicate fo.parent.size false) fun acc p => match p with
@@ -349,7 +362,7 @@ def walk (cx : Ctx) (s : Scenario) (core : Core) (memo : Array ClaimMemo) (fo : 
   let w : WalkEnv := { cx, s, core, memo, fo, fallback, failureMoves, dense
                        attached := if dense then attachments cx core fo memo else #[]
                        hasChild := fo.hasChild }
-  let st := cx.experiments.foldl (walkStep w) (#[], #[], Array.replicate cx.claims.size none)
+  let st := cx.experiments.foldl (walkStep w) (#[], #[], presummaries cx core memo)
   (st.2.1, st.2.2)
 
 end Fvtrace.Answers

@@ -10,6 +10,30 @@ scenario (`Spec.AnswersAgree`).
 
 namespace Fvtrace.Answers
 
+/-- `Counts.of` over need triples (id, status, must verify). -/
+def needCounts (ne : List (String × EStatus × Bool)) : Counts :=
+  { violated := ne.countP (·.2.1 == .violated)
+    unverified := ne.countP fun x => !x.2.1.verified
+    unrested := ne.countP fun x => !(x.2.1.asserted && (!x.2.2 || x.2.1.verified)) }
+
+/-- A claim's envelope member: each need's status + kind read once, its excluded pairs once; a
+what-if-free scenario changes nothing (`kernel.md` V-env). -/
+def viewWith (cx : Ctx) (s : Scenario) (core base : Core) (prospective : String → Bool)
+    (plan : PlanSummary) (c : Claim) : ClaimView :=
+  let ne := c.needsAll.map fun n => (n, core.eff n, cx.mustVerify n)
+  let inc := Core.incompatible cx s c
+  let intrinsic := (needCounts ne).state !inc.isEmpty
+  let valid := core.valid c.subject
+  let changed := !s.overrides.isEmpty && ((ne.any fun x => x.2.1 != base.eff x.1) ||
+    valid != base.valid c.subject)
+  { final := if valid then intrinsic else .cannot, intrinsic
+    verified := (ne.filter (·.2.1.verified)).map (·.1)
+    premises := (ne.filter fun x => x.2.1 == .assumed && !x.2.2).map (·.1)
+    gaps := (ne.filter fun x => x.2.1.strength == 1 || (x.2.1 == .assumed && x.2.2)).map (·.1)
+    blockers := (ne.filter (·.2.1 == .violated)).map (·.1)
+    incompatibleCount := inc.length, changed, valid
+    hypothetical := prospective c.subject || changed, plan }
+
 /-- The same answers from indexes + memos. -/
 def fast (s : Scenario) : Answers :=
   let t := s.trace
@@ -96,6 +120,7 @@ def fast (s : Scenario) : Answers :=
       extra ++ s.overrides.filter fun (k, _) => (ex.first? (cmp := compare) k).isNone
     experimentRows := fun _ => rows.get
     planSummary
-    raisers := fun f => raisersWith cx core forest.get closure (rows.get.map (·.experiment)) f }
+    raisers := fun f => raisersWith cx core forest.get closure (rows.get.map (·.experiment)) f
+    claimView := fun c => viewWith cx s core base prospective (planSummary c) c }
 
 end Fvtrace.Answers
