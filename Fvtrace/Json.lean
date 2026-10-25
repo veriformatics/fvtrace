@@ -106,19 +106,24 @@ def plainEnd (b : ByteArray) (j : Nat) : Nat :=
   else j
 termination_by b.size - j
 
-/-- `string` byte by byte: escapes decoded, raw control characters rejected. -/
+/-- `string` with escapes: each plain run copied whole (byte by byte, a 16 MiB snapshot's trace
+string took a quarter of the page engine's start-up), escapes decoded, raw control characters
+rejected. -/
 def stringSlow (b : ByteArray) (i : Nat) : Result String := Id.run do
   let mut out := ByteArray.empty
   let mut j := i + 1
   while j < b.size do
-    let c := b[j]!
+    let e := plainEnd b j
+    out := b.copySlice j out out.size (e - j) false
+    j := e
+    let some c := byteAt b j | break
     if c == 34 then
       return match String.fromUTF8? out with
         | some s => .ok (s, j + 1)
         | none => fail i "invalid UTF-8 in string"
     else if c < 32 then
       return fail j "control character in string"
-    else if c == 92 then
+    else
       match byteAt b (j + 1) with
       | some 34 => out := out.push 34; j := j + 2
       | some 92 => out := out.push 92; j := j + 2
@@ -147,14 +152,11 @@ def stringSlow (b : ByteArray) (i : Nat) : Result String := Id.run do
             out := pushUtf8 out (Char.ofNat hi)
             j := j + 6
       | _ => return fail j "invalid escape"
-    else
-      out := out.push c
-      j := j + 1
   return fail i "unterminated string"
 
 /-- A string token starting at the opening quote `i`; raw bytes are copied (the whole input was
-UTF-8-validated): a token without escapes is one slice of the input, any other is decoded byte by
-byte (`stringSlow`), raw control characters rejected. -/
+UTF-8-validated): a token without escapes is one slice of the input, any other is decoded by
+`stringSlow`, raw control characters rejected. -/
 def string (b : ByteArray) (i : Nat) : Result String :=
   let e := plainEnd b (i + 1)
   if b[e]? == some 34 then
@@ -282,7 +284,8 @@ end Parse
 
 /-- Parses a whole document: valid UTF-8, one value, nothing but whitespace after it. -/
 def parse (input : ByteArray) : Except ParseError Value :=
-  if (String.fromUTF8? input).isNone then .error { offset := 0, message := "input is not UTF-8" }
+  -- Validated in place: `String.fromUTF8?` would build (and drop) a copy of the whole input.
+  if !input.validateUTF8 then .error { offset := 0, message := "input is not UTF-8" }
   else
     match Parse.value input (input.size + 2) 0 0 with
     | .error e => .error e

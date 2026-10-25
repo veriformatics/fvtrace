@@ -31,12 +31,13 @@ structure Config where
   cached : Bool := false
 
 /-- What the server keeps between requests (`kernel.md` P-cache): the last checked trace, by the
-SHA-256 of its bytes, and the last answer's answers, by its view (`Session.viewOf`: the trace's
-content + review, the bindings with their reasons, the what-if). Answers read from it equal fresh
-ones, byte for byte. -/
+SHA-256 of its bytes, and the last answer's answers + its envelope text once printed, by its view
+(`Session.viewOf`: the trace's content + review, the bindings with their reasons, the what-if).
+Answers read from it equal fresh ones, byte for byte; the launch evaluation's text answers the
+page's first request. -/
 structure Kept where
   trace : Option (String × Trace) := none
-  last : Option (String × Answers) := none
+  last : Option (String × Answers × Option String) := none
 
 /-- A response before transport. -/
 structure Reply where
@@ -157,7 +158,7 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
       | .error p => return problemReply p
     -- The answers at a view: the kept ones when it is the last answer's view.
     let answersAt := fun (l : Session.Loaded) (v : String) => match st.last with
-      | some (v', A) => if v' == v then A else Answers.fast l.scenario
+      | some (v', A, _) => if v' == v then A else Answers.fast l.scenario
       | none => Answers.fast l.scenario
     let v0 ← Session.viewOf l
     let l' ← match r.action with
@@ -167,7 +168,10 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
       | none => pure l
     let v ← Session.viewOf l'
     let A := answersAt l' v
-    set { st with trace := some (key, tr), last := some (v, A) }
+    let text := match st.last with
+      | some (v', _, t) => if v' == v then t else none
+      | none => none
+    set { st with trace := some (key, tr), last := some (v, A, text) }
     let tagged := fun (rep : Reply) =>
       { rep with headers := rep.headers ++ [("X-Fvtrace-View", v)] }
     if view.any (· != v) then
@@ -177,8 +181,11 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
     | some item => return match Evaluate.detailsWith l'.scenario A l'.digest l'.review item with
       | .ok d => tagged (json .ok d)
       | .error m => problemReply (.badItem m)
-    | none => return tagged (json .ok (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest
-        l'.review))
+    | none =>
+      let body := text.getD
+        (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest l'.review).pretty
+      set { st with trace := some (key, tr), last := some (v, A, some body) }
+      return tagged { status := .ok, contentType := "application/json", body }
 
 /-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem. -/
 def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
