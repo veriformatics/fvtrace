@@ -81,7 +81,7 @@
             <button class="filter" type="button" data-filter="wet">Wet</button>
           </div>
         </div>
-        <div id="experiment-list" class="card-grid"></div>
+        <ul id="experiment-list" class="card-grid" aria-label="Experiments"></ul>
       </section>
       <section class="work" aria-labelledby="work-heading">
         <div>
@@ -92,7 +92,7 @@
             the other facts that a claim needs together with this one.
           </p>
         </div>
-        <div id="work-list" class="card-grid"></div>
+        <ul id="work-list" class="card-grid" aria-label="Facts"></ul>
       </section>
       <section id="blockers" class="work" aria-labelledby="blockers-heading" hidden>
         <div>
@@ -108,6 +108,7 @@
         </div>
         <ul id="check-list" class="plain-list"></ul>
       </section>
+      <p id="working" class="working" role="status" hidden>Working…</p>
       <footer>
         fvTrace checks what a claim needs. It does not establish that the scientific assumptions of
         the study are true.

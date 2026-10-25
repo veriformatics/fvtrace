@@ -88,3 +88,49 @@ export async function serveFvtrace(study = "synthetic", edit) {
     },
   };
 }
+
+/**
+ * `fvtrace serve` over a generated trace (`tools/scale.mjs <shape> <n>`): its own data folder,
+ * the token link it prints.
+ * @param {string} shape @param {number} n
+ * @returns {Promise<{ url: string, close: () => Promise<void> }>}
+ */
+export async function serveScale(shape, n) {
+  const dir = await mkdtemp(join(tmpdir(), "fvtrace-e2e-scale-"));
+  const made = spawnSync("node", [join(root, "tools", "scale.mjs"), shape, String(n), dir], {
+    encoding: "utf8",
+  });
+  if (made.status !== 0) throw new Error(`tools/scale.mjs ${shape} ${n}: ${made.stderr}`);
+  const server = spawn(
+    bin,
+    [
+      "serve",
+      "--port",
+      "0",
+      "--no-browser",
+      "--trace",
+      join(dir, "trace.json"),
+      "--project",
+      join(dir, "project"),
+    ],
+    { env: { ...process.env, FVTRACE_HOME: join(dir, "home") } },
+  );
+  const url = await new Promise(
+    /** @param {(link: string) => void} resolve */ (resolve, reject) => {
+      let out = "";
+      server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
+        out += chunk.toString();
+        const link = /^Open (http:\/\/\S+)$/m.exec(out);
+        if (link?.[1]) resolve(link[1]);
+      });
+      server.on("exit", (code) => reject(new Error(`fvtrace serve exited ${code}: ${out}`)));
+    },
+  );
+  return {
+    url,
+    close: async () => {
+      server.kill();
+      await rm(dir, { recursive: true, force: true });
+    },
+  };
+}

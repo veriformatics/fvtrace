@@ -481,13 +481,13 @@ export function decodeDetails(json) {
 }
 
 /**
- * An exported page's data island: the recorded envelope (decoded when shown) + the snapshot that
- * the page's engine evaluates what-ifs against.
- * @param {unknown} json @returns {{ recorded: unknown, snapshot: Record<string, unknown> }}
+ * An exported page's data block: the recorded envelope (decoded when shown). The snapshot the
+ * page's engine evaluates what-ifs against sits in its own block, opaque to the page: the engine
+ * decodes it and refuses a damaged one.
+ * @param {unknown} json @returns {{ recorded: unknown }}
  */
 export function decodeExported(json) {
   const r = obj(json, "");
-  if (r["schema"] !== "fvtrace.export/3") fail("/schema", '"fvtrace.export/3"');
-  // The snapshot stays opaque here: the engine decodes it and refuses a damaged one.
-  return { recorded: r["recorded"], snapshot: obj(r["snapshot"], "/snapshot") };
+  if (r["schema"] !== "fvtrace.export/4") fail("/schema", '"fvtrace.export/4"');
+  return { recorded: r["recorded"] };
 }

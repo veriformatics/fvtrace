@@ -5,7 +5,7 @@
 // while the precomputed recorded envelope shows. The address hash holds the view, so a scenario
 // can be shared or reloaded.
 
-import { circuit, lamp, switchSvg } from "./circuit.js";
+import { circuit, claimSig, lamp, markCard, switchSvg } from "./circuit.js";
 import { byId, byIdAs, fill, h } from "./dom.js";
 import { EngineError } from "./engine.js";
 import {
@@ -15,14 +15,22 @@ import {
   decodeExported,
   decodeProblem,
 } from "./envelope.js";
+import { LazyList } from "./lazy.js";
+import { lookupsOf } from "./lookups.js";
 import {
-  blockerList,
-  checkList,
-  experimentList,
+  blockerRow,
+  checkRow,
+  experimentRow,
   groupTitle,
   inspector,
-  textView,
-  workList,
+  markRow,
+  noExperiments,
+  noWork,
+  openFactRow,
+  openFactSig,
+  textRow,
+  workRow,
+  workSig,
 } from "./panels.js";
 import { startTour } from "./tour.js";
 import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./words.js";
@@ -30,6 +38,7 @@ import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./
 /** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
 /** @typedef {import("./envelope.js").State} State */
+/** @typedef {import("./lazy.js").Row} Row */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 /** @typedef {{ whatif: string, action?: string, details?: string }} Request */
 /** The selection's details for the shown view (kernel.md V-details): pending, ready, refused, or
@@ -52,22 +61,28 @@ const view = {
 
 /** @type {Envelope | undefined} */
 let env;
+/** The shown envelope's lookups, built once when the page adopts it (U-lookups). */
+/** @type {import("./lookups.js").Lookups | undefined} */
+let ix;
 /** Request numbers (U-coalesce): an answer older than the newest request of its kind is dropped. */
 let evaluations = 0;
 let detailsAsked = 0;
+/** One evaluation in flight; the newest one waiting behind it resumes when it settles. */
+let flying = false;
+/** @type {(() => void) | undefined} */
+let queued;
 /** The view the shown envelope read (served: `X-Fvtrace-View`), sent with each details request. */
 /** @type {string | undefined} */
 let shownView;
 /** @type {DetailsView | undefined} */
 let details;
-/** The excluded pairs of the shown claims that have some (claim details, kernel.md V-details). */
+/** The excluded pairs of the shown claims that have some (claim details, kernel.md V-details),
+ * asked for once a card that has some is on screen. */
 /** @type {Map<string, string[]>} */
 let excludedPairs = new Map();
-
+/** @type {Set<string>} */
+let pairsAsked = new Set();
 const island = document.getElementById("fvtrace-data");
-/** @type {unknown} */
-const islandJson = island ? JSON.parse(island.textContent ?? "null") : undefined;
-const exported = island ? decodeExported(islandJson) : undefined;
 
 const engineFailed =
   "This browser cannot run the what-ifs on this page, so it shows the facts as recorded.";
@@ -121,8 +136,8 @@ let engineDead = false;
 /** @type {string | undefined} */
 let legacyAction;
 
-/** The snapshot as the engine reads it (JSON text). */
-const snapshotText = exported ? JSON.stringify(exported.snapshot) : "";
+/** The snapshot as the engine reads it: its block's text (kernel.md E-page). */
+const snapshotText = document.getElementById("fvtrace-snapshot")?.textContent ?? "";
 
 /** The engine's Worker, made from the page's own worker block through the one Trusted Types
  * policy the page's CSP names; the policy accepts that URL alone (kernel.md E-page, E-sec). */
@@ -208,8 +223,12 @@ function engine() {
         waiting.set(id, { resolve, reject });
         worker.postMessage({ id, op, arg }, []);
       });
-    await call("start", document.getElementById("fvtrace-engine")?.textContent ?? "");
-    const problem = await call("load", snapshotText);
+    // Both posted at once: the worker takes them in order, and the snapshot's load need not wait
+    // for this thread to read the start's reply (it is busy with the page's first view).
+    const started = call("start", document.getElementById("fvtrace-engine")?.textContent ?? "");
+    const loaded = call("load", snapshotText);
+    await started;
+    const problem = await loaded;
     if (problem !== null) throw new EngineError("the engine refused the page's snapshot");
     return {
       /** @param {string} text */
@@ -222,6 +241,17 @@ function engine() {
   })();
   return engineStart;
 }
+
+// Exported: the engine starts before this page parses its data block, so its start-up runs beside
+// the page's first view (a click during start-up waits for both, U-time).
+if (island)
+  engine().catch(() => {
+    engineDead = true;
+    if (!view.spec) showError(engineFailed);
+  });
+/** @type {unknown} */
+const islandJson = island ? JSON.parse(island.textContent ?? "null") : undefined;
+const exported = island ? decodeExported(islandJson) : undefined;
 
 /** @param {Map<string, string>} w */
 function whatifSpec(w) {
@@ -266,10 +296,18 @@ function showError(message) {
   el.hidden = false;
 }
 
+/** Makes `e` the shown envelope, its lookups built once (U-lookups). */
+function adopt(/** @type {Envelope} */ e) {
+  env = e;
+  ix = lookupsOf(e);
+}
+
 /** An exported page's recorded view: its first paint, and its view after any engine failure. */
 function showRecorded(/** @type {NonNullable<typeof exported>} */ ex) {
-  env = decodeEnvelope(ex.recorded);
+  adopt(decodeEnvelope(ex.recorded));
   view.whatif = new Map();
+  excludedPairs = new Map();
+  pairsAsked = new Set();
   render();
 }
 
@@ -282,6 +320,27 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
   showError(engineFailed);
 }
 
+/** Requests still running (U-busy): the page reads as busy from a request's start, and shows that
+ * it is working once a request runs past 1 s (Nielsen: past 1 s, flow of thought needs a sign). */
+let running = 0;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let workingTimer;
+/** @param {1 | -1} delta */
+function busy(delta) {
+  running += delta;
+  if (running > 0) document.body.setAttribute("aria-busy", "true");
+  else document.body.removeAttribute("aria-busy");
+  if (running > 0 && workingTimer === undefined)
+    workingTimer = setTimeout(() => {
+      byId("working").hidden = false;
+    }, 1000);
+  if (running === 0) {
+    clearTimeout(workingTimer);
+    workingTimer = undefined;
+    byId("working").hidden = true;
+  }
+}
+
 /**
  * The answer to `request` (kernel.md V-request: envelope, details or problem) + the view it read:
  * from the page's engine, or the server's answer route (`shown` = the view the page shows).
@@ -289,6 +348,17 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
  * @returns {Promise<{ json: unknown, view: string | undefined }>}
  */
 async function ask(request, shown) {
+  busy(1);
+  try {
+    return await answerOf(request, shown);
+  } finally {
+    busy(-1);
+  }
+}
+
+/** @param {Request} request @param {string} [shown]
+ * @returns {Promise<{ json: unknown, view: string | undefined }>} */
+async function answerOf(request, shown) {
   if (exported) {
     // One request at a time, each checked after the one before it settled: a request queued
     // behind a failing one never enters the engine (several can wait on one start-up).
@@ -304,12 +374,12 @@ async function ask(request, shown) {
         throw err;
       }
     };
-    const answer = engineQueue.then(run, run);
-    engineQueue = answer.then(
+    const out = engineQueue.then(run, run);
+    engineQueue = out.then(
       () => undefined,
       () => undefined,
     );
-    return answer;
+    return out;
   }
   const send = (/** @type {string} */ token) =>
     fetch("/api/answer", {
@@ -332,6 +402,35 @@ async function ask(request, shown) {
   /** @type {unknown} */
   const json = await res.json();
   return { json, view: res.headers.get("X-Fvtrace-View") ?? undefined };
+}
+
+/**
+ * One evaluation request (U-coalesce): at most one in flight; a newer one waits behind it and
+ * replaces any older waiting one. Undefined = a newer evaluation superseded it.
+ * @param {number} n its request number @param {Request} request
+ */
+async function evaluation(n, request) {
+  if (flying) {
+    queued?.();
+    busy(1);
+    try {
+      await new Promise((resume) => {
+        queued = () => resume(undefined);
+      });
+    } finally {
+      busy(-1);
+    }
+    if (n !== evaluations) return undefined;
+  }
+  flying = true;
+  try {
+    return await ask(request);
+  } finally {
+    flying = false;
+    const next = queued;
+    queued = undefined;
+    next?.();
+  }
 }
 
 /** A problem the page's engine may answer without failing (kernel.md E-gui). */
@@ -359,17 +458,16 @@ async function load(action, link = false) {
     }
     if (!view.spec) {
       evaluations++;
-      document.body.removeAttribute("aria-busy");
       void loadDetails();
       return;
     }
   }
   const spec = view.spec;
   const n = ++evaluations;
-  document.body.setAttribute("aria-busy", "true");
   try {
-    const { json, view: read } = await ask(action ? { whatif: spec, action } : { whatif: spec });
-    if (n !== evaluations) return;
+    const got = await evaluation(n, action ? { whatif: spec, action } : { whatif: spec });
+    if (!got || n !== evaluations) return;
+    const { json, view: read } = got;
     const problem = decodeProblem(json);
     if (problem && exported && !recoverable.has(problem.kind)) {
       engineFailure(exported);
@@ -385,9 +483,10 @@ async function load(action, link = false) {
       } else showError(problem.message);
       return;
     }
-    env = decodeEnvelope(json);
+    const e = decodeEnvelope(json);
+    adopt(e);
     shownView = read;
-    view.whatif = new Map(env.overrides.map((o) => [o.fact, o.status]));
+    view.whatif = new Map(e.overrides.map((o) => [o.fact, o.status]));
     if (action) {
       view.spec = whatifSpec(view.whatif);
       if (link) {
@@ -399,9 +498,9 @@ async function load(action, link = false) {
     }
     byId("error").hidden = true;
     excludedPairs = new Map();
+    pairsAsked = new Set();
     render();
     void loadDetails();
-    void loadPairs(spec);
   } catch (e) {
     // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine;
     // the notice shows whichever view is current, the view resets when this load is the latest.
@@ -415,11 +514,8 @@ async function load(action, link = false) {
           ? `This page does not understand the server's answer (${e.message}). Update fvtrace.`
           : "The server did not answer. Is fvtrace serve still running?",
       );
-  } finally {
-    if (n === evaluations) document.body.removeAttribute("aria-busy");
   }
 }
-
 /** An older export's `#action=X`: the engine's expansion of X from the recorded view, or a notice
  * over the recorded view when it suggests no such what-if. */
 async function legacy(/** @type {string} */ id) {
@@ -435,22 +531,22 @@ async function legacy(/** @type {string} */ id) {
   }
 }
 
-/** The excluded pairs a shown claim needs (its card names them, user ruling: lists on request),
- * asked for each claim that has some; an answer for an older view is dropped. */
-async function loadPairs(/** @type {string} */ spec) {
-  const asked = (env?.claims ?? []).filter((c) => c.incompatibleCount > 0);
-  await Promise.all(
-    asked.map(async (c) => {
-      try {
-        const { json } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
-        if (spec !== view.spec || decodeProblem(json)) return;
-        excludedPairs.set(c.id, decodeDetails(json).incompatible ?? []);
-        render();
-      } catch {
-        // The card keeps its other lines.
-      }
-    }),
-  );
+/** The excluded pairs a card on screen names (user ruling: lists on request), asked once per card
+ * and view as the card mounts; an answer for an older view is dropped. @param {Claim} c */
+function askPairs(c) {
+  const spec = view.spec;
+  if (c.incompatibleCount === 0 || pairsAsked.has(c.id)) return;
+  pairsAsked.add(c.id);
+  void (async () => {
+    try {
+      const { json } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
+      if (spec !== view.spec || decodeProblem(json)) return;
+      excludedPairs.set(c.id, decodeDetails(json).incompatible ?? []);
+      renderBoard();
+    } catch {
+      // The card keeps its other lines.
+    }
+  })();
 }
 
 /** The selection's details for the shown view (kernel.md V-details); the inspector shows the
@@ -465,11 +561,11 @@ async function loadDetails() {
   const spec = view.spec;
   if (exported && engineDead) {
     details = { item, spec, state: "off" };
-    render();
+    renderInspector();
     return;
   }
   details = { item, spec, state: "pending" };
-  render();
+  renderInspector();
   const n = ++detailsAsked;
   try {
     const { json } = await ask({ whatif: spec, details: item }, shownView);
@@ -489,9 +585,8 @@ async function loadDetails() {
       ? { item, spec, state: "off" }
       : { item, spec, state: "problem", message: "The server did not answer." };
   }
-  render();
+  renderInspector();
 }
-
 /** Sets the what-if, then asks the engine. @param {Map<string, string>} w */
 function setWhatif(w) {
   if (exported && engineDead && w.size > 0) {
@@ -503,16 +598,24 @@ function setWhatif(w) {
   void load();
 }
 
+/** @param {Selection | undefined} sel @param {Selection["kind"]} kind @param {string} id */
+const selects = (sel, kind, id) => sel?.kind === kind && sel.id === id;
+
 /** @type {import("./panels.js").Handlers} */
 const on = {
   select(kind, id) {
     view.selection = { kind, id };
-    if (kind === "claim" && env) {
-      const q = env.claims.find((c) => c.id === id)?.question;
-      if (q) view.question = q;
-    }
+    const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
     writeHash();
-    render();
+    if (q && q !== view.question) {
+      // Another question's claim: its board replaces this one.
+      view.question = q;
+      renderQuestions();
+      renderBoard();
+    }
+    // U-select: the highlight moves and the details panel fills; no card is rebuilt.
+    drawSelection();
+    renderInspector();
     byId("inspector").focus();
     void loadDetails();
   },
@@ -533,15 +636,13 @@ const on = {
     }
   },
   supposeStatus(fact) {
-    return on.hasAction(`suppose:${fact}`)
-      ? env?.facts.find((f) => f.id === fact)?.ceiling
-      : undefined;
+    return on.hasAction(`suppose:${fact}`) ? ix?.facts.get(fact)?.ceiling : undefined;
   },
   pairsOf(claim) {
     return excludedPairs.get(claim);
   },
   hasAction(action) {
-    return env?.actions.some((a) => a.id === action) ?? false;
+    return ix?.actions.has(action) ?? false;
   },
   apply(action) {
     if (exported && engineDead) {
@@ -552,13 +653,37 @@ const on = {
   },
 };
 
+/** The selection drawn on the mounted cards + rows (a kept element keeps its marks). */
+/** @type {Selection | undefined} */
+let drawn;
+
+/** Moves the drawn selection to `view.selection`. */
+function drawSelection() {
+  mark(drawn, false);
+  mark(view.selection, true);
+  drawn = view.selection;
+}
+
+/** Draws `sel` on its card or experiment row, where one is mounted.
+ * @param {Selection | undefined} sel @param {boolean} selected */
+function mark(sel, selected) {
+  if (sel?.kind === "claim") {
+    for (const g of boardGroups.values()) {
+      const n = g.list.node(`claim:${sel.id}`);
+      if (n?.classList.contains("circuit")) markCard(n, selected);
+    }
+  } else if (sel?.kind === "experiment") {
+    const n = experimentList.node(`experiment:${sel.id}`);
+    if (n) markRow(n, selected);
+  }
+}
+
 /** Claims of the question in the engine's verdict order, untitled (each card names its verdict);
  * overlooked + new-data apart, titled. */
-/** @param {Envelope} e @returns {[string, Claim[]][]} */
-function groups(e) {
-  const prospective = new Set(e.subjects.filter((s) => s.kind === "prospective").map((s) => s.id));
-  const mine = e.claims.filter((c) => c.question === view.question);
-  const existing = mine.filter((c) => !prospective.has(c.subject));
+/** @param {Envelope} e @param {import("./lookups.js").Lookups} x @returns {[string, Claim[]][]} */
+function groups(e, x) {
+  const mine = x.byQuestion.get(view.question) ?? [];
+  const existing = mine.filter((c) => !x.prospective.has(c.subject));
   /** @type {[string, Claim[]][]} */
   const out = [
     [
@@ -569,13 +694,16 @@ function groups(e) {
     ],
   ];
   out.push(["Overlooked directions", existing.filter((c) => c.latent)]);
-  for (const s of e.subjects.filter((x) => prospective.has(x.id))) {
+  for (const s of e.subjects.filter((y) => x.prospective.has(y.id))) {
     out.push([`On new data: ${s.title}`, mine.filter((c) => c.subject === s.id)]);
   }
   return out.filter(([, cs]) => cs.length > 0);
 }
 
-function renderScenario(/** @type {Envelope} */ e) {
+function renderScenario(
+  /** @type {Envelope} */ e,
+  /** @type {import("./lookups.js").Lookups} */ x,
+) {
   const bar = byId("scenario");
   bar.classList.toggle("hypothetical", e.mode === "what-if");
   fill(
@@ -585,7 +713,7 @@ function renderScenario(/** @type {Envelope} */ e) {
           h("strong", { class: "what-if-lead" }, "Showing a what-if: "),
           "suppose ",
           e.overrides
-            .filter((o) => e.facts.some((f) => f.id === o.fact))
+            .filter((o) => x.facts.has(o.fact))
             .map((o) => `${o.fact} ${word(supposedAs, o.status)}`)
             .join(", "),
           ". Nothing has been recorded.",
@@ -629,23 +757,65 @@ function refocus(key) {
   if (el instanceof HTMLElement) el.focus();
 }
 
-function render() {
-  if (!env) return;
-  const key = focusKey();
-  draw(env);
-  refocus(key);
-}
+/** The question + layout the board's groups show. */
+let boardShows = "";
+/** The board's groups by layout + title: each a section with its own feed (U-long). */
+/** @type {Map<string, { section: HTMLElement, head: string, list: LazyList }>} */
+const boardGroups = new Map();
+const experimentList = new LazyList(byId("experiment-list"), { posinset: true, sentinel: "li" });
+const workList = new LazyList(byId("work-list"), { posinset: true, sentinel: "li" });
+const blockerList = new LazyList(byId("blocker-list"), { posinset: true, sentinel: "li" });
+const checkList = new LazyList(byId("check-list"), { posinset: true, sentinel: "li" });
+/** The first board drawn: `tools/scale-gui.mjs` times the first view to the frame after it. */
+let boardShown = false;
 
-/** @param {Envelope} e */
-function draw(e) {
+/** Every part of the page from the shown envelope. */
+function render() {
+  if (!env || !ix) return;
+  const key = focusKey();
+  const e = env;
   if (!e.questions.some((q) => q.id === view.question)) view.question = e.questions[0]?.id ?? "";
   byId("analysis-title").textContent = e.analysis.title;
   byId("analysis-summary").textContent = e.analysis.summary;
-  renderScenario(e);
+  renderScenario(e, ix);
   fill(byId("how-key"), factKey(e.counts));
+  renderQuestions();
+  renderBoard();
+  renderInspector();
+  renderExperiments();
+  renderWork();
+  const x = ix;
+  blockerList.set(
+    e.blockers.map((b) => ({
+      key: `blocker:${b.fact}`,
+      sig: () => JSON.stringify([b, x.facts.get(b.fact)?.text]),
+      make: () => blockerRow(b, x, on),
+    })),
+  );
+  byId("blockers").hidden = e.blockers.length === 0;
+  const checks = e.lints.filter((l) => l.waived === undefined);
+  checkList.set(
+    checks.map((l, i) => ({
+      key: `check:${i}`,
+      sig: () => JSON.stringify(l),
+      make: () => checkRow(l, on),
+    })),
+  );
+  byId("checks").hidden = checks.length === 0;
+  refocus(key);
+  if (!boardShown) {
+    boardShown = true;
+    performance.mark("fvtrace:board");
+    requestAnimationFrame(() => performance.mark("fvtrace:painted"));
+  }
+}
+
+function renderQuestions() {
+  if (!env || !ix) return;
+  const x = ix;
   fill(
     byId("questions"),
-    e.questions.map((q) =>
+    env.questions.map((q) =>
       h(
         "button",
         {
@@ -656,14 +826,15 @@ function draw(e) {
           onclick: () => {
             view.question = q.id;
             writeHash();
-            render();
+            renderQuestions();
+            renderBoard();
           },
         },
         q.title,
         h(
           "small",
           { class: "question-count" },
-          count(e.claims.filter((c) => c.question === q.id).length, "claim", "claims"),
+          count(x.byQuestion.get(q.id)?.length ?? 0, "claim", "claims"),
         ),
       ),
     ),
@@ -671,45 +842,160 @@ function draw(e) {
   const select = byIdAs("question-select", HTMLSelectElement);
   fill(
     select,
-    e.questions.map((q) => h("option", { value: q.id, selected: q.id === view.question }, q.title)),
+    env.questions.map((q) =>
+      h("option", { value: q.id, selected: q.id === view.question }, q.title),
+    ),
   );
-  const q = e.questions.find((x) => x.id === view.question);
-  byId("question-title").textContent = q?.text ?? "";
+  byId("question-title").textContent =
+    env.questions.find((q) => q.id === view.question)?.text ?? "";
   for (const b of document.querySelectorAll("[data-layout]")) {
     b.setAttribute("aria-pressed", String(b.getAttribute("data-layout") === view.layout));
   }
-  const gs = groups(e);
+}
+
+/**
+ * The board for the shown question + layout: one section per group, each a feed whose cards keep
+ * their elements while their inputs stay the same (U-update); the selected card is mounted first
+ * on the first board.
+ */
+function renderBoard() {
+  if (!env || !ix) return;
+  const x = ix;
+  const gs = groups(env, x);
+  // Another question or layout: other rows, so the lists start at their tops.
+  const shows = `${view.layout}|${view.question}`;
+  if (shows !== boardShows) {
+    boardGroups.clear();
+    boardShows = shows;
+  }
+  /** @type {[string, string, Row[]][]} */
+  const parts = gs.map(([title, cs]) => [
+    title,
+    `${title}|${cs.length}`,
+    cs.map((c) =>
+      view.layout === "text"
+        ? {
+            key: `claim:${c.id}`,
+            sig: () => claimSig(c, x, on),
+            make: () => {
+              askPairs(c);
+              return textRow(c, x, on);
+            },
+          }
+        : {
+            key: `claim:${c.id}`,
+            sig: () => claimSig(c, x, on),
+            make: () => {
+              askPairs(c);
+              const card = circuit(c, x, on);
+              markCard(card, selects(view.selection, "claim", c.id));
+              return card;
+            },
+          },
+    ),
+  ]);
+  if (view.layout === "text") {
+    // Each open fact once, under the claims: what the text view asks to verify.
+    const open = [...new Set(gs.flatMap(([, cs]) => cs.flatMap((c) => c.gaps.concat(c.premises))))];
+    if (open.length)
+      parts.push([
+        "Facts to verify",
+        `Facts to verify|${open.length}`,
+        open.map((id) => ({
+          key: `fact:${id}`,
+          sig: () => openFactSig(id, x),
+          make: () => openFactRow(id, x, on),
+        })),
+      ]);
+  }
+  /** @type {HTMLElement[]} */
+  const sections = [];
+  const seen = new Set();
+  for (const [title, head, rows] of parts) {
+    const name = `${view.layout}|${title}`;
+    seen.add(name);
+    let g = boardGroups.get(name);
+    if (!g) {
+      const feed =
+        view.layout === "text"
+          ? h("ul", { class: "text-list", "aria-label": title || "Claims" })
+          : h("div", { class: "feed", role: "feed", "aria-label": title || "Claims" });
+      const section = h("section", { class: "group" }, feed);
+      const list = new LazyList(feed, {
+        posinset: true,
+        sentinel: view.layout === "text" ? "li" : "div",
+      });
+      g = { section, head: "", list };
+      boardGroups.set(name, g);
+    }
+    if (g.head !== head) {
+      const n = Number(head.slice(head.lastIndexOf("|") + 1));
+      g.section.querySelector(".group-title")?.remove();
+      const t = groupTitle(title, n);
+      if (t) g.section.prepend(t);
+      g.head = head;
+    }
+    g.list.set(rows);
+    sections.push(g.section);
+  }
+  for (const name of boardGroups.keys()) if (!seen.has(name)) boardGroups.delete(name);
+  const board = byId("board");
+  if (sections.length !== board.children.length || sections.some((s, i) => board.children[i] !== s))
+    board.replaceChildren(...sections);
+  // A linked selection past the first rows renders first, in view (U-long).
   const sel = view.selection;
-  fill(
-    byId("board"),
-    view.layout === "text"
-      ? textView(e, gs, on)
-      : gs.map(([title, cs]) =>
-          h(
-            "section",
-            { class: "group" },
-            groupTitle(title, cs),
-            cs.map((c) => circuit(c, e, on, sel?.kind === "claim" && sel.id === c.id)),
-          ),
-        ),
-  );
+  if (!boardShown && sel?.kind === "claim")
+    for (const g of boardGroups.values())
+      if (!g.list.node(`claim:${sel.id}`)) g.list.show(`claim:${sel.id}`)?.scrollIntoView();
+  drawSelection();
+}
+
+function renderInspector() {
+  if (!ix) return;
+  const sel = view.selection;
   const shown = details && sel && details.item === `${sel.kind}:${sel.id}` ? details : undefined;
-  fill(byId("inspector"), inspector(e, sel, on, shown));
-  byId("inspector").toggleAttribute("aria-busy", shown?.state === "pending");
+  fill(byId("inspector"), inspector(ix, sel, on, shown));
+  // `aria-busy` takes "true" (an empty value reads as false).
+  if (shown?.state === "pending") byId("inspector").setAttribute("aria-busy", "true");
+  else byId("inspector").removeAttribute("aria-busy");
+}
+
+function renderExperiments() {
+  if (!env) return;
   for (const b of document.querySelectorAll("[data-filter]")) {
     b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === view.filter));
   }
-  fill(
-    byId("experiment-list"),
-    experimentList(e, view.filter, sel?.kind === "experiment" ? sel.id : undefined, on),
+  const shown = env.experiments.filter((e) => view.filter === "all" || e.kind === view.filter);
+  experimentList.set(
+    shown.length
+      ? shown.map((e) => ({
+          key: `experiment:${e.id}`,
+          sig: () => JSON.stringify(e),
+          make: () => {
+            const row = experimentRow(e, on);
+            markRow(row, selects(view.selection, "experiment", e.id));
+            return row;
+          },
+        }))
+      : [{ key: "none", sig: () => "", make: noExperiments }],
   );
-  fill(byId("work-list"), workList(e, on));
-  const blockers = blockerList(e, on);
-  byId("blockers").hidden = blockers.length === 0;
-  fill(byId("blocker-list"), blockers);
-  const checks = checkList(e, on);
-  byId("checks").hidden = checks.length === 0;
-  fill(byId("check-list"), checks);
+  drawSelection();
+}
+
+function renderWork() {
+  if (!env || !ix) return;
+  const x = ix;
+  // A count shows only above 0; a zero row keeps the column when another row has a count.
+  const counted = env.work.some((w) => w.unlocks.length > 0);
+  workList.set(
+    env.work.length
+      ? env.work.map((w) => ({
+          key: `work:${w.fact}`,
+          sig: () => workSig(w, x, counted),
+          make: () => workRow(w, x, on, counted),
+        }))
+      : [{ key: "none", sig: () => "", make: noWork }],
+  );
 }
 
 function wire() {
@@ -718,13 +1004,15 @@ function wire() {
   byId("question-select").addEventListener("change", (ev) => {
     if (ev.target instanceof HTMLSelectElement) view.question = ev.target.value;
     writeHash();
-    render();
+    renderQuestions();
+    renderBoard();
   });
   for (const b of document.querySelectorAll("[data-layout]")) {
     b.addEventListener("click", () => {
       view.layout = b.getAttribute("data-layout") === "text" ? "text" : "circuits";
       writeHash();
-      render();
+      renderQuestions();
+      renderBoard();
     });
   }
   for (const b of document.querySelectorAll("[data-filter]")) {
@@ -732,14 +1020,18 @@ function wire() {
       const f = b.getAttribute("data-filter");
       view.filter = f === "dry" || f === "wet" ? f : "all";
       writeHash();
-      render();
+      renderExperiments();
     });
   }
   window.addEventListener("popstate", () => {
     const before = view.spec;
+    const selected = view.selection;
     readHash();
-    if (view.spec === before && legacyAction === undefined) render();
-    else void load();
+    if (view.spec === before && legacyAction === undefined) {
+      render();
+      if (`${selected?.kind}:${selected?.id}` !== `${view.selection?.kind}:${view.selection?.id}`)
+        void loadDetails();
+    } else void load();
   });
 }
 
@@ -817,15 +1109,9 @@ for (const id of ["tour-start", "tour-start-how"]) {
   b.addEventListener("click", () => startTour(b));
 }
 
-// Start last: an exported page renders during this module's evaluation, so everything `draw`
-// reads (the key table above) must already be initialized. Its engine starts in the background;
-// a start-up failure shows the notice at once (what-ifs need it).
+// Start last: an exported page renders during this module's evaluation, so everything `render`
+// reads (the key table, the lists above) must already be initialized.
 if (!exported) takeToken();
 readHash();
 wire();
 void load();
-if (exported)
-  engine().catch(() => {
-    engineDead = true;
-    if (!view.spec) showError(engineFailed);
-  });

@@ -384,6 +384,15 @@ STUB
     STUB_SERVE=200 STUB_K=0.2 expect scale-serve-timeout 'FAIL wide serve:action n=4: timeout after 1 s' \
         "${run[@]}" --timeout 1
     expect scale-page 'FAIL wide page n=2: rc 2' "${run[@]}"
+    # The GUI rows: a stand-in driver whose served selection takes 0.5 s against its 0.1 s bound.
+    local gui="$backup/scale-gui-stub.mjs"
+    cat >"$gui" <<'STUB'
+const steps = ["first", "select", "details", "busy", "whatif"].flatMap((s) => [`served:${s}`, `page:${s}`]);
+for (const s of [...steps, "page:startup"])
+  process.stdout.write(`gui:${s} 0 ${s === "served:select" ? "0.500" : "0.010"} - 0 0 0.1\n`);
+STUB
+    expect scale-gui-bound 'FAIL wide gui:served:select n=2: wall 0.500 s > 0.1 s' \
+        "${run[@]}" --gui "$gui"
     allow scale-pass bash tools/scale.sh --assert --n "2 4" --max-ratio 100 wide
 }
 

@@ -1,37 +1,41 @@
 #!/usr/bin/env bash
 # Engine bounds (`.agent/contracts/kernel.md` § Performance, P-bound + P-evidence): times the
-# P-time rows on the generated shapes of tools/scale.mjs.
-#   tools/scale.sh [--assert] [--bin PATH] [--timeout S] [--max-wall S] [--max-ratio R]
-#                  [--n "N1 N2 …"] [shape…]
+# P-time + U-time rows on the generated shapes of tools/scale.mjs.
+#   tools/scale.sh [--assert] [--bin PATH] [--gui PATH] [--timeout S] [--max-wall S]
+#                  [--max-ratio R] [--n "N1 N2 …"] [shape…]
 # Default: every shape at n = cap/2 and cap (the largest n within 16 MiB; whatif: its what-if
 # within one argument too), the built binary, 900 s per run. Rows per shape + n: `check`, `eval`,
 # `action` (eval --action of action.txt), `details:<kind>` (eval --details of each items.txt
 # line), `export` (--html); `serve` = one server: its launch (start → the recorded answer), then,
 # as the GUI sends them, `serve:whatif` (a whatif.txt view), `serve:details:<kind>` at that view,
 # `serve:action` from it; `page` = the exported page's engine (tools/scale-page.mjs): start-up,
-# then the same steps. One row per run (shape, n, input bytes, command, rc, wall s, user s, max
-# RSS MiB, output bytes; serve: the server's CPU + peak RSS so far); per shape + command, the wall
-# ratio of consecutive rows, scaled to one doubling of n.
+# then the same steps; `gui:<served|page>:<step>` = the GUI in Chromium (tools/scale-gui.mjs or
+# --gui: U-time, each row with its own bound). One row per run (shape, n, input bytes, command,
+# rc, wall s, user s, max RSS MiB, output bytes; serve: the server's CPU + peak RSS so far; gui:
+# the page's JS heap); per shape + command, the wall ratio of consecutive rows, scaled to one
+# doubling of n.
 # --assert grades the graded shapes (wide deep experiments exclusions outcomes prereqs whatif):
-# exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit),
-# a per-doubling wall or RSS ratio above --max-ratio (2.5) or eval output ratio above 2.2 (P-bound),
-# or an outcomes, prereqs or whatif eval (outcomes + prereqs: serve too) at its largest n above
-# 1.25 × the worst eval RSS of the F5 four (P-memory), one `FAIL` line per breach. Other shapes
-# are reported, never graded. Time it where the host is idle: the bounds are wall-clock (load is
-# printed at start + end).
+# exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit)
+# or a GUI row's own bound, a per-doubling wall or RSS ratio above --max-ratio (2.5) or eval output
+# ratio above 2.2 (P-bound), or an outcomes, prereqs or whatif eval (outcomes + prereqs: serve too)
+# at its largest n above 1.25 × the worst eval RSS of the F5 four (P-memory), one `FAIL` line per
+# breach. Other shapes are reported, never graded. Time it where the host is idle: the bounds are
+# wall-clock (load is printed at start + end).
 set -uo pipefail
 export LC_ALL=C
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 bin="$root/.lake/build/bin/fvtrace"
+gui="$root/tools/scale-gui.mjs"
 limit=900 max_wall=10 max_ratio=2.5 assert=0
 sizes=""
 shapes=()
-usage='usage: tools/scale.sh [--assert] [--bin PATH] [--timeout S] [--max-wall S] [--max-ratio R] [--n "N…"] [shape…]'
+usage='usage: tools/scale.sh [--assert] [--bin PATH] [--gui PATH] [--timeout S] [--max-wall S] [--max-ratio R] [--n "N…"] [shape…]'
 while [[ $# -gt 0 ]]; do
     case "$1" in
     --assert) assert=1; shift ;;
     --bin) bin="$(realpath -- "$2")"; shift 2 ;;
+    --gui) gui="$(realpath -- "$2")"; shift 2 ;;
     --timeout) limit="$2"; shift 2 ;;
     --max-wall) max_wall="$2"; shift 2 ;;
     --max-ratio) max_ratio="$2"; shift 2 ;;
@@ -127,11 +131,19 @@ page_rows() {
     echo "$?" >"$dir/page.rc"
 }
 
-# A session step's measurement (rc wall user rss bytes); a step without a row = the session
-# ended before it (rc 124 = it timed out).
+# P-time's GUI rows (kernel.md U-time): one Chromium run, served + exported (the export row's page).
+gui_rows() {
+    local dir="$1"
+    timeout "$((limit * 2))" node "$gui" "$bin" "$dir" "$dir/page.html" >"$dir/gui.rows" \
+        2>"$work/gui.err"
+    echo "$?" >"$dir/gui.rc"
+}
+
+# A session step's measurement (rc wall user rss bytes [bound]); a step without a row = the
+# session ended before it (rc 124 = it timed out).
 session_row() {
     local row src="${2%%:*}"
-    row="$(awk -v s="$2" '$1 == s { print $2, $3, $4, $5, $6; exit }' "$1/$src.rows" 2>/dev/null)"
+    row="$(awk -v s="$2" '$1 == s { print $2, $3, $4, $5, $6, $7; exit }' "$1/$src.rows" 2>/dev/null)"
     if [[ -n "$row" ]]; then printf '%s\n' "$row"
     elif [[ "$(cat "$1/$src.rc" 2>/dev/null)" == 124 ]]; then printf '124 timeout - 0 0\n'
     else printf '1 - - 0 0\n'; fi
@@ -161,6 +173,10 @@ for shape in "${shapes[@]}"; do
     cmds+=("${kinds[@]/#/serve:details:}" serve:action page)
     [[ -f "$first/whatif.txt" ]] && cmds+=(page:whatif)
     cmds+=("${kinds[@]/#/page:details:}" page:action)
+    for mode in served page; do
+        for step in first select details busy whatif; do cmds+=("gui:$mode:$step"); done
+    done
+    cmds+=(gui:page:startup)
     for cmd in "${cmds[@]}"; do
         prev="" prev_n=""
         for n in $ns; do
@@ -173,10 +189,13 @@ for shape in "${shapes[@]}"; do
             case "$cmd" in
             serve*)
                 [[ -f "$dir/serve.rows" ]] || serve_rows "$dir" "$w"
-                read -r rc wall user rss bytes < <(session_row "$dir" "$cmd") ;;
+                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd") ;;
             page*)
                 [[ -f "$dir/page.rows" ]] || page_rows "$dir" "$w"
-                read -r rc wall user rss bytes < <(session_row "$dir" "$cmd") ;;
+                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd") ;;
+            gui*)
+                [[ -f "$dir/gui.rows" ]] || gui_rows "$dir"
+                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd") ;;
             *)
                 case "$cmd" in
                 check) args=(check) ;;
@@ -201,6 +220,7 @@ for shape in "${shapes[@]}"; do
             # shellcheck disable=SC2059
             printf "$row" "$shape" "$n" "$(stat -c %s "$dir/trace.json")" "$cmd" "$rc" "$wall" \
                 "$user" "$((rss / 1024))" "$bytes"
+            bound="${bound:-$max_wall}"
             ratio="" over=0 rratio="" rover=0 bratio="" bover=0
             if [[ -n "$prev" && "$wall" != timeout && "$prev" != timeout ]]; then
                 read -r ratio over < <(doubling "$prev" "$wall" "$prev_n" "$n" "$max_ratio")
@@ -215,8 +235,8 @@ for shape in "${shapes[@]}"; do
                     fail "$shape $cmd n=$n: timeout after ${limit} s"
                 elif [[ $rc -ne 0 ]]; then
                     fail "$shape $cmd n=$n: rc $rc"
-                elif awk -v w="$wall" -v m="$max_wall" 'BEGIN { exit !(w > m) }'; then
-                    fail "$shape $cmd n=$n: wall $wall s > $max_wall s"
+                elif awk -v w="$wall" -v m="$bound" 'BEGIN { exit !(w > m) }'; then
+                    fail "$shape $cmd n=$n: wall $wall s > $bound s"
                 fi
                 [[ "$rover" == 1 ]] &&
                     fail "$shape $cmd n=$prev_n→$n: rss ratio $rratio > $max_ratio per doubling"
@@ -226,7 +246,7 @@ for shape in "${shapes[@]}"; do
                     fail "$shape $cmd n=$prev_n→$n: ratio $ratio > $max_ratio per doubling"
                 fi
             fi
-            prev="$wall" prev_n="$n" prev_rss="$rss" prev_bytes="$bytes"
+            prev="$wall" prev_n="$n" prev_rss="$rss" prev_bytes="$bytes" bound=""
             last_rss["$shape:$cmd"]="$rss"
         done
     done

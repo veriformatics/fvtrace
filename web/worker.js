@@ -15,7 +15,15 @@ const reply = (message) => {
   if (typeof post === "function") Reflect.apply(post, globalThis, [message]);
 };
 
-Reflect.set(globalThis, "onmessage", async (/** @type {MessageEvent} */ event) => {
+/** Messages run in arrival order: `load` may arrive while `start` still compiles the engine. */
+let chain = Promise.resolve();
+
+Reflect.set(globalThis, "onmessage", (/** @type {MessageEvent} */ event) => {
+  chain = chain.then(() => handle(event));
+});
+
+/** @param {MessageEvent} event */
+async function handle(event) {
   /** @type {unknown} */
   const data = event.data;
   /** @type {unknown} */
@@ -36,4 +44,4 @@ Reflect.set(globalThis, "onmessage", async (/** @type {MessageEvent} */ event) =
   } catch (e) {
     reply({ id, failed: String(e) });
   }
-});
+}

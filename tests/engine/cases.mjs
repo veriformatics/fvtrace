@@ -89,14 +89,9 @@ export function snapshotOf(trace, { stale = [], review = "draft" } = {}) {
   });
 }
 
-/** What a page's data block carries, as the page hands it to its engine. @param {string} html */
+/** A page's snapshot block: the text the page hands to its engine. @param {string} html */
 export function snapshotOfPage(html) {
-  const block = html.split('id="fvtrace-data">')[1]?.split("</script>")[0] ?? "";
-  /** @type {unknown} */
-  const data = JSON.parse(block);
-  const snapshot =
-    typeof data === "object" && data !== null && "snapshot" in data ? data.snapshot : undefined;
-  return JSON.stringify(snapshot);
+  return html.split('id="fvtrace-snapshot">')[1]?.split("</script>")[0] ?? "";
 }
 
 /** The page's engine block (base64 gzip). @param {string} html */

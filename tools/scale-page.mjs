@@ -1,8 +1,8 @@
 // The exported page's engine timed (`.agent/contracts/kernel.md` P-time: the page engine, its
 // loader in Node): one instance answers the page's requests in the order the GUI sends them.
 //   node tools/scale-page.mjs <page.html> <whatif> <action> [item…]
-// Steps: `page` = start-up (the data block read, the engine started from the page's engine block,
-// the snapshot loaded: E-state); `page:whatif` (a nonempty what-if: the view the page opens at);
+// Steps: `page` = start-up (the engine started from the page's engine block, the snapshot block
+// loaded: E-state); `page:whatif` (a nonempty what-if: the view the page opens at);
 // `page:details:<kind>` per item at that view (the first one there evaluates it: E-state computes
 // answers lazily); `page:action` from that view. One row per step on stdout:
 // `<step> <rc> <wall s> <cpu s> <max RSS KiB> <answer bytes>`; rc 1 = a problem answer, rc 2 = the

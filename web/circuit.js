@@ -2,11 +2,12 @@
 // switch must close for the lamp to light; one broken switch blocks it.
 
 import { clickToOpen, h, idButton, s } from "./dom.js";
+import { listOf } from "./lazy.js";
 import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
 
-/** @typedef {import("./envelope.js").Envelope} Envelope */
 /** @typedef {import("./envelope.js").Claim} Claim */
 /** @typedef {import("./envelope.js").Fact} Fact */
+/** @typedef {import("./lookups.js").Lookups} Lookups */
 
 /**
  * What a circuit can ask the app to do.
@@ -134,69 +135,104 @@ export function exactStatement(c) {
   );
 }
 
+/** The facts a claim's diagram draws: its needs, then its entailment. @param {Claim} c */
+const drawn = (c) => (c.entailment === undefined ? c.needs : [...c.needs, c.entailment]);
+
 /**
- * A claim's circuit card.
- * @param {Claim} c @param {Envelope} env @param {Handlers} on @param {boolean} selected
+ * A claim's circuit card. Its selection is drawn apart (`markCard`), so selecting another claim
+ * keeps every card's element.
+ * @param {Claim} c @param {Lookups} ix @param {Handlers} on
  */
-export function circuit(c, env, on, selected) {
-  const facts = new Map(env.facts.map((f) => [f.id, f]));
+export function circuit(c, ix, on) {
   const open = () => on.select("claim", c.id);
-  const needs = [...c.needs, ...(c.entailment === undefined ? [] : [c.entailment])].flatMap(
-    (id) => {
-      const f = facts.get(id);
-      return f ? [f] : [];
-    },
-  );
+  const needs = drawn(c).flatMap((id) => {
+    const f = ix.facts.get(id);
+    return f ? [f] : [];
+  });
+  /** @type {(Fact | null)[]} */
+  const parts = [...needs, null];
   return h(
     "article",
-    {
-      class: `circuit${c.latent ? " latent" : ""}${selected ? " selected" : ""}${
-        needs.length > 6 ? " tall" : ""
-      }`,
-    },
+    { class: `circuit${c.latent ? " latent" : ""}${needs.length > 6 ? " tall" : ""}` },
     h(
       "div",
       { class: "claim-head", onclick: clickToOpen(open) },
       h(
         "span",
         { class: "claim-words" },
-        claimTag(c, open, `claim:${c.id}`, selected),
+        claimTag(c, open, `claim:${c.id}`, false),
         h("span", { class: "sentence" }, headline(c)),
       ),
     ),
     exactStatement(c),
-    conditions(c, env, on),
-    h(
-      "ul",
-      { class: "contacts", "aria-label": `Facts that ${c.id} needs` },
-      needs.map((f) => contact(f, on, c.id)),
-      h(
-        "li",
-        { class: "terminal" },
-        lamp(c.final),
-        h(
-          "button",
-          {
-            class: "contact-label",
-            "data-key": `terminal:${c.id}`,
-            type: "button",
-            onclick: () => on.select("claim", c.id),
-          },
-          h("strong", {}, c.id),
-          h("span", { class: "contact-kind" }, word(levels, c.level)),
-        ),
-      ),
+    conditions(c, ix, on),
+    listOf(h("ul", { class: "contacts", "aria-label": `Facts that ${c.id} needs` }), parts, (f) =>
+      f
+        ? contact(f, on, c.id)
+        : h(
+            "li",
+            { class: "terminal" },
+            lamp(c.final),
+            h(
+              "button",
+              {
+                class: "contact-label",
+                "data-key": `terminal:${c.id}`,
+                type: "button",
+                onclick: () => on.select("claim", c.id),
+              },
+              h("strong", {}, c.id),
+              h("span", { class: "contact-kind" }, word(levels, c.level)),
+            ),
+          ),
     ),
   );
+}
+
+/** Draws a card selected or not: its border + its id button's pressed state.
+ * @param {HTMLElement} card @param {boolean} selected */
+export function markCard(card, selected) {
+  card.classList.toggle("selected", selected);
+  card.querySelector(".claim-head .tag-id .ref")?.setAttribute("aria-pressed", String(selected));
+}
+
+/**
+ * Everything a claim's card and text row show, as one string: equal strings, equal elements
+ * (kernel.md U-update: the claim, each fact it names, their what-if controls, the exclusions it
+ * names + its excluded pairs).
+ * @param {Claim} c @param {Lookups} ix @param {Handlers} on
+ */
+export function claimSig(c, ix, on) {
+  const facts = [...new Set([...drawn(c), ...c.blockers, ...c.gaps, ...c.premises])].map((id) => {
+    const f = ix.facts.get(id);
+    return f
+      ? [
+          f.id,
+          f.effective,
+          f.supposed,
+          f.kind,
+          f.text,
+          f.why,
+          on.canToggle(id),
+          on.supposeStatus(id),
+        ]
+      : [id];
+  });
+  const pairs = on.pairsOf(c.id) ?? [];
+  const conflicts = ix.subjects.get(c.subject)?.conflicts ?? [];
+  const exclusions = [...pairs, ...conflicts].map((id) => {
+    const x = ix.exclusions.get(id);
+    return x ? [x.id, x.text, x.between] : [id];
+  });
+  return JSON.stringify([c, facts, pairs, conflicts, exclusions]);
 }
 
 /**
  * What a claim waits on, from the engine's lists: violated facts, open facts, then assumptions,
  * one fact per line with its switch drawing. The claim's own words stay the headline.
- * @param {Claim} c @param {Envelope} env @param {Pick<Handlers, "select" | "pairsOf">} on
+ * @param {Claim} c @param {Lookups} ix @param {Pick<Handlers, "select" | "pairsOf">} on
  */
-export function conditions(c, env, on) {
-  const facts = new Map(env.facts.map((f) => [f.id, f]));
+export function conditions(c, ix, on) {
   /** @param {string} id */
   const factRef = (id) =>
     h(
@@ -211,7 +247,7 @@ export function conditions(c, env, on) {
     );
   /** @param {string} id */
   const factLine = (id) => {
-    const f = facts.get(id);
+    const f = ix.facts.get(id);
     return h(
       "li",
       {},
@@ -227,10 +263,9 @@ export function conditions(c, env, on) {
   };
   // A claim is also not possible with no false fact: the engine names the exclusions it needs both
   // sides of (`incompatible`) and the ones a what-if supposes both sides of (`conflicts`).
-  const exclusions = new Map(env.exclusions.map((x) => [x.id, x]));
   /** @param {string} id @param {string} who */
   const exclusionLine = (id, who) => {
-    const x = exclusions.get(id);
+    const x = ix.exclusions.get(id);
     const [a = "", b = ""] = x?.between ?? [];
     return h(
       "li",
@@ -252,20 +287,24 @@ export function conditions(c, env, on) {
   // The excluded pairs a claim needs arrive with its details (kernel.md V-details; user ruling:
   // lists on request); the subject's conflicts sit on the subject (one copy per subject).
   const pairs = on.pairsOf(c.id) ?? [];
-  const conflicts = env.subjects.find((x) => x.id === c.subject)?.conflicts ?? [];
-  const reasons = c.blockers
-    .map(factLine)
-    .concat(pairs.map((id) => exclusionLine(id, `${c.id} needs`)))
-    .concat(
-      conflicts
-        .filter((id) => !pairs.includes(id))
-        .map((id) => exclusionLine(id, "The what-if supposes")),
-    );
-  /** @type {[string, HTMLLIElement[]][]} */
+  const paired = new Set(pairs);
+  const conflicts = (ix.subjects.get(c.subject)?.conflicts ?? []).filter((id) => !paired.has(id));
+  /** @typedef {{ fact: string } | { pair: string } | { conflict: string }} Line */
+  /** @type {[string, Line[]][]} */
   const parts = [
-    ["Cannot stand because", reasons],
-    ["Still open", c.gaps.map(factLine)],
-    [c.final === "conditional" ? "Holds only if" : "Also assumes", c.premises.map(factLine)],
+    [
+      "Cannot stand because",
+      [
+        ...c.blockers.map((fact) => ({ fact })),
+        ...pairs.map((pair) => ({ pair })),
+        ...conflicts.map((conflict) => ({ conflict })),
+      ],
+    ],
+    ["Still open", c.gaps.map((fact) => ({ fact }))],
+    [
+      c.final === "conditional" ? "Holds only if" : "Also assumes",
+      c.premises.map((fact) => ({ fact })),
+    ],
   ];
   const shown = parts.filter(([, lines]) => lines.length);
   if (!shown.length) return null;
@@ -274,7 +313,13 @@ export function conditions(c, env, on) {
     { class: "conditions" },
     shown.map(([label, lines]) => [
       h("p", { class: "conditions-label" }, label),
-      h("ul", { class: "conditions-list" }, lines),
+      listOf(h("ul", { class: "conditions-list" }), lines, (l) =>
+        "fact" in l
+          ? factLine(l.fact)
+          : "pair" in l
+            ? exclusionLine(l.pair, `${c.id} needs`)
+            : exclusionLine(l.conflict, "The what-if supposes"),
+      ),
     ]),
   );
 }
