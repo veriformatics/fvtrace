@@ -877,12 +877,13 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     | .error rc => return rc
   let token := Digest.hex (← IO.getRandomBytes 16)
   let cache ← Session.openCache tg
+  let kept ← Std.Mutex.new ({} : Server.Kept)
   let cfg ← IO.mkRef ({ target := tg, explicit := (p.value? "--trace").isSome, token, hosts := [],
                         cached := p.has "--cached" } : Server.Config)
   let started ← try
-      if host.isSome then pure (.ok (← Server.start cfg addr cache).2)
+      if host.isSome then pure (.ok (← Server.start cfg addr cache kept).2)
       else serveLoopback port fun a => do
-        let (server, bound) ← Server.start cfg a cache
+        let (server, bound) ← Server.start cfg a cache kept
         return (bound, Server.stop server)
     catch e => pure (.error (toString e))
   let bound ← match started with
@@ -893,6 +894,10 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let (hosts, site) := if host.isSome then ([s!"{name}:{bound}"], s!"http://{name}:{bound}/")
     else (loopbackHosts bound, s!"http://fvtrace.localhost:{bound}/")
   cfg.modify ({ · with hosts })
+  -- The recorded view, evaluated at launch (kernel.md P-cache): the page's first request finds it
+  -- kept, or waits for it on the same lock.
+  let launched ← cfg.get
+  discard <| IO.asTask (Server.answer launched cache kept none "{\"whatif\":\"\"}")
   -- The token rides after `#`: a browser sends that part to no server, log or Referer.
   let link := s!"{site}#token={token}"
   say s!"Serving the project {tg.project}"

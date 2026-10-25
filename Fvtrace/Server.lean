@@ -30,6 +30,14 @@ structure Config where
   /-- Reuse an evidence digest while the file keeps its size + mtime (`serve --cached`). -/
   cached : Bool := false
 
+/-- What the server keeps between requests (`kernel.md` P-cache): the last checked trace, by the
+SHA-256 of its bytes, and the last answer's answers, by its view (`Session.viewOf`: the trace's
+content + review, the bindings with their reasons, the what-if). Answers read from it equal fresh
+ones, byte for byte. -/
+structure Kept where
+  trace : Option (String × Trace) := none
+  last : Option (String × Answers) := none
+
 /-- A response before transport. -/
 structure Reply where
   status : Std.Http.Status
@@ -121,45 +129,65 @@ def problemReply : Session.Problem → Reply
 /-- `POST /api/answer` (`kernel.md` V-serve, V-request): the envelope at the action's what-if, the
 details of an item there, or a problem; the view the answer reads travels in `X-Fvtrace-View`, and
 a request naming another view gets 409 (the files changed since the page's answer). -/
-def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (view : Option String) (body : String) :
-    IO Reply := do
+def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
+    (view : Option String) (body : String) : IO Reply := kept.atomically do
   match Request.parse body with
   | .error m => return problemJson .badRequest "invalid" m
   | .ok r =>
-    let res ← Session.load cfg.target cfg.explicit (some r.whatif) (!cfg.cached) cache
+    let raw ← Session.readRawWithin maxTraceBytes cfg.target cfg.explicit
+    let bytes ← match raw with
+      | .ok (.ok b) => pure b
+      | .ok (.error ds) => set ({} : Kept); return problemReply (.undecodable cfg.target.trace ds)
+      | .error p => set ({} : Kept); return problemReply p
+    let key ← Digest.ofBytes bytes
+    let st ← get
+    let fresh := fun _ : Unit => Session.checked cfg.target (decodeTraceWithin maxTraceBytes bytes)
+    let tr ← match st.trace with
+      | some (k, tr) => if k == key then pure tr else match fresh () with
+        | .ok tr => pure tr
+        | .error p => set ({} : Kept); return problemReply p
+      | none => match fresh () with
+        | .ok tr => pure tr
+        | .error p => set ({} : Kept); return problemReply p
+    set { st with trace := some (key, tr) }
+    let loaded ← Session.bindChecked cfg.target tr (some r.whatif) (!cfg.cached) cache
     Session.closeCache cfg.target cache
-    let res := res.bind fun l => match r.action with
-      | some a => Session.expand l a
-      | none => .ok l
-    match res with
-    | .error p => return problemReply p
-    | .ok l =>
-      let v ← Session.viewOf l
-      let tagged := fun (rep : Reply) =>
-        { rep with headers := rep.headers ++ [("X-Fvtrace-View", v)] }
-      if view.any (· != v) then
-        return tagged (problemJson .conflict "view"
-          "The claims or their evidence changed, so this page shows them again.")
-      match r.details with
-      | some item => return match Session.details l item with
-        | .ok d => tagged (json .ok d)
-        | .error p => problemReply p
-      | none => return tagged (json .ok (Session.envelope l))
-
-/-- The decided reply; the answer route reads its body first (`handler`). -/
-def respond (cfg : Config) (req : Req) : Reply :=
-  match decide cfg req with
-  | .reply r => r
-  | .answer _ => problemJson .badRequest "invalid" Request.malformed
+    let l ← match loaded with
+      | .ok l => pure l
+      | .error p => return problemReply p
+    -- The answers at a view: the kept ones when it is the last answer's view.
+    let answersAt := fun (l : Session.Loaded) (v : String) => match st.last with
+      | some (v', A) => if v' == v then A else Answers.fast l.scenario
+      | none => Answers.fast l.scenario
+    let v0 ← Session.viewOf l
+    let l' ← match r.action with
+      | some a => match Evaluate.expandWith tr (answersAt l v0) a with
+        | .ok o => pure { l with scenario := { l.scenario with overrides := o } }
+        | .error m => return problemReply (.badAction m)
+      | none => pure l
+    let v ← Session.viewOf l'
+    let A := answersAt l' v
+    set { st with trace := some (key, tr), last := some (v, A) }
+    let tagged := fun (rep : Reply) =>
+      { rep with headers := rep.headers ++ [("X-Fvtrace-View", v)] }
+    if view.any (· != v) then
+      return tagged (problemJson .conflict "view"
+        "The claims or their evidence changed, so this page shows them again.")
+    match r.details with
+    | some item => return match Evaluate.detailsWith l'.scenario A l'.digest l'.review item with
+      | .ok d => tagged (json .ok d)
+      | .error m => problemReply (.badItem m)
+    | none => return tagged (json .ok (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest
+        l'.review))
 
 /-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem. -/
-def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (view : Option String)
-    (body : Option ByteArray) : IO Reply := do
+def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
+    (view : Option String) (body : Option ByteArray) : IO Reply := do
   let some b := body
     | return problemJson .payloadTooLarge "invalid"
         "The request is larger than any what-if on the largest trace."
   let some text := String.fromUTF8? b | return problemJson .badRequest "invalid" Request.malformed
-  try answer cfg cache view text
+  try answer cfg cache kept view text
   catch e =>
     return problemJson .internalServerError "io" s!"fvtrace could not read the project: \
       {(toString e).replace "\n" " "}"
@@ -177,7 +205,8 @@ def toResponse (r : Reply) : Async (Response Body.Full) := do
 
 /-- The configuration sits in a reference: the port (hence the hosts) is known only once bound,
 and a request before that meets no allowed host. -/
-def handler (cfg : IO.Ref Config) (cache : IO.Ref Receipt.Cache) : Server.StatelessHandler :=
+def handler (cfg : IO.Ref Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept) :
+    Server.StatelessHandler :=
   Server.Handler.ofFn fun req => do
     let c ← cfg.get
     let reply ← match decide c (reqOf req) with
@@ -185,7 +214,7 @@ def handler (cfg : IO.Ref Config) (cache : IO.Ref Receipt.Cache) : Server.Statel
         let body ← try
             some <$> (Body.Stream.readAll (α := ByteArray) req.body (some bodyCap.toUInt64))
           catch _ => pure none
-        (answerBody c cache view body : IO Reply)
+        (answerBody c cache kept view body : IO Reply)
       | .reply r => pure r
     let resp ← toResponse reply
     return (resp : Response Body.Any)
@@ -195,9 +224,10 @@ def httpConfig : Std.Http.Config :=
 
 /-- Binds `addr` (port 0 = any free port) and serves in the background; returns the server + the
 bound port. -/
-def start (cfg : IO.Ref Config) (addr : Net.SocketAddress) (cache : IO.Ref Receipt.Cache) :
+def start (cfg : IO.Ref Config) (addr : Net.SocketAddress) (cache : IO.Ref Receipt.Cache)
+    (kept : Std.Mutex Kept) :
     IO (Std.Http.Server × UInt16) := do
-  let server ← Async.block (Std.Http.Server.serve addr (handler cfg cache) httpConfig)
+  let server ← Async.block (Std.Http.Server.serve addr (handler cfg cache kept) httpConfig)
   return (server, match server.localAddr with
     | some (.v4 a) => a.port
     | some (.v6 a) => a.port
