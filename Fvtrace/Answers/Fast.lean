@@ -34,12 +34,17 @@ def fast (s : Scenario) : Answers :=
   let successMoves := fun ids => movesUnder cx s core memo (raisedBy cx core ids)
   let failureMoves := fun (e : Experiment) =>
     movesUnder cx s core memo (e.failure.map fun (k, _) => (k, .violated))
-  -- Each experiment's row once (its moves counted once), sorted once: the order, the envelope +
-  -- the raisers read the same rows.
-  let rows := Thunk.mk fun _ =>
-    (t.experiments.map
-      (rowOf closure cx.merged successMoves failureMoves core.override? cx.isResult)).mergeSort
-      rowBefore
+  -- Each experiment's row once (the forest walk, or its closure on demand), sorted once: the order,
+  -- the envelope + the raisers read the same rows; the walk answers the plans of the claims whose
+  -- one relevant experiment lies on the forest.
+  let batch := Thunk.mk fun _ => walk cx s core memo.get forest.get
+    (rowOf closure cx.merged successMoves failureMoves core.override? cx.isResult) failureMoves
+  let rows := Thunk.mk fun _ => batch.get.1.toList.mergeSort rowBefore
+  let planSummary := fun c => match cx.positionOf c with
+    | some q => match batch.get.2[q]? with
+      | some (some sm) => sm
+      | _ => (planOf cx closure s core c).summary
+    | none => (planOf cx closure s core c).summary
   { lookups := cx.L
     override? := core.override?
     eff := core.eff
@@ -90,7 +95,7 @@ def fast (s : Scenario) : Answers :=
       let ex := Index.ofKeys compare (extra.map (·.1))
       extra ++ s.overrides.filter fun (k, _) => (ex.first? (cmp := compare) k).isNone
     experimentRows := fun _ => rows.get
-    planSummary := fun c => (planOf cx closure s core c).summary
+    planSummary
     raisers := fun f => raisersOf (rows.get.map (·.experiment)) closure (raisedBy cx core) f }
 
 end Fvtrace.Answers

@@ -268,6 +268,8 @@ structure Delta where
   eff : String → EStatus
   /-- Positions of the exclusions at an extra key, ascending. -/
   touched : List Nat
+  /-- How many exclusions on a subject `s.withOverrides extra` makes active. -/
+  activeCount : String → Nat
   /-- `(s.withOverrides extra).valid`. -/
   valid : String → Bool
 
@@ -322,6 +324,7 @@ def Delta.build (cx : Ctx) (s : Scenario) (core : Core) (extra : Overrides) : De
     changedCount := changed.length
     isKey := fun id => (keyIx.first? (cmp := compare) id).isSome
     isChanged := fun id => (changedIx.first? (cmp := compare) id).isSome
+    activeCount := fun sub => core.activeCount sub - (shifts.at sub).1 + (shifts.at sub).2
     valid := fun sub => core.activeCount sub - (shifts.at sub).1 + (shifts.at sub).2 == 0
     eff := fun id => match changedIx.first? (cmp := compare) id with
       | some i => changedEff[i]?.getD (effUnder cx s eff1 id)
@@ -334,14 +337,18 @@ variable (cx : Ctx) (s : Scenario) (core : Core) (δ : Delta)
 def restsOn (id : String) : Bool :=
   (δ.eff id).asserted && (!cx.mustVerify id || (δ.eff id).verified)
 
+/-- The claim's counts under the what-if: its base counts patched over its changed needs (how
+often it names an id: `times`). -/
+def counts (needs : List String) (needsCount : Nat) (base : Counts) (times : String → Nat) :
+    Counts :=
+  base.patch (occurrences needs needsCount δ.changed δ.changedCount times δ.isChanged) core.eff
+    δ.eff (Core.restsOn cx core) (restsOn cx δ)
+
 /-- The claim's final state under the what-if, from its needs, its base counts, how often it names
 an id, and its incompatibility. -/
 def final (needs : List String) (needsCount : Nat) (base : Counts) (times : String → Nat)
     (incompatible : Bool) (subject : String) : State :=
-  if δ.valid subject then
-    (base.patch (occurrences needs needsCount δ.changed δ.changedCount times δ.isChanged) core.eff
-      δ.eff
-      (Core.restsOn cx core) (restsOn cx δ)).state incompatible
+  if δ.valid subject then (counts cx core δ needs needsCount base times).state incompatible
   else .cannot
 
 end Delta
