@@ -1,11 +1,11 @@
 import Fvtrace.Proofs.Plan
 import Fvtrace.Proofs.Positions
 
-/-! `Ctx.closureOf (Ctx.closures)` = `Scenario.closure` (`kernel.md` P-delta) on every trace: a
+/-! The walk `Ctx.reach` = `Scenario.closure`'s experiments (`kernel.md` P-delta) on every trace: a
 level of `Ctx.levels` adds what one step of `Scenario.closureFuel` adds (its frontier stands for
 the rest, whose additions are in already), so the reached experiments after the reference's own
-fuel are the reference's; marks are cleared after each experiment; a closure of several ids is the
-union of theirs. -/
+fuel are the reference's; a closure of several ids is the union of theirs.
+`Fvtrace.Proofs.Forest` assembles the fast closure from these. -/
 
 -- Proof scripts keep generous simp sets: an unused lemma costs nothing in soundness.
 set_option linter.unusedSimpArgs false
@@ -343,53 +343,7 @@ theorem reach_spec (seen : Array Bool) (ids : List String) (hsz : seen.size = n)
     | some p =>
       exact hxn ((hB x).mpr ⟨hx, (firstPos_isSome s x).mp (by simp [hxp])⟩)
 
-/-! ## Clearing + the per-experiment memo -/
-
-theorem unmark_spec : ∀ (L : List String) (a : Array Bool),
-    ((cx).unmark a L).size = a.size ∧
-    ∀ p, Marked ((cx).unmark a L) p ↔ Marked a p ∧ ¬ ∃ x ∈ L, (cx).firstPos x = some p
-  | [], a => by simp [Ctx.unmark]
-  | x :: L, a => by
-    unfold Ctx.unmark
-    simp only [List.foldl_cons]
-    have ih := unmark_spec L (((cx).firstPos x).map (fun p => a.set! p false) |>.getD a)
-    unfold Ctx.unmark at ih
-    refine ⟨?_, fun p => ?_⟩
-    · rw [ih.1]
-      cases (cx).firstPos x <;> simp [Array.set!_eq_setIfInBounds]
-    · rw [ih.2]
-      cases hx : (cx).firstPos x with
-      | none =>
-        simp only [Option.map_none, Option.getD_none]
-        constructor
-        · rintro ⟨hm, hn⟩
-          refine ⟨hm, fun ⟨z, hz, hzp⟩ => ?_⟩
-          rcases List.mem_cons.mp hz with rfl | hz
-          · rw [hx] at hzp; cases hzp
-          · exact hn ⟨z, hz, hzp⟩
-        · rintro ⟨hm, hn⟩
-          exact ⟨hm, fun ⟨z, hz, hzp⟩ => hn ⟨z, List.mem_cons_of_mem _ hz, hzp⟩⟩
-      | some q =>
-        simp only [Option.map_some, Option.getD_some]
-        unfold Marked
-        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds]
-        by_cases hqp : q = p
-        · subst hqp
-          simp only [ite_true]
-          constructor
-          · rintro ⟨h, _⟩
-            split at h <;> simp at h
-          · rintro ⟨_, hn⟩
-            exact absurd ⟨x, List.mem_cons_self, hx⟩ hn
-        · simp only [hqp, ite_false]
-          constructor
-          · rintro ⟨hm, hn⟩
-            refine ⟨hm, fun ⟨z, hz, hzp⟩ => ?_⟩
-            rcases List.mem_cons.mp hz with rfl | hz
-            · rw [hx] at hzp; exact hqp (Option.some.inj hzp)
-            · exact hn ⟨z, hz, hzp⟩
-          · rintro ⟨hm, hn⟩
-            exact ⟨hm, fun ⟨z, hz, hzp⟩ => hn ⟨z, List.mem_cons_of_mem _ hz, hzp⟩⟩
+/-! ## A blank array of marks -/
 
 /-- An array of n marks, none set. -/
 abbrev blank : Array Bool := Array.replicate n false
@@ -399,46 +353,7 @@ theorem blank_unmarked (p : Nat) : ¬ Marked (blank s) p := by
   rw [Array.getElem?_replicate]
   split <;> simp
 
-/-- Clearing what one walk from a blank array marked gives the blank array back. -/
-theorem reach_cleared (ids : List String) :
-    (cx).unmark ((cx).reach (blank s) ids).1 ((cx).reach (blank s) ids).2 = blank s := by
-  obtain ⟨h1, h2, h3⟩ := reach_spec s (blank s) ids (by simp) (blank_unmarked s)
-  obtain ⟨u1, u2⟩ := unmark_spec s ((cx).reach (blank s) ids).2 ((cx).reach (blank s) ids).1
-  apply Array.ext
-  · rw [u1, h1]; simp
-  · intro i hi _
-    have hnot : ¬ Marked ((cx).unmark ((cx).reach (blank s) ids).1
-        ((cx).reach (blank s) ids).2) i := by
-      rw [u2, h2]
-      rintro ⟨⟨x, hx, hxp⟩, hn⟩
-      exact hn ⟨x, (h3 x).mpr ⟨hx, (firstPos_isSome s x).mp (by simp [hxp])⟩, hxp⟩
-    unfold Marked at hnot
-    rw [Array.getElem?_eq_getElem hi] at hnot
-    simp only [Array.getElem_replicate]
-    simpa using hnot
-
-theorem closures_eq : (cx).closures = (s.trace.experiments.map fun e =>
-    (cx).positions ((cx).reach (blank s) [e.id]).2).toArray := by
-  unfold Ctx.closures
-  have hstep : ∀ (L : List Experiment) (acc : Array (List Nat)),
-      L.foldl (fun st e =>
-        ((cx).unmark ((cx).reach st.1 [e.id]).1 ((cx).reach st.1 [e.id]).2,
-          st.2.push ((cx).positions ((cx).reach st.1 [e.id]).2))) (blank s, acc) =
-        (blank s,
-          acc ++ (L.map fun e => (cx).positions ((cx).reach (blank s) [e.id]).2).toArray) := by
-    intro L
-    induction L with
-    | nil => intro acc; simp
-    | cons e L ih =>
-      intro acc
-      simp only [List.foldl_cons]
-      rw [reach_cleared, ih]
-      simp
-  rw [ctx_experiments, List.foldl_toArray, List.size_toArray]
-  rw [hstep]
-  simp
-
-/-! ## A closure from the memo -/
+/-! ## Reading a closure off positions -/
 
 theorem mem_positions_of (L : List String) (q : Nat) :
     q ∈ (cx).positions L ↔ ∃ hq : q < n, s.trace.experiments[q].id ∈ L := by
@@ -508,52 +423,5 @@ theorem read_closure (P : List Nat) (all : List String)
     · intro h; exact ⟨hlt, by rw [← heq]; exact h⟩
   rw [this]
   exact zipIdx_filter_fst s.trace.experiments (all.contains ∘ (·.id))
-
-theorem closureOf_eq : (cx).closureOf (cx).closures = s.closure := by
-  funext ids
-  unfold Ctx.closureOf Scenario.closure
-  rw [closureFuel_eq_ref]
-  apply read_closure
-  intro q
-  rw [List.mem_flatMap]
-  constructor
-  · rintro ⟨id, hid, hq⟩
-    cases hp : (cx).firstPos id with
-    | none => simp [hp] at hq
-    | some p =>
-      obtain ⟨hpn, hpid⟩ := firstPos_some s hp
-      rw [hp, Option.bind_some, closures_eq] at hq
-      simp only [List.getElem?_toArray, List.getElem?_map, List.getElem?_eq_getElem hpn,
-        Option.map_some, Option.getD_some] at hq
-      obtain ⟨hqn, hq⟩ := (mem_positions_of s _ q).mp hq
-      obtain ⟨hq, _⟩ := ((reach_spec s (blank s) _ (by simp) (blank_unmarked s)).2.2 _).mp hq
-      rw [hpid] at hq
-      exact ⟨hqn, (fuel_union s _ ids _).mpr ⟨id, hid, hq⟩⟩
-  · rintro ⟨hqn, hq⟩
-    obtain ⟨id, hid, hq⟩ := (fuel_union s _ ids _).mp hq
-    have hE : s.trace.experiments[q].id ∈ s.trace.experimentIds :=
-      List.mem_map.mpr ⟨_, List.getElem_mem hqn, rfl⟩
-    cases hp : (cx).firstPos id with
-    | none =>
-      exfalso
-      -- A non-experiment id adds nothing: its closure is itself.
-      have hcl := fuel_closed s (R := [id]) (by
-        intro x hx a ha
-        simp only [List.mem_singleton] at hx
-        subst hx
-        rw [adds_none s hp] at ha; cases ha) (n + 1) s.trace.experiments[q].id
-      rw [hcl, List.mem_singleton] at hq
-      rw [← hq] at hp
-      have := (firstPos_isSome s _).mpr hE
-      rw [hp] at this; cases this
-    | some p =>
-      obtain ⟨hpn, hpid⟩ := firstPos_some s hp
-      refine ⟨id, hid, ?_⟩
-      rw [hp, Option.bind_some, closures_eq]
-      simp only [List.getElem?_toArray, List.getElem?_map, List.getElem?_eq_getElem hpn,
-        Option.map_some, Option.getD_some]
-      rw [mem_positions_of]
-      refine ⟨hqn, ((reach_spec s (blank s) _ (by simp) (blank_unmarked s)).2.2 _).mpr ⟨?_, hE⟩⟩
-      rw [hpid]; exact hq
 
 end Fvtrace.Proofs.Closure
