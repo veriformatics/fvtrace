@@ -1,0 +1,13 @@
+offload: nixbox slot 2/2 (8 CPUs, 92% busy) → ~/offload/fvtrace-d0d53ad6
+[1/4] killed Fvtrace/Server.lean:146 == → !=
+[2/4] killed Fvtrace/Server.lean:153 ! → 
+[3/4] killed Fvtrace/Server.lean:160 == → !=
+[4/4] killed Fvtrace/Server.lean:173 != → ==
+
+mutants: 4 · killed 4 · survived 0 · incompetent 0
+[1/2] killed Fvtrace/Session.lean:65 + → -
+[2/2] SURVIVED Fvtrace/Session.lean:65 1 → 2
+
+mutants: 2 · killed 1 · survived 1 · incompetent 0
+survivor Fvtrace/Session.lean:65 1 → 2   | return .ok (.ok (← readPrefix t.trace (limit + 1)))
+campaign rc=1
