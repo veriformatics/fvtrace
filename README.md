@@ -108,8 +108,22 @@ A command works on the project in the current folder. To use another folder, add
 suppose other statuses, add `--whatif FACT=STATUS,...` to `claims`, `gaps`, `experiments` or
 `plan`. A what-if is a supposition, not evidence: fvTrace marks each verdict that depends on it.
 
+To apply one of the suggested what-ifs on top of yours, add `--action ID`, where ID is an
+action from the evaluation, for example `plan:C2` or `suppose:O3`.
+
 `claims`, `gaps`, `experiments`, `plan` and `check` accept `--json` for scripts and agents.
-`fvtrace eval` prints the full evaluation as JSON.
+`fvtrace eval` prints the full evaluation as JSON. The evaluation lists each suggested what-if
+by its ID. It leaves out the long lists, so that its size grows in step with the trace. To get
+the lists for one item, add `--details ITEM`:
+
+- `experiment:ID` gives the experiments that must run first, the facts that its success raises
+  and the claims that it changes.
+- `claim:ID` gives the claim's sentence, the facts it needs that exclude each other, and its
+  full plan.
+- `fact:ID` gives the experiments that raise the fact.
+
+To get the evaluation and the details of every item in one document, add `--complete`. On a
+large trace this document can be much larger than the trace.
 
 The exit status is 0 for success, 1 for an invalid or failing trace, and 2 for a usage or read
 error.
