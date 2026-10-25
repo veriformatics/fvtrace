@@ -11,6 +11,24 @@ records equal for every scenario (`Spec.AnswersAgree`), so the envelope reads th
 
 namespace Fvtrace
 
+/-- A claim's envelope member, its needs' statuses read once (`kernel.md` V-env): its states, need
+lists, excluded pairs' count, whether the what-if moves it, its plan summary. -/
+structure ClaimView where
+  final : State
+  intrinsic : State
+  verified : List String
+  premises : List String
+  gaps : List String
+  blockers : List String
+  incompatibleCount : Nat
+  /-- The what-if changes a need's status or the subject's consistency. -/
+  changed : Bool
+  /-- The claim's subject is consistent. -/
+  valid : Bool
+  hypothetical : Bool
+  plan : PlanSummary
+  deriving DecidableEq, Repr
+
 structure Answers where
   /-- The trace's lookups. -/
   lookups : Lookups
@@ -58,6 +76,8 @@ structure Answers where
   planSummary : Claim → PlanSummary
   /-- The experiments, in `experimentOrder`, whose success closure raises a fact (V-details). -/
   raisers : String → List String
+  /-- A claim's envelope member. -/
+  claimView : Claim → ClaimView
 
 namespace Answers
 
@@ -130,6 +150,11 @@ def reference (s : Scenario) : Answers where
   planSummary c := (s.plan c).summary
   raisers := raisersOf (s.trace.experiments.mergeSort (Evaluate.experimentBefore s)) s.closure
     s.raised
+  claimView c :=
+    { final := s.final c, intrinsic := s.intrinsic c, verified := s.verifiedNeeds c
+      premises := s.premises c, gaps := s.gaps c, blockers := s.blockers c
+      incompatibleCount := (s.incompatible c).length, changed := s.changedByWhatif c
+      valid := s.valid c.subject, hypothetical := s.hypothetical c, plan := (s.plan c).summary }
 
 end Answers
 

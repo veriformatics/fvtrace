@@ -18,10 +18,11 @@ namespace Evaluate
 
 def strs (xs : List String) : Value := .arr (xs.map .str)
 
-def stateCounts (A : Answers) (claims : List Claim) : Value :=
-  let finals := claims.map A.final
+def countsJson (finals : List State) : Value :=
   .obj ([State.can, .conditional, .«open», .cannot].map fun st =>
     (st.name, .num (finals.filter (· == st)).length))
+
+def stateCounts (A : Answers) (claims : List Claim) : Value := countsJson (claims.map A.final)
 
 def moveJson (m : Scenario.Move) : Value :=
   .obj [("claim", .str m.claim), ("from", .str m.before.name), ("to", .str m.after.name)]
@@ -69,17 +70,18 @@ def planSummaryJson : PlanSummary → Value
 /-- The claim's label: its verdict + qualifiers, the creator's title as the token
 `if-creator-runs` + `creator` = that experiment's id (`kernel.md` V-env: no text repeats per
 claim). -/
-def labelJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) : Value :=
+def labelJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (v : ClaimView) : Value :=
   let title := if A.prospective c.subject then
       Scenario.creatorTitleWith A.lookups.subject? A.lookups.experiment? c.subject
     else none
-  let quals := (A.qualifiers c review).map fun q =>
+  let quals := (Scenario.qualifiersWith v.changed review title v.valid).map fun q =>
     if title.any (fun t => q == s!"if {t} runs") then "if-creator-runs" else q
   let creator := if title.isSome then (A.lookups.subject? c.subject).bind (·.createdBy) else none
-  .obj ([("verdict", .str (A.final c).verdict), ("qualifiers", strs quals)] ++
+  .obj ([("verdict", .str v.final.verdict), ("qualifiers", strs quals)] ++
     (match creator with | some e => [("creator", .str e)] | none => []))
 
-def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : PlanSummary) :
+/-- A claim's member of the envelope, its derived fields read off its view. -/
+def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (v : ClaimView) :
     Value :=
   .obj ([("id", .str c.id), ("question", .str c.question), ("subject", .str c.subject),
     ("level", .str c.level.name), ("text", .str c.text)] ++
@@ -87,13 +89,13 @@ def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : P
     [("latent", .bool c.latent), ("needs", strs c.needs)] ++
     (match c.entailment with | some e => [("entailment", .str e)] | none => []) ++
     [("restates", .bool c.restates),
-    ("final", .str (A.final c).name), ("intrinsic", .str (A.intrinsic c).name),
-    ("label", labelJson A review c),
-    ("verified", strs (A.verifiedNeeds c)), ("premises", strs (A.premises c)),
-    ("gaps", strs (A.gaps c)), ("blockers", strs (A.blockers c)),
-    ("incompatibleCount", .num (A.incompatible c).length),
-    ("hypothetical", .bool (A.hypothetical c)), ("provisional", .bool (review != .reviewed)),
-    ("plan", planSummaryJson plan)] ++
+    ("final", .str v.final.name), ("intrinsic", .str v.intrinsic.name),
+    ("label", labelJson A review c v),
+    ("verified", strs v.verified), ("premises", strs v.premises),
+    ("gaps", strs v.gaps), ("blockers", strs v.blockers),
+    ("incompatibleCount", .num v.incompatibleCount),
+    ("hypothetical", .bool v.hypothetical), ("provisional", .bool (review != .reviewed)),
+    ("plan", planSummaryJson v.plan)] ++
     (match c.variantOf with | some v => [("variantOf", .str v)] | none => []))
 
 def overridesJson (o : Overrides) : Value :=
@@ -223,10 +225,10 @@ off the answers `A`. -/
 def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding) (digest : String)
     (review : Receipt.ReviewState) : Value :=
   let t := sc.trace
-  let existing := t.claims.filter fun c => !A.prospective c.subject
   -- Paired by `map`, never `List.zip`: Init's zip specialization recurses once per claim, which
   -- overflows the page engine's WebAssembly stack near 9,600 claims.
-  let claimPlans := t.claims.map fun c => (c, A.planSummary c)
+  let views := t.claims.map fun c => (c, A.claimView c)
+  let finals := (views.filter fun x => !A.prospective x.1.subject).map (·.2.final)
   let byId := Receipt.BindingIndex.of bindings
   .obj [("schema", .str "fvtrace.evaluation/2"),
     ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
@@ -236,12 +238,12 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
     ("subjects", .arr (t.subjects.map fun sub =>
       .obj [("id", .str sub.id), ("title", .str sub.title), ("kind", .str sub.kind.name),
         ("valid", .bool (A.valid sub.id)), ("conflicts", strs (A.conflicts sub.id))])),
-    ("counts", stateCounts A existing),
+    ("counts", countsJson finals),
     ("prospectiveCounts", .arr ((t.subjects.filter (·.kind == .prospective)).map fun sub =>
       .obj [("subject", .str sub.id), ("counts", stateCounts A (A.claimsOn sub.id))])),
     ("questions", .arr (t.questions.map Encode.question)),
     ("facts", .arr (t.facts.map (factJson A byId.find))),
-    ("claims", .arr (claimPlans.map fun (c, p) => claimJson A review c p)),
+    ("claims", .arr (views.map fun (c, v) => claimJson A review c v)),
     ("work", .arr ((A.work ()).map fun w =>
       .obj [("fact", .str w.fact), ("unlocks", strs w.unlocks), ("gates", strs w.gates)])),
     ("blockers", .arr ((A.blockerFacts ()).map fun (f, cs) =>
@@ -256,7 +258,8 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
       .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
         ("message", .str w.message)] ++
         (match w.waived with | some r => [("waived", .str r)] | none => [])))),
-    ("actions", .arr ((actionRefs t A claimPlans).map fun (id, kind, target) =>
+    ("actions", .arr ((actionRefs t A (views.map fun (c, v) => (c, v.plan))).map
+        fun (id, kind, target) =>
       .obj [("id", .str id), ("kind", .str kind), ("target", .str target)]))]
 
 /-- The full envelope for one snapshot, read off the scenario's fast answers (`Answers.fast`,

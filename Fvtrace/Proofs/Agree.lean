@@ -58,6 +58,52 @@ theorem summary_of_walk (s : Scenario) (fb : Experiment → ExperimentRow)
     · exact hgen
   · exact hgen
 
+theorem filter_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
+    ((l.map fun n => (n, f n)).filter p).map (·.1) = l.filter fun n => p (n, f n) := by
+  induction l with
+  | nil => rfl
+  | cons a l ih =>
+    simp only [List.map_cons, List.filter_cons]
+    split <;> simp [ih]
+
+theorem countP_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
+    (l.map fun n => (n, f n)).countP p = l.countP fun n => p (n, f n) := by
+  rw [List.countP_map]; rfl
+
+theorem any_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
+    (l.map fun n => (n, f n)).any p = l.any fun n => p (n, f n) := by
+  rw [List.any_map]; rfl
+
+/-- A claim's envelope member, each need's status read once = the reference's. -/
+theorem view_eq (s : Scenario) (plan : PlanSummary) (c : Claim) (hp : plan = (s.plan c).summary) :
+    viewWith (cxOf s) s (coreOf s) (baseOf s) s.prospective plan c =
+      (Answers.reference s).claimView c := by
+  have hbe : (baseOf s).eff = s.baseline.eff := base_eff s
+  have hbv : Core.valid (baseOf s) = s.baseline.valid := base_valid s
+  unfold viewWith
+  simp only [Answers.reference]
+  rw [eff_eq, mustVerify_eq, incompatible_eq, valid_eq, hbe, hbv, hp]
+  have hint : (Counts.of s.eff s.restsOn c.needsAll).state (!(s.incompatible c).isEmpty) =
+      s.intrinsic c := by
+    rw [counts_state]; rfl
+  have hcounts : needCounts (c.needsAll.map fun n => (n, s.eff n, s.mustVerify n)) =
+      Counts.of s.eff s.restsOn c.needsAll := by
+    unfold needCounts Counts.of
+    rw [countP_pairs, countP_pairs, countP_pairs]
+    rfl
+  rw [hcounts, hint]
+  have hchanged : (!s.overrides.isEmpty &&
+      (((c.needsAll.map fun n => (n, s.eff n, s.mustVerify n)).any
+        fun x => x.2.1 != s.baseline.eff x.1) ||
+        s.valid c.subject != s.baseline.valid c.subject)) = s.changedByWhatif c := by
+    unfold Scenario.changedByWhatif
+    rw [any_pairs]
+    cases ho : s.overrides.isEmpty
+    · rfl
+    · rw [baseline_self s ho]; simp
+  rw [hchanged]
+  congr 1 <;> first | exact filter_pairs _ _ _ | (unfold Scenario.final; rfl) | rfl
+
 theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := by
   unfold Answers.fast Answers.reference
   dsimp only
@@ -161,6 +207,13 @@ theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := b
         ((cxOf s).closureWith (Forest.build (cxOf s))) o f)
       ((congrArg (List.map (·.experiment)) (sorted_walk s _ _ hrow hfail)).trans
         (experimentOrder_eq s))).trans (raisersWith_eq s _ f)
+
+  case e_claimView =>
+    funext c
+    have hpro : (fun sub => (((cxOf s).L.subject? sub).map (·.kind == .prospective)).getD false) =
+        s.prospective := by funext sub; rw [ctx_L]; rfl
+    rw [hpro]
+    exact view_eq s _ c (summary_of_walk s _ _ hrow hfail c)
 
 theorem answersAgree : Spec.AnswersAgree := answers_agree
 

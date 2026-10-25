@@ -20,15 +20,15 @@ namespace Index
 variable {κ : Type} (cmp : κ → κ → Ordering)
 
 /-- `a` sorts before or with `b`: by key alone, so the sort keeps input order within a key. -/
-def le (a b : κ × Nat) : Bool := (cmp a.1 b.1).isLE
+@[specialize] def le (a b : κ × Nat) : Bool := (cmp a.1 b.1).isLE
 
-def build (pairs : List (κ × Nat)) : Index κ := ⟨(pairs.mergeSort (le cmp)).toArray⟩
+@[specialize] def build (pairs : List (κ × Nat)) : Index κ := ⟨(pairs.mergeSort (le cmp)).toArray⟩
 
 /-- Each item's key at its position. -/
-def ofKeys (keys : List κ) : Index κ := build cmp keys.zipIdx
+@[specialize] def ofKeys (keys : List κ) : Index κ := build cmp keys.zipIdx
 
 /-- The first index in `[lo, hi)` whose key is not below `k` (`hi` when there is none). -/
-def lowerBound (a : Array (κ × Nat)) (k : κ) (lo hi : Nat) : Nat :=
+@[specialize] def lowerBound (a : Array (κ × Nat)) (k : κ) (lo hi : Nat) : Nat :=
   if lo < hi then
     let mid := (lo + hi) / 2
     match a[mid]? with
@@ -39,7 +39,7 @@ def lowerBound (a : Array (κ × Nat)) (k : κ) (lo hi : Nat) : Nat :=
 termination_by hi - lo
 
 /-- The first index in `[lo, hi)` whose key is above `k` (`hi` when there is none). -/
-def upperBound (a : Array (κ × Nat)) (k : κ) (lo hi : Nat) : Nat :=
+@[specialize] def upperBound (a : Array (κ × Nat)) (k : κ) (lo hi : Nat) : Nat :=
   if lo < hi then
     let mid := (lo + hi) / 2
     match a[mid]? with
@@ -50,7 +50,7 @@ def upperBound (a : Array (κ × Nat)) (k : κ) (lo hi : Nat) : Nat :=
 termination_by hi - lo
 
 /-- The positions of the run of key `k` that starts at sorted index `i`, after `acc`. -/
-def scan (a : Array (κ × Nat)) (k : κ) (i : Nat) (acc : Array Nat) : Array Nat :=
+@[specialize] def scan (a : Array (κ × Nat)) (k : κ) (i : Nat) (acc : Array Nat) : Array Nat :=
   if h : i < a.size then
     if cmp a[i].1 k == .eq then scan a k (i + 1) (acc.push a[i].2) else acc
   else acc
@@ -59,23 +59,23 @@ termination_by a.size - i
 variable {cmp}
 
 /-- Where the run of key `k` starts (or would start). -/
-def start (ix : Index κ) (k : κ) : Nat := lowerBound cmp ix.sorted k 0 ix.sorted.size
+@[specialize] def start (ix : Index κ) (k : κ) : Nat := lowerBound cmp ix.sorted k 0 ix.sorted.size
 
 /-- The position of the run's `n`-th member (from 0), when the run has one. -/
-def nth? (ix : Index κ) (k : κ) (n : Nat) : Option Nat :=
+@[specialize] def nth? (ix : Index κ) (k : κ) (n : Nat) : Option Nat :=
   match ix.sorted[ix.start (cmp := cmp) k + n]? with
   | some (x, p) => if cmp x k == .eq then some p else none
   | none => none
 
 /-- How many positions carry key `k`. -/
-def count (ix : Index κ) (k : κ) : Nat :=
+@[specialize] def count (ix : Index κ) (k : κ) : Nat :=
   upperBound cmp ix.sorted k 0 ix.sorted.size - ix.start (cmp := cmp) k
 
 /-- The first position whose key is `k`. -/
-def first? (ix : Index κ) (k : κ) : Option Nat := ix.nth? (cmp := cmp) k 0
+@[specialize] def first? (ix : Index κ) (k : κ) : Option Nat := ix.nth? (cmp := cmp) k 0
 
 /-- Every position whose key is `k`, in input order. -/
-def group (ix : Index κ) (k : κ) : List Nat :=
+@[specialize] def group (ix : Index κ) (k : κ) : List Nat :=
   (scan cmp ix.sorted k (ix.start (cmp := cmp) k) #[]).toList
 
 end Index
@@ -87,7 +87,7 @@ namespace Index
 variable {α κ : Type} (cmp : κ → κ → Ordering)
 
 /-- No key twice: adjacent keys of the sorted list all differ. -/
-def nodup (keys : List κ) : Bool :=
+@[specialize] def nodup (keys : List κ) : Bool :=
   go (keys.mergeSort fun a b => (cmp a b).isLE)
 where
   go : List κ → Bool
@@ -95,7 +95,7 @@ where
     | _ => true
 
 /-- `List.eraseDups`: each key at its first position, in input order. -/
-def eraseDups (keys : List κ) : List κ :=
+@[specialize] def eraseDups (keys : List κ) : List κ :=
   let ix := ofKeys cmp keys
   (keys.zipIdx.filter fun (k, i) => ix.first? (cmp := cmp) k == some i).map (·.1)
 
