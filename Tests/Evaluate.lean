@@ -39,6 +39,16 @@ def tests : TestM Unit := do
   checkEq "evaluate: a success that touches no result fact is not contingent"
     ((recordOf (envOf { s with trace := { t with experiments := t.experiments ++ [ask] } })
       "experiments" "XN").bind (field · "contingent")) (some (.bool false))
+  -- V-env: a failure action for each experiment with failure outcomes (E1 alone; E2 + E3 have
+  -- none); a prospective claim's creator qualifier = the token, its other qualifiers unchanged.
+  let actions := match field env "actions" with | some (.arr xs) => xs | _ => []
+  checkEq "evaluate: failure actions name the experiments with failure outcomes"
+    (actions.filterMap fun a =>
+      if field a "kind" == some (.str "failure") then field a "target" else none) [.str "E1"]
+  checkEq "evaluate: a prospective claim's creator qualifier = the token, beside the others"
+    ((claimOf env "C3").bind (field · "label"))
+    (some (.obj [("verdict", .str "Pending verification"),
+      ("qualifiers", .arr [.str "draft", .str "if-creator-runs"]), ("creator", .str "E3")]))
   let stale : Receipt.Binding := { id := "O1", current := false, reasons := ["changed p"] }
   let other : Receipt.Binding := { id := "O2", current := true, reasons := [] }
   checkEq "evaluate: a fact carries its own receipt binding"

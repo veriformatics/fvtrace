@@ -107,6 +107,10 @@ def nativeTests : TestM Unit := do
       (count html "id=\"fvtrace-worker\"" == 1 &&
         some worker == (Export.bundle Export.workerModules).toOption &&
         count script "const __worker" == 0)
+    -- E-page: the worker block = the engine worker's source (its entry + the loader it imports).
+    checkEq "export: the engine worker = its entry + the loader, nothing of the page"
+      ((("\n" ++ worker).splitOn "\nconst __").drop 1 |>.map fun d => (d.splitOn " = ")[0]!)
+      ["engine", "worker"]
     check "export: the page links no file" (count html "src=\"" == 0 && count html "href=\"" == 0)
     let island := ((html.splitOn "id=\"fvtrace-data\">")[1]!.splitOn "</script>")[0]!
     check "export: the page's receipts come from a fresh read (no cache)"
