@@ -318,6 +318,7 @@ private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) :
     same ctx "Answers.factText" id (got.factText id) (want.factText id)
     same ctx "Answers.isResult" id (got.isResult id) (want.isResult id)
     same ctx "Answers.claimsOn" id (got.claimsOn id) (want.claimsOn id)
+    same ctx "Answers.raisers" id (got.raisers id) (want.raisers id)
   for f in factArgs t do
     same ctx "Answers.closable" f (got.closable f) (want.closable f)
   for x in exclusionArgs t do
@@ -333,6 +334,7 @@ private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) :
     same ctx "Answers.incompatible" c (got.incompatible c) (want.incompatible c)
     same ctx "Answers.hypothetical" c (got.hypothetical c) (want.hypothetical c)
     same ctx "Answers.plan" c (got.plan c) (want.plan c)
+    same ctx "Answers.planSummary" c (got.planSummary c) (want.planSummary c)
     for review in [Receipt.ReviewState.draft, .stale, .reviewed] do
       same ctx "Answers.qualifiers" (c, review) (got.qualifiers c review) (want.qualifiers c review)
   for e in experimentArgs t do
@@ -341,6 +343,7 @@ private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) :
   same ctx "Answers.work" () (got.work ()) (want.work ())
   same ctx "Answers.blockerFacts" () (got.blockerFacts ()) (want.blockerFacts ())
   same ctx "Answers.experimentOrder" () (got.experimentOrder ()) (want.experimentOrder ())
+  same ctx "Answers.experimentRows" () (got.experimentRows ()) (want.experimentRows ())
   for ids in sample ctx.salt (listArgs (t.experimentIds ++ t.factIds.take 2)) do
     same ctx "Answers.closure" ids (got.closure ids) (want.closure ids)
     same ctx "Answers.merged" ids (got.merged ids) (want.merged ids)

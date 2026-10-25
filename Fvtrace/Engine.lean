@@ -396,6 +396,7 @@ structure ExperimentRow where
   breaks : Nat
   applied : Bool
   contingent : Bool
+  deriving DecidableEq, Repr
 
 /-- A plan's result kind + its state when planned (the envelope's plan, `kernel.md` V-env). -/
 inductive PlanSummary where

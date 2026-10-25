@@ -806,17 +806,17 @@ theorem shifts_at (xs : List Exclusion) (before after : Exclusion → Bool) (sub
       List.getElem?_eq_getElem hlt, Option.map_some, Option.getD_some]
     rw [hk', hcount, hcount]
 
-theorem delta_valid : (deltaOf s extra).valid = (afterOf s extra).valid := by
-  funext sub
-  show ((coreOf s).activeCount sub -
+theorem delta_activeCount (sub : String) :
+    (deltaOf s extra).activeCount sub = ((afterOf s extra).conflicts sub).length := by
+  show (coreOf s).activeCount sub -
       ((Shifts.of ((deltaOf s extra).touched.filterMap ((cxOf s).exclusions[·]?)) (coreOf s).active
         (activeWith s (deltaOf s extra).eff1)).at sub).1 +
       ((Shifts.of ((deltaOf s extra).touched.filterMap ((cxOf s).exclusions[·]?)) (coreOf s).active
-        (activeWith s (deltaOf s extra).eff1)).at sub).2 == 0) = _
+        (activeWith s (deltaOf s extra).eff1)).at sub).2 = _
   rw [shifts_at, delta_excls, activeCount_eq, active_eq, delta_eff1]
   have ha : activeWith s (afterOf s extra).eff1 = (afterOf s extra).active := rfl
   rw [ha]
-  unfold Scenario.valid Scenario.conflicts
+  unfold Scenario.conflicts
   have hp := countP_patch (l := s.trace.exclusions)
     (occ := s.trace.exclusions.filter fun x => decide (Moved extra x))
     (f := fun x => x.subject == sub && s.active x)
@@ -829,19 +829,18 @@ theorem delta_valid : (deltaOf s extra).valid = (afterOf s extra).valid := by
       (fun x => x.subject == sub && s.active x) ≤
       s.trace.exclusions.countP (fun x => x.subject == sub && s.active x) :=
     List.Sublist.countP_le List.filter_sublist
-  have hlen : (List.map (fun x => x.id) (s.trace.exclusions.filter fun x =>
-      x.subject == sub && s.active x)).length =
-      s.trace.exclusions.countP (fun x => x.subject == sub && s.active x) := by
-    rw [List.length_map, List.countP_eq_length_filter]
-  rw [hlen]
-  have hiso : ∀ l : List Exclusion, ∀ q : Exclusion → Bool,
-      ((l.filter q).map fun x => x.id).isEmpty = (l.countP q == 0) := by
-    intro l q
-    rw [List.countP_eq_length_filter]
-    cases l.filter q <;> simp
-  rw [show (afterOf s extra).trace.exclusions = s.trace.exclusions from rfl, hiso]
-  rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]
+  have hlen : ∀ q : Exclusion → Bool,
+      ((s.trace.exclusions.filter q).map fun x => x.id).length = s.trace.exclusions.countP q := by
+    intro q; rw [List.length_map, List.countP_eq_length_filter]
+  rw [show (afterOf s extra).trace.exclusions = s.trace.exclusions from rfl, hlen, hlen]
   omega
+
+theorem delta_valid : (deltaOf s extra).valid = (afterOf s extra).valid := by
+  funext sub
+  show ((deltaOf s extra).activeCount sub == 0) = _
+  rw [delta_activeCount]
+  unfold Scenario.valid
+  cases (afterOf s extra).conflicts sub <;> simp
 
 theorem delta_restsOn : Delta.restsOn (cxOf s) (deltaOf s extra) = (afterOf s extra).restsOn := by
   funext id
@@ -867,7 +866,7 @@ theorem delta_final (c : Claim) (base : Counts) (times : String → Nat) (incomp
     (hinc : incompat = !(s.incompatible c).isEmpty) :
     Delta.final (cxOf s) (coreOf s) (deltaOf s extra) c.needsAll c.needsAll.length base times
       incompat c.subject = (afterOf s extra).final c := by
-  unfold Delta.final Scenario.final
+  unfold Delta.final Delta.counts Scenario.final
   rw [delta_valid]
   split
   · rw [hbase, ← eff_eq, ← restsOn_eq]
@@ -889,6 +888,39 @@ theorem delta_final (c : Claim) (base : Counts) (times : String → Nat) (incomp
       rw [eff_off_changed s extra this]
       rfl
   · rfl
+
+/-- What `Delta.build` + `Delta.final` read of a base core: a core answering as the scenario on
+these four (a forest node's overlays over the base, `kernel.md` P-forest) gives the same delta. -/
+structure CoreSpec (s : Scenario) (k : Core) : Prop where
+  eff1 : k.eff1 = s.eff1
+  eff : k.eff = s.eff
+  active : k.active = s.active
+  activeCount : ∀ sub, k.activeCount sub = (s.conflicts sub).length
+
+theorem coreSpec : CoreSpec s (coreOf s) :=
+  ⟨eff1_eq s, eff_eq s, active_eq s, activeCount_eq s⟩
+
+theorem delta_core {k : Core} (hk : CoreSpec s k) :
+    Delta.build (cxOf s) s k extra = deltaOf s extra := by
+  have h1 : k.eff1 = (coreOf s).eff1 := hk.eff1.trans (eff1_eq s).symm
+  have h2 : k.eff = (coreOf s).eff := hk.eff.trans (eff_eq s).symm
+  have h3 : k.active = (coreOf s).active := hk.active.trans (active_eq s).symm
+  have h4 : k.activeCount = (coreOf s).activeCount :=
+    funext fun sub => (hk.activeCount sub).trans (activeCount_eq s sub).symm
+  show Delta.build (cxOf s) s k extra = Delta.build (cxOf s) s (coreOf s) extra
+  unfold Delta.build eff1Under
+  rw [h1, h2, h3, h4]
+
+theorem restsOn_core {k : Core} (hk : CoreSpec s k) :
+    Core.restsOn (cxOf s) k = s.restsOn := by
+  funext id
+  unfold Core.restsOn Scenario.restsOn
+  rw [hk.eff, mustVerify_eq]
+
+/-- `Delta.build` reads its scenario through receipt bindings alone (`exclusionEff`). -/
+theorem delta_scenario (o : Overrides) (k : Core) :
+    Delta.build (cxOf s) s k extra =
+      Delta.build (cxOf (s.withOverrides o)) (s.withOverrides o) k extra := rfl
 
 end Delta
 
@@ -1714,113 +1746,5 @@ theorem plan_eq (closure : List String → List String) (hcl : closure = s.closu
     contingent_eq]
 
 end Plans
-
-/-! ## The record -/
-
-theorem answers_agree (s : Scenario) : Answers.fast s = Answers.reference s := by
-  unfold Answers.fast Answers.reference
-  dsimp only
-  have hbe : (baseOf s).eff = s.baseline.eff := base_eff s
-  have hbv : Core.valid (baseOf s) = s.baseline.valid := base_valid s
-  have hrow : rowOf (fun ids => (cxOf s).closureWith (Forest.build (cxOf s)) ids) (cxOf s).merged
-      (fun ids => movesUnder (cxOf s) s (coreOf s)
-        (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s)))
-        (raisedBy (cxOf s) (coreOf s) ids))
-      (fun e => movesUnder (cxOf s) s (coreOf s)
-        (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s)))
-        (e.failure.map fun (k, _) => (k, .violated)))
-      (coreOf s).override? (cxOf s).isResult = rowRefOf s := by
-    congr 1
-    · exact funext (closure_eq s)
-    · exact merged_eq s
-    · funext ids; rw [moves_eq, raised_eq]; rfl
-    · funext e; rw [moves_eq]; rfl
-    · funext id; exact override_eq s id
-    · funext k; rw [isResult_eq]; rfl
-  congr 1
-  case e_lookups => exact ctx_L s.trace
-  case e_override? => funext id; exact override_eq s id
-  case e_eff => exact eff_eq s
-  case e_derivations =>
-    funext id
-    show derive (cxOf s) s (coreOf s).eff1 id = s.derivations id
-    rw [eff1_eq]; exact derive_eq s id
-  case e_active => exact active_eq s
-  case e_valid => exact valid_eq s
-  case e_conflicts => exact conflicts_eq s
-  case e_closable => funext f; exact closable_eq s f
-  case e_final => exact final_eq s
-  case e_intrinsic => exact intrinsic_eq s
-  case e_sentence =>
-    funext c
-    unfold Scenario.sentence Scenario.sentenceParts
-    rw [final_eq, eff_eq, premisesUnder_eq s s rfl, ctx_L]
-    rfl
-  case e_qualifiers =>
-    funext c review
-    unfold Scenario.qualifiers Scenario.changedByWhatif Scenario.prospective Scenario.creatorTitle
-    rw [ctx_L, eff_eq, valid_eq, hbe, hbv]
-    rfl
-  case e_verifiedNeeds => funext c; unfold Scenario.verifiedNeeds; rw [eff_eq]
-  case e_premises => funext c; rw [eff_eq]; exact premisesUnder_eq s s rfl c
-  case e_gaps => funext c; rw [eff_eq]; exact gapsUnder_eq s s rfl c
-  case e_blockers => funext c; unfold Scenario.blockers; rw [eff_eq]
-  case e_incompatible => exact incompatible_eq s
-  case e_hypothetical =>
-    funext c
-    unfold Scenario.hypothetical Scenario.changedByWhatif Scenario.prospective
-    rw [ctx_L, eff_eq, valid_eq, hbe, hbv]
-    rfl
-  case e_prospective => funext sub; rw [ctx_L]; rfl
-  case e_creates => funext e; rw [ctx_L]; rfl
-  case e_factText => funext id; rw [ctx_L]; rfl
-  case e_isResult => funext k; rw [isResult_eq]; rfl
-  case e_claimsOn =>
-    funext sub
-    rw [claimSubject_group, ctx_claims, read_positions,
-      zipIdx_filter_fst s.trace.claims (·.subject == sub)]
-  case e_plan => funext c; exact plan_eq s _ (funext (closure_eq s)) c
-  case e_work =>
-    funext _
-    simp only [closable_eq, gates_eq, unlocks_eq]
-    exact work_eq s
-  case e_blockerFacts =>
-    funext _
-    simp only [gates_eq, eff_eq]
-    rfl
-  case e_closure => funext ids; exact closure_eq s ids
-  case e_merged => exact merged_eq s
-  case e_raised => funext ids; exact raised_eq s ids
-  case e_successMoves =>
-    funext ids
-    rw [moves_eq, raised_eq]
-    rfl
-  case e_failureMoves =>
-    funext e
-    rw [moves_eq]
-    rfl
-  case e_experimentOrder =>
-    funext _
-    refine (congrArg (fun F => ((s.trace.experiments.map F).mergeSort rowBefore).map
-      (·.experiment)) (?_ : _ = rowRefOf s)).trans (experimentOrder_eq s)
-    exact hrow
-  case e_withOverrides => funext extra; exact withOverrides_eq s extra
-  case e_experimentRows =>
-    funext _
-    refine (congrArg (fun F => (s.trace.experiments.map F).mergeSort rowBefore)
-      (?_ : _ = rowRefOf s)).trans (rows_eq s)
-    exact hrow
-  case e_planSummary =>
-    funext c; exact congrArg PlanResult.summary (plan_eq s _ (funext (closure_eq s)) c)
-  case e_raisers =>
-    funext f
-    refine congrArg (fun (x : List Experiment × (List String → List String) ×
-      (List String → Overrides)) => raisersOf x.1 x.2.1 x.2.2 f) (?_ : (_, _, _) = (_, _, _))
-    refine Prod.ext ?_ (Prod.ext (funext (closure_eq s)) (funext (raised_eq s)))
-    refine (congrArg (fun F => ((s.trace.experiments.map F).mergeSort rowBefore).map
-      (·.experiment)) (?_ : _ = rowRefOf s)).trans (experimentOrder_eq s)
-    exact hrow
-
-theorem answersAgree : Spec.AnswersAgree := answers_agree
 
 end Fvtrace.Proofs.Answers

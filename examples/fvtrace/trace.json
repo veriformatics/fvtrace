@@ -726,14 +726,34 @@
             "role": "statement"
           },
           {
+            "path": "Fvtrace/Proofs/Agree.lean",
+            "sha256": "60323233a0ee3553951850191f53daa9addbce59b03a14488b4730c510e290c2"
+          },
+          {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "f20e6df7d00572cb7134a8f6c73708000aa960f1370155ef37647512c03146d2",
+            "sha256": "ffaabfbd12f4b5e9452ac18aa2899c9cb2d7b6431876bcc227d2d74e0aabe726",
             "role": "proof"
+          },
+          {
+            "path": "Fvtrace/Proofs/Walk.lean",
+            "sha256": "98c23bac625d6207269f9bb791b55fa481558349d1e5055757d6e51209829af0"
+          },
+          {
+            "path": "Fvtrace/Proofs/Forest.lean",
+            "sha256": "ea4faa38bad1456d980cee300e477a9e098fdccdac3f39640990deac57cc0063"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",
             "sha256": "5f2e6afe7a961acc10ee0a9a6fd871d9c17981ab9cf26d3a3d1240536fc09e97",
             "role": "proof"
+          },
+          {
+            "path": "Fvtrace/Proofs/PTree.lean",
+            "sha256": "449244c09b2984bac44dc395ab80cb0f3d46e07e0ca97274cec0bc2c12965151"
+          },
+          {
+            "path": "Fvtrace/Proofs/Singleton.lean",
+            "sha256": "15b8bcb62d2c60134dde6b251da74da0a6ac4937a4d62755e589d6f485aea2cf"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -745,7 +765,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.AnswersAgree"
           ],
-          "output": "852fc9c31e822d3a61792383bfd16240f1fd3679425965f95fc60204783a9154"
+          "output": "81b884b75d18bac79229449c90dbe3574062e416928f36ca322c65c83615e6ce"
         }
       },
       "trusts": [
@@ -856,12 +876,32 @@
             "sha256": "41c08968f91a08c66d1e2bb56308088a70cf1733b3d10d450ea35ec029ca72e6"
           },
           {
+            "path": "Fvtrace/Proofs/Agree.lean",
+            "sha256": "60323233a0ee3553951850191f53daa9addbce59b03a14488b4730c510e290c2"
+          },
+          {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "f20e6df7d00572cb7134a8f6c73708000aa960f1370155ef37647512c03146d2"
+            "sha256": "ffaabfbd12f4b5e9452ac18aa2899c9cb2d7b6431876bcc227d2d74e0aabe726"
+          },
+          {
+            "path": "Fvtrace/Proofs/Walk.lean",
+            "sha256": "98c23bac625d6207269f9bb791b55fa481558349d1e5055757d6e51209829af0"
+          },
+          {
+            "path": "Fvtrace/Proofs/Forest.lean",
+            "sha256": "ea4faa38bad1456d980cee300e477a9e098fdccdac3f39640990deac57cc0063"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",
             "sha256": "5f2e6afe7a961acc10ee0a9a6fd871d9c17981ab9cf26d3a3d1240536fc09e97"
+          },
+          {
+            "path": "Fvtrace/Proofs/PTree.lean",
+            "sha256": "449244c09b2984bac44dc395ab80cb0f3d46e07e0ca97274cec0bc2c12965151"
+          },
+          {
+            "path": "Fvtrace/Proofs/Singleton.lean",
+            "sha256": "15b8bcb62d2c60134dde6b251da74da0a6ac4937a4d62755e589d6f485aea2cf"
           },
           {
             "path": "Fvtrace/Proofs/Lookups.lean",

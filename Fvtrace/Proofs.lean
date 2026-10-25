@@ -5,4 +5,4 @@ import Fvtrace.Proofs.Plan
 import Fvtrace.Proofs.Singleton
 import Fvtrace.Proofs.Lookups
 import Fvtrace.Proofs.Json
-import Fvtrace.Proofs.Answers
+import Fvtrace.Proofs.Agree
