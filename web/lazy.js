@@ -15,6 +15,8 @@ import { count } from "./words.js";
 const budget = 8;
 /** Rows mounted around a row that must show (a selection, a found item). */
 const around = 20;
+/** Lists this long or shorter are drawn whole; a longer nested list starts with this many rows. */
+const short = 40;
 /** How near the viewport (px) an unmounted end starts mounting. */
 const margin = 1500;
 
@@ -22,11 +24,12 @@ export class LazyList {
   /**
    * @param {HTMLElement} root the list element (its children = the mounted rows)
    * @param {{ posinset?: boolean, sentinel?: "li" | "div" | "span", noun?: [string, string],
-   *   tail?: HTMLElement, itemRole?: string, endClass?: string }} [opts] `posinset`: rows carry
-   *   `aria-posinset` + `aria-setsize`; `sentinel`: the element type of the end markers; `noun`:
-   *   what a row is (singular, plural), for the end markers' words; `tail`: an element that stays
-   *   after the rows (a circuit's lamp); `itemRole`: each row's role; `endClass`: a class the end
-   *   markers add
+   *   tail?: HTMLElement, itemRole?: string, endClass?: string, first?: number }} [opts]
+   *   `posinset`: rows carry `aria-posinset` + `aria-setsize`; `sentinel`: the element type of the
+   *   end markers; `noun`: what a row is (singular, plural), for the end markers' words; `tail`: an
+   *   element that stays after the rows (a circuit's lamp); `itemRole`: each row's role;
+   *   `endClass`: a class the end markers add; `first`: the rows an empty window mounts at once
+   *   (default: one time step's worth)
    */
   constructor(root, opts = {}) {
     this.root = root;
@@ -34,12 +37,19 @@ export class LazyList {
     this.noun = opts.noun ?? ["item", "items"];
     this.tail = opts.tail;
     this.itemRole = opts.itemRole;
+    this.first = opts.first;
     owners.set(root, this);
     const tag = opts.sentinel ?? "div";
-    /** @type {Row[]} */
-    this.rows = [];
-    /** @type {Map<string, number>} */
-    this.at = new Map();
+    // Rows come by position, made on demand: a long nested list (a claim's needs in its details)
+    // makes only the rows it mounts, so opening it costs the same at any length (kernel.md U-select).
+    this.count = 0;
+    /** @type {(i: number) => Row | undefined} */
+    this.rowAt = () => undefined;
+    /** Positions by key, built on the first lookup after each `set`.
+     * @type {Map<string, number> | undefined} */
+    this.keys = undefined;
+    /** Each mounted node's position. @type {WeakMap<Node, number>} */
+    this.positions = new WeakMap();
     /** Mounted window `[lo, hi)`: nodes by key, with the signature each was made from.
      * @type {Map<string, { node: HTMLElement, sig: string }>} */
     this.mounted = new Map();
@@ -63,8 +73,8 @@ export class LazyList {
     // Keyboard: focus inside the last (first) mounted rows mounts the next (earlier) ones before
     // the next Tab looks for them.
     root.addEventListener("focusin", (e) => {
-      const key = rowKey(e.target, root);
-      const i = key === undefined ? undefined : this.at.get(key);
+      const row = rowNode(e.target, root);
+      const i = row ? this.positions.get(row) : undefined;
       if (i === undefined) return;
       if (i >= this.hi - 3) this.grow(this.hi + around);
       if (i <= this.lo + 2) this.grow(this.hi, Math.max(0, this.lo - around));
@@ -73,7 +83,7 @@ export class LazyList {
 
   /** The rows' count. */
   get size() {
-    return this.rows.length;
+    return this.count;
   }
 
   /**
@@ -82,21 +92,31 @@ export class LazyList {
    * @param {Row[]} rows @param {{ keep?: string }} [opts]
    */
   set(rows, opts = {}) {
+    this.setEach(rows.length, (i) => rows[i], opts);
+  }
+
+  /**
+   * `set` over `n` rows that `rowAt` makes on demand (the row at a position keeps its key +
+   * content until the next `set`). @param {number} n
+   * @param {(i: number) => Row | undefined} rowAt @param {{ keep?: string }} [opts]
+   */
+  setEach(n, rowAt, opts = {}) {
     const old = this.mounted;
-    this.rows = rows;
-    this.at = new Map(rows.map((r, i) => [r.key, i]));
-    const want = opts.keep === undefined ? undefined : this.at.get(opts.keep);
-    let lo = Math.min(this.lo, rows.length);
-    let hi = Math.min(Math.max(this.hi, lo), rows.length);
+    this.count = n;
+    this.rowAt = rowAt;
+    this.keys = undefined;
+    const want = opts.keep === undefined ? undefined : this.indexOf(opts.keep);
+    let lo = Math.min(this.lo, n);
+    let hi = Math.min(Math.max(this.hi, lo), n);
     if (want !== undefined && (want < lo || want >= hi)) {
       lo = Math.max(0, want - around);
-      hi = Math.min(rows.length, want + around);
+      hi = Math.min(n, want + around);
     }
     this.mounted = new Map();
     /** @type {HTMLElement[]} */
     const nodes = [];
     for (let i = lo; i < hi; i++) {
-      const row = rows[i];
+      const row = rowAt(i);
       if (!row) continue;
       const sig = row.sig();
       const had = old.get(row.key);
@@ -109,7 +129,22 @@ export class LazyList {
     this.hi = hi;
     place(this.root, [this.top, ...nodes, this.bottom, ...(this.tail ? [this.tail] : [])]);
     this.observe();
-    if (hi === lo) this.step(["bottom"]);
+    if (hi === lo) {
+      if (this.first === undefined) this.step(["bottom"]);
+      else this.grow(hi + this.first);
+    }
+  }
+
+  /** The position of the row `key`. @param {string} key */
+  indexOf(key) {
+    if (!this.keys) {
+      this.keys = new Map();
+      for (let i = 0; i < this.count; i++) {
+        const row = this.rowAt(i);
+        if (row) this.keys.set(row.key, i);
+      }
+    }
+    return this.keys.get(key);
   }
 
   /** The mounted node of a row, when it is mounted. @param {string} key */
@@ -122,13 +157,13 @@ export class LazyList {
    * node. @param {string} key
    */
   show(key) {
-    const i = this.at.get(key);
+    const i = this.indexOf(key);
     if (i === undefined) return undefined;
     if (i < this.lo || i >= this.hi) {
       if (i >= this.hi && i < this.hi + around * 4) this.grow(i + around);
       else if (i < this.lo && i >= this.lo - around * 4)
         this.grow(this.hi, Math.max(0, i - around));
-      else this.set(this.rows, { keep: key });
+      else this.setEach(this.count, this.rowAt, { keep: key });
     }
     return this.node(key);
   }
@@ -138,7 +173,7 @@ export class LazyList {
    * place (the page scrolls by their height). @param {number} hi @param {number} [lo]
    */
   grow(hi, lo = this.lo) {
-    hi = Math.min(hi, this.rows.length);
+    hi = Math.min(hi, this.count);
     lo = Math.max(lo, 0);
     /** @type {HTMLElement[]} */
     const after = [];
@@ -161,7 +196,7 @@ export class LazyList {
     const before = [];
     const spent = () => after.length + before.length > 0 && performance.now() - start >= budget;
     if (ends.includes("bottom"))
-      while (this.hi + after.length < this.rows.length && !spent())
+      while (this.hi + after.length < this.count && !spent())
         after.push(this.mount(this.hi + after.length));
     if (ends.includes("top"))
       while (this.lo - before.length > 0 && !spent())
@@ -190,7 +225,7 @@ export class LazyList {
 
   /** @param {number} i */
   mount(i) {
-    const row = this.rows[i];
+    const row = this.rowAt(i);
     if (!row) throw new RangeError(`no row ${i}`);
     const node = row.make();
     this.mark(node, row.key, i);
@@ -201,10 +236,11 @@ export class LazyList {
   /** @param {HTMLElement} node @param {string} key @param {number} i */
   mark(node, key, i) {
     node.dataset["row"] = key;
+    this.positions.set(node, i);
     if (this.itemRole) node.setAttribute("role", this.itemRole);
     if (this.posinset) {
       node.setAttribute("aria-posinset", String(i + 1));
-      node.setAttribute("aria-setsize", String(this.rows.length));
+      node.setAttribute("aria-setsize", String(this.count));
     }
   }
 
@@ -213,12 +249,12 @@ export class LazyList {
     this.below.disconnect();
     this.above.disconnect();
     this.top.hidden = this.lo === 0;
-    this.bottom.hidden = this.hi >= this.rows.length;
+    this.bottom.hidden = this.hi >= this.count;
     const [one, many] = this.noun;
     if (!this.top.hidden)
       this.top.textContent = `${count(this.lo, `earlier ${one}`, `earlier ${many}`)} ${this.lo === 1 ? "appears" : "appear"} as you scroll up.`;
     if (!this.bottom.hidden)
-      this.bottom.textContent = `Showing ${(this.hi - this.lo).toLocaleString("en-US")} of ${count(this.rows.length, one, many)}. More appear as you scroll.`;
+      this.bottom.textContent = `Showing ${(this.hi - this.lo).toLocaleString("en-US")} of ${count(this.count, one, many)}. More appear as you scroll.`;
     if (!this.top.hidden) this.above.observe(this.top);
     if (!this.bottom.hidden) this.below.observe(this.bottom);
   }
@@ -244,12 +280,11 @@ export function showIn(root, key) {
   return root instanceof HTMLElement ? owners.get(root)?.show(key) : undefined;
 }
 
-/** The row key of the mounted row holding `target`. @param {EventTarget | null} target
- * @param {HTMLElement} root */
-function rowKey(target, root) {
+/** The mounted row holding `target`. @param {EventTarget | null} target @param {HTMLElement} root */
+function rowNode(target, root) {
   let el = target instanceof Element ? target : null;
   while (el && el.parentElement !== root) el = el.parentElement;
-  return el instanceof HTMLElement ? el.dataset["row"] : undefined;
+  return el ?? undefined;
 }
 
 /**
@@ -270,9 +305,6 @@ function place(root, nodes) {
     else root.insertBefore(n, cursor);
   }
 }
-
-/** Lists this long or shorter are drawn whole. */
-const short = 40;
 
 /**
  * A list element holding `items`: drawn whole when short, else mounted as it nears the viewport
@@ -299,14 +331,14 @@ export function listOf(el, items, make, opts = {}) {
     ...(opts.noun ? { noun: opts.noun } : {}),
     ...(opts.tail ? { tail: opts.tail } : {}),
     ...(opts.endClass ? { endClass: opts.endClass } : {}),
+    first: short,
   });
   const keyOf = opts.keyOf;
-  lazy.set(
-    items.map((x, i) => ({
-      key: keyOf ? keyOf(x) : String(i),
-      sig: () => "",
-      make: () => make(x, i),
-    })),
-  );
+  lazy.setEach(items.length, (i) => {
+    const x = items[i];
+    return x === undefined
+      ? undefined
+      : { key: keyOf ? keyOf(x) : String(i), sig: () => "", make: () => make(x, i) };
+  });
   return el;
 }

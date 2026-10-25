@@ -82,8 +82,11 @@ export function fill(el, ...children) {
  * @param {() => void} open @returns {(e: Event) => void}
  */
 export const clickToOpen = (open) => (e) => {
-  if (document.getSelection()?.toString()) return;
   if (e.target instanceof Element && e.target.closest("button, summary, a")) return;
+  // A selection's text needs a fresh layout: read it only when one is not collapsed (a plain
+  // click leaves it collapsed).
+  const selection = document.getSelection();
+  if (selection && !selection.isCollapsed && selection.toString()) return;
   open();
 };
 
