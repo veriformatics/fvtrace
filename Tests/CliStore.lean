@@ -175,7 +175,7 @@ def tests : TestM Unit := do
                           explicit := true, token := "x", hosts := [] } : Server.Config)
     let held ← try
         some <$> Server.start cfg (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := 0 })
-          (← IO.mkRef {})
+          (← IO.mkRef {}) (← Std.Mutex.new {})
       catch _ => pure none
     match held with
     | some (other, port) =>

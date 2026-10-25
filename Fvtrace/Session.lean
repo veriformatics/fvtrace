@@ -55,31 +55,32 @@ def readPrefix (path : System.FilePath) (n : Nat) : IO ByteArray := do
 FIFO blocks on open, a device such as `/dev/zero` never ends), its size decides before any byte is
 read, and at most one byte past the limit is read (a file growing meanwhile still meets the
 decoder's size rule). -/
-def readWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
-    IO (Except Problem (Except (Array Decode.Diag) Trace)) := do
+def readRawWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
+    IO (Except Problem (Except (Array Decode.Diag) ByteArray)) := do
   if !explicit && !(← t.trace.pathExists) then return .error (.noTrace t.project)
   try
     let m ← t.trace.metadata
     unless m.type == .file do return .error (.unreadable t.trace "not a regular file")
     if m.byteSize.toNat > limit then return .ok (.error #[sizeDiag m.byteSize.toNat limit])
-    return .ok (decodeTraceWithin limit (← readPrefix t.trace (limit + 1)))
+    return .ok (.ok (← readPrefix t.trace (limit + 1)))
   catch e =>
     return .error (.unreadable t.trace ((toString e).replace "\n" " "))
+
+def readWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
+    IO (Except Problem (Except (Array Decode.Diag) Trace)) := do
+  return match ← readRawWithin limit t explicit with
+  | .ok (.ok bytes) => .ok (decodeTraceWithin limit bytes)
+  | .ok (.error ds) => .ok (.error ds)
+  | .error p => .error p
 
 /-- D-json: at most 16 MiB. -/
 def read : Store.Target → Bool → IO (Except Problem (Except (Array Decode.Diag) Trace)) :=
   readWithin maxTraceBytes
 
-/-- Reads, checks + binds the trace, then applies the what-if (`FACT=STATUS,…`). -/
-def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash : Bool)
+/-- Binds a checked trace + applies the what-if (`FACT=STATUS,…`): `load` past its reading. -/
+def bindChecked (t : Store.Target) (tr : Trace) (whatif : Option String) (rehash : Bool)
     (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
-  let tr ← match ← read t explicit with
-    | .ok (.ok tr) => pure tr
-    | .ok (.error ds) => return .error (.undecodable t.trace ds)
-    | .error p => return .error p
   let L := Lookups.fast tr
-  let vs := Check.violationsWith L tr
-  unless vs.isEmpty do return .error (.illFormed t.trace vs)
   let overrides ← match whatif with
     | none => pure []
     | some spec =>
@@ -91,6 +92,25 @@ def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash :
   let current := fun id => (byId.find id).any (·.current)
   return .ok { target := t, scenario := { trace := tr, current, overrides }, bindings,
                digest := ← Receipt.reviewDigest tr, review := ← Receipt.reviewState tr }
+
+/-- A trace decoded + checked: the trace, or why not. -/
+def checked (t : Store.Target) (decoded : Except (Array Decode.Diag) Trace) :
+    Except Problem Trace :=
+  match decoded with
+  | .error ds => .error (.undecodable t.trace ds)
+  | .ok tr =>
+    let vs := Check.violationsWith (Lookups.fast tr) tr
+    if vs.isEmpty then .ok tr else .error (.illFormed t.trace vs)
+
+/-- Reads, checks + binds the trace, then applies the what-if (`FACT=STATUS,…`). -/
+def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash : Bool)
+    (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
+  let tr ← match ← read t explicit with
+    | .ok d => match checked t d with
+      | .ok tr => pure tr
+      | .error p => return .error p
+    | .error p => return .error p
+  bindChecked t tr whatif rehash cache
 
 def envelope (l : Loaded) : Value := Evaluate.envelope l.scenario l.bindings l.digest l.review
 

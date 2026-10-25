@@ -118,6 +118,7 @@ def answerTests : TestM Unit := do
     let project ← IO.FS.realPath "examples/synthetic/project"
     let c := { cfgAt dir with target := { (cfgAt dir).target with project } }
     let cache ← IO.mkRef ({} : Receipt.Cache)
+    let kept ← Std.Mutex.new ({} : Kept)
     IO.FS.writeBinFile c.target.trace (← IO.FS.readBinFile "examples/synthetic/trace.json")
     let repo : Store.Env := { home := dir / "home", cwd := ← IO.currentDir }
     let cli := fun (args : List String) => do
@@ -129,23 +130,33 @@ def answerTests : TestM Unit := do
         ("{\"whatif\":\"O2=checked\",\"details\":\"claim:C2\"}",
           ["--whatif", "O2=checked", "--details", "claim:C2"]),
         ("{\"whatif\":\"\",\"action\":\"plan:C2\"}", ["--action", "plan:C2"])] do
-      let r ← answer c cache none body
+      let r ← answer c cache kept none body
       checkEq s!"server: {body} = fvtrace eval's bytes" (r.status.toCode, r.body) (200, ← cli args)
       check s!"server: {body} names its view" (viewOf r).isSome
     for (body, kind) in [("{\"whatif\":\"O9=proved\"}", "what-if"),
         ("{\"whatif\":\"\",\"action\":\"plan:C9\"}", "action"),
         ("{\"whatif\":\"\",\"details\":\"E9\"}", "item"), ("{}", "invalid"), ("[", "invalid"),
         ("{\"whatif\":\"O9=proved\",\"action\":\"x\",\"details\":\"y\"}", "what-if")] do
-      let r ← answer c cache none body
+      let r ← answer c cache kept none body
       checkEq s!"server: {body} refused" (r.status.toCode, problemKind r) (400, some kind)
-    let first ← answer c cache none "{\"whatif\":\"\"}"
-    let same ← answer c cache (viewOf first) "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
+    let first ← answer c cache kept none "{\"whatif\":\"\"}"
+    let same ← answer c cache kept (viewOf first) "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
     checkEq "server: details for the page's view" same.status.toCode 200
-    let other ← answer c cache (some "00ff") "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
+    let other ← answer c cache kept (some "00ff") "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
     checkEq "server: details for another view = 409 view" (other.status.toCode, problemKind other)
       (409, some "view")
     checkEq "server: an answer past the body cap = 413"
-      ((← answerBody c cache none none).status.toCode) 413
+      ((← answerBody c cache kept none none).status.toCode) 413
+    -- P-cache: an edited trace is read again (never a kept answer for old bytes).
+    let before ← answer c cache kept none "{\"whatif\":\"\"}"
+    let t ← IO.FS.readFile c.target.trace
+    IO.FS.writeFile c.target.trace (t.replace "\"summary\": \"" "\"summary\": \"Edited. ")
+    let after ← answer c cache kept none "{\"whatif\":\"\"}"
+    checkEq "server: an edited trace = fvtrace eval's answer for the new bytes"
+      (after.status.toCode, after.body) (200, ← cli [])
+    check "server: the edit changed the answer (the kept one was not reused)"
+      (after.body != before.body)
+    IO.FS.writeFile c.target.trace t
 
 /-- The evaluation route against a real project folder (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do
@@ -154,7 +165,8 @@ def nativeTests : TestM Unit := do
     let cache ← IO.mkRef ({} : Receipt.Cache)
     let requestOf := fun (w : Option String) =>
       some (Json.Value.obj [("whatif", .str (w.getD ""))]).canonical.toUTF8
-    let ask := fun (w : Option String) => answerBody c cache none (requestOf w)
+    let kept ← Std.Mutex.new ({} : Kept)
+    let ask := fun (w : Option String) => answerBody c cache kept none (requestOf w)
     let r ← ask none
     checkEq "server: no trace yet" (r.status.toCode, problemKind r) (409, some "no-trace")
     IO.FS.writeBinFile c.target.trace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json")
@@ -178,9 +190,10 @@ def nativeTests : TestM Unit := do
     let m ← real.metadata
     let planted : Receipt.Cache :=
       ({} : Receipt.Cache).insert real.toString (m.byteSize, m.modified.sec, m.modified.nsec, "x")
-    let fresh ← answerBody c (← IO.mkRef planted) none (requestOf none)
+    let fresh ← answerBody c (← IO.mkRef planted) (← Std.Mutex.new {}) none (requestOf none)
     checkEq "server: evidence is read again by default" (receiptCurrent fresh "O1") (some true)
-    let reused ← answerBody { c with cached := true } (← IO.mkRef planted) none (requestOf none)
+    let reused ← answerBody { c with cached := true } (← IO.mkRef planted) (← Std.Mutex.new {}) none
+      (requestOf none)
     checkEq "server: cached reuses a recorded digest" (receiptCurrent reused "O1") (some false)
     let r ← ask (some "O3=proved")
     checkEq "server: a what-if above the route" (r.status.toCode, problemKind r)
