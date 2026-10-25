@@ -390,16 +390,16 @@ const actionOf = (shape, n) => {
  */
 const itemsOf = (shape, n) => {
   const third = Math.floor(n / 3);
-  const experiment = {
+  const r = {
     prereqs: `R${third - 1}`,
     outcomes: "R0",
     experiments: "R0",
     questions: "R0",
     invalid: "R0",
   }[shape];
-  const claim = shape === "prereqs" ? `C${third - 1}` : "C0";
-  const fact = shape === "deep" ? "F1" : "E0";
-  return [...(experiment ? [`experiment:${experiment}`] : []), `claim:${claim}`, `fact:${fact}`];
+  const c = shape === "prereqs" ? `C${third - 1}` : "C0";
+  const f = shape === "deep" ? "F1" : "E0";
+  return [...(r ? [`experiment:${r}`] : []), `claim:${c}`, `fact:${f}`];
 };
 
 /** One argument's byte limit (Linux MAX_ARG_STRLEN = 32 pages), its NUL included. */

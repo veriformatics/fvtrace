@@ -335,11 +335,30 @@ probe_scale() {
     cat >"$stub" <<'STUB'
 #!/usr/bin/env bash
 # Stand-in fvtrace: sleeps k·n², prints STUB_B·n² bytes and holds STUB_M·n² MiB (STUB_SHAPE: that
-# shape alone), n = the size in the trace folder's name; exits STUB_RC.
+# shape alone), n = the size in the trace folder's name; exits STUB_RC. `export` writes a page
+# whose engine cannot start; `serve` with STUB_SERVE = a server that answers with that HTTP status
+# after k·n² s.
 trace=""
 for ((i = 1; i < $#; i++)); do [[ ${!i} == --trace ]] && { j=$((i + 1)); trace="${!j}"; }; done
 dir="${trace%/trace.json}" n="${dir##*-}" shape="${dir##*/}"
+if [[ $1 == serve && -n "${STUB_SERVE:-}" ]]; then
+    exec python3 -c '
+import http.server, os, sys, time
+class Answer(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.rfile.read(int(self.headers["Content-Length"]))
+        time.sleep(float(os.environ.get("STUB_K", "0")) * int(sys.argv[1]) ** 2)
+        self.send_response(int(os.environ["STUB_SERVE"]))
+        self.end_headers()
+        self.wfile.write(b"{}")
+    def log_message(self, *args):
+        pass
+s = http.server.HTTPServer(("127.0.0.1", 0), Answer)
+print(f"Open http://fvtrace.localhost:{s.server_port}/#token=00", flush=True)
+s.serve_forever()' "$n"
+fi
 sleep "$(awk -v n="$n" -v k="${STUB_K:-0}" 'BEGIN { printf "%.3f", k * n * n }')"
+[[ $1 == export ]] && printf '%s' '<script type="application/json" id="fvtrace-data">{"snapshot":{}}</script><script type="application/octet-stream" id="fvtrace-engine">AAAA</script>' >"$3"
 [[ -n "${STUB_B:-}" ]] && head -c "$((STUB_B * n * n))" /dev/zero
 if [[ -n "${STUB_M:-}" && ( -z "${STUB_SHAPE:-}" || $shape == "${STUB_SHAPE}"-* ) ]]; then
     exec python3 -c "import sys; b = bytearray($((STUB_M * n * n)) << 20); sys.exit(${STUB_RC:-0})"
@@ -357,7 +376,15 @@ STUB
         "${run[@]}"
     STUB_M=10 STUB_SHAPE=outcomes expect scale-rss-cap 'FAIL outcomes eval: rss [0-9]+ MiB > 1.25' \
         "${run[@]}" outcomes --max-ratio 100
-    allow scale-pass "${run[@]}"
+    # The serve rows: a server that exits, one that never prints its link, one that answers an
+    # error, one past the time limit; the page rows: an engine that cannot start.
+    STUB_RC=3 expect scale-serve-exit 'FAIL wide serve n=2: rc 3' "${run[@]}"
+    STUB_K=0.2 expect scale-serve-start 'FAIL wide serve n=4: timeout after 1 s' "${run[@]}" --timeout 1
+    STUB_SERVE=500 expect scale-serve-status 'FAIL wide serve:action n=2: rc 500' "${run[@]}"
+    STUB_SERVE=200 STUB_K=0.2 expect scale-serve-timeout 'FAIL wide serve:action n=4: timeout after 1 s' \
+        "${run[@]}" --timeout 1
+    expect scale-page 'FAIL wide page n=2: rc 2' "${run[@]}"
+    allow scale-pass bash tools/scale.sh --assert --n "2 4" --max-ratio 100 wide
 }
 
 # tools/compare.sh (cross-revision byte equality) fails on any difference: two stand-in binaries
