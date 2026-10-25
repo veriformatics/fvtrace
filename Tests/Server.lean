@@ -36,6 +36,8 @@ def decidedKind (a : Action) : Option String :=
 /-- Access, host + routing decisions (no I/O). -/
 def pureTests : TestM Unit := do
   let c := cfgAt "/nowhere"
+  checkEq "server: the body cap = 16 MiB + 1 KiB (kernel.md V-serve)" bodyCap
+    (16 * 1024 * 1024 + 1024)
   checkEq "server: only GET" (outcome (decide c (req "/" (method := .post))) "Allow")
     (405, some "GET", "Only GET is served.\n")
   -- The answer route (kernel.md V-serve): POST alone, the token before the body is read.
