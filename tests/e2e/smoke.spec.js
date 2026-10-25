@@ -29,7 +29,11 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     // The page keeps the run's token in its origin's storage and sends it as a header.
     const evaluation = await page.evaluate(async () => {
       const token = localStorage.getItem("fvtrace-token") ?? "";
-      const res = await fetch("/api/evaluation", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/answer", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ whatif: "" }),
+      });
       /** @type {unknown} */
       const body = await res.json();
       return { status: res.status, body };
