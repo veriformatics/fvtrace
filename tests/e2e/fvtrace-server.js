@@ -4,6 +4,7 @@
 // shipped example (examples/synthetic); `fixture` = the feature-rich test trace (exclusions,
 // prerequisites, waivers) with the example's proof files.
 import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -61,12 +62,13 @@ export async function prepareStudy(study, edit) {
 }
 
 /**
- * @param {string} [study] @param {(trace: Record<string, unknown>) => void} [edit]
- * @returns {Promise<{ url: string, base: string, project: string, close: () => Promise<void> }>}
+ * `fvtrace serve` with `args` in `cwd` + `env`, once it prints its link; `close` stops it, waits
+ * for its exit and removes `dir`.
+ * @param {string[]} args @param {string} cwd @param {NodeJS.ProcessEnv} env @param {string} dir
+ * @returns {Promise<{ url: string, close: () => Promise<void> }>}
  */
-export async function serveFvtrace(study = "synthetic", edit) {
-  const { dir, project, env } = await prepareStudy(study, edit);
-  const server = spawn(bin, ["serve", "--port", "0", "--no-browser"], { cwd: project, env });
+async function launch(args, cwd, env, dir) {
+  const server = spawn(bin, ["serve", "--port", "0", "--no-browser", ...args], { cwd, env });
   const url = await new Promise(
     /** @param {(link: string) => void} resolve */ (resolve, reject) => {
       let out = "";
@@ -80,13 +82,26 @@ export async function serveFvtrace(study = "synthetic", edit) {
   );
   return {
     url,
-    base: new URL(url).origin,
-    project,
     close: async () => {
-      server.kill();
+      if (server.exitCode === null && server.signalCode === null) {
+        const exited = once(server, "exit");
+        server.kill();
+        await exited;
+      }
       await rm(dir, { recursive: true, force: true });
     },
   };
+}
+
+/**
+ * @param {string} [study] @param {(trace: Record<string, unknown>) => void} [edit]
+ * @returns {Promise<{ url: string, base: string, project: string, env: NodeJS.ProcessEnv,
+ *   close: () => Promise<void> }>}
+ */
+export async function serveFvtrace(study = "synthetic", edit) {
+  const { dir, project, env } = await prepareStudy(study, edit);
+  const run = await launch([], project, env, dir);
+  return { ...run, base: new URL(run.url).origin, project, env };
 }
 
 /**
@@ -101,36 +116,10 @@ export async function serveScale(shape, n) {
     encoding: "utf8",
   });
   if (made.status !== 0) throw new Error(`tools/scale.mjs ${shape} ${n}: ${made.stderr}`);
-  const server = spawn(
-    bin,
-    [
-      "serve",
-      "--port",
-      "0",
-      "--no-browser",
-      "--trace",
-      join(dir, "trace.json"),
-      "--project",
-      join(dir, "project"),
-    ],
-    { env: { ...process.env, FVTRACE_HOME: join(dir, "home") } },
+  return launch(
+    ["--trace", join(dir, "trace.json"), "--project", join(dir, "project")],
+    dir,
+    { ...process.env, FVTRACE_HOME: join(dir, "home") },
+    dir,
   );
-  const url = await new Promise(
-    /** @param {(link: string) => void} resolve */ (resolve, reject) => {
-      let out = "";
-      server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
-        out += chunk.toString();
-        const link = /^Open (http:\/\/\S+)$/m.exec(out);
-        if (link?.[1]) resolve(link[1]);
-      });
-      server.on("exit", (code) => reject(new Error(`fvtrace serve exited ${code}: ${out}`)));
-    },
-  );
-  return {
-    url,
-    close: async () => {
-      server.kill();
-      await rm(dir, { recursive: true, force: true });
-    },
-  };
 }

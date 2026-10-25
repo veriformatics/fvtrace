@@ -54,15 +54,16 @@ def readPrefix (path : System.FilePath) (n : Nat) : IO ByteArray := do
 (`--trace`). A trace can come from someone else (a bundle), so only a regular file is opened (a
 FIFO blocks on open, a device such as `/dev/zero` never ends), its size decides before any byte is
 read, and at most one byte past the limit is read (a file growing meanwhile still meets the
-decoder's size rule). -/
-def readRawWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
+decoder's size rule). `reader` = how a prefix is read (a test grows the file inside it). -/
+def readRawWithin (limit : Nat) (t : Store.Target) (explicit : Bool)
+    (reader : System.FilePath → Nat → IO ByteArray := readPrefix) :
     IO (Except Problem (Except (Array Decode.Diag) ByteArray)) := do
   if !explicit && !(← t.trace.pathExists) then return .error (.noTrace t.project)
   try
     let m ← t.trace.metadata
     unless m.type == .file do return .error (.unreadable t.trace "not a regular file")
     if m.byteSize.toNat > limit then return .ok (.error #[sizeDiag m.byteSize.toNat limit])
-    return .ok (.ok (← readPrefix t.trace (limit + 1)))
+    return .ok (.ok (← reader t.trace (limit + 1)))
   catch e =>
     return .error (.unreadable t.trace ((toString e).replace "\n" " "))
 

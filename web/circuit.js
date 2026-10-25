@@ -168,23 +168,28 @@ export function circuit(c, ix, on) {
       h("ul", { class: "contacts", "aria-label": `Facts that ${c.id} needs` }),
       needs,
       (f) => contact(f, on, c.id),
-      ["fact", "facts"],
-      h(
-        "li",
-        { class: "terminal" },
-        lamp(c.final),
-        h(
-          "button",
-          {
-            class: "contact-label",
-            "data-key": `terminal:${c.id}`,
-            type: "button",
-            onclick: () => on.select("claim", c.id),
-          },
-          h("strong", {}, c.id),
-          h("span", { class: "contact-kind" }, word(levels, c.level)),
+      {
+        noun: ["fact", "facts"],
+        keyOf: (f) => f.id,
+        // The wire runs on past an end line, toward the lamp.
+        endClass: "wire-end",
+        tail: h(
+          "li",
+          { class: "terminal" },
+          lamp(c.final),
+          h(
+            "button",
+            {
+              class: "contact-label",
+              "data-key": `terminal:${c.id}`,
+              type: "button",
+              onclick: () => on.select("claim", c.id),
+            },
+            h("strong", {}, c.id),
+            h("span", { class: "contact-kind" }, word(levels, c.level)),
+          ),
         ),
-      ),
+      },
     ),
   );
 }
@@ -322,7 +327,10 @@ export function conditions(c, ix, on) {
             : "pair" in l
               ? exclusionLine(l.pair, `${c.id} needs`)
               : exclusionLine(l.conflict, "The what-if supposes"),
-        ["fact", "facts"],
+        {
+          noun: ["fact", "facts"],
+          keyOf: (l) => ("fact" in l ? l.fact : "pair" in l ? l.pair : l.conflict),
+        },
       ),
     ]),
   );

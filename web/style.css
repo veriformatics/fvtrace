@@ -198,6 +198,13 @@ code {
   display: none;
 }
 
+/* A list's size, always shown above it (user ruling). */
+.list-count {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--conductor);
+}
+
 /* A long list mounts its rows as an end nears the viewport (web/lazy.js): an end marker fills a
    whole grid row or flex line and says how many rows lie beyond it. */
 .lazy-end {
@@ -1073,6 +1080,21 @@ footer {
   flex: none;
   gap: 10px;
   padding: 12px 0 0 9px;
+}
+
+/* A tall card's end line keeps the wire running, dashed: more facts lie past it. */
+.tall .wire-end {
+  position: relative;
+  padding-left: 52px;
+}
+
+.tall .wire-end::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 20px;
+  border-left: 2px dashed var(--conductor);
 }
 
 .tall .terminal::before {

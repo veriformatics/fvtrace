@@ -1,6 +1,6 @@
 // The page engine's differential cases (`.agent/contracts/kernel.md` E-wasm): snapshots + what-if
-// specs that the WebAssembly build (through `web/engine.js`) and the native engine
-// (`fvtrace-tests --evaluate-snapshot`) both evaluate; every answer must match byte for byte.
+// specs + request sequences that the WebAssembly build (through `web/engine.js`) and the native
+// engine (`fvtrace-tests --answer-snapshot`) both answer; every answer must match byte for byte.
 // Built from trace JSON (a snapshot is the trace's text + bindings + review), so both sides read
 // exactly the same input.
 import { execFileSync } from "node:child_process";
@@ -132,9 +132,17 @@ export function nativeRequests(snapshot, requests) {
 /** One request's JSON text. @param {Record<string, string>} r */
 const req = (r) => JSON.stringify(r);
 
+/** An answer that is a problem (`kernel.md` E-request). @param {string | undefined} text */
+const isProblem = (text) => {
+  /** @type {unknown} */
+  const v = JSON.parse(text ?? "null");
+  return !isJson(v) || "problem" in v;
+};
+
 /** A request sequence for one case (`kernel.md` E-wasm): what-ifs, every one-click action, the
- * details of every item (a few on the large cases), refusals of each kind, and state carried
- * across (back to recorded, repeats). @param {Case} c @returns {string[]} */
+ * details of every item (a few on the large cases) at the recorded view + at a what-if the engine
+ * accepts, refusals of each kind, and state carried across (back to recorded, repeats).
+ * @param {Case} c @returns {string[]} */
 export function requestsFor(c) {
   /** @type {unknown} */
   const env = JSON.parse(nativeAnswers(c.snapshot, [""])[0] ?? "null");
@@ -142,7 +150,10 @@ export function requestsFor(c) {
     isJson(env) ? records(env[key]).map((r) => String(r["id"])) : [];
   const large = c.name.startsWith("a 4 MB") || c.name.startsWith("12,000");
   const few = (/** @type {string[]} */ xs) => (large ? xs.slice(0, 3) : xs);
-  const firstWhatif = c.specs.find((x) => x !== "") ?? "";
+  // Details at a what-if need one the engine accepts (a refused one answers a problem first).
+  const candidates = c.specs.filter((x) => x !== "").slice(0, 8);
+  const accepted = nativeAnswers(c.snapshot, candidates);
+  const firstWhatif = candidates.find((_, i) => !isProblem(accepted[i])) ?? "";
   return [
     req({ whatif: "" }),
     ...few(c.specs.slice(1, 6)).map((whatif) => req({ whatif })),
@@ -164,17 +175,26 @@ export function requestsFor(c) {
   ];
 }
 
-/** The recorded envelope's one-click actions, as what-if specs. @param {string} snapshot */
-function actionSpecs(snapshot) {
+/** The what-if spec an envelope shows (its overrides, in order). @param {unknown} env */
+export const specOf = (env) =>
+  isJson(env)
+    ? records(env["overrides"])
+        .map((o) => `${String(o["fact"])}=${String(o["status"])}`)
+        .join(",")
+    : "";
+
+/** The recorded envelope's one-click actions, each as the what-if its expansion shows (actions
+ * carry references alone, kernel.md V-env: the native engine expands them).
+ * @param {string} snapshot */
+export function actionSpecs(snapshot) {
   /** @type {unknown} */
   const env = JSON.parse(nativeAnswers(snapshot, [""])[0] ?? "null");
-  const actions =
-    typeof env === "object" && env !== null && "actions" in env ? records(env.actions) : [];
-  return actions.map((a) =>
-    records(a["overrides"])
-      .map((o) => `${String(o["fact"])}=${String(o["status"])}`)
-      .join(","),
+  const actions = isJson(env) ? records(env["actions"]).map((a) => String(a["id"])) : [];
+  const expanded = nativeRequests(
+    snapshot,
+    actions.map((action) => req({ whatif: "", action })),
   );
+  return expanded.map((text) => specOf(JSON.parse(text))).filter((spec) => spec !== "");
 }
 
 /** Classes a random draw would rarely produce (`kernel.md` E-wasm). @param {string} f */
@@ -393,7 +413,8 @@ export function cases(seed) {
     const facts = factIds(trace);
     const first = facts[0] ?? "O1";
     const conflicting = name.startsWith("verified exclusion") ? ["O4=assumed,O5=assumed"] : [];
-    // Each call decodes the snapshot again (both sides): the 4 MB case keeps to a few.
+    // The large cases keep to a few specs: each one is a full evaluation of a large trace in both
+    // engines (one load answers them all).
     if (name.startsWith("a 4 MB"))
       return { name, snapshot, specs: ["", "O2=checked,EN2=proved", "ZZ=proved", ""] };
     if (name.startsWith("12,000 claims")) return { name, snapshot, specs: ["", "E0=proved"] };

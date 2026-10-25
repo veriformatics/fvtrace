@@ -322,6 +322,30 @@ test("the page's engine works in a Worker: a selection shows while it answers", 
   await context.close();
 });
 
+test("a details request that fails ends the engine: the facts as recorded + the notice", async ({
+  browser,
+}) => {
+  const { context, page, url } = await openOffline(browser);
+  // The second request (the selection's details) traps.
+  await plantWorker(page, { trapAt: 2 });
+  await page.goto(url);
+  await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+  await expect(page.getByRole("status")).toContainText("suppose O2 is verified by a checker");
+  await card(page, "C1").locator(".claim-head .tag-id").getByRole("button").click();
+  await expect(page.locator("#error")).toHaveText(engineFailed);
+  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#inspector")).toContainText("cannot show these details");
+  const calls = await page.evaluate(() => {
+    /** @type {unknown} */
+    const count = Reflect.get(globalThis, "fvtraceCalls");
+    /** @type {unknown} */
+    const n = typeof count === "function" ? Reflect.apply(count, undefined, []) : -1;
+    return typeof n === "number" ? n : -1;
+  });
+  expect(calls).toBe(2);
+  await context.close();
+});
+
 test("an engine that fails mid-session is never called again", async ({ browser }) => {
   const { context, page, url } = await openOffline(browser);
   // The second request traps: a stand-in for any failure inside the engine.

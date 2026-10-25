@@ -4,7 +4,8 @@
 // reachable by keyboard, a request past 1 s shows that the page is working, one evaluation runs
 // at a time and the newest wins.
 import { test, expect } from "@playwright/test";
-import { serveFvtrace, serveScale } from "./fvtrace-server.js";
+import { readFile, writeFile } from "node:fs/promises";
+import { fvtrace, isRecord, serveFvtrace, serveScale } from "./fvtrace-server.js";
 
 /** @type {{ url: string, close: () => Promise<void> }} */
 let web;
@@ -50,11 +51,10 @@ async function holdEvaluations(page) {
   await page.route("**/api/answer", async (route) => {
     /** @type {unknown} */
     const body = JSON.parse(route.request().postData() ?? "{}");
-    const isRecord = typeof body === "object" && body !== null;
     /** @type {unknown} */
-    const details = isRecord ? Reflect.get(body, "details") : undefined;
+    const details = isRecord(body) ? body["details"] : undefined;
     /** @type {unknown} */
-    const whatif = isRecord ? Reflect.get(body, "whatif") : undefined;
+    const whatif = isRecord(body) ? body["whatif"] : undefined;
     if (details !== undefined || whatif === "") return route.continue();
     seen.specs.push(String(whatif));
     seen.inFlight++;
@@ -232,4 +232,158 @@ test("a board the reader has scrolled past stays as it is; its end mounts more o
   await expect.poll(() => cards.count()).toBeGreaterThan(loaded);
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1500)));
   expect(await cards.count()).toBeLessThan(3000);
+});
+
+test("a deep card's long list names each position and keeps a late contact's focus", async ({
+  page,
+}) => {
+  web = await serveScale("deep", 300);
+  await page.goto(web.url);
+  const contacts = page.locator("article.circuit .contacts > li.contact");
+  await contacts.first().waitFor();
+  await expect(contacts.first()).toHaveAttribute("aria-posinset", "1");
+  await expect(contacts.first()).toHaveAttribute("aria-setsize", "301");
+  // Keyboard into the list until F251 mounts, then press it: its what-if rebuilds the card.
+  const late = page.locator('[data-key="switch:C0:F251"]');
+  await expect
+    .poll(async () => {
+      await contacts.last().locator("button.switch").focus();
+      return late.count();
+    })
+    .toBe(1);
+  await late.focus();
+  await late.press("Enter");
+  await expect(page.locator("#scenario-text")).toContainText("suppose F251 is proved");
+  await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
+  await expect(page.locator('[data-key="switch:C0:F251"]')).toBeFocused();
+});
+
+test("an excluded-pair answer for an earlier view never reaches the card", async ({ page }) => {
+  // C needs F1, F2, F3; X1 (F1 + F2) is asserted at first, then the file asserts X2 instead.
+  const served = await serveFvtrace("synthetic", (t) => {
+    Object.assign(t, {
+      analysis: { id: "A", title: "Original pair", summary: "Pair request ordering" },
+      subjects: [{ id: "S", title: "Study", kind: "existing" }],
+      questions: [{ id: "Q", title: "Question", text: "What follows?" }],
+      facts: [
+        ...["F1", "F2", "F3"].map((id) => ({
+          id,
+          subject: "S",
+          kind: "statistical",
+          text: `${id} holds.`,
+          status: "open",
+          route: "human-ruling",
+        })),
+        {
+          id: "EN",
+          subject: "S",
+          kind: "entailment",
+          text: "The facts support the claim.",
+          status: "open",
+          route: "lean",
+        },
+      ],
+      claims: [
+        {
+          id: "C",
+          subject: "S",
+          question: "Q",
+          level: "descriptive",
+          text: "The claim holds.",
+          needs: ["F1", "F2", "F3"],
+          entailment: "EN",
+        },
+      ],
+      experiments: [],
+      waivers: [],
+      exclusions: [
+        {
+          id: "X1",
+          subject: "S",
+          between: ["F1", "F2"],
+          text: "Original pair X1.",
+          status: "assumed",
+          route: "human-ruling",
+        },
+        {
+          id: "X2",
+          subject: "S",
+          between: ["F2", "F3"],
+          text: "Replacement pair X2.",
+          status: "open",
+          route: "human-ruling",
+        },
+      ],
+    });
+    delete t["review"];
+  });
+  web = served;
+  /** @type {(() => void) | undefined} */
+  let release;
+  let first = true;
+  await page.route("**/api/answer", async (route) => {
+    const body = route.request().postData() ?? "";
+    if (first && body.includes('"details":"claim:C"')) {
+      first = false;
+      const response = await route.fetch();
+      await new Promise((resolve) => {
+        release = () => resolve(undefined);
+      });
+      await route.fulfill({ response });
+    } else await route.continue();
+  });
+  await page.goto(web.url);
+  await expect.poll(() => release !== undefined).toBe(true);
+  // The file changes: X1 no longer asserted, X2 asserted. A what-if, then back to the recorded view.
+  const file = fvtrace(["path"], served.project, served.env);
+  /** @type {unknown} */
+  const trace = JSON.parse(await readFile(file, "utf8"));
+  /** @type {unknown} */
+  const exclusions = isRecord(trace) ? trace["exclusions"] : undefined;
+  /** @type {unknown[]} */
+  const list = Array.isArray(exclusions) ? exclusions : [];
+  const [x1, x2] = list;
+  if (!isRecord(x1) || !isRecord(x2)) throw new Error("the trace lost its exclusions");
+  x1["status"] = "open";
+  x2["status"] = "assumed";
+  await writeFile(file, JSON.stringify(trace));
+  await page.locator('[data-key="switch:C:F1"]').click();
+  await expect(page.locator("#scenario-text")).toContainText("suppose F1");
+  await page.locator("#reset").click();
+  await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
+  await expect(page.locator(".circuit .exclusion-id")).toHaveText(["X2"]);
+  release?.();
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1500)));
+  await expect(page.locator(".circuit .exclusion-id")).toHaveText(["X2"]);
+});
+
+test("a chosen match of another question no longer says so once the board shows it", async ({
+  page,
+}) => {
+  web = await serveFvtrace("synthetic", (t) => {
+    /** @type {unknown} */
+    const questions = t["questions"];
+    if (Array.isArray(questions))
+      questions.push({ id: "Q2", title: "New cohort", text: "Does the new cohort show it?" });
+    /** @type {unknown} */
+    const claims = t["claims"];
+    for (const c of Array.isArray(claims) ? claims : [])
+      if (isRecord(c) && c["id"] === "C3") c["question"] = "Q2";
+  });
+  await page.goto(web.url);
+  await card(page, "C1").waitFor();
+  await page.locator("#find").fill("C3");
+  await expect(page.locator("#find-results")).toContainText("In another question: New cohort");
+  await page.locator("#find").press("Enter");
+  await expect(card(page, "C3")).toHaveClass(/selected/);
+  await expect(page.locator("#find-results")).not.toContainText("In another question");
+});
+
+test("every list shows its size above it", async ({ page }) => {
+  web = await serveScale("wide", 300);
+  await page.goto(web.url);
+  await page.locator("article.circuit").first().waitFor();
+  await expect(page.locator(".board .group .list-count")).toHaveText("300 claims");
+  await expect(page.locator("#work-count")).toHaveText("300 facts");
+  await expect(page.locator("#experiment-count")).toHaveText("0 experiments");
 });

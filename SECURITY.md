@@ -19,7 +19,7 @@ These parts of fvTrace read data that can come from other people:
 - `fvtrace serve`: the web server and the secret token that its link carries. With `--host`,
   other computers on your network can reach it. The page asks for answers with requests that
   carry the token; the server reads a request's body only after it accepts the token, and it
-  refuses a body larger than 16 MiB.
+  refuses a body larger than 16 MiB and 1 KiB.
 - The page that `fvtrace export --html` writes and the folder that `fvtrace export --bundle`
   writes. The page runs the fvTrace engine, compiled to WebAssembly, in the browser, in a
   background worker that the page makes from its own copy of the engine's code. Its content

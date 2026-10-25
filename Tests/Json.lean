@@ -109,6 +109,11 @@ def tests : TestM Unit := do
   checkEq "json: printed JSON escapes DEL + C1 controls (a terminal acts on them)"
     (Value.obj [("k\x9b", .str "a\x7fb\x9bc\x85d")]).pretty
     "{\n  \"k\\u009b\": \"a\\u007fb\\u009bc\\u0085d\"\n}\n"
+  -- A string whose one special byte is a backslash, a quote or (printed) DEL still takes the
+  -- escaping path (`rewritesFrom` must flag each).
+  checkEq "json: a lone backslash escapes" (Value.str "\\").canonical "\"\\\\\""
+  checkEq "json: a lone quote escapes" (Value.str "\"").canonical "\"\\\"\""
+  checkEq "json: printed JSON escapes a lone DEL" (Value.str "\x7f").pretty "\"\\u007f\"\n"
   checkEq "json: the digest form keeps them raw (JSON.stringify bytes)"
     (Value.str "a\x7fb\x9b").canonical "\"a\x7fb\x9b\""
   checkEq "json: printed JSON escapes bidirectional formatting"

@@ -456,7 +456,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "d4d7028006eda1bcebdbd41e1a66e8fcd6b55b6b6e78845e4d89785d0948ed4a",
+            "sha256": "8257e2aea0af6d0c38e03a9e004bee8c73e2a343d150cd80e6cd501100577790",
             "role": "code"
           },
           {
@@ -740,7 +740,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Forest.lean",
-            "sha256": "ea4faa38bad1456d980cee300e477a9e098fdccdac3f39640990deac57cc0063"
+            "sha256": "f245adcd8abbac51297cd7c411fb3ddef2585c53fd83eb8eda0f24094a6a87c7"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",
@@ -889,7 +889,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Forest.lean",
-            "sha256": "ea4faa38bad1456d980cee300e477a9e098fdccdac3f39640990deac57cc0063"
+            "sha256": "f245adcd8abbac51297cd7c411fb3ddef2585c53fd83eb8eda0f24094a6a87c7"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",

@@ -335,7 +335,8 @@ probe_scale() {
     cat >"$stub" <<'STUB'
 #!/usr/bin/env bash
 # Stand-in fvtrace: sleeps k·n², prints STUB_B·n² bytes and holds STUB_M·n² MiB (STUB_SHAPE: that
-# shape alone), n = the size in the trace folder's name; exits STUB_RC. `export` writes a page
+# shape alone), n = the size in the trace folder's name; exits STUB_RC (STUB_ONLY: for that command
+# alone). `export` writes a page
 # whose engine cannot start; `serve` with STUB_SERVE = a server that answers with that HTTP status
 # after k·n² s.
 trace=""
@@ -363,11 +364,13 @@ sleep "$(awk -v n="$n" -v k="${STUB_K:-0}" 'BEGIN { printf "%.3f", k * n * n }')
 if [[ -n "${STUB_M:-}" && ( -z "${STUB_SHAPE:-}" || $shape == "${STUB_SHAPE}"-* ) ]]; then
     exec python3 -c "import sys; b = bytearray($((STUB_M * n * n)) << 20); sys.exit(${STUB_RC:-0})"
 fi
+[[ -n "${STUB_ONLY:-}" && $1 != "${STUB_ONLY}" ]] && exit 0
 exit "${STUB_RC:-0}"
 STUB
     chmod +x "$stub"
     local run=(bash tools/scale.sh --assert --bin "$stub" --n "2 4" wide)
     STUB_RC=3 expect scale-rc 'FAIL wide check n=2: rc 3' "${run[@]}"
+    STUB_RC=3 STUB_ONLY=plan expect scale-text 'FAIL wide plan n=2: rc 3' "${run[@]}"
     STUB_K=0.02 expect scale-ratio 'FAIL wide check n=2→4: ratio [0-9.]+ > 2.5 per doubling' "${run[@]}"
     STUB_K=0.02 expect scale-wall 'FAIL wide check n=4: wall [0-9.]+ s > 0.1 s' "${run[@]}" --max-wall 0.1
     STUB_K=0.2 expect scale-timeout 'FAIL wide check n=4: timeout after 1 s' "${run[@]}" --timeout 1
@@ -407,7 +410,20 @@ probe_compare() {
     # shellcheck disable=SC2016 # the stand-in's own script text
     printf '#!/usr/bin/env bash\n[[ -e "$0.ran" ]] || { : >"$0.ran"; sleep 3; }\n' >"$slow"
     chmod +x "$slow"
-    expect compare-timeout 'TIMEOUT old self check' bash tools/compare.sh --timeout 1 "$slow" "$slow"
+    expect compare-timeout 'TIMEOUT old form eval' bash tools/compare.sh --timeout 1 "$slow" "$slow"
+    # The v1 → v2 paths time out too: both binaries stall alike (equal partial output, equal rc), on
+    # a JSON comparison and on an expansion oracle.
+    local json="$backup/slow-whatif" oracle="$backup/slow-action"
+    printf '%s\n' '#!/usr/bin/env bash' '[[ " $* " == *" O9=proved "* ]] && sleep 3' 'exit 0' >"$json"
+    printf '%s\n' '#!/usr/bin/env bash' 'case " $* " in' \
+        '*" --action "*) sleep 3 ;;' \
+        '" eval --trace "*) printf '"'"'{"actions":[{"id":"a","overrides":[]}]}\n'"'"' ;;' \
+        'esac' >"$oracle"
+    chmod +x "$json" "$oracle"
+    expect compare-json-timeout 'TIMEOUT old self eval --whatif O9=proved' \
+        bash tools/compare.sh --timeout 1 "$json" "$json"
+    expect compare-oracle-timeout 'TIMEOUT new self eval --action a' \
+        bash tools/compare.sh --timeout 1 "$oracle" "$oracle"
 }
 
 probes=("$@")

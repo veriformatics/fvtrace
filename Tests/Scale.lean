@@ -7,7 +7,9 @@ import Fvtrace.Receipt
 Scale (`kernel.md` P-bound, P-evidence): the shapes of `tools/scale.mjs` as `Trace` values, at sizes
 where the list-scanning checker + engine ran for minutes (af5a2f1: `check` on 4,000 wide claims
 29.5 s at load ≈ 26) and the indexed ones take a fraction of a second. A regression shows as this
-area's time (the summary's three slowest) or the suite's timeout.
+area's time (the summary's three slowest); the shapes the forest walk + references made linear
+(outcomes, prereqs, whatif) also carry a time bound, 20 s, far above their sub-second run under
+load and far below the minutes the earlier engine took, and whatif a size bound on its envelope.
 -/
 
 namespace Tests.Scale
@@ -133,6 +135,15 @@ def text (v : Json.Value) (key : String) : String :=
 def count (v : Json.Value) (key : String) : Option Json.Value :=
   (field v "counts").bind (field · key)
 
+/-- The bound on each linear-by-design shape's evaluation (see the module doc). -/
+def boundMs : Nat := 20000
+
+/-- `wide n` under the what-if F_i = assumed, E_i = tested (`tools/scale.mjs` whatif): every E_i
+closable, so every claim offers a suppose action. -/
+def whatif (n : Nat) : Scenario :=
+  { trace := wide n, current := fun _ => true
+    overrides := (List.range n).flatMap fun i => [(s!"F{i}", .assumed), (s!"E{i}", .tested)] }
+
 /-- The recorded envelope (`fvtrace eval`) on each shape: every verdict, work row, experiment +
 plan, at sizes where the list-scanning engine ran for minutes (af5a2f1 binary, load ≈ 25: wide
 4,000 101 s; deep 4,000, experiments + exclusions 1,000 each past 900 s). -/
@@ -197,6 +208,7 @@ def evalTests : TestM Unit := do
   -- outcomes: one experiment proves every E_i (U7: each claim's plan read at that experiment's
   -- node, not a delta over its n outcomes per claim).
   let n := 3000
+  let t0 ← IO.monoMsNow
   let e := env (outcomes n)
   checkEq "eval-scale: outcomes → the experiment lights every claim"
     ((items e "experiments").map (field · "lights")) [some (.num n)]
@@ -204,9 +216,12 @@ def evalTests : TestM Unit := do
     ((items e "claims").filter fun c => (field c "plan").any fun p =>
       field p "result" == some (.str "planned") && field p "state" == some (.str "conditional")
       ).length n
+  let ms := (← IO.monoMsNow) - t0
+  check s!"eval-scale: outcomes {n} evaluates within {boundMs} ms" (ms ≤ boundMs) s!"{ms} ms"
   -- prereqs: a chain (R_i lights C_0 … C_i), a star (a leaf lights its claim + the root's), own
   -- creators (light nothing); plans of the first two thirds planned, the last third none.
   let n := 3000
+  let t0 ← IO.monoMsNow
   let e := env (prereqs n)
   let xs := items e "experiments"
   let lights := fun (id : String) =>
@@ -218,5 +233,21 @@ def evalTests : TestM Unit := do
   checkEq "eval-scale: prereqs → planned + no improvement"
     ((plans.filter (· == .str "planned")).length,
       (plans.filter (· == .str "noImprovement")).length) (2000, 1000)
+  let ms := (← IO.monoMsNow) - t0
+  check s!"eval-scale: prereqs {n} evaluates within {boundMs} ms" (ms ≤ boundMs) s!"{ms} ms"
+  -- whatif: every E_i closable under the what-if; each suppose action names its fact alone
+  -- (kernel.md V-env: actions by reference), so the envelope stays linear (P-bytes).
+  let n := 2000
+  let t0 ← IO.monoMsNow
+  let e := Evaluate.envelope (whatif n) [] "digest" .draft
+  checkEq "eval-scale: whatif → every claim open under the what-if" (count e "open")
+    (some (.num n))
+  checkEq "eval-scale: whatif → one suppose action per E_i"
+    ((items e "actions").filter (field · "kind" == some (.str "suppose"))).length n
+  let bytes := e.pretty.utf8ByteSize
+  check s!"eval-scale: whatif {n} → envelope within {4000 * n} bytes (linear)" (bytes ≤ 4000 * n)
+    s!"{bytes} bytes"
+  let ms := (← IO.monoMsNow) - t0
+  check s!"eval-scale: whatif {n} evaluates within {boundMs} ms" (ms ≤ boundMs) s!"{ms} ms"
 
 end Tests.Scale

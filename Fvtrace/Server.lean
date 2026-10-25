@@ -9,9 +9,10 @@ Serves the embedded GUI and one JSON route, the evaluation envelope (under a wha
 displays it and computes no verdict. The server reads the project and writes nothing but its own
 digest cache.
 
-Access: every request must use GET and name an allowed `Host` (a page on another site that rebinds
-its DNS name to this address is refused). The GUI files, open source, answer anyone who passes
-that; the claims (`POST /api/answer`) answer only a request carrying the run's random token as
+Access: every request must use its route's method (GET for the GUI files, POST for the answer
+route) and name an allowed `Host` (a page on another site that rebinds its DNS name to this address
+is refused). The GUI files, open source, answer anyone who passes that; the claims
+(`POST /api/answer`) answer only a request carrying the run's random token as
 `Authorization: Bearer`. The page keeps the token in its own origin's storage: no cookie, since
 cookies ignore ports and would reach every server on the host. Responses forbid framing, sniffing,
 inline script and HTML-string DOM sinks (Trusted Types).
@@ -192,7 +193,7 @@ def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex K
     (view : Option String) (body : Option ByteArray) : IO Reply := do
   let some b := body
     | return problemJson .payloadTooLarge "invalid"
-        "The request is larger than any what-if on the largest trace."
+        "The what-if is too long to evaluate. Suppose fewer facts, then try again."
   let some text := String.fromUTF8? b | return problemJson .badRequest "invalid" Request.malformed
   try answer cfg cache kept view text
   catch e =>

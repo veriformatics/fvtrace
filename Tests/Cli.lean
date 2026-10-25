@@ -189,6 +189,20 @@ def readTests : TestM Unit := do
     checkEq "read: a shorter file comes back whole"
       (← Fvtrace.Session.readPrefix big 2000000).size 1048586
     checkEq "read: a prefix of 0 bytes reads nothing" (← Fvtrace.Session.readPrefix big 0).size 0
+    -- D-json: a file that grows between its size check and its read yields at most one byte past
+    -- the limit (the reader appends before it reads, as a writer racing the check would).
+    let growing := dir / "growing.json"
+    IO.FS.writeFile growing "abcd"
+    let grow := fun (path : System.FilePath) (n : Nat) => do
+      let h ← IO.FS.Handle.mk path .append
+      h.putStr "efghij"
+      h.flush
+      Fvtrace.Session.readPrefix path n
+    match ← Fvtrace.Session.readRawWithin 4
+        { trace := growing, project := dir, entry := dir / "e" } true grow with
+    | .ok (.ok bytes) =>
+      checkEq "read: a file grown after its size check yields the limit + 1 bytes" bytes.size 5
+    | _ => check "read: a file grown after its size check yields the limit + 1 bytes" false
 
 private def groupClaim (id sub : String) : Fvtrace.Claim :=
   { id, subject := sub, question := "Q", level := .descriptive, text := id,

@@ -22,15 +22,19 @@ export class LazyList {
   /**
    * @param {HTMLElement} root the list element (its children = the mounted rows)
    * @param {{ posinset?: boolean, sentinel?: "li" | "div" | "span", noun?: [string, string],
-   *   tail?: HTMLElement }} [opts] `posinset`: rows carry `aria-posinset` + `aria-setsize`;
-   *   `sentinel`: the element type of the end markers; `noun`: what a row is (singular, plural),
-   *   for the end markers' words; `tail`: an element that stays after the rows (a circuit's lamp)
+   *   tail?: HTMLElement, itemRole?: string, endClass?: string }} [opts] `posinset`: rows carry
+   *   `aria-posinset` + `aria-setsize`; `sentinel`: the element type of the end markers; `noun`:
+   *   what a row is (singular, plural), for the end markers' words; `tail`: an element that stays
+   *   after the rows (a circuit's lamp); `itemRole`: each row's role; `endClass`: a class the end
+   *   markers add
    */
   constructor(root, opts = {}) {
     this.root = root;
     this.posinset = opts.posinset ?? false;
     this.noun = opts.noun ?? ["item", "items"];
     this.tail = opts.tail;
+    this.itemRole = opts.itemRole;
+    owners.set(root, this);
     const tag = opts.sentinel ?? "div";
     /** @type {Row[]} */
     this.rows = [];
@@ -44,7 +48,7 @@ export class LazyList {
     this.top = document.createElement(tag);
     this.bottom = document.createElement(tag);
     for (const s of [this.top, this.bottom]) {
-      s.className = "lazy-end";
+      s.className = opts.endClass ? `lazy-end ${opts.endClass}` : "lazy-end";
       s.setAttribute("aria-hidden", "true");
     }
     // Each end looks one way: the bottom one below the viewport, the top one above it. An end
@@ -197,6 +201,7 @@ export class LazyList {
   /** @param {HTMLElement} node @param {string} key @param {number} i */
   mark(node, key, i) {
     node.dataset["row"] = key;
+    if (this.itemRole) node.setAttribute("role", this.itemRole);
     if (this.posinset) {
       node.setAttribute("aria-posinset", String(i + 1));
       node.setAttribute("aria-setsize", String(this.rows.length));
@@ -227,6 +232,16 @@ export class LazyList {
       if (e.isIntersecting) ends.push(e.target === this.top ? "top" : "bottom");
     if (ends.length) this.step(ends);
   }
+}
+
+/** Each list element's lazy list (a re-render mounts a focused row through it). */
+/** @type {WeakMap<HTMLElement, LazyList>} */
+const owners = new WeakMap();
+
+/** Mounts the row `key` of the lazy list at `root`, when `root` is one; returns its node.
+ * @param {Element} root @param {string} key */
+export function showIn(root, key) {
+  return root instanceof HTMLElement ? owners.get(root)?.show(key) : undefined;
 }
 
 /** The row key of the mounted row holding `target`. @param {EventTarget | null} target
@@ -261,21 +276,37 @@ const short = 40;
 
 /**
  * A list element holding `items`: drawn whole when short, else mounted as it nears the viewport
- * (`LazyList`). @template T @param {HTMLElement} el the empty list element
+ * (`LazyList`, rows naming their position + the list's size: an inline list takes the list roles).
+ * @template T @param {HTMLElement} el the empty list element
  * @param {T[]} items @param {(item: T, i: number) => HTMLElement} make
- * @param {[string, string]} [noun] what an item is (singular, plural)
- * @param {HTMLElement} [tail] an element after the items @returns {HTMLElement}
+ * @param {{ noun?: [string, string], tail?: HTMLElement, keyOf?: (item: T) => string,
+ *   endClass?: string }} [opts] `noun`: what an item is (singular, plural); `tail`: an element
+ *   after the items; `keyOf`: an item's key (default its position), so a re-render can mount a
+ *   focused one (`showIn`); `endClass`: a class for the end markers
+ * @returns {HTMLElement}
  */
-export function listOf(el, items, make, noun, tail) {
+export function listOf(el, items, make, opts = {}) {
   if (items.length <= short) {
-    el.append(...items.map(make), ...(tail ? [tail] : []));
+    el.append(...items.map(make), ...(opts.tail ? [opts.tail] : []));
     return el;
   }
+  const inline = !(el instanceof HTMLUListElement);
+  if (inline) el.setAttribute("role", "list");
   const lazy = new LazyList(el, {
-    sentinel: el instanceof HTMLUListElement ? "li" : "span",
-    ...(noun ? { noun } : {}),
-    ...(tail ? { tail } : {}),
+    sentinel: inline ? "span" : "li",
+    posinset: true,
+    ...(inline ? { itemRole: "listitem" } : {}),
+    ...(opts.noun ? { noun: opts.noun } : {}),
+    ...(opts.tail ? { tail: opts.tail } : {}),
+    ...(opts.endClass ? { endClass: opts.endClass } : {}),
   });
-  lazy.set(items.map((x, i) => ({ key: String(i), sig: () => "", make: () => make(x, i) })));
+  const keyOf = opts.keyOf;
+  lazy.set(
+    items.map((x, i) => ({
+      key: keyOf ? keyOf(x) : String(i),
+      sig: () => "",
+      make: () => make(x, i),
+    })),
+  );
   return el;
 }

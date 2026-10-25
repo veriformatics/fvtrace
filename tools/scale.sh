@@ -6,7 +6,8 @@
 # Default: every shape at n = cap/2 and cap (the largest n within 16 MiB; whatif: its what-if
 # within one argument too), the built binary, 900 s per run. Rows per shape + n: `check`, `eval`,
 # `action` (eval --action of action.txt), `details:<kind>` (eval --details of each items.txt
-# line), `export` (--html); `serve` = one server: its launch (start → the recorded answer), then,
+# line), `export` (--html), on the F5 four the text commands `claims`, `gaps`, `experiments`,
+# `plan` (of items.txt's claim; elsewhere their output grows by design, kernel.md P-time); `serve` = one server: its launch (start → the recorded answer), then,
 # as the GUI sends them, `serve:whatif` (a whatif.txt view), `serve:details:<kind>` at that view,
 # `serve:action` from it; `page` = the exported page's engine (tools/scale-page.mjs): start-up,
 # then the same steps; `gui:<served|page>:<step>` = the GUI in Chromium (tools/scale-gui.mjs or
@@ -45,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 graded=" wide deep experiments exclusions outcomes prereqs whatif "
+f5=" wide deep experiments exclusions "
 [[ ${#shapes[@]} -gt 0 ]] ||
     shapes=(wide deep experiments exclusions hub questions waivers receipts outcomes prereqs whatif invalid)
 
@@ -168,7 +170,9 @@ for shape in "${shapes[@]}"; do
     # P-time's rows: the costliest action + the costliest item of each kind (tools/scale.mjs).
     kinds=()
     while read -r item; do kinds+=("${item%%:*}"); done <"$first/items.txt"
-    cmds=(check eval action "${kinds[@]/#/details:}" export serve)
+    cmds=(check eval action "${kinds[@]/#/details:}" export)
+    [[ "$f5" == *" $shape "* ]] && cmds+=(claims gaps experiments plan)
+    cmds+=(serve)
     [[ -f "$first/whatif.txt" ]] && cmds+=(serve:whatif)
     cmds+=("${kinds[@]/#/serve:details:}" serve:action page)
     [[ -f "$first/whatif.txt" ]] && cmds+=(page:whatif)
@@ -204,6 +208,8 @@ for shape in "${shapes[@]}"; do
                 details:*)
                     args=(eval "${whatif[@]}" --details "$(grep -m1 "^${cmd#details:}:" "$dir/items.txt")") ;;
                 export) args=(export --html "$dir/page.html") ;;
+                claims | gaps | experiments) args=("$cmd") ;;
+                plan) c="$(grep -m1 '^claim:' "$dir/items.txt")" && args=(plan "${c#claim:}") ;;
                 esac
                 args+=(--trace "$dir/trace.json" --project "$dir/project")
                 : >"$work/time"

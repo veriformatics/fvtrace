@@ -29,7 +29,9 @@ const whatifFile = join(dir, "whatif.txt");
 const whatif = existsSync(whatifFile) ? readFileSync(whatifFile, "utf8").trim() : "";
 const hash = whatif ? `whatif=${encodeURIComponent(whatif)}` : "";
 const cardId = "article.circuit .claim-head .tag-id .ref";
-const symbol = 'article.circuit button.switch[aria-label^="Suppose"]';
+// Any enabled what-if switch: "Suppose …" on the recorded view, "Restore …" under the whatif
+// shape's what-if (every fact supposed there).
+const symbol = 'article.circuit button.switch:not([aria-disabled="true"])';
 
 /** @param {string} step @param {number | undefined} ms @param {number} bound @param {number} heap */
 function row(step, ms, bound, heap) {
@@ -52,16 +54,19 @@ function row(step, ms, bound, heap) {
  */
 async function timed(p, waits, click) {
   const result = p.evaluate(([ws, wait]) => {
+    /** The scenario line when the click came: an answer shows a different one. */
+    let before = "";
     /** Wait `i` holds (a function in the page). @param {number} i */
     const holds = (i) => {
       const w = ws[i];
       if (!w) return true;
       if (w.kind === "busy") return document.body.hasAttribute("aria-busy");
+      // The click's own answer: the shown what-if changed (a view shown before the click, or the
+      // engine still busy, is no answer).
       if (w.kind === "answered")
         return (
-          (document.querySelector("#scenario-text")?.textContent ?? "").includes(
-            "Showing a what-if",
-          ) && !document.body.hasAttribute("aria-busy")
+          (document.querySelector("#scenario-text")?.textContent ?? "") !== before &&
+          !document.body.hasAttribute("aria-busy")
         );
       const tag = document.querySelector("#inspector .claim-tag .tag-id")?.textContent;
       if (tag !== w.id) return false;
@@ -73,6 +78,7 @@ async function timed(p, waits, click) {
           "click",
           (ev) => {
             const t0 = ev.timeStamp;
+            before = document.querySelector("#scenario-text")?.textContent ?? "";
             /** @type {(number | undefined)[]} */
             const at = ws.map(() => undefined);
             const give = setTimeout(() => resolve(at), wait);
