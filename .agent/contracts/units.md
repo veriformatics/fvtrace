@@ -83,3 +83,21 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | U4 answers: engine, envelope, CLI text | kernel | P-shared, P-claims (`AnswersAgree`), P-delta | proofs; tester differential suite (fast vs reference, generated traces); engine differential (wasm); old ↔ new binary byte-equal; Tests/Scale eval rows red at af5a2f1 |
 | U5 measurements + docs + self-trace | data (measurements) + docs | P-bound; README, rules, self-trace | `tools/scale.sh` on an idle host → ledger F5; consistency pass; self-trace facts for the agreement claims, re-pinned |
 | U6 closing review | — | lenses fixed before reading | `.agent/archive/review-implement-engine.md` (+ reviewers' deliverables) |
+
+# Units → tier → contract → evidence (IMPLEMENT — what-ifs by reference)
+
+Staged so every commit keeps the full gate green (consultant-7 C12): reference paths beside v1 first, then the GUI moves to them, then the format cuts over; compute + rendering speed follow, each transparent.
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| U1 contract | kernel | `kernel.md` V-*, P-bound + P-rows/forest/plan-local/raisers/cache, E-*, U-* | consultant-7 (12 rows: 2 pass · 9 fix · 1 risk; fixes adopted, user rulings on the rest) |
+| U2 page engine call depth | kernel (engine code; `Answers.fast` proved) | E-wasm (a trace past the wasm call depth) | differential case 12,000 claims red at 7e6c4ff (`RangeError: Maximum call stack size exceeded`); page engine at N_cap of each F5 shape; `AnswersAgree` kept (`firstPerRun_eq`); `tools/compare.sh` 7e6c4ff vs new = 0 differing; mutation credit Json.lean (15/16, survivor → review M1) |
+| U3 reference paths beside v1 | kernel + kernel (shell, security) | V-action, V-details, V-request, V-cli, V-complete, V-serve, E-request, E-state, E-abi, E-page (Worker); `Answers` new fields (reference + first fast instance) | `AnswersAgree` extended + replayed; Tests Evaluate/Cli/Server/Snapshot red first; differential (request sequences, Node + Chromium); Tests/Wasm + probes (exports); L-SEC (POST route, body cap, view header, Trusted Types policy); mutation credit (Evaluate, Cli, Server, Session, Snapshot, Export) |
+| U4 GUI on the reference paths | data (display) + kernel (shell: engine worker loader) | E-gui, V-details display, engine-off lines | e2e (details on selection, actions, legacy links, engine-off, Worker failure) + axe; differential through the worker loader |
+| U5 cutover to v2 | kernel | V-env, E-page v3; compare oracles | `tools/compare.sh` v1 → v2 (transform, expansion + details oracles) = 0 differing; full gate |
+| U6 server cache + page engine state | kernel (shell) | P-cache, E-state | Tests/Server native (interleaved requests byte-equal to uncached; trace + evidence changes; 409 view; launch evaluation awaited, not repeated); differential sequences through one engine |
+| U7 compute | kernel (proved) | P-rows, P-forest, P-plan-local, P-raisers (fast), P-time on the shared path | proofs (`AnswersAgree`) + replay; diff-blind differential (`tester`: chains, stars, creator cycles, lattices, malformed, the P-forest cases); Tests/Scale red on v1; consultant on the walk + its invariants before code |
+| U8 GUI responsiveness | data (display) | U-* | e2e identity + access checks; `tools/scale-gui.mjs` U-time rows; operator visual QA; long-list look + find route shown to the user |
+| U9 scale tools + measurements | gate tool + data (measurements) | P-bound, P-evidence | `tools/scale.sh --assert` + probes (each new breach); idle-host run in the commit body |
+| U10 docs, rules, skill, self-trace | docs | README, SKILL.md, SECURITY.md (POST route, view header, worker policy), rules (server, web, fast, wasm, ops) in their owning units, Decisions + Artifacts | consistency pass (L-CLAIM); self-trace receipts + statement replays re-pinned |
+| U11 closing review | — | lenses fixed before reading | `.agent/review.md` (one `reviewer` per lens) |
