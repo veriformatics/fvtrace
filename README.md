@@ -80,6 +80,11 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
 - To see the details of a claim, a fact or an experiment, press its name. You can select and
   copy any text: a drag selects the text and does not open the details.
 - **Text** shows the same claims as plain sentences.
+- To go to a claim, a fact or an experiment, type its id or words from its text in **Find a
+  claim, fact or experiment**. Then press its id, or press Enter for the first match.
+- On a large trace, the page adds claims and rows while you scroll. A line at the end of a list
+  tells how many items it does not show yet.
+- When an answer takes more than one second, the page shows **Working…**.
 - Below the claims, the page shows the suggested experiments, the facts whose verification makes
   the most claims available, the violated facts, and what each claim may be missing.
 
@@ -201,7 +206,7 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
   evidence files. It shows the evidence as it was when you exported it: it cannot check the
   evidence files again. A browser that cannot run WebAssembly (for example,
   Safari in Lockdown Mode) shows the facts as recorded, without what-ifs. The engine adds about
-  400 KB to the page.
+  500 KB to the page.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
   outside the project folder. On another computer, go to `DIR/project` and run
   `fvtrace serve --trace ../trace.json`.
@@ -281,10 +286,12 @@ A reviewer checks that each sentence says what its theorem proves.
   jobs, one for each group of checks.
 - `bash tools/fast-gate.sh` runs the quick checks while you work.
 - `bash tools/gate-probe.sh` shows that each purpose-built check fails on a planted error.
-- `bash tools/scale.sh --assert` times `fvtrace check` and `fvtrace eval` on generated traces
-  of up to 16 MiB. It grades four trace shapes: it fails when one of their runs takes more than
-  60 seconds, or more than 2.5 times as long when the trace doubles. It reports the other
-  shapes without a limit. Run it on an idle computer.
+- `bash tools/scale.sh --assert` times the commands, `fvtrace serve`, the engine of an exported
+  page and the browser view on generated traces of up to 16 MiB. It grades seven trace shapes.
+  It fails when a command takes more than 10 seconds, when the browser view is slower than its
+  limits (0.1 seconds to show a selection, 1 second for its details, 10 seconds for a what-if),
+  or when the time or the memory grows more than 2.5 times when the trace doubles. It reports
+  the other shapes without a limit. Run it on an idle computer.
 - `bash tools/compare.sh OLD NEW` runs two `fvtrace` programs on the same inputs. It fails when
   their output differs by one byte, or when a run does not finish in time.
 - `bash tools/pin-wasm.sh emsdk VERSION` or `bash tools/pin-wasm.sh lean VERSION` updates the
