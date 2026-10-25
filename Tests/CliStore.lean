@@ -138,9 +138,13 @@ def tests : TestM Unit := do
           (Cli.projectionKeys ++ keys))) out
     let (rc, out, _) ← run ["plan", "C2", "--json"]
     checkEq "cli: plan --json rc" rc 0
-    check "cli: plan --json = the envelope's projection + the claim"
-      ((Json.parse out.toUTF8).toOption == some (.obj (fields (Cli.project envelope
-        Cli.projectionKeys) ++ [("claim", (claimOf envelope "C2").getD .null)]))) out
+    let parsed := (Json.parse out.toUTF8).toOption
+    check "cli: plan --json = the envelope's projection + the claim + its full plan"
+      ((parsed.map fun v => (fields v).filter (·.1 != "plan")) ==
+          some (fields (Cli.project envelope Cli.projectionKeys) ++
+            [("claim", (claimOf envelope "C2").getD .null)]) &&
+        (parsed.bind (field · "plan")).any fun p =>
+          (field p "result").isSome && (field p "alternatives").isSome) out
     let (rc, out, _) ← run ["plan", "C2"]
     checkEq "cli: plan rc" rc 0
     check "cli: plan names the claim"

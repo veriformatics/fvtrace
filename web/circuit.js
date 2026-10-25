@@ -12,7 +12,8 @@ import { kinds, levels, qualifiers, statuses, symbols, word } from "./words.js";
  * What a circuit can ask the app to do.
  * @typedef {{ select: (kind: "fact" | "claim" | "experiment", id: string) => void,
  *   toggle: (fact: string) => void, canToggle: (fact: string) => boolean,
- *   supposeStatus: (fact: string) => string | undefined }} Handlers
+ *   supposeStatus: (fact: string) => string | undefined,
+ *   pairsOf: (claim: string) => string[] | undefined }} Handlers
  */
 
 /** @param {string} state @param {string} [size] */
@@ -192,7 +193,7 @@ export function circuit(c, env, on, selected) {
 /**
  * What a claim waits on, from the engine's lists: violated facts, open facts, then assumptions,
  * one fact per line with its switch drawing. The claim's own words stay the headline.
- * @param {Claim} c @param {Envelope} env @param {Pick<Handlers, "select">} on
+ * @param {Claim} c @param {Envelope} env @param {Pick<Handlers, "select" | "pairsOf">} on
  */
 export function conditions(c, env, on) {
   const facts = new Map(env.facts.map((f) => [f.id, f]));
@@ -248,12 +249,16 @@ export function conditions(c, env, on) {
       ),
     );
   };
+  // The excluded pairs a claim needs arrive with its details (kernel.md V-details; user ruling:
+  // lists on request); the subject's conflicts sit on the subject (one copy per subject).
+  const pairs = on.pairsOf(c.id) ?? [];
+  const conflicts = env.subjects.find((x) => x.id === c.subject)?.conflicts ?? [];
   const reasons = c.blockers
     .map(factLine)
-    .concat(c.incompatible.map((id) => exclusionLine(id, `${c.id} needs`)))
+    .concat(pairs.map((id) => exclusionLine(id, `${c.id} needs`)))
     .concat(
-      c.conflicts
-        .filter((id) => !c.incompatible.includes(id))
+      conflicts
+        .filter((id) => !pairs.includes(id))
         .map((id) => exclusionLine(id, "The what-if supposes")),
     );
   /** @type {[string, HTMLLIElement[]][]} */

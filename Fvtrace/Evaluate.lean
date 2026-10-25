@@ -5,7 +5,7 @@ import Fvtrace.Request
 import Fvtrace.Answers.Fast
 
 /-!
-# Evaluation envelope (`fvtrace.evaluation/1`)
+# Evaluation envelope (`fvtrace.evaluation/2`)
 
 The one JSON document every surface renders: CLI projections, the server, the export. Sentences
 + labels are engine output (contract § Sentences); a surface adds no judgment of its own.
@@ -46,7 +46,8 @@ def factJson (A : Answers) (bindingFor : String → Option Receipt.Binding) (f :
   let b := bindingFor f.id
   .obj ([("id", .str f.id), ("subject", .str f.subject), ("kind", .str f.kind.name),
     ("text", .str f.text), ("route", .str f.route.name), ("recorded", .str f.status.name),
-    ("effective", .str e.name), ("closable", .bool (A.closable f)),
+    ("effective", .str e.name), ("ceiling", .str f.ceiling.name),
+    ("closable", .bool (A.closable f)),
     ("supposed", .bool ((A.override? f.id).isSome)),
     ("derivedFrom", .arr ((A.derivations f.id).map fun (x, src) =>
       .obj [("exclusion", .str x), ("source", .str src)])),
@@ -58,6 +59,26 @@ def factJson (A : Answers) (bindingFor : String → Option Receipt.Binding) (f :
      | some b => [("receipt", .obj [("current", .bool b.current), ("reasons", strs b.reasons)])]
      | none => []))
 
+/-- A plan's result kind + its state when planned (the envelope's plan; the whole = details). -/
+def planSummaryJson : PlanResult → Value
+  | .planned _ _ st .. => .obj [("result", .str "planned"), ("state", .str st.name)]
+  | .inconsistent _ => .obj [("result", .str "inconsistent")]
+  | .tooLarge _ => .obj [("result", .str "tooLarge")]
+  | .noImprovement _ => .obj [("result", .str "noImprovement")]
+
+/-- The claim's label: its verdict + qualifiers, the creator's title as the token
+`if-creator-runs` + `creator` = that experiment's id (`kernel.md` V-env: no text repeats per
+claim). -/
+def labelJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) : Value :=
+  let title := if A.prospective c.subject then
+      Scenario.creatorTitleWith A.lookups.subject? A.lookups.experiment? c.subject
+    else none
+  let quals := (A.qualifiers c review).map fun q =>
+    if title.any (fun t => q == s!"if {t} runs") then "if-creator-runs" else q
+  let creator := if title.isSome then (A.lookups.subject? c.subject).bind (·.createdBy) else none
+  .obj ([("verdict", .str (A.final c).verdict), ("qualifiers", strs quals)] ++
+    (match creator with | some e => [("creator", .str e)] | none => []))
+
 def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : PlanResult) :
     Value :=
   .obj ([("id", .str c.id), ("question", .str c.question), ("subject", .str c.subject),
@@ -67,14 +88,12 @@ def claimJson (A : Answers) (review : Receipt.ReviewState) (c : Claim) (plan : P
     (match c.entailment with | some e => [("entailment", .str e)] | none => []) ++
     [("restates", .bool c.restates),
     ("final", .str (A.final c).name), ("intrinsic", .str (A.intrinsic c).name),
-    ("sentence", .str (A.sentence c)),
-    ("label", .obj [("verdict", .str (A.final c).verdict),
-      ("qualifiers", strs (A.qualifiers c review))]),
+    ("label", labelJson A review c),
     ("verified", strs (A.verifiedNeeds c)), ("premises", strs (A.premises c)),
     ("gaps", strs (A.gaps c)), ("blockers", strs (A.blockers c)),
-    ("incompatible", strs (A.incompatible c)), ("conflicts", strs (A.conflicts c.subject)),
+    ("incompatibleCount", .num (A.incompatible c).length),
     ("hypothetical", .bool (A.hypothetical c)), ("provisional", .bool (review != .reviewed)),
-    ("plan", planJson plan)] ++
+    ("plan", planSummaryJson plan)] ++
     (match c.variantOf with | some v => [("variantOf", .str v)] | none => []))
 
 def overridesJson (o : Overrides) : Value :=
@@ -97,11 +116,10 @@ def experimentJson (A : Answers) (e : Experiment) : Value :=
     ("effort", .str e.effort.name), ("title", .str e.title), ("method", .str e.method),
     ("resources", .str e.resources), ("caveat", .str e.caveat),
     ("success", Encode.outcome e.success), ("failure", Encode.outcome e.failure),
-    ("requires", strs e.requires), ("closure", strs cl), ("raises", overridesJson (A.raised cl)),
+    ("requires", strs e.requires),
     ("applied", .bool (mergedHere.all fun (k, st) => A.override? k == some st)),
     ("contingent", .bool (mergedHere.any fun (k, _) => A.isResult k)),
     ("prospective", .bool (A.prospective e.subject)), ("creates", .bool (A.creates e)),
-    ("wins", .arr (wins.map moveJson)), ("losses", .arr (losses.map moveJson)),
     ("lights", .num (Scenario.lights wins)), ("clears", .num (Scenario.clears wins)),
     ("lowers", .num (Scenario.lowers wins)), ("breaks", .num (Scenario.breaks losses))]
 
@@ -120,6 +138,19 @@ def actionsWith (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResul
   claimPlans.filterMap fun (c, p) =>
     match p with
     | .planned _ exps .. => some (s!"plan:{c.id}", "plan", c.id, A.withOverrides (A.raised exps))
+    | _ => none
+
+/-- The one-click domain as references (`kernel.md` V-env actions): the ids, kinds + targets
+`actionsWith` lists, in its order, without building any what-if. -/
+def actionRefs (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResult)) :
+    List (String × String × String) :=
+  (t.facts.filter A.closable).map (fun f => (s!"suppose:{f.id}", "suppose", f.id)) ++
+  t.experiments.map (fun e => (s!"success:{e.id}", "success", e.id)) ++
+  (t.experiments.filter (!·.failure.isEmpty)).map
+    (fun e => (s!"failure:{e.id}", "failure", e.id)) ++
+  claimPlans.filterMap fun (c, p) =>
+    match p with
+    | .planned .. => some (s!"plan:{c.id}", "plan", c.id)
     | _ => none
 
 /-- The one-click what-ifs from this scenario (`actionsWith` on its fast answers). -/
@@ -201,7 +232,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
   -- overflows the page engine's WebAssembly stack near 9,600 claims.
   let claimPlans := t.claims.map fun c => (c, A.plan c)
   let byId := Receipt.BindingIndex.of bindings
-  .obj [("schema", .str "fvtrace.evaluation/1"),
+  .obj [("schema", .str "fvtrace.evaluation/2"),
     ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
     ("overrides", overridesJson sc.overrides),
     ("trace", traceJson t digest review),
@@ -229,9 +260,8 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
       .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
         ("message", .str w.message)] ++
         (match w.waived with | some r => [("waived", .str r)] | none => [])))),
-    ("actions", .arr ((actionsWith t A claimPlans).map fun (id, kind, target, o) =>
-      .obj [("id", .str id), ("kind", .str kind), ("target", .str target),
-        ("overrides", overridesJson o)]))]
+    ("actions", .arr ((actionRefs t A claimPlans).map fun (id, kind, target) =>
+      .obj [("id", .str id), ("kind", .str kind), ("target", .str target)]))]
 
 /-- The full envelope for one snapshot, read off the scenario's fast answers (`Answers.fast`,
 proved equal to the `Scenario` functions for every scenario: `Spec.AnswersAgree`). -/

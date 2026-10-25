@@ -35,7 +35,7 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
       return { status: res.status, body };
     });
     expect(evaluation.status).toBe(200);
-    expect(evaluation.body).toMatchObject({ schema: "fvtrace.evaluation/1", mode: "recorded" });
+    expect(evaluation.body).toMatchObject({ schema: "fvtrace.evaluation/2", mode: "recorded" });
     expect(await axeIds(page)).toEqual([]);
     await page.getByRole("button", { name: "Suppose O2 checked" }).first().click();
     await expect(page.getByRole("status")).toContainText("Showing a what-if");

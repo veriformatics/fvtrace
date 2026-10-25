@@ -60,6 +60,9 @@ let detailsAsked = 0;
 let shownView;
 /** @type {DetailsView | undefined} */
 let details;
+/** The excluded pairs of the shown claims that have some (claim details, kernel.md V-details). */
+/** @type {Map<string, string[]>} */
+let excludedPairs = new Map();
 
 const island = document.getElementById("fvtrace-data");
 /** @type {unknown} */
@@ -395,8 +398,10 @@ async function load(action, link = false) {
       } else writeHash();
     }
     byId("error").hidden = true;
+    excludedPairs = new Map();
     render();
     void loadDetails();
+    void loadPairs(spec);
   } catch (e) {
     // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine;
     // the notice shows whichever view is current, the view resets when this load is the latest.
@@ -428,6 +433,24 @@ async function legacy(/** @type {string} */ id) {
     showError(`This page holds no what-if "${id}", so it shows the facts as recorded.`);
     writeHash();
   }
+}
+
+/** The excluded pairs a shown claim needs (its card names them, user ruling: lists on request),
+ * asked for each claim that has some; an answer for an older view is dropped. */
+async function loadPairs(/** @type {string} */ spec) {
+  const asked = (env?.claims ?? []).filter((c) => c.incompatibleCount > 0);
+  await Promise.all(
+    asked.map(async (c) => {
+      try {
+        const { json } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
+        if (spec !== view.spec || decodeProblem(json)) return;
+        excludedPairs.set(c.id, decodeDetails(json).incompatible ?? []);
+        render();
+      } catch {
+        // The card keeps its other lines.
+      }
+    }),
+  );
 }
 
 /** The selection's details for the shown view (kernel.md V-details); the inspector shows the
@@ -510,8 +533,12 @@ const on = {
     }
   },
   supposeStatus(fact) {
-    const a = (env?.actions ?? []).find((x) => x.id === `suppose:${fact}`);
-    return a?.overrides.find((o) => o.fact === fact)?.status;
+    return on.hasAction(`suppose:${fact}`)
+      ? env?.facts.find((f) => f.id === fact)?.ceiling
+      : undefined;
+  },
+  pairsOf(claim) {
+    return excludedPairs.get(claim);
   },
   hasAction(action) {
     return env?.actions.some((a) => a.id === action) ?? false;
