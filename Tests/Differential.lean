@@ -2,7 +2,8 @@ import Tests.Harness
 import Fvtrace.Check
 import Fvtrace.Evaluate
 
-/-! P-shared/P-claims: generated inputs → reference records; fast bodies stay outside the oracle. -/
+/-! P-shared/P-claims/P-evidence: generated inputs → reference records; fast bodies stay outside
+the oracle. P-forest/P-plan-local/P-raisers include malformed prerequisite graphs + scenarios. -/
 
 namespace Tests.Differential
 open Fvtrace
@@ -146,6 +147,130 @@ private def boundaryTrace (experiments : Nat) : Trace :=
 private def emptyTrace : Trace :=
   { boundaryTrace 0 with facts := [], claims := [], questions := [] }
 
+private inductive Shape where
+  | chain | star | creator | creatorPair | lattice | forward | duplicate | dangling
+  | exclusions | outcomes | ties | touched | failure | deep | relevant | outside | overrides
+  | statuses
+  deriving BEq
+
+private structure Family where
+  name : String
+  shape : Shape
+  sizes : List Nat
+  wellFormed : Bool := true
+
+private def families : List Family := [
+  ⟨"chain", .chain, [1, 4, 8], true⟩,
+  ⟨"star", .star, [2, 5, 9], true⟩,
+  ⟨"creator-self", .creator, [1, 3, 6], true⟩,
+  ⟨"creator-pair", .creatorPair, [2, 4, 7], true⟩,
+  ⟨"lattice", .lattice, [4, 6, 9], true⟩,
+  ⟨"forward", .forward, [2, 4, 7], false⟩,
+  ⟨"duplicate", .duplicate, [2, 4, 7], false⟩,
+  ⟨"dangling-success", .dangling, [1, 3, 6], false⟩,
+  ⟨"chain-exclusions", .exclusions, [3, 5, 9], true⟩,
+  ⟨"long-outcomes", .outcomes, [200, 257], true⟩,
+  ⟨"strength-ties", .ties, [2, 4, 7], false⟩,
+  ⟨"result-touched", .touched, [1, 3, 6], true⟩,
+  ⟨"ancestor-failure", .failure, [2, 4, 7], true⟩,
+  ⟨"deep-relevant", .deep, [4, 9, 16], true⟩,
+  ⟨"relevant-0", .relevant, [0], true⟩,
+  ⟨"relevant-1", .relevant, [1], true⟩,
+  ⟨"relevant-2-20", .relevant, (List.range 19).map (· + 2), true⟩,
+  ⟨"relevant-21-plus", .relevant, [21, 24], true⟩,
+  ⟨"outside-records", .outside, [1, 3, 6], true⟩,
+  ⟨"arbitrary-overrides", .overrides, [1, 3, 6], true⟩,
+  ⟨"malformed-statuses", .statuses, [1, 3, 6], false⟩]
+
+/-- Three observed claims keep the oracle small; Other witnesses subject isolation. -/
+private def prerequisiteTrace (n : Nat) : Gen Trace := do
+  let mut es := []
+  for i in [:n] do
+    let e ← experiment s!"E{i}" "S" [(s!"R{i}", .checked)]
+    es := es ++ [{ e with
+      failure := [(s!"R{i}", .violated)],
+      requires := if i == 0 then [] else [s!"E{i - 1}"] }]
+  return { boundaryTrace 0 with
+    subjects := [{ id := "S", title := "Study", kind := .existing },
+      { id := "T", title := "Independent study", kind := .existing }],
+    facts := (List.range n).map (fun i => fact s!"R{i}" "S" .result .runtimeChecker .«open») ++
+      [fact "Other" "T" .result .runtimeChecker .checked],
+    claims := ([0, n / 2, n - 1].eraseDups.map fun i =>
+      { id := s!"C{i}", question := "Q", subject := "S", level := .descriptive,
+        text := s!"Result {i}.", needs := [s!"R{i}"], restates := true }) ++
+      [{
+        id := "OtherClaim", question := "Q", subject := "T", level := .descriptive,
+        text := "Independent result.", needs := ["Other"], restates := true }],
+    experiments := es }
+
+/-- Each relevance count sees shared-need alternatives and independent needs (still cheap for the
+reference's exact search). Zero keeps a genuinely uncovered result. -/
+private def relevanceTrace (n variant : Nat) : Trace :=
+  let t := boundaryTrace n
+  if variant == 0 || n == 0 then t else
+    { t with
+      facts := fact "Reason" "S" .entailment .lean .proved ::
+        (List.range n).map (fun i => fact s!"R{i}" "S" .result .runtimeChecker .«open»),
+      claims := t.claims.map fun c => { c with
+        restates := false, needs := (List.range n).map (s!"R{·}"), entailment := some "Reason" },
+      experiments := t.experiments.zipIdx.map fun (e, i) => { e with
+        success := [(s!"R{i}", .checked)], failure := [(s!"R{i}", .violated)] } }
+
+private def generatedPrerequisites (shape : Shape) (n variant : Nat) : Gen Trace := do
+  if shape == .relevant then
+    let t := relevanceTrace n variant
+    let es ← t.experiments.mapM fun e => do
+      return { e with effort := ← pick Effort.all, kind := ← pick ExpKind.all }
+    return { t with experiments := ← shuffled es }
+  let t ← prerequisiteTrace n
+  let es := t.experiments
+  let t ← match shape with
+    | .chain | .outside | .overrides => pure t
+    | .star => pure { t with experiments := es.zipIdx.map fun (e, i) =>
+        { e with requires := if i == 0 then [] else ["E0"] } }
+    | .creator | .creatorPair => pure { t with subjects := t.subjects.map fun sub =>
+        if sub.id == "S" then { sub with
+          kind := .prospective, createdBy := some (if shape == .creator then "E0" else "E1") }
+        else sub }
+    | .lattice => pure { t with experiments := es.zipIdx.map fun (e, i) =>
+        { e with requires := match i with
+          | 0 => [] | 1 | 2 => ["E0"] | 3 => ["E1", "E2"] | _ => [s!"E{i - 1}"] } }
+    | .forward => pure { t with experiments := es.reverse }
+    | .duplicate =>
+        let e := es.head!
+        let other := { e with
+          success := [(s!"R{n - 1}", .checked)],
+          failure := [(s!"R{n - 1}", .violated)], requires := [s!"E{n - 1}"],
+          title := "Later duplicate" }
+        pure { t with experiments := if variant == 0 then es ++ [other] else other :: es }
+    | .dangling => pure { t with experiments := es.zipIdx.map fun (e, i) =>
+        if i == n / 2 then { e with success := ("Ghost", .checked) :: e.success } else e }
+    | .exclusions => pure { t with exclusions := [{
+        id := "X", subject := "S", between := if variant == 0 then ("R0", s!"R{n / 2}")
+          else (s!"R{n / 2}", "R0"), text := "The two results exclude each other.",
+        status := .proved, route := .lean, evidence := some receipt }] }
+    | .outcomes => pure { t with experiments := [{ es.head! with
+        success := (List.range n).map fun i => (s!"R{i}", Status.checked) }] }
+    | .ties =>
+        let es := es.zipIdx.map fun (e, i) =>
+          { e with success := [("R0", if i == 0 then .checked else .proved)] }
+        pure { t with experiments := if variant == 0 then es else es.reverse }
+    | .touched => pure { t with facts := t.facts.map fun f =>
+        { f with status := .checked, evidence := some receipt } }
+    | .failure => pure { t with
+        facts := t.facts.map fun f => if f.id == "R0" then { f with status := .violated } else f,
+        experiments := es.map fun e => { e with failure := [("R0", .violated)] } }
+    | .deep => pure { t with claims := t.claims.filter fun c =>
+        c.id == s!"C{n - 1}" || c.subject == "T" }
+    | .statuses =>
+        let sts : List Status := [.violated, .«open», .tested, .assumed, .checked, .proved]
+        pure { t with experiments := es.zipIdx.map fun (e, i) =>
+          { e with
+            success := [("R0", sts[(i + variant) % sts.length]!)],
+            failure := [("Other", .checked), ("Ghost", .assumed)] } }
+    | .relevant => pure t
+  return { t with facts := ← shuffled t.facts, claims := ← shuffled t.claims }
+
 private def malformed (t : Trace) (n : Nat) : Trace := Id.run do
   let f := t.facts.head!
   let c := t.claims.head!
@@ -198,6 +323,8 @@ private def malformed (t : Trace) (n : Nat) : Trace := Id.run do
 private def idArgs (t : Trace) : List String :=
   (t.allIds ++ t.claims.flatMap (·.needsAll) ++ t.claims.filterMap (·.variantOf) ++
     t.facts.filterMap (·.instantiates) ++ t.experiments.flatMap (·.requires) ++
+    t.experiments.flatMap (fun e => (e.success ++ e.failure).map (·.1)) ++
+    t.exclusions.flatMap (fun x => [x.subject, x.between.1, x.between.2]) ++
     t.subjects.filterMap (·.createdBy) ++ ["", "Missing", "Absent", "a|b", "\x00α"]).eraseDups
 
 private def listArgs (ids : List String) : Gen (List (List String)) := do
@@ -223,6 +350,9 @@ private structure Context where
   trial : Nat
   salt : UInt64
   trace : Trace
+  family : String := "matrix"
+  size : Nat := 0
+  variant : Nat := 0
 
 private abbrev DiffM := StateT Nat TestM
 
@@ -231,8 +361,9 @@ private def same {α β : Type} [BEq α] [Repr α] [Repr β] (ctx : Context) (fi
   modify (· + 1)
   unless got == want do
     let t := ctx.trace
-    check s!"differential {field}" false
-      s!"seed={seed} trial={ctx.trial} salt={ctx.salt} size={t.allIds.length} \
+    check s!"differential {ctx.family} {field}" false
+      s!"seed={seed} trial={ctx.trial} salt={ctx.salt} n={ctx.size} variant={ctx.variant} \
+        size={t.allIds.length} \
         (subjects={t.subjects.length}, facts={t.facts.length}, claims={t.claims.length}, \
         experiments={t.experiments.length}, exclusions={t.exclusions.length}) \
         field={field} arg={repr arg} got={repr got} want={repr want}"
@@ -287,6 +418,9 @@ private def compareLookups (ctx : Context) (got want : Lookups) : DiffM Unit := 
 private def claimArgs (t : Trace) : List Claim :=
   t.claims ++ t.claims.map (fun c => { c with
     needs := c.needs.reverse ++ ["Missing", "Missing"],
+    entailment := none, text := c.text ++ " Same id, different needs." }) ++
+  t.claims.map (fun c => { c with
+    needs := c.needs.reverse ++ ["Missing", "Missing"],
     entailment := none, subject := "Missing", text := c.text ++ " Outside.",
     restates := !c.restates }) ++
   (t.claims.take 1).map (fun c => { c with id := "Outside", needs := [], entailment := none })
@@ -300,6 +434,9 @@ private def factArgs (t : Trace) : List Fact :=
 
 private def experimentArgs (t : Trace) : List Experiment :=
   t.experiments ++ t.experiments.map (fun e => { e with
+    failure := [(t.factIds.headD "Missing", .checked), ("Missing", .violated)],
+    success := [("Missing", .proved)], requires := [], title := "Outside, same id + subject" }) ++
+  t.experiments.map (fun e => { e with
     subject := "Missing",
     failure := [("Missing", .checked), ("R", .proved), ("R", .assumed)],
     success := [], requires := ["Absent"] }) ++
@@ -308,7 +445,7 @@ private def experimentArgs (t : Trace) : List Experiment :=
 private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) : DiffM Unit := do
   let t := s.trace
   compareLookups ctx got.lookups want.lookups
-  for id in idArgs t do
+  for id in (idArgs t ++ s.overrides.map (·.1)).eraseDups do
     same ctx "Answers.override?" id (got.override? id) (want.override? id)
     same ctx "Answers.eff" id (got.eff id) (want.eff id)
     same ctx "Answers.derivations" id (got.derivations id) (want.derivations id)
@@ -335,6 +472,7 @@ private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) :
     same ctx "Answers.hypothetical" c (got.hypothetical c) (want.hypothetical c)
     same ctx "Answers.plan" c (got.plan c) (want.plan c)
     same ctx "Answers.planSummary" c (got.planSummary c) (want.planSummary c)
+    same ctx "Answers.claimView" c (got.claimView c) (want.claimView c)
     for review in [Receipt.ReviewState.draft, .stale, .reviewed] do
       same ctx "Answers.qualifiers" (c, review) (got.qualifiers c review) (want.qualifiers c review)
   for e in experimentArgs t do
@@ -344,8 +482,11 @@ private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) :
   same ctx "Answers.blockerFacts" () (got.blockerFacts ()) (want.blockerFacts ())
   same ctx "Answers.experimentOrder" () (got.experimentOrder ()) (want.experimentOrder ())
   same ctx "Answers.experimentRows" () (got.experimentRows ()) (want.experimentRows ())
-  for ids in sample ctx.salt (listArgs (t.experimentIds ++ t.factIds.take 2)) do
+  let requests := (t.experimentIds ++ ["Missing", ""]).map (fun id => [id]) ++
+    sample ctx.salt (listArgs (t.experimentIds ++ t.factIds.take 2))
+  for ids in requests do
     same ctx "Answers.closure" ids (got.closure ids) (want.closure ids)
+    same ctx "Answers.closure fixed point" ids (got.closure (got.closure ids)) (want.closure ids)
     same ctx "Answers.merged" ids (got.merged ids) (want.merged ids)
     same ctx "Answers.raised" ids (got.raised ids) (want.raised ids)
     same ctx "Answers.successMoves" ids (got.successMoves ids) (want.successMoves ids)
@@ -361,6 +502,50 @@ private def compareAnswers (ctx : Context) (s : Scenario) (got want : Answers) :
   same ctx "envelopeWith" (s.overrides, review)
     (Evaluate.envelopeWith s got bindings "digest" review).canonical
     (Evaluate.envelopeWith s want bindings "digest" review).canonical
+
+private def prerequisiteOverrides (shape : Shape) (n : Nat) (t : Trace)
+    (salt : UInt64) : List Overrides :=
+  [[], sample salt (arbitraryOverrides t.factIds)] ++ match shape with
+    | .ties => [[("R0", .checked)], [("R0", .proved)]]
+    | .exclusions => [[("R0", .checked)], [("R0", .checked), (s!"R{n / 2}", .checked)]]
+    | .failure => [[("R0", .checked)]]
+    | .touched => [t.experiments.flatMap (·.success)]
+    | .overrides =>
+        let o : Overrides := [("E0", .proved), ("S", .checked), ("Ghost", .assumed),
+          ("R0", .«open»), ("R0", .proved), ("Ghost", .violated)]
+        [o, o.reverse]
+    | _ => []
+
+private def runPrerequisites : DiffM Unit := do
+  for (family, i) in families.zipIdx do
+    let start ← IO.monoMsNow
+    let before ← get
+    let mut traces := 0
+    let mut scenarios := 0
+    for n in family.sizes do
+      for variant in [0, 1] do
+        let salt := seed + UInt64.ofNat (10000 * (i + 1) + 100 * n + variant)
+        let t := sample salt (generatedPrerequisites family.shape n variant)
+        let ctx : Context := {
+          trial := 0, salt, trace := t, family := family.name, size := n, variant }
+        let errors := Check.violations t
+        check s!"differential {family.name} generator n={n} variant={variant}"
+          (errors.isEmpty == family.wellFormed) s!"seed={seed} salt={salt}: {repr errors}"
+        let recorded : Scenario := { trace := t, current := fun _ => true }
+        if family.shape == .relevant || family.shape == .deep then
+          for c in t.claims.filter (·.subject == "S") do
+            checkEq s!"differential {family.name} relevant count n={n} variant={variant}"
+              (recorded.relevant c).length (if family.shape == .deep then 1 else n)
+        -- All-domain comparison: malformed traces and invalid overrides still reach both records.
+        for (o, j) in (prerequisiteOverrides family.shape n t salt).zipIdx do
+          let s : Scenario := { recorded with
+            overrides := o, current := if j == 1 then current salt else fun _ => true }
+          compareAnswers { ctx with trial := j } s (Answers.fast s) (Answers.reference s)
+          scenarios := scenarios + 1
+        traces := traces + 1
+    IO.println s!"differential family={family.name} seed={seed} sizes={repr family.sizes} \
+      seeds=2 traces={traces} scenarios={scenarios} comparisons={(← get) - before} \
+      ms={(← IO.monoMsNow) - start}"
 
 private def runCases : DiffM Unit := do
   let generated :=
@@ -387,11 +572,19 @@ private def runCases : DiffM Unit := do
         scenarios := scenarios + 1
   let bad :=
     (generated.zipIdx.map fun (t, i) => malformed t i) ++ [{ emptyTrace with subjects := [] }]
+  let beforeBad ← get
   for (t, i) in bad.zipIdx do
     let ctx : Context :=
-      { trial := candidates.length + i, salt := seed + UInt64.ofNat i, trace := t }
+      { trial := candidates.length + i, salt := seed + UInt64.ofNat i, trace := t,
+        family := "malformed-collections" }
     check s!"differential malformed generator {i}" (!(Check.violations t).isEmpty)
-    compareLookups ctx (Lookups.fast t) (Lookups.reference t)
+    let s : Scenario := {
+      trace := t, current := current ctx.salt,
+      overrides := sample ctx.salt (arbitraryOverrides t.factIds) }
+    compareAnswers ctx s (Answers.fast s) (Answers.reference s)
+    scenarios := scenarios + 1
+  IO.println s!"differential family=malformed-collections seed={seed} traces={bad.length} \
+    scenarios={bad.length} comparisons={(← get) - beforeBad}"
   for kind in Kind.all do
     for route in Route.all do
       for status in Status.all do
@@ -404,7 +597,10 @@ private def runCases : DiffM Unit := do
     kept={kept} malformed={bad.length} scenarios={scenarios} comparisons={← get}"
 
 def tests : TestM Unit := do
-  let (_, comparisons) ← runCases.run 0
+  let start ← IO.monoMsNow
+  let (_, comparisons) ← (do runCases; runPrerequisites).run 0
   check "differential comparisons executed" (comparisons > 0)
+  IO.println s!"differential total seed={seed} comparisons={comparisons} \
+    ms={(← IO.monoMsNow) - start}"
 
 end Tests.Differential
