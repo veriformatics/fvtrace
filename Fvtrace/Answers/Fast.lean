@@ -544,9 +544,11 @@ def raisingPositions (cx : Ctx) (core : Core) (needs : List String) : List Nat :
   ascending (needs.flatMap fun n => (cx.touches.group (cmp := compare) n).filterMap fun i =>
     (cx.entries[i]?).bind fun e => if core.raises n e.2 then some e.1 else none)
 
-/-- The first of each run of entries at one position. -/
+/-- The first of each run of entries at one position: one left fold carrying the previous
+position (`List.zip` recurses once per entry, past the page engine's WebAssembly stack). -/
 def firstPerRun (l : List (Nat × Status)) : List (Nat × Status) :=
-  ((l.zip (none :: l.map (some ·.1))).filter fun x => x.2 != some x.1.1).map (·.1)
+  (l.foldl (init := ((#[] : Array (Nat × Status)), (none : Option Nat))) fun st x =>
+    (if st.2 != some x.1 then st.1.push x else st.1, some x.1)).1.toList
 
 /-- `Scenario.coverage`'s alternatives for `n`: of each relevant experiment (positions `relIx`),
 its first success entry naming `n`, when it raises `n`. The entries naming `n` sit in experiment

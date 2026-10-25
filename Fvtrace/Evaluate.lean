@@ -98,8 +98,8 @@ def experimentJson (A : Answers) (e : Experiment) : Value :=
 
 /-- The one-click what-ifs from this scenario, each as the complete what-if it leads to (so a
 click replaces the what-if): suppose a closable fact at its route's ceiling, an experiment's
-success or failure, a claim's plan (`plans` = each claim's, in trace order). -/
-def actionsWith (t : Trace) (A : Answers) (plans : List PlanResult) :
+success or failure, a claim's plan (`claimPlans` = each claim with its plan, in trace order). -/
+def actionsWith (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResult)) :
     List (String × String × String × Overrides) :=
   (t.facts.filter A.closable).map (fun f =>
       (s!"suppose:{f.id}", "suppose", f.id, A.withOverrides [(f.id, f.ceiling)])) ++
@@ -108,7 +108,7 @@ def actionsWith (t : Trace) (A : Answers) (plans : List PlanResult) :
   (t.experiments.filter (!·.failure.isEmpty)).map (fun e =>
       (s!"failure:{e.id}", "failure", e.id,
         A.withOverrides (e.failure.map fun (k, _) => (k, .violated)))) ++
-  (t.claims.zip plans).filterMap fun (c, p) =>
+  claimPlans.filterMap fun (c, p) =>
     match p with
     | .planned _ exps .. => some (s!"plan:{c.id}", "plan", c.id, A.withOverrides (A.raised exps))
     | _ => none
@@ -116,7 +116,7 @@ def actionsWith (t : Trace) (A : Answers) (plans : List PlanResult) :
 /-- The one-click what-ifs from this scenario (`actionsWith` on its fast answers). -/
 def actions (sc : Scenario) : List (String × String × String × Overrides) :=
   let A := Answers.fast sc
-  actionsWith sc.trace A (sc.trace.claims.map A.plan)
+  actionsWith sc.trace A (sc.trace.claims.map fun c => (c, A.plan c))
 
 /-- The full envelope for one snapshot (trace + receipt bindings + overrides + review state), read
 off the answers `A`. -/
@@ -124,7 +124,9 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
     (review : Receipt.ReviewState) : Value :=
   let t := sc.trace
   let existing := t.claims.filter fun c => !A.prospective c.subject
-  let plans := t.claims.map A.plan
+  -- Paired by `map`, never `List.zip`: Init's zip specialization recurses once per claim, which
+  -- overflows the page engine's WebAssembly stack near 9,600 claims.
+  let claimPlans := t.claims.map fun c => (c, A.plan c)
   let byId := Receipt.BindingIndex.of bindings
   .obj [("schema", .str "fvtrace.evaluation/1"),
     ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
@@ -142,7 +144,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
       .obj [("subject", .str sub.id), ("counts", stateCounts A (A.claimsOn sub.id))])),
     ("questions", .arr (t.questions.map Encode.question)),
     ("facts", .arr (t.facts.map (factJson A byId.find))),
-    ("claims", .arr ((t.claims.zip plans).map fun (c, p) => claimJson A review c p)),
+    ("claims", .arr (claimPlans.map fun (c, p) => claimJson A review c p)),
     ("work", .arr ((A.work ()).map fun w =>
       .obj [("fact", .str w.fact), ("unlocks", strs w.unlocks), ("gates", strs w.gates)])),
     ("blockers", .arr ((A.blockerFacts ()).map fun (f, cs) =>
@@ -157,7 +159,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
       .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
         ("message", .str w.message)] ++
         (match w.waived with | some r => [("waived", .str r)] | none => [])))),
-    ("actions", .arr ((actionsWith t A plans).map fun (id, kind, target, o) =>
+    ("actions", .arr ((actionsWith t A claimPlans).map fun (id, kind, target, o) =>
       .obj [("id", .str id), ("kind", .str kind), ("target", .str target),
         ("overrides", overridesJson o)]))]
 
