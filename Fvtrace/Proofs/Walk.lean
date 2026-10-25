@@ -1783,4 +1783,246 @@ theorem walk_eq (hfb : fallback = rowRefOf s)
 
 end WalkEq
 
+/-! ## Which experiments raise a fact (`raisersWith`) -/
+
+section Raisers
+
+open Fvtrace.Proofs.Forest
+
+theorem str_stronger (a b : Status) : str (a.stronger b) = max (str a) (str b) := by
+  unfold Status.stronger
+  split <;> simp only [str] at * <;> omega
+
+theorem str_foldl : ∀ (sts : List Status) (a : Status),
+    str (sts.foldl Status.stronger a) = (sts.map str).foldl max (str a)
+  | [], _ => rfl
+  | b :: sts, a => by
+    rw [List.foldl_cons, str_foldl sts, List.map_cons, List.foldl_cons, str_stronger]
+
+theorem foldl_max_gt : ∀ (l : List Nat) (x b : Nat),
+    l.foldl max x > b ↔ x > b ∨ ∃ y ∈ l, y > b
+  | [], x, b => by simp
+  | y :: l, x, b => by
+    rw [List.foldl_cons, foldl_max_gt l]
+    simp only [List.mem_cons]
+    constructor
+    · rintro (h | ⟨z, hz, hzb⟩)
+      · rcases Nat.le_total x y with hxy | hxy
+        · rw [Nat.max_eq_right hxy] at h; exact Or.inr ⟨y, Or.inl rfl, h⟩
+        · rw [Nat.max_eq_left hxy] at h; exact Or.inl h
+      · exact Or.inr ⟨z, Or.inr hz, hzb⟩
+    · rintro (h | ⟨z, hz | hz, hzb⟩)
+      · exact Or.inl (Nat.lt_of_lt_of_le h (Nat.le_max_left _ _))
+      · subst hz; exact Or.inl (Nat.lt_of_lt_of_le hzb (Nat.le_max_right _ _))
+      · exact Or.inr ⟨z, hz, hzb⟩
+
+variable (s : Scenario)
+
+/-- A closure raises `f` ⇔ one of its success entries at `f` beats the base (the floor included). -/
+theorem raised_any (L : List String) (f : String) :
+    (s.raised L).any (·.1 == f) = (s.successPairs L).any fun x =>
+      x.1 == f && max 2 (EStatus.ofStatus x.2).strength > (s.eff1 f).strength := by
+  unfold Scenario.raised
+  rw [merged_of]
+  unfold mergedOf
+  rw [Bool.eq_iff_iff, List.any_eq_true, List.any_eq_true]
+  have htop : ∀ k, str (topOf (s.successPairs L) k) > (s.eff1 k).strength ↔
+      2 > (s.eff1 k).strength ∨
+        ∃ x ∈ s.successPairs L, x.1 = k ∧ str x.2 > (s.eff1 k).strength := by
+    intro k
+    unfold topOf
+    rw [str_foldl, foldl_max_gt]
+    simp only [List.map_map, List.mem_map, List.mem_filter, beq_iff_eq, Function.comp_apply]
+    constructor
+    · rintro (h | ⟨y, ⟨x, ⟨hx, hk⟩, rfl⟩, hy⟩)
+      · exact Or.inl h
+      · exact Or.inr ⟨x, hx, hk, hy⟩
+    · rintro (h | ⟨x, hx, hk, hy⟩)
+      · exact Or.inl h
+      · exact Or.inr ⟨_, ⟨x, ⟨hx, hk⟩, rfl⟩, hy⟩
+  constructor
+  · rintro ⟨y, hy, hyf⟩
+    obtain ⟨hym, hyr⟩ := List.mem_filter.mp hy
+    obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hym
+    simp only [beq_iff_eq] at hyf
+    subst hyf
+    simp only [decide_eq_true_eq] at hyr
+    obtain ⟨x0, hx0, hx0k⟩ := List.mem_map.mp (List.mem_eraseDups.mp hk)
+    rcases (htop _).mp hyr with h2 | ⟨x, hx, hxk, hxs⟩
+    · refine ⟨x0, hx0, ?_⟩
+      simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+      exact ⟨hx0k, Nat.lt_of_lt_of_le h2 (Nat.le_max_left _ _)⟩
+    · refine ⟨x, hx, ?_⟩
+      simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+      exact ⟨hxk, Nat.lt_of_lt_of_le hxs (Nat.le_max_right _ _)⟩
+  · rintro ⟨x, hx, hxf⟩
+    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hxf
+    obtain ⟨hxk, hxs⟩ := hxf
+    refine ⟨(x.1, topOf (s.successPairs L) x.1), List.mem_filter.mpr ⟨List.mem_map.mpr ⟨x.1,
+      List.mem_eraseDups.mpr (List.mem_map.mpr ⟨x, hx, rfl⟩), rfl⟩, ?_⟩, by simp [hxk]⟩
+    simp only [decide_eq_true_eq]
+    rw [hxk]
+    apply (htop f).mpr
+    by_cases h2 : 2 > (s.eff1 f).strength
+    · exact Or.inl h2
+    · refine Or.inr ⟨x, hx, hxk, ?_⟩
+      simp only [str]
+      omega
+
+local notation "fo" => Forest.build (cxOf s)
+
+/-- A forest experiment's closure's entries = its path's own successes. -/
+theorem path_any {j : Nat} (hg : (fo).good[j]? = some true) (P : String × Status → Bool) :
+    (s.successPairs (s.closure [(s.trace.experiments[j]'(good_lt s hg)).id])).any P =
+      true ↔ ∃ p, Reaches (fo).parent j p ∧ ∃ hp : p < s.trace.experiments.length,
+        s.trace.experiments[p].success.any P = true := by
+  have hinv := (build_inv s).1
+  have hnd := good_nodup s hg
+  rw [closure_good s hg]
+  have hpath : ∀ p ∈ pathUp (fo).parent (j + 1) j [], p < s.trace.experiments.length := by
+    intro p hp
+    have := (pathUp_increasing (fo).parent hinv.dec (j + 1) j (by omega)).2 p hp
+    have := good_lt s hg
+    omega
+  unfold Scenario.successPairs
+  rw [List.any_eq_true]
+  constructor
+  · rintro ⟨x, hx, hpx⟩
+    obtain ⟨id, hid, hxid⟩ := List.mem_flatMap.mp hx
+    obtain ⟨p, hp, hpid⟩ := List.mem_filterMap.mp hid
+    have hpn := hpath p hp
+    rw [List.getElem?_eq_getElem hpn, Option.map_some, Option.some.injEq] at hpid
+    subst hpid
+    rw [experiment?_self s hnd hpn, Option.map_some, Option.getD_some] at hxid
+    refine ⟨p, ?_, hpn, List.any_eq_true.mpr ⟨x, hxid, hpx⟩⟩
+    rw [mem_pathUp _ hinv.dec _ _ _ (by omega), List.mem_nil_iff, or_false] at hp
+    exact hp
+  · rintro ⟨p, hrp, hpn, hpa⟩
+    obtain ⟨x, hx, hpx⟩ := List.any_eq_true.mp hpa
+    refine ⟨x, List.mem_flatMap.mpr ⟨s.trace.experiments[p].id, List.mem_filterMap.mpr
+      ⟨p, ?_, by rw [List.getElem?_eq_getElem hpn]; rfl⟩, ?_⟩, hpx⟩
+    · rw [mem_pathUp _ hinv.dec _ _ _ (by omega), List.mem_nil_iff, or_false]
+      exact hrp
+    · rw [experiment?_self s hnd hpn, Option.map_some, Option.getD_some]
+      exact hx
+
+/-- What `pathRaises` holds after a prefix: one entry per position, each forest one = some
+experiment on its path raises `f` on its own. -/
+theorem pathRaises_fold (f : String) : ∀ (l : List Experiment) (acc : Array Bool),
+    (∀ j e, l[j]? = some e → s.trace.experiments[acc.size + j]? = some e) →
+    (∀ k (hk : k < acc.size), (fo).good[k]? = some true →
+      (acc[k] = true ↔ ∃ p, Reaches (fo).parent k p ∧ ∃ hp : p < s.trace.experiments.length,
+        raisesOwn (coreOf s) f s.trace.experiments[p] = true)) →
+    (l.foldl (pathRaisesStep (coreOf s) (fo) f) acc).size = acc.size + l.length ∧
+      ∀ k (hk : k < (l.foldl (pathRaisesStep (coreOf s) (fo) f) acc).size),
+        (fo).good[k]? = some true →
+        ((l.foldl (pathRaisesStep (coreOf s) (fo) f) acc)[k] = true ↔
+          ∃ p, Reaches (fo).parent k p ∧ ∃ hp : p < s.trace.experiments.length,
+            raisesOwn (coreOf s) f s.trace.experiments[p] = true)
+  | [], acc, _, h => ⟨by simp, h⟩
+  | e :: l, acc, hl, hacc => by
+    have hinv := (build_inv s).1
+    have he : s.trace.experiments[acc.size]? = some e := by simpa using hl 0 e rfl
+    have hin : acc.size < s.trace.experiments.length := by
+      rcases Nat.lt_or_ge acc.size s.trace.experiments.length with h | h
+      · exact h
+      · rw [List.getElem?_eq_none h] at he; cases he
+    have hei : s.trace.experiments[acc.size] = e := by
+      rw [List.getElem?_eq_getElem hin] at he; exact Option.some.inj he
+    rw [List.foldl_cons]
+    have hstep : ∀ k (hk : k < (pathRaisesStep (coreOf s) (fo) f acc e).size),
+        (fo).good[k]? = some true →
+        ((pathRaisesStep (coreOf s) (fo) f acc e)[k] = true ↔
+          ∃ p, Reaches (fo).parent k p ∧ ∃ hp : p < s.trace.experiments.length,
+            raisesOwn (coreOf s) f s.trace.experiments[p] = true) := by
+      intro k hk hg
+      unfold pathRaisesStep at hk ⊢
+      rw [Array.size_push] at hk
+      by_cases hka : k < acc.size
+      · rw [Array.getElem_push_lt hka]
+        exact hacc k hka hg
+      · have hk' : k = acc.size := by omega
+        subst hk'
+        rw [Array.getElem_push_eq, Bool.or_eq_true]
+        split
+        · rename_i p hp
+          have hpk := hinv.dec _ p hp
+          obtain ⟨hgp, _, _⟩ := hinv.parent _ p hp
+          simp only [reaches_link hp]
+          rw [show acc[p]?.getD false = acc[p] by
+              rw [Array.getElem?_eq_getElem (by omega)]; rfl,
+            hacc p (by omega) hgp]
+          constructor
+          · rintro (h | ⟨q, hq, hqn, hqr⟩)
+            · exact ⟨acc.size, Or.inl rfl, hin, by rw [hei]; exact h⟩
+            · exact ⟨q, Or.inr hq, hqn, hqr⟩
+          · rintro ⟨q, rfl | hq, hqn, hqr⟩
+            · left; rw [← hei]; exact hqr
+            · exact Or.inr ⟨q, hq, hqn, hqr⟩
+        · rename_i hnp
+          simp only [reaches_root (fun r hr => hnp r hr), Bool.false_eq_true, or_false]
+          constructor
+          · intro h; exact ⟨acc.size, rfl, hin, by rw [hei]; exact h⟩
+          · rintro ⟨q, rfl, _, hqr⟩; rw [← hei]; exact hqr
+    have hsz : (pathRaisesStep (coreOf s) (fo) f acc e).size = acc.size + 1 := by
+      unfold pathRaisesStep; simp
+    obtain ⟨h1, h2⟩ := pathRaises_fold f l _ (by
+      intro j e' hj
+      rw [hsz, Nat.add_assoc, Nat.add_comm 1 j]
+      exact hl (j + 1) e' (by simpa using hj)) hstep
+    refine ⟨by rw [h1, hsz]; simp; omega, h2⟩
+
+/-- `pathRaises`: a forest position's entry = some experiment on its path raises `f` on its own. -/
+theorem pathRaises_spec (f : String) {k : Nat} (hg : (fo).good[k]? = some true) :
+    ((pathRaises (cxOf s) (coreOf s) (fo) f)[k]?.getD false) = true ↔
+      ∃ p, Reaches (fo).parent k p ∧ ∃ hp : p < s.trace.experiments.length,
+        raisesOwn (coreOf s) f s.trace.experiments[p] = true := by
+  unfold pathRaises
+  rw [cxOf, ctx_experiments, List.foldl_toArray]
+  obtain ⟨h1, h2⟩ := pathRaises_fold s f s.trace.experiments #[] (fun j e h => by simpa using h)
+    (fun k hk => by simp at hk)
+  have hkn := good_lt s hg
+  simp only [Array.size_empty, Nat.zero_add] at h1
+  rw [Array.getElem?_eq_getElem (by rw [h1]; exact hkn), Option.getD_some]
+  exact h2 k _ hg
+
+/-- The forest raisers = the closure scan, for any order of experiments. -/
+theorem raisersWith_eq (order : List Experiment) (f : String) :
+    raisersWith (cxOf s) (coreOf s) (fo) ((cxOf s).closureWith (fo)) order f =
+      raisersOf order s.closure s.raised f := by
+  unfold raisersWith raisersOf
+  dsimp only
+  congr 1
+  apply List.filter_congr
+  intro e _
+  have hgen : (raisedBy (cxOf s) (coreOf s) ((cxOf s).closureWith (fo) [e.id])).any (·.1 == f) =
+      (s.raised (s.closure [e.id])).any (·.1 == f) := by
+    rw [closure_eq, raised_eq]
+  split
+  · rename_i j hj
+    split
+    · rename_i hgb
+      have hg : (fo).good[j]? = some true := by
+        cases hh : (fo).good[j]? with
+        | none => rw [hh] at hgb; cases hgb
+        | some b => rw [hh] at hgb; simp at hgb; rw [hgb]
+      obtain ⟨hjn, hjid⟩ := Fvtrace.Proofs.Closure.firstPos_some s hj
+      rw [Bool.eq_iff_iff, pathRaises_spec s f hg, ← hjid, raised_any,
+        path_any s hg]
+      constructor
+      · rintro ⟨p, hp, hpn, hpr⟩
+        refine ⟨p, hp, hpn, ?_⟩
+        unfold raisesOwn at hpr
+        rw [eff1_eq] at hpr
+        exact hpr
+      · rintro ⟨p, hp, hpn, hpr⟩
+        refine ⟨p, hp, hpn, ?_⟩
+        unfold raisesOwn
+        rw [eff1_eq]
+        exact hpr
+    · exact hgen
+  · exact hgen
+
+end Raisers
+
 end Fvtrace.Proofs.Walk

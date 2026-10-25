@@ -96,6 +96,6 @@ def fast (s : Scenario) : Answers :=
       extra ++ s.overrides.filter fun (k, _) => (ex.first? (cmp := compare) k).isNone
     experimentRows := fun _ => rows.get
     planSummary
-    raisers := fun f => raisersOf (rows.get.map (·.experiment)) closure (raisedBy cx core) f }
+    raisers := fun f => raisersWith cx core forest.get closure (rows.get.map (·.experiment)) f }
 
 end Fvtrace.Answers
