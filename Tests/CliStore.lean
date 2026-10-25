@@ -301,4 +301,43 @@ def tests : TestM Unit := do
     checkEq "store: the project folder holds only what it had"
       ((← proj.readDir).map (·.fileName)).toList ["proofs"]
 
+/-- Reference paths (kernel.md V-cli): `--action`, `--details` + `--complete` through the CLI. -/
+def referenceTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let repo : Store.Env := { home := dir / "home", cwd := ← IO.currentDir }
+    let ex := ["--trace", "examples/synthetic/trace.json",
+      "--project", "examples/synthetic/project"]
+    let schemaOf := fun (out : String) => (Json.parse out.toUTF8).toOption.bind (field · "schema")
+    let (rc, out, _) ← capture (Cli.runIn repo (["eval", "--action", "suppose:O2"] ++ ex))
+    checkEq "cli: eval --action rc" rc 0
+    check "cli: eval --action evaluates the action's what-if"
+      ((Json.parse out.toUTF8).toOption.bind (field · "overrides") ==
+        some (.arr [.obj [("fact", .str "O2"), ("status", .str "checked")]]))
+    let (rc, out, _) ← capture (Cli.runIn repo (["eval", "--details", "claim:C2"] ++ ex))
+    checkEq "cli: eval --details rc" rc 0
+    checkEq "cli: eval --details prints the details document" (schemaOf out)
+      (some (.str "fvtrace.details/1"))
+    let (rc, out, _) ←
+      capture (Cli.runIn repo (["eval", "--complete", "--action", "plan:C2"] ++ ex))
+    checkEq "cli: eval --complete rc" rc 0
+    checkEq "cli: eval --complete prints the batch document" (schemaOf out)
+      (some (.str "fvtrace.complete/1"))
+    let (rc, _, err) ← capture (Cli.runIn repo (["eval", "--details", "E9"] ++ ex))
+    checkEq "cli: a malformed item rc" rc 2
+    check "cli: a malformed item named first"
+      (err.startsWith "fvtrace: \"E9\" is not of the form KIND:ID\nusage: fvtrace") err
+    let (rc, _, err) ← capture (Cli.runIn repo (["claims", "--action", "plan:C9"] ++ ex))
+    checkEq "cli: an action not suggested rc" rc 2
+    check "cli: an action not suggested named first"
+      (err.startsWith "fvtrace: \"plan:C9\" is not a suggested what-if") err
+    let (rc, _, err) ←
+      capture (Cli.runIn repo (["eval", "--whatif", "O9=proved", "--action", "x"] ++ ex))
+    checkEq "cli: the what-if is refused before the action" (rc, err.startsWith
+      "fvtrace: \"O9\" is not a fact on record") (2, true)
+    let (rc, _, _) ← capture (Cli.runIn repo (["claims", "--details", "claim:C2"] ++ ex))
+    checkEq "cli: --details belongs to eval alone" rc 2
+    let (rc, _, _) ←
+      capture (Cli.runIn repo (["eval", "--details", "claim:C2", "--complete"] ++ ex))
+    checkEq "cli: --details with --complete rc" rc 2
+
 end Tests.CliStore

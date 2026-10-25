@@ -52,6 +52,9 @@ def pureTests : TestM Unit := do
      ("no fvtrace_evaluate export",
       moduleOf goodImports (goodExports.filter (· != exportOf "fvtrace_evaluate" 0)),
       "exports no fvtrace_evaluate"),
+     ("no fvtrace_answer export",
+      moduleOf goodImports (goodExports.filter (· != exportOf "fvtrace_answer" 0)),
+      "exports no fvtrace_answer"),
      ("memory exported as a function",
       moduleOf goodImports ((goodExports.filter (· != exportOf "memory" 2)) ++
         [exportOf "memory" 0]), "exports no memory of kind 2")]

@@ -1,6 +1,7 @@
 import Fvtrace.Check
 import Fvtrace.Decode
 import Fvtrace.Evaluate
+import Fvtrace.Request
 
 /-!
 # Snapshot: the engine's inputs, frozen for an exported page (`kernel.md` E-snap, E-eval)
@@ -83,5 +84,52 @@ def evaluate (snapshot spec : String) : String :=
       let current := fun id => (byId.find id).any (·.current)
       (Evaluate.envelope { trace := s.trace, current, overrides := o } s.bindings s.digest
         s.review).pretty
+
+/-- The page engine's state (`kernel.md` E-state): the snapshot, decoded once. -/
+structure Engine where
+  snap : Snapshot
+
+/-- Decodes the snapshot once; the refusal = the `invalid` problem's text. -/
+def Engine.load (text : String) : Except String Engine :=
+  match decode text with
+  | .ok s => .ok { snap := s }
+  | .error m => .error (problem "invalid" m).pretty
+
+/-- One request's answer (`kernel.md` V-request, E-request): the envelope at the action's what-if,
+or the details of an item there, or a problem; checked in that order: the request, the what-if,
+the action, the item. The same text `fvtrace eval` prints or the server answers. -/
+def Engine.answer (e : Engine) (request : String) : Engine × String :=
+  let s := e.snap
+  let text := match Request.parse request with
+    | .error m => (problem "invalid" m).pretty
+    | .ok r =>
+      match Overrides.parse s.trace r.whatif with
+      | .error m => (problem "what-if" m).pretty
+      | .ok o =>
+        let byId := Receipt.BindingIndex.of s.bindings
+        let current := fun id => (byId.find id).any (·.current)
+        let sc : Scenario := { trace := s.trace, current, overrides := o }
+        let expanded := match r.action with
+          | some a => (Evaluate.expandWith s.trace (Answers.fast sc) a).map fun o' =>
+              ({ sc with overrides := o' } : Scenario)
+          | none => .ok sc
+        match expanded with
+        | .error m => (problem "action" m).pretty
+        | .ok sc' =>
+          match r.details with
+          | some item =>
+            match Evaluate.detailsWith sc' (Answers.fast sc') s.digest s.review item with
+            | .ok v => v.pretty
+            | .error m => (problem "item" m).pretty
+          | none => (Evaluate.envelope sc' s.bindings s.digest s.review).pretty
+  (e, text)
+
+/-- The page's start-up call: the engine, or the problem text. -/
+@[export fvtrace_snapshot_load]
+def loadExport (snapshot : String) : Except String Engine := Engine.load snapshot
+
+/-- The page's request call: the next engine state + the answer's text. -/
+@[export fvtrace_snapshot_answer]
+def answerExport (e : Engine) (request : String) : Engine × String := e.answer request
 
 end Fvtrace.Snapshot

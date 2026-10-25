@@ -21,6 +21,10 @@ inductive Problem where
   | undecodable (file : System.FilePath) (diags : Array Decode.Diag)
   | illFormed (file : System.FilePath) (violations : List Check.Violation)
   | badWhatif (reason : String)
+  /-- The action is not among the suggested what-ifs (`kernel.md` V-action). -/
+  | badAction (reason : String)
+  /-- The item is malformed or names no record (`kernel.md` V-details). -/
+  | badItem (reason : String)
 
 structure Loaded where
   target : Store.Target
@@ -89,5 +93,28 @@ def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash :
                digest := ← Receipt.reviewDigest tr, review := ← Receipt.reviewState tr }
 
 def envelope (l : Loaded) : Value := Evaluate.envelope l.scenario l.bindings l.digest l.review
+
+/-- The loaded evaluation at the action's complete what-if (`kernel.md` V-action). -/
+def expand (l : Loaded) (action : String) : Except Problem Loaded :=
+  match Evaluate.expandWith l.scenario.trace (Answers.fast l.scenario) action with
+  | .ok o => .ok { l with scenario := { l.scenario with overrides := o } }
+  | .error m => .error (.badAction m)
+
+/-- The details of one item at the loaded what-if (`kernel.md` V-details). -/
+def details (l : Loaded) (item : String) : Except Problem Value :=
+  (Evaluate.detailsWith l.scenario (Answers.fast l.scenario) l.digest l.review item).mapError
+    .badItem
+
+/-- The view an answer reads (`kernel.md` V-serve `X-Fvtrace-View`): the envelope's `trace` member
+(content digest + review), the receipt bindings with their reasons, the what-if. -/
+def viewOf (l : Loaded) : IO String :=
+  Digest.ofString (Value.obj [("trace", Evaluate.traceJson l.scenario.trace l.digest l.review),
+    ("bindings", .arr (l.bindings.map fun b => .obj [("id", .str b.id),
+      ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))])),
+    ("overrides", Evaluate.overridesJson l.scenario.overrides)]).canonical
+
+/-- The batch document (`kernel.md` V-complete). -/
+def complete (l : Loaded) : Value :=
+  Evaluate.completeWith l.scenario (Answers.fast l.scenario) l.bindings l.digest l.review
 
 end Fvtrace.Session

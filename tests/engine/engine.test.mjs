@@ -5,7 +5,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { startEngine } from "../../web/engine.js";
-import { cases, engineOfPage, exportedPage, nativeAnswers, snapshotOfPage } from "./cases.mjs";
+import {
+  cases,
+  engineOfPage,
+  exportedPage,
+  nativeAnswers,
+  nativeRequests,
+  requestsFor,
+  snapshotOfPage,
+} from "./cases.mjs";
 
 const seed = Number(process.env["FVTRACE_ENGINE_SEED"] ?? "20261022");
 
@@ -64,4 +72,40 @@ void test("the exported page's engine answers every case as the native engine do
   console.log(
     `engine differential (Node): ${answers} answers on ${all.length} snapshots equal, seed ${seed}`,
   );
+});
+
+void test("the engine answers every request sequence as the native engine does", async () => {
+  const html = exportedPage();
+  const base64 = engineOfPage(html);
+  let answers = 0;
+  /** @type {string[]} */
+  const said = [];
+  const original = console.error;
+  console.error = (/** @type {unknown[]} */ ...args) => void said.push(args.join(" "));
+  try {
+    const all = cases(seed);
+    // One instance per snapshot: a refused snapshot ends its engine (E-state).
+    const engines = await Promise.all(all.map(() => startEngine(base64)));
+    for (const [k, c] of all.entries()) {
+      const engine = engines[k];
+      if (!engine) throw new Error("no engine");
+      const problem = engine.load(c.snapshot);
+      if (problem !== null) {
+        assert.equal(problem, nativeRequests(c.snapshot, [])[0], `${c.name}: load refusal`);
+        answers++;
+        continue;
+      }
+      const requests = requestsFor(c);
+      const native = nativeRequests(c.snapshot, requests);
+      requests.forEach((r, i) => {
+        const wasm = engine.request(r);
+        assert.equal(wasm, native[i], `${c.name}, request ${r.slice(0, 80)}`);
+        assert.deepEqual(said, [], `${c.name}, request ${r.slice(0, 80)}`);
+        answers++;
+      });
+    }
+  } finally {
+    console.error = original;
+  }
+  console.log(`engine requests (Node): ${answers} answers equal, seed ${seed}`);
 });
