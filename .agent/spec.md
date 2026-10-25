@@ -58,7 +58,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 87a3640 U4b exported page engine in a Worker (CSP `worker-src blob:` + one Trusted Types policy; user ruling)
 - [x] c3ab522 U5 cutover: envelope v2, export v3, GUI decoder v2 (+ `ceiling`, subject conflicts, excluded pairs per card from claim details, creator title by id)
 - [x] 21148b8 U5b `fvtrace_evaluate` + GET route + the v1 test hooks retired; `tools/compare.sh` v1 → v2 transform + expansion + details oracles
-- [ ] U6 server cache + launch evaluation; page engine state
+- [x] d2369f6 U6 server cache + launch evaluation; page engine state (bc53e1c)
 - [ ] U7 compute: P-forest, P-plan-local, P-raisers (fast, proved), shared-path speed to P-time
 - [ ] U8 GUI responsiveness (U-*: lookups once, selection + updates without rebuild, long lists + access, request numbers, indicator past 1 s) + `tools/scale-gui.mjs`
 - [ ] U9 scale tools + measurements (P-bound rows, idle host)
