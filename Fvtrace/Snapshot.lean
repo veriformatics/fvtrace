@@ -70,9 +70,11 @@ def decode (input : String) : Except String Snapshot := do
 def problem (kind message : String) : Value :=
   .obj [("problem", .obj [("kind", .str kind), ("message", .str message)])]
 
-/-- The page engine's state (`kernel.md` E-state): the snapshot, decoded once. -/
+/-- The page engine's state (`kernel.md` E-state): the snapshot, decoded once, + the last answer's
+what-if with its answers, so details + expansions at the shown view reuse their memos. -/
 structure Engine where
   snap : Snapshot
+  last : Option (Overrides × Answers) := none
 
 /-- Decodes the snapshot once; the refusal = the `invalid` problem's text. -/
 def Engine.load (text : String) : Except String Engine :=
@@ -85,29 +87,33 @@ or the details of an item there, or a problem; checked in that order: the reques
 the action, the item. The same text `fvtrace eval` prints or the server answers. -/
 def Engine.answer (e : Engine) (request : String) : Engine × String :=
   let s := e.snap
-  let text := match Request.parse request with
-    | .error m => (problem "invalid" m).pretty
-    | .ok r =>
-      match Overrides.parse s.trace r.whatif with
-      | .error m => (problem "what-if" m).pretty
-      | .ok o =>
-        let byId := Receipt.BindingIndex.of s.bindings
-        let current := fun id => (byId.find id).any (·.current)
-        let sc : Scenario := { trace := s.trace, current, overrides := o }
-        let expanded := match r.action with
-          | some a => (Evaluate.expandWith s.trace (Answers.fast sc) a).map fun o' =>
-              ({ sc with overrides := o' } : Scenario)
-          | none => .ok sc
-        match expanded with
-        | .error m => (problem "action" m).pretty
-        | .ok sc' =>
-          match r.details with
-          | some item =>
-            match Evaluate.detailsWith sc' (Answers.fast sc') s.digest s.review item with
-            | .ok v => v.pretty
-            | .error m => (problem "item" m).pretty
-          | none => (Evaluate.envelope sc' s.bindings s.digest s.review).pretty
-  (e, text)
+  let byId := Receipt.BindingIndex.of s.bindings
+  let current := fun id => (byId.find id).any (·.current)
+  let scenario := fun (o : Overrides) => ({ trace := s.trace, current, overrides := o } : Scenario)
+  -- The answers of a what-if: the kept ones when it is the last answer's (the same values).
+  let answersAt := fun (o : Overrides) => match e.last with
+    | some (o', A) => if o' == o then A else Answers.fast (scenario o)
+    | none => Answers.fast (scenario o)
+  match Request.parse request with
+  | .error m => (e, (problem "invalid" m).pretty)
+  | .ok r =>
+    match Overrides.parse s.trace r.whatif with
+    | .error m => (e, (problem "what-if" m).pretty)
+    | .ok o =>
+      let expanded := match r.action with
+        | some a => Evaluate.expandWith s.trace (answersAt o) a
+        | none => .ok o
+      match expanded with
+      | .error m => (e, (problem "action" m).pretty)
+      | .ok o' =>
+        let A := answersAt o'
+        let e' := { e with last := some (o', A) }
+        match r.details with
+        | some item =>
+          match Evaluate.detailsWith (scenario o') A s.digest s.review item with
+          | .ok v => (e', v.pretty)
+          | .error m => (e', (problem "item" m).pretty)
+        | none => (e', (Evaluate.envelopeWith (scenario o') A s.bindings s.digest s.review).pretty)
 
 /-- The envelope `fvtrace eval --whatif spec` prints for the frozen state, or the problem the
 server answers: the engine's answer to `{whatif: spec}` (a test + export helper; the page calls
