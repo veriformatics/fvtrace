@@ -448,7 +448,7 @@
       "id": "T1",
       "subject": "S",
       "kind": "implementation",
-      "text": "fvtrace serve sends the claims only in answer to GET requests that name an allowed Host and carry the run's token in their Authorization header; it sets no cookie.",
+      "text": "fvtrace serve sends the claims only in answer to POST requests to its answer route that name an allowed Host and carry the run's token in their Authorization header; it sets no cookie.",
       "status": "tested",
       "route": "lean",
       "evidence": {
@@ -456,7 +456,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "b7f66a3859907ea51585918fd400fa01a049dbaed0414e76bedfbc5b75c440e8",
+            "sha256": "d4d7028006eda1bcebdbd41e1a66e8fcd6b55b6b6e78845e4d89785d0948ed4a",
             "role": "code"
           },
           {
@@ -465,7 +465,7 @@
             "role": "tests"
           }
         ],
-        "statementDigest": "e9aae9093cbe1db770d9a88193e0636bebc6030e1052288ae467659a12faf87f"
+        "statementDigest": "da65b4fd28b48d8d984756a0029456fe6f779e6a8b524190c859a50188ad9bd0"
       }
     },
     {
