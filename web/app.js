@@ -770,8 +770,17 @@ function groups(e, x) {
     ],
   ];
   out.push(["Overlooked directions", existing.filter((c) => c.latent)]);
+  // One pass by subject: a filter per new-data subject cost subjects × claims (prereqs at 26,825:
+  // 8,942 subjects, 1.4 s per render).
+  /** @type {Map<string, Claim[]>} */
+  const bySubject = new Map();
+  for (const c of mine) {
+    const list = bySubject.get(c.subject);
+    if (list) list.push(c);
+    else bySubject.set(c.subject, [c]);
+  }
   for (const s of e.subjects.filter((y) => x.prospective.has(y.id))) {
-    out.push([`On new data: ${s.title}`, mine.filter((c) => c.subject === s.id)]);
+    out.push([`On new data: ${s.title}`, bySubject.get(s.id) ?? []]);
   }
   return out.filter(([, cs]) => cs.length > 0);
 }
