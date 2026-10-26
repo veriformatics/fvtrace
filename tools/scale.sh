@@ -6,8 +6,9 @@
 # Default: every shape at n = cap/2 and cap (the largest n within 16 MiB; whatif: its what-if
 # within one argument too), the built binary, 900 s per run. Rows per shape + n: `check`, `eval`,
 # `action` (eval --action of action.txt), `details:<kind>` (eval --details of each items.txt
-# line), `export` (--html), on the F5 four the text commands `claims`, `gaps`, `experiments`,
-# `plan` (of items.txt's claim; elsewhere their output grows by design, kernel.md P-time); `serve` = one server: its launch (start → the recorded answer), then,
+# line), `export` (--html), on the F5 four the text commands `claims`, `gaps` (not on deep),
+# `experiments`, `plan` (of items.txt's claim; elsewhere their output grows by design, kernel.md
+# P-time); `serve` = one server: its launch (start → the recorded answer), then,
 # as the GUI sends them, `serve:whatif` (a whatif.txt view), `serve:details:<kind>` at that view,
 # `serve:action` from it; `page` = the exported page's engine (tools/scale-page.mjs): start-up,
 # then the same steps; `gui:<served|page>:<step>` = the GUI in Chromium (tools/scale-gui.mjs or
@@ -171,14 +172,22 @@ for shape in "${shapes[@]}"; do
     kinds=()
     while read -r item; do kinds+=("${item%%:*}"); done <"$first/items.txt"
     cmds=(check eval action "${kinds[@]/#/details:}" export)
-    [[ "$f5" == *" $shape "* ]] && cmds+=(claims gaps experiments plan)
+    # Text commands on the F5 four. Deep's `gaps` rows each name the claim's other open facts
+    # (n/2 rows × n/2 ids: output that grows by design, kernel.md P-time) → left out.
+    if [[ "$f5" == *" $shape "* ]]; then
+        cmds+=(claims)
+        [[ "$shape" == deep ]] || cmds+=(gaps)
+        cmds+=(experiments plan)
+    fi
     cmds+=(serve)
     [[ -f "$first/whatif.txt" ]] && cmds+=(serve:whatif)
     cmds+=("${kinds[@]/#/serve:details:}" serve:action page)
     [[ -f "$first/whatif.txt" ]] && cmds+=(page:whatif)
     cmds+=("${kinds[@]/#/page:details:}" page:action)
+    gsteps=(first select details busy whatif)
+    [[ " ${kinds[*]} " == *" experiment "* ]] && gsteps+=(experiment)
     for mode in served page; do
-        for step in first select details busy whatif; do cmds+=("gui:$mode:$step"); done
+        for step in "${gsteps[@]}"; do cmds+=("gui:$mode:$step"); done
     done
     cmds+=(gui:page:startup)
     for cmd in "${cmds[@]}"; do
