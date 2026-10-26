@@ -95,3 +95,14 @@ Target = `01cf228^..f3bc87f` (U1–U10 as committed; later commits get a re-revi
 | K3 | Server.lean:88 `+` → `-`, `1024` → `1025` | specified (V-serve: ≤ 16 MiB + 1 KiB; `bodyCap` feeds the body reader + `maxBodySize`) → test "server: the body cap = 16 MiB + 1 KiB (kernel.md V-serve)" | fixed; both killed on re-run; reviewer-4 agrees |
 | K4 | Server.lean:231 `maxConnections` 64 → 65 | open: no contract clause names a connection limit (P-cache serializes evaluations, not sockets); not equivalent (a 65th connection is admitted) | recorded, no test; reviewer-4 rules open |
 | K5 | Export.lean:32 first `==` → `!=`, `\|\|` → `&&` | specified (E-page: the engine worker's source) → test "export: the engine worker = its entry + the loader, nothing of the page" (the old check compared the block with the same bundler's output) | fixed; both killed on re-run; reviewer-4 agrees |
+
+### Post-close review (reference-host acceptance fixes, 5a2dd39..391da99; reviewer-6: `review-implement-whatifs/reviewer-6.md`)
+
+Check set C1–C7 fixed before the diff was read: C1–C5 + C7 pass, C6 two findings, one re-review round.
+
+| id | sev | finding | acceptance | status |
+|---|---|---|---|---|
+| C6-F1 | major | `tools/scale-gui.mjs`: a failed memory reading became 0, which scale.sh's ratios skip | a failed reading fails its rows | fixed 7b986c5 (rows rc 1); re-review pass (reviewer-6, 7b986c5) |
+| C6-F2 | major | the experiment details step (and the claim one) counted an idle inspector as answered: a failed request read as success | success only on ready details for that item + view | fixed 7b986c5 (`data-details` = ready); re-review pass (reviewer-6, 7b986c5) |
+| R1 | register | duplicate-key focus grows from the focused node's own position (was the key map's last occurrence) | — | no defect: reachability kept |
+| R2 | register | `Session.Prepared`'s comment named the dropped lookups | — | fixed 7b986c5 |
