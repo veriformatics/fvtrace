@@ -36,11 +36,13 @@ const cardId = "article.circuit .claim-head .tag-id .ref";
 const symbol = 'article.circuit button.switch:not([aria-disabled="true"])';
 const experimentId = ".experiment-meta .ref";
 
-/** @param {string} step @param {number | undefined} ms @param {number} bound @param {number} bytes */
+/** A row; `bytes` undefined = the memory reading failed, which fails the row (a zero would drop it
+ * from the memory ratios). @param {string} step @param {number | undefined} ms
+ * @param {number} bound @param {number | undefined} bytes */
 function row(step, ms, bound, bytes) {
   const wall = ms === undefined ? "timeout" : (ms / 1000).toFixed(3);
-  const rc = ms === undefined ? 1 : 0;
-  process.stdout.write(`${step} ${rc} ${wall} - ${Math.round(bytes / 1024)} 0 ${bound}\n`);
+  const rc = ms === undefined || bytes === undefined ? 1 : 0;
+  process.stdout.write(`${step} ${rc} ${wall} - ${Math.round((bytes ?? 0) / 1024)} 0 ${bound}\n`);
 }
 
 /**
@@ -72,14 +74,17 @@ async function timed(p, waits, click) {
           (document.querySelector("#scenario-text")?.textContent ?? "") !== before &&
           !document.body.hasAttribute("aria-busy")
         );
+      // Details count once the engine's answer shows (`data-details`: a refused or failed request
+      // leaves the inspector idle too).
+      const ready = document.querySelector("#inspector")?.getAttribute("data-details") === "ready";
       if (w.kind === "experiment")
         return (
           document.querySelector("#inspector .reference")?.textContent === `Experiment ${w.id}` &&
-          !document.querySelector("#inspector")?.hasAttribute("aria-busy")
+          ready
         );
       const tag = document.querySelector("#inspector .claim-tag .tag-id")?.textContent;
       if (tag !== w.id) return false;
-      return w.kind === "shown" || !document.querySelector("#inspector")?.hasAttribute("aria-busy");
+      return w.kind === "shown" || ready;
     };
     return new Promise(
       /** @param {(at: (number | undefined)[]) => void} resolve */ (resolve) => {
@@ -216,7 +221,10 @@ async function steps(browser, mode, url) {
   } catch (e) {
     process.stderr.write(`${mode}: ${String(e)}\n`);
   } finally {
-    const live = await heap(p).catch(() => 0);
+    const live = await heap(p).catch((/** @type {unknown} */ e) => {
+      process.stderr.write(`${mode}: memory: ${String(e)}\n`);
+      return undefined;
+    });
     for (const [step, ms, bound, own] of rows) row(step, ms, bound, own ?? live);
     await context.close();
   }

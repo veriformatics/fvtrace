@@ -1072,6 +1072,9 @@ function renderInspector() {
   const sel = view.selection;
   const shown = details && sel && details.item === `${sel.kind}:${sel.id}` ? details : undefined;
   fill(byId("inspector"), inspector(ix, sel, on, shown));
+  // The details' state (pending | ready | problem | off | none): `tools/scale-gui.mjs` times
+  // details until "ready", since a failed request also leaves the inspector idle.
+  byId("inspector").dataset["details"] = shown?.state ?? "none";
   // `aria-busy` takes "true" (an empty value reads as false).
   if (shown?.state === "pending") byId("inspector").setAttribute("aria-busy", "true");
   else byId("inspector").removeAttribute("aria-busy");
