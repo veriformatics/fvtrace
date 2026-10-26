@@ -78,8 +78,8 @@ def readWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :
 def read : Store.Target → Bool → IO (Except Problem (Except (Array Decode.Diag) Trace)) :=
   readWithin maxTraceBytes
 
-/-- What a checked trace's content alone decides: its lookups, review digest + review state
-(`fvtrace serve` keeps it beside the trace, both keyed by the trace's bytes: kernel.md P-cache). -/
+/-- What a checked trace's content alone decides: its review digest + review state (`fvtrace serve`
+keeps it beside the trace, both keyed by the trace's bytes: kernel.md P-cache). -/
 structure Prepared where
   digest : String
   review : Receipt.ReviewState
