@@ -9,8 +9,10 @@
 // showed within 60 s or the page failed. Steps per mode (`served`, `page`): `first` (navigation →
 // the board painted), `select` (a click on the first card's id → its highlight + summary),
 // `details` (a click on the second card's id → its details, the view already held), `busy` (a click
-// on the first card's first symbol → the busy state), `whatif` (→ its answer); exported also
-// `startup` (the symbol clicked as soon as the board shows, the engine still starting → its answer).
+// on the first card's first symbol → the busy state), `whatif` (→ its answer), `experiment` (a click
+// on the first experiment row's id → its details, the view already held; shapes with experiments);
+// exported also `startup` (the symbol clicked as soon as the board shows, the engine still
+// starting → its answer).
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -32,6 +34,7 @@ const cardId = "article.circuit .claim-head .tag-id .ref";
 // Any enabled what-if switch: "Suppose …" on the recorded view, "Restore …" under the whatif
 // shape's what-if (every fact supposed there).
 const symbol = 'article.circuit button.switch:not([aria-disabled="true"])';
+const experimentId = ".experiment-meta .ref";
 
 /** @param {string} step @param {number | undefined} ms @param {number} bound @param {number} bytes */
 function row(step, ms, bound, bytes) {
@@ -41,10 +44,11 @@ function row(step, ms, bound, bytes) {
 }
 
 /**
- * What a step waits for: the inspector showing a claim (`shown`), its details too (`ready`), the
- * busy state (`busy`), a what-if's answer (`answered`).
- * @typedef {{ kind: "shown", id: string } | { kind: "ready", id: string } | { kind: "busy" }
- *   | { kind: "answered" }} Wait
+ * What a step waits for: the inspector showing a claim (`shown`), its details too (`ready`), an
+ * experiment with its details (`experiment`), the busy state (`busy`), a what-if's answer
+ * (`answered`).
+ * @typedef {{ kind: "shown", id: string } | { kind: "ready", id: string }
+ *   | { kind: "experiment", id: string } | { kind: "busy" } | { kind: "answered" }} Wait
  */
 
 /**
@@ -67,6 +71,11 @@ async function timed(p, waits, click) {
         return (
           (document.querySelector("#scenario-text")?.textContent ?? "") !== before &&
           !document.body.hasAttribute("aria-busy")
+        );
+      if (w.kind === "experiment")
+        return (
+          document.querySelector("#inspector .reference")?.textContent === `Experiment ${w.id}` &&
+          !document.querySelector("#inspector")?.hasAttribute("aria-busy")
         );
       const tag = document.querySelector("#inspector .claim-tag .tag-id")?.textContent;
       if (tag !== w.id) return false;
@@ -177,12 +186,24 @@ async function steps(browser, mode, url) {
     );
     rows.push([`gui:${mode}:details`, ready, 1]);
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
-    if ((await p.locator(symbol).count()) === 0) return;
-    const [busy, answered] = await timed(p, [{ kind: "busy" }, { kind: "answered" }], () =>
-      p.locator(symbol).first().click(),
-    );
-    rows.push([`gui:${mode}:busy`, busy, 0.1], [`gui:${mode}:whatif`, answered, 10]);
-    if (mode === "page") {
+    const symbols = await p.locator(symbol).count();
+    if (symbols > 0) {
+      const [busy, answered] = await timed(p, [{ kind: "busy" }, { kind: "answered" }], () =>
+        p.locator(symbol).first().click(),
+      );
+      rows.push([`gui:${mode}:busy`, busy, 0.1], [`gui:${mode}:whatif`, answered, 10]);
+    }
+    // Last, so the claim steps keep the selection they had: an experiment's details re-asked
+    // after the what-if would lengthen its answer.
+    if ((await p.locator(experimentId).count()) > 0) {
+      await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
+      const e = (await p.locator(experimentId).first().textContent()) ?? "";
+      const [shown] = await timed(p, [{ kind: "experiment", id: e }], () =>
+        p.locator(experimentId).first().click(),
+      );
+      rows.push([`gui:${mode}:experiment`, shown, 1]);
+    }
+    if (symbols > 0 && mode === "page") {
       // A click while the engine starts: a fresh page, its symbol clicked once the board shows.
       const q = await context.newPage();
       q.setDefaultTimeout(patience);

@@ -396,6 +396,15 @@ for (const s of [...steps, "page:startup"])
 STUB
     expect scale-gui-bound 'FAIL wide gui:served:select n=2: wall 0.500 s > 0.1 s' \
         "${run[@]}" --gui "$gui"
+    # A shape with experiments adds the experiment step: its row is graded at its own 1 s bound.
+    local gexp="$backup/scale-gui-experiment.mjs"
+    cat >"$gexp" <<'STUB'
+const steps = ["first", "select", "details", "busy", "whatif", "experiment"];
+for (const s of [...steps.flatMap((x) => [`served:${x}`, `page:${x}`]), "page:startup"])
+  process.stdout.write(`gui:${s} 0 ${s === "served:experiment" ? "1.500" : "0.010"} - 0 0 1\n`);
+STUB
+    expect scale-gui-experiment 'FAIL outcomes gui:served:experiment n=2: wall 1.500 s > 1 s' \
+        bash tools/scale.sh --assert --bin "$stub" --n "2 4" --gui "$gexp" outcomes
     allow scale-pass bash tools/scale.sh --assert --n "2 4" --max-ratio 100 wide
 }
 
