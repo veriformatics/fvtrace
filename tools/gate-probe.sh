@@ -377,7 +377,7 @@ STUB
     STUB_M=20 expect scale-rss 'FAIL wide check n=2→4: rss ratio [0-9.]+ > 2.5 per doubling' "${run[@]}"
     STUB_B=100000 expect scale-bytes 'FAIL wide eval n=2→4: bytes ratio [0-9.]+ > 2.2 per doubling' \
         "${run[@]}"
-    STUB_M=10 STUB_SHAPE=outcomes expect scale-rss-cap 'FAIL outcomes eval: rss [0-9]+ MiB > 1.25' \
+    STUB_M=10 STUB_SHAPE=outcomes expect scale-rss-cap 'FAIL outcomes eval: rss [0-9]+ MiB > 1.5' \
         "${run[@]}" outcomes --max-ratio 100
     # The serve rows: a server that exits, one that never prints its link, one that answers an
     # error, one past the time limit; the page rows: an engine that cannot start.

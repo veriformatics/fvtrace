@@ -20,7 +20,7 @@
 # exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit)
 # or a GUI row's own bound, a per-doubling wall or RSS ratio above --max-ratio (2.5) or eval output
 # ratio above 2.2 (P-bound), or an outcomes, prereqs or whatif eval (outcomes + prereqs: serve too)
-# at its largest n above 1.25 × the worst eval RSS of the F5 four (P-memory), one `FAIL` line per
+# at its largest n above 1.5 × the worst eval RSS of the F5 four (P-memory), one `FAIL` line per
 # breach. Other shapes are reported, never graded. Time it where the host is idle: the bounds are
 # wall-clock (load is printed at start + end).
 set -uo pipefail
@@ -267,7 +267,8 @@ for shape in "${shapes[@]}"; do
     done
 done
 # P-memory: at their largest n, outcomes + prereqs + whatif eval and one outcomes + prereqs serve
-# evaluation (its launch) within 1.25 × the worst eval RSS of the F5 four (same binary, same run).
+# evaluation (its launch) within 1.5 × the worst eval RSS of the F5 four (same binary, same run;
+# user ruling: identical runs swing 10–20% with mimalloc's delayed release of freed memory).
 worst=0
 for f5 in wide deep experiments exclusions; do
     r="${last_rss["$f5:eval"]:-0}"
@@ -276,8 +277,8 @@ done
 if [[ $assert -eq 1 && $worst -gt 0 ]]; then
     for big in outcomes:eval prereqs:eval whatif:eval outcomes:serve prereqs:serve; do
         r="${last_rss["$big"]:-}"
-        [[ -n "$r" ]] && awk -v r="$r" -v w="$worst" 'BEGIN { exit !(r > 1.25 * w) }' &&
-            fail "${big/:/ }: rss $((r / 1024)) MiB > 1.25 × $((worst / 1024)) MiB (the F5 four's worst)"
+        [[ -n "$r" ]] && awk -v r="$r" -v w="$worst" 'BEGIN { exit !(r > 1.5 * w) }' &&
+            fail "${big/:/ }: rss $((r / 1024)) MiB > 1.5 × $((worst / 1024)) MiB (the F5 four's worst)"
     done
 fi
 printf 'load %s at end\n' "$(cut -d' ' -f1-3 /proc/loadavg)"
