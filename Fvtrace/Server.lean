@@ -32,19 +32,21 @@ structure Config where
   cached : Bool := false
 
 /-- What the server keeps between requests (`kernel.md` P-cache): the last checked trace, by the
-SHA-256 of its bytes, and the last answer's answers + its envelope text once printed, by its view
+SHA-256 of its bytes, and the last answer's answers + its envelope's UTF-8 once printed, by its view
 (`Session.viewOf`: the trace's content + review, the bindings with their reasons, the what-if).
 Answers read from it equal fresh ones, byte for byte; the launch evaluation's text answers the
 page's first request. -/
 structure Kept where
   trace : Option (String × Trace × Session.Prepared) := none
-  last : Option (String × Answers × Option String) := none
+  -- The envelope as bytes: every response sends these without a copy (a copy per response had
+  -- the server allocate the envelope again on whichever worker thread answered).
+  last : Option (String × Answers × Option ByteArray) := none
 
 /-- A response before transport. -/
 structure Reply where
   status : Std.Http.Status
   contentType : String := "text/plain; charset=utf-8"
-  body : String := ""
+  body : ByteArray := .empty
   headers : List (String × String) := []
 
 def csp : String :=
@@ -88,10 +90,10 @@ inductive Action where
 def bodyCap : Nat := maxTraceBytes + 1024
 
 def text (status : Std.Http.Status) (body : String) : Action :=
-  .reply { status, body := body ++ "\n" }
+  .reply { status, body := (body ++ "\n").toUTF8 }
 
 def json (status : Std.Http.Status) (v : Value) : Reply :=
-  { status, contentType := "application/json", body := v.pretty }
+  { status, contentType := "application/json", body := v.pretty.toUTF8 }
 
 def problemJson (status : Std.Http.Status) (kind message : String) : Reply :=
   json status (.obj [("problem", .obj [("kind", .str kind), ("message", .str message)])])
@@ -102,7 +104,7 @@ def decide (cfg : Config) (req : Req) : Action :=
   let api := req.path == "/api/answer"
   if req.method != (if api then .post else .get) then
     let only := if api then "POST" else "GET"
-    .reply { status := .methodNotAllowed, body := s!"Only {only} is served.\n",
+    .reply { status := .methodNotAllowed, body := s!"Only {only} is served.\n".toUTF8,
              headers := [("Allow", only)] }
   else if !(req.host.any cfg.hosts.contains) then
     text .misdirectedRequest "This server answers its own address only."
@@ -113,7 +115,7 @@ def decide (cfg : Config) (req : Req) : Action :=
         "link that fvtrace serve prints, or run fvtrace serve again."))
   else
     match FvtraceWeb.files.find? (·.1 == req.path) with
-    | some (_, contentType, body) => .reply { status := .ok, contentType, body }
+    | some (_, contentType, body) => .reply { status := .ok, contentType, body := body.toUTF8 }
     | none => text .notFound "Not found."
 
 /-- A problem in the GUI's words. -/
@@ -186,7 +188,7 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
       | .error m => problemReply (.badItem m)
     | none =>
       let body := text.getD
-        (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest l'.review).pretty
+        (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest l'.review).pretty.toUTF8
       set { st with trace := some (key, tr, prep), last := some (v, A, some body) }
       return tagged { status := .ok, contentType := "application/json", body }
 
@@ -211,7 +213,7 @@ def reqOf (r : Std.Http.Request Body.Stream) : Req :=
 def toResponse (r : Reply) : Async (Response Body.Full) := do
   let b := (fixedHeaders ++ [("Content-Type", r.contentType)] ++ r.headers).foldl
     (fun b (k, v) => b.header! k v) (Response.withStatus r.status)
-  b.fromBytes r.body.toUTF8
+  b.fromBytes r.body
 
 /-- The configuration sits in a reference: the port (hence the hosts) is known only once bound,
 and a request before that meets no allowed host. -/

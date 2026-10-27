@@ -17,16 +17,19 @@ def req (path : String) (query : List (String × String) := [])
 
 def bearerOk : Option String := some s!"Bearer {token}"
 
+/-- A reply's body as text (bodies are UTF-8 bytes). -/
+def bodyText (r : Reply) : String := (String.fromUTF8? r.body).getD ""
+
 /-- (status code, a header's value, body) of a decided reply; `evaluate w` as status 0. -/
 def outcome (a : Action) (header : String := "") : Nat × Option String × String :=
   match a with
-  | .reply r => (r.status.toCode.toNat, r.headers.lookup header, r.body)
+  | .reply r => (r.status.toCode.toNat, r.headers.lookup header, bodyText r)
   | .answer v => (1, v, "")
 
 /-- A decided reply's JSON problem kind. -/
 def decidedKind (a : Action) : Option String :=
   match a with
-  | .reply r => match (Json.parse r.body.toUTF8).toOption with
+  | .reply r => match (Json.parse r.body).toOption with
     | some (.obj [("problem", .obj ps)]) => match ps.lookup "kind" with
       | some (.str k) => some k
       | _ => none
@@ -93,7 +96,7 @@ def pureTests : TestM Unit := do
   check "server: equal secrets match" (sameSecret token token)
   check "server: unequal secrets differ" (!sameSecret token near && !sameSecret token "")
 
-def body (r : Reply) : Option Json.Value := (Json.parse r.body.toUTF8).toOption
+def body (r : Reply) : Option Json.Value := (Json.parse r.body).toOption
 
 def problemKind (r : Reply) : Option String :=
   match body r with
@@ -133,7 +136,8 @@ def answerTests : TestM Unit := do
           ["--whatif", "O2=checked", "--details", "claim:C2"]),
         ("{\"whatif\":\"\",\"action\":\"plan:C2\"}", ["--action", "plan:C2"])] do
       let r ← answer c cache kept none body
-      checkEq s!"server: {body} = fvtrace eval's bytes" (r.status.toCode, r.body) (200, ← cli args)
+      checkEq s!"server: {body} = fvtrace eval's bytes" (r.status.toCode, bodyText r)
+        (200, ← cli args)
       check s!"server: {body} names its view" (viewOf r).isSome
     for (body, kind) in [("{\"whatif\":\"O9=proved\"}", "what-if"),
         ("{\"whatif\":\"\",\"action\":\"plan:C9\"}", "action"),
@@ -155,9 +159,9 @@ def answerTests : TestM Unit := do
     IO.FS.writeFile c.target.trace (t.replace "\"summary\": \"" "\"summary\": \"Edited. ")
     let after ← answer c cache kept none "{\"whatif\":\"\"}"
     checkEq "server: an edited trace = fvtrace eval's answer for the new bytes"
-      (after.status.toCode, after.body) (200, ← cli [])
+      (after.status.toCode, bodyText after) (200, ← cli [])
     check "server: the edit changed the answer (the kept one was not reused)"
-      (after.body != before.body)
+      (bodyText after != bodyText before)
     IO.FS.writeFile c.target.trace t
 
 /-- The evaluation route against a real project folder (SHA-256 over FFI: native suite). -/
