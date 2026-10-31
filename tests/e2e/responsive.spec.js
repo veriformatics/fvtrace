@@ -141,9 +141,7 @@ test("a request past 1 s shows that the page is working, until its answer", asyn
   await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
 });
 
-test("one evaluation at a time: A → B → A sends A twice, never B, and shows the last", async ({
-  page,
-}) => {
+test("one evaluation at a time: A → B → A sends A, then A + B, never B alone", async ({ page }) => {
   web = await serveFvtrace();
   await page.goto(web.url);
   await card(page, "C3").waitFor();
@@ -153,15 +151,35 @@ test("one evaluation at a time: A → B → A sends A twice, never B, and shows 
   await expect.poll(() => seen.specs.length).toBe(1);
   await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-  // The second waits behind the first and the third replaces it.
+  // Each click stacks onto the newest request: the second (O3 + O2) waits behind the first and
+  // the third (O2 + O3) replaces it.
   expect(seen.specs).toEqual(["O2=checked"]);
   release();
   await expect.poll(() => seen.specs.length).toBe(2);
   release();
   await expect(page.locator("#scenario-text")).toContainText("suppose O2 is verified");
+  await expect(page.locator("#scenario-text")).toContainText("O3 is verified");
   await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
-  expect(seen.specs).toEqual(["O2=checked", "O2=checked"]);
+  expect(seen.specs).toEqual(["O2=checked", "O2=checked,O3=checked"]);
   expect(seen.most).toBe(1);
+});
+
+test("a symbol clicked while an answer is pending stacks onto that request", async ({ page }) => {
+  web = await serveFvtrace();
+  await page.goto(web.url);
+  await card(page, "C3").waitFor();
+  const { seen, release } = await holdEvaluations(page);
+  const c2 = card(page, "C2");
+  await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
+  await expect.poll(() => seen.specs.length).toBe(1);
+  // O2's answer is still held: the shown view is the recorded one.
+  await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
+  release();
+  await expect.poll(() => seen.specs.length).toBe(2);
+  release();
+  await expect(c2.getByRole("button", { name: "Restore the recorded status of O2" })).toBeVisible();
+  await expect(c2.getByRole("button", { name: "Restore the recorded status of O3" })).toBeVisible();
+  expect(seen.specs).toEqual(["O2=checked", "O3=checked,O2=checked"]);
 });
 
 test("details stay absent while pending; an older selection's answer is dropped", async ({

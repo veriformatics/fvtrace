@@ -73,6 +73,11 @@ let detailsAsked = 0;
 let flying = false;
 /** @type {(() => void) | undefined} */
 let queued;
+/** The what-if a symbol click or reset asked for, until its answer settles: a later click stacks
+ * onto it, not onto the shown one, so fast clicks accumulate (E-gui). An action or a linked
+ * what-if clears it (their what-if is the engine's to name). */
+/** @type {Map<string, string> | undefined} */
+let requested;
 /** The view the shown envelope read (served: `X-Fvtrace-View`), sent with each details request. */
 /** @type {string | undefined} */
 let shownView;
@@ -270,6 +275,7 @@ function isKind(k) {
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   view.spec = p.get("whatif") ?? "";
+  requested = undefined;
   legacyAction = p.has("whatif") ? undefined : (p.get("action") ?? undefined);
   view.question = p.get("q") ?? "";
   view.layout = p.get("view") === "text" ? "text" : "circuits";
@@ -477,6 +483,7 @@ async function load(action, link = false) {
   }
   const spec = view.spec;
   const n = ++evaluations;
+  if (action) requested = undefined;
   try {
     const got = await evaluation(n, action ? { whatif: spec, action } : { whatif: spec });
     if (!got || n !== evaluations) return;
@@ -490,6 +497,7 @@ async function load(action, link = false) {
       // A refused what-if falls back to the recorded evidence; the message outlives that load.
       if (problem.kind === "what-if" && spec) {
         view.spec = "";
+        requested = new Map();
         writeHash();
         await load();
         showError(`${problem.message}. This page shows the facts as recorded instead.`);
@@ -527,6 +535,9 @@ async function load(action, link = false) {
           ? `This page does not understand the server's answer (${e.message}). Update fvtrace.`
           : "The server did not answer. Is fvtrace serve still running?",
       );
+  } finally {
+    // The newest request settled: the shown what-if is again the one a click builds on.
+    if (n === evaluations) requested = undefined;
   }
 }
 /** An older export's `#action=X`: the engine's expansion of X from the recorded view, or a notice
@@ -613,6 +624,7 @@ function setWhatif(w) {
     showError(engineFailed);
     return;
   }
+  requested = w;
   view.spec = whatifSpec(w);
   writeHash();
   void load();
@@ -643,16 +655,16 @@ const on = {
     return view.whatif.has(fact) || on.hasAction(`suppose:${fact}`);
   },
   toggle(fact) {
-    // A symbol stacks or removes its fact within the shown what-if (kernel.md E-gui), at the status
-    // the engine names for it.
-    const status = on.supposeStatus(fact);
-    if (view.whatif.has(fact)) {
-      const w = new Map(view.whatif);
-      w.delete(fact);
-      setWhatif(w);
-    } else if (status) {
+    // A symbol does what its label says (suppose, or restore the recorded status), at the status
+    // the engine names, on the newest requested what-if: a pending click's, else the shown one
+    // (kernel.md E-gui).
+    const w = new Map(requested ?? view.whatif);
+    w.delete(fact);
+    if (view.whatif.has(fact)) setWhatif(w);
+    else {
+      const status = on.supposeStatus(fact);
       // The new fact first, as the expansion orders it (the action's keys, then the rest).
-      setWhatif(new Map([[fact, status], ...view.whatif]));
+      if (status) setWhatif(new Map([[fact, status], ...w]));
     }
   },
   supposeStatus(fact) {

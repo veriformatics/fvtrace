@@ -322,6 +322,23 @@ test("the page's engine works in a Worker: a selection shows while it answers", 
   await context.close();
 });
 
+test("a symbol clicked while the engine answers stacks onto that request", async ({ browser }) => {
+  const { context, page, url } = await openOffline(browser);
+  await plantWorker(page, { hold: 2000 });
+  await page.goto(url);
+  await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceReady") === true);
+  const c2 = card(page, "C2");
+  await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
+  // Each answer is held for 2 s: this click comes while O2's is pending.
+  await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
+  await expect(c2.getByRole("button", { name: "Restore the recorded status of O2" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(c2.getByRole("button", { name: "Restore the recorded status of O3" })).toBeVisible();
+  expect(new URL(page.url()).hash).toContain("whatif=O3%3Dchecked%2CO2%3Dchecked");
+  await context.close();
+});
+
 test("a details request that fails ends the engine: the facts as recorded + the notice", async ({
   browser,
 }) => {
