@@ -29,6 +29,14 @@ sha256() {
     fi
 }
 
+# `tools/pin-tool.sh` rewrites every line of a tool; one line's version alone (a Renovate edit)
+# labels the old release's archive with the new version, and its digest still matches.
+awk '!/^#/ && NF == 5 {
+    if (($1 in v) && v[$1] != $2) { printf "fetch-tools: %s lines name versions %s and %s; re-pin with tools/pin-tool.sh\n", $1, v[$1], $2; bad = 1 }
+    v[$1] = $2
+    if (index($5, $2) == 0) { printf "fetch-tools: %s %s: %s does not name version %s\n", $1, $3, $5, $2; bad = 1 }
+} END { exit bad }' "$root/tools/tools.lock" >&2 || exit 1
+
 wanted=("$@")
 found=0
 while read -r name version plat digest url; do

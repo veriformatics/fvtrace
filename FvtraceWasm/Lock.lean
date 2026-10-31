@@ -33,6 +33,12 @@ def parse (text : String) : Except String (List Entry) := do
   let mut out := []
   for line in text.splitOn "\n" do
     if let some e ← parseLine line then out := out ++ [e]
+  -- `tools/pin-wasm.sh` rewrites every line of a name; one line's version alone (a Renovate edit)
+  -- labels the old release's archive with the new version, and its digest still matches.
+  for e in out do
+    if let some o := out.find? fun o => o.name == e.name && o.version != e.version then
+      throw s!"tools/wasm.lock: {e.name} lines name versions {e.version} and {o.version}; \
+        re-pin with tools/pin-wasm.sh"
   return out
 
 /-- The single entry named `name` (with key `key`, when given). -/

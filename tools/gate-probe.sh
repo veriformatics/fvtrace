@@ -465,9 +465,20 @@ probe_release() {
         bash tools/release.sh check "$dist" linux-x86_64 "$version"
 }
 
+# The lock checks (tools/wasm.lock in fvtrace-wasm, tools/tools.lock in tools/fetch-tools.sh)
+# refuse a half-bumped lock: Renovate PR #5's edit = one line's version token alone.
+probe_locks() {
+    keep tools/wasm.lock
+    sed -i -E 's/^emsdk [^ ]+ (linux-x86_64 )/emsdk 99.0.0 \1/' tools/wasm.lock
+    expect lock-wasm-half-bump 'tools/wasm.lock: emsdk lines name versions .*99\.0\.0' engine_build
+    keep tools/tools.lock
+    sed -i -E 's/^actionlint [^ ]+ (linux-x86_64 )/actionlint 99.0.0 \1/' tools/tools.lock
+    expect lock-tools-half-bump 'fetch-tools: actionlint lines name versions' bash tools/fetch-tools.sh
+}
+
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
