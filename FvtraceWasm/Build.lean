@@ -150,7 +150,10 @@ def emsdk (cfg : Config) (e : Lock.Entry) : IO FilePath := do
     else pure false
   unless cached do
     say s!"downloading Emscripten {e.version} for {e.key}"
-    discard <| run "curl" #["-fsSL", "--retry", "3", "-o", archive.toString, e.url]
+    -- Bounded by stall, not size: a server that stops sending (under 1 KB/s for 60 s, or no
+    -- connection within 30 s) fails the build within minutes; a slow but steady link completes.
+    discard <| run "curl" #["-fsSL", "--retry", "3", "--connect-timeout", "30",
+      "--speed-limit", "1024", "--speed-time", "60", "-o", archive.toString, e.url]
   try verifyFile name archive e.sha256
   catch err =>
     IO.FS.removeFile archive
@@ -179,9 +182,11 @@ def gitTree (cfg : Config) (e : Lock.Entry) (paths : List String)
   if ← verified marker dir stamp then return dir
   replaceDir dir marker
   say s!"fetching {e.name} {e.version} ({e.key.take 12})"
-  -- Byte-exact checkout on every system (a CRLF conversion would change every digest).
+  -- Byte-exact checkout on every system (a CRLF conversion would change every digest); a fetch
+  -- (the checkout fetches blobs too) under 1 KB/s for 60 s fails, as the archive download does.
   let git := fun (args : Array String) =>
-    run "git" (#["-C", dir.toString, "-c", "core.autocrlf=false", "-c", "core.eol=lf"] ++ args)
+    run "git" (#["-C", dir.toString, "-c", "core.autocrlf=false", "-c", "core.eol=lf",
+      "-c", "http.lowSpeedLimit=1024", "-c", "http.lowSpeedTime=60"] ++ args)
   IO.FS.createDirAll dir
   discard <| git #["init", "-q"]
   discard <| git #["fetch", "-q", "--depth", "1", "--filter=blob:none", e.url, e.key]
