@@ -320,6 +320,33 @@ def compress (t : Tools) (wasm out : FilePath) : IO Unit :=
     "text = base64.b64encode(gzip.compress(data, 9, mtime=0)).decode('ascii')\n" ++
     "open(sys.argv[2], 'w', newline='').write(text)\n", wasm.toString, tmp.toString]
 
+/-- `s` without its leading + trailing blank lines; a first line keeps its indentation (license
+texts center their titles with spaces). -/
+def blankTrimmed (s : String) : String :=
+  let blank := fun (l : String) => l.trimAscii.isEmpty
+  "\n".intercalate (((s.splitOn "\n").dropWhile blank).reverse.dropWhile blank).reverse
+
+/-- The license texts an exported page carries with its engine (user ruling: a collapsed
+"Licenses" section at the page's end, `Export.licensesHtml`): fvTrace's own (the page's GUI + engine
+code), the Lean runtime + `Init` (the toolchain's `LICENSE`), and what Emscripten links in: its
+system libraries, musl, mimalloc (libc++ + compiler-rt: LLVM's exception asks no notice for compiled
+portions). Each section = a form feed, its title line, its text. -/
+def licenses (cfg : Config) (install : FilePath) : IO Unit := do
+  let em := install / "emscripten"
+  let toolchain := (cfg.lean.parent.bind (·.parent)).getD cfg.lean
+  let parts : List (String × FilePath) := [
+    ("fvTrace (Apache License 2.0 with LLVM Exception)", cfg.root / "LICENSE"),
+    ("Lean 4 runtime and core library (Apache License 2.0)", toolchain / "LICENSE"),
+    ("Emscripten system libraries (MIT License or University of Illinois/NCSA License)",
+      em / "LICENSE"),
+    ("musl libc (MIT License)", em / "system" / "lib" / "libc" / "musl" / "COPYRIGHT"),
+    ("mimalloc (MIT License)", em / "system" / "lib" / "mimalloc" / "LICENSE")]
+  let mut text := ""
+  for (title, f) in parts do
+    unless ← f.pathExists do fail s!"no license text for {title} at {f}"
+    text := text ++ s!"\x0c{title}\n{blankTrimmed (← IO.FS.readFile f)}\n"
+  writeAtomic (cfg.out.withFileName "licenses.txt") (IO.FS.writeFile · text)
+
 def build (input : Config) : IO Unit := do
   -- Absolute paths: compiles run inside the cache folder.
   let here ← IO.currentDir
@@ -392,6 +419,7 @@ def build (input : Config) : IO Unit := do
       let ps := Binary.problems m
       unless ps.isEmpty do fail s!"engine.wasm breaks its link contract:\n{"\n".intercalate ps}"
     compress t tmp cfg.out
+  licenses cfg install
   let bytes ← IO.FS.readBinFile wasm
   say s!"engine.wasm {bytes.size} bytes, sha256 {← Fvtrace.Digest.ofBytes bytes}"
 

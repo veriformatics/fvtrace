@@ -12,6 +12,16 @@ def pureTests : TestM Unit := do
     (["", "f", "fo", "foo", "foob", "fooba", "foobar"].map (base64 ·.toUTF8))
     ["", "Zg==", "Zm8=", "Zm9v", "Zm9vYg==", "Zm9vYmE=", "Zm9vYmFy"]
   checkEq "export: hex to bytes" (hexBytes "00ff10").toList [0, 255, 16]
+  -- A license text holding markup stays text: no tag of its own, and its section ends where its
+  -- form feed says.
+  let lic := licensesHtml "\x0cA <b> (MIT)\n<x> & y\n\x0cB\nz\n"
+  checkEq "export: licenses = one heading + text per section, escaped"
+    (count lic "<h3>", count lic "<pre>", count lic "<b>", count lic "<x>")
+    (2, 2, 0, 0)
+  check "export: a license's markup shows as text" ((lic.splitOn
+    "<h3>A &lt;b&gt; (MIT)</h3>\n<pre>&lt;x&gt; &amp; y</pre>").length == 2) lic
+  check "export: the licenses section starts closed"
+    (lic.startsWith "<details class=\"licenses\">\n<summary>Licenses</summary>") lic
   checkEq "export: base64 of a top-6-bit triple + of SHA-256(\"\") (a CSP hash)"
     [base64 (hexBytes "fc0000"),
       base64 (hexBytes "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
