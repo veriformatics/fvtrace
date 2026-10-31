@@ -144,6 +144,25 @@ def base64Text (s : String) : Bool :=
 /-- The engine `lake build` compiled to WebAssembly: base64(gzip(module)). -/
 def engine : String := FvtraceEngine.wasmGzipBase64
 
+/-- Text safe inside HTML element content. -/
+def htmlText (s : String) : String :=
+  (s.replace "&" "&amp;").replace "<" "&lt;" |>.replace ">" "&gt;"
+
+/-- The page's "Licenses" section (user ruling: collapsed, at the page's end): one heading + text
+per section of `text` (a form feed, a title line, the license text: `FvtraceWasm.Build.licenses`).
+-/
+def licensesHtml (text : String) : String :=
+  let sections := ((text.splitOn "\x0c").filter (!·.trimAscii.isEmpty)).map fun sec =>
+    match sec.splitOn "\n" with
+    | title :: body =>
+      let license := "\n".intercalate (body.reverse.dropWhile (·.trimAscii.isEmpty)).reverse
+      s!"<h3>{htmlText title}</h3>\n<pre>{htmlText license}</pre>"
+    | [] => ""
+  "<details class=\"licenses\">\n<summary>Licenses</summary>\n" ++
+    "<p>This page contains code from fvTrace and from the projects below. " ++
+    "Each section shows the license of one project.</p>\n" ++
+    "\n".intercalate sections ++ "\n</details>\n"
+
 /-- The page around `engineText` (the build's engine; tests plant others): the GUI's HTML with
 its stylesheet + modules inlined under a hash-pinned CSP. -/
 def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
@@ -174,7 +193,10 @@ def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
     "    <script type=\"module\" src=\"app.js\"></script>"
   unless (html.splitOn linked).length == 2 do
     throw (IO.userError "the page no longer links style.css + app.js as the export expects")
-  return html.replace linked head
+  unless (html.splitOn "</footer>").length == 2 do
+    throw (IO.userError "the page no longer has the one footer the export's licenses close")
+  return (html.replace linked head).replace "</footer>"
+    (licensesHtml FvtraceEngine.licenses ++ "      </footer>")
 
 def page (l : Session.Loaded) : IO String := pageWith engine l
 

@@ -7,7 +7,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { fvtrace, isRecord, prepareStudy } from "./fvtrace-server.js";
+import { fvtrace, isRecord, prepareStudy, serveFvtrace } from "./fvtrace-server.js";
 
 /** @type {{ dir: string, page: string, project: string, env: NodeJS.ProcessEnv }} */
 let fixture;
@@ -337,6 +337,40 @@ test("a symbol clicked while the engine answers stacks onto that request", async
   await expect(c2.getByRole("button", { name: "Restore the recorded status of O3" })).toBeVisible();
   expect(new URL(page.url()).hash).toContain("whatif=O3%3Dchecked%2CO2%3Dchecked");
   await context.close();
+});
+
+test("an exported page ends in a closed Licenses section; the served GUI has none", async ({
+  browser,
+}) => {
+  const { context, page, url } = await openOffline(browser);
+  await page.goto(url);
+  const section = page.locator("footer details.licenses");
+  await expect(section).toHaveCount(1);
+  await expect(section).not.toHaveAttribute("open");
+  await expect(section.locator("summary")).toHaveText("Licenses");
+  await section.locator("summary").click();
+  await expect(section).toHaveAttribute("open");
+  await expect(section.getByRole("heading", { level: 3 })).toHaveText([
+    "fvTrace (Apache License 2.0 with LLVM Exception)",
+    "Lean 4 runtime and core library (Apache License 2.0)",
+    "Emscripten system libraries (MIT License or University of Illinois/NCSA License)",
+    "musl libc (MIT License)",
+    "mimalloc (MIT License)",
+  ]);
+  await expect(section.locator("pre").first()).toContainText("Apache License");
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations.map((v) => v.id)).toEqual([]);
+  await context.close();
+  const web = await serveFvtrace();
+  const served = await browser.newPage();
+  try {
+    await served.goto(web.url);
+    await expect(served.locator("footer")).toBeVisible();
+    await expect(served.locator("details.licenses")).toHaveCount(0);
+  } finally {
+    await served.close();
+    await web.close();
+  }
 });
 
 test("a details request that fails ends the engine: the facts as recorded + the notice", async ({

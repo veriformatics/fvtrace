@@ -42,6 +42,11 @@ def tests : TestM Unit := do
   let engine := FvtraceEngine.wasmGzipBase64
   check "assets: the embedded engine = .lake/build/wasm/engine.b64"
     (engine == (← IO.FS.readFile ".lake/build/wasm/engine.b64"))
+  -- The texts an exported page's "Licenses" section carries (`Export.licensesHtml`).
+  check "assets: the embedded licenses = .lake/build/wasm/licenses.txt"
+    (FvtraceEngine.licenses == (← IO.FS.readFile ".lake/build/wasm/licenses.txt"))
+  checkEq "assets: the embedded licenses hold five sections"
+    ((FvtraceEngine.licenses.splitOn "\x0c").length) 6
   check "assets: the embedded engine is base64 of gzip"
     (engine.startsWith "H4sI" && engine.length % 4 == 0 &&
       engine.all fun c => c.isAlphanum || c == '+' || c == '/' || c == '=')

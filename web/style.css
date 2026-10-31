@@ -1031,6 +1031,35 @@ footer {
   color: var(--conductor);
 }
 
+/* An exported page's license texts (fvtrace export --html adds them), folded until asked for. */
+.licenses {
+  margin-top: 10px;
+}
+
+.licenses summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.licenses p {
+  max-width: 64ch;
+  margin-top: 10px;
+}
+
+.licenses h3 {
+  margin: 18px 0 4px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.licenses pre {
+  max-width: 80ch;
+  margin: 0;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Long circuits (more than six facts) run down the card at any width, like narrow screens. */
 .tall .contacts {
   flex-flow: column nowrap;
