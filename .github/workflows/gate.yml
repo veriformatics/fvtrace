@@ -50,7 +50,7 @@ jobs:
         if: matrix.shard != 'checks'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.15"
+          python-version: "3.15.2"
 
       # The page engine's build folder (Emscripten, Lean runtime sources, Init's C, objects, the
       # engine) costs minutes to fill. Inside it a fetched input counts under its pin's marker and an
@@ -122,7 +122,7 @@ jobs:
       - name: Install Python for the page engine build
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.15"
+          python-version: "3.15.2"
 
       # As in the gate job: the weekly run builds the page engine from scratch on each platform.
       - name: Cache the page engine build
