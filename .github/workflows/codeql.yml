@@ -44,10 +44,8 @@ jobs:
       # The shim includes lean.h, which ships with the toolchain named in lean-toolchain.
       - name: Install the Lean toolchain named in lean-toolchain
         if: matrix.language == 'c-cpp'
-        uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
-        with:
-          auto-config: "false"
-          use-github-cache: "false"
+        timeout-minutes: 10
+        run: bash tools/install-lean.sh
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

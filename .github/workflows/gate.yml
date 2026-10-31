@@ -39,11 +39,11 @@ jobs:
           # The secret scan reads the whole history.
           fetch-depth: 0
 
+      # Pinned elan, every download bounded + retried (tools/install-lean.sh); the step's bound
+      # ends a stall within minutes.
       - name: Install the Lean toolchain named in lean-toolchain
-        uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
-        with:
-          auto-config: "false"
-          use-github-cache: "false"
+        timeout-minutes: 10
+        run: bash tools/install-lean.sh
 
       # The exported page's engine is built by `lake build`: Emscripten runs on Python >= 3.10.
       - name: Install Python for the page engine build
