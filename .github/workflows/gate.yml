@@ -103,53 +103,7 @@ jobs:
       - name: Run the gate shard
         run: bash tools/gate.sh --shard "$SHARD"
 
-  # The shipped binary must build + pass its tests on every platform a user may run.
+  # The shipped binary must build, pass its tests and package into a checked release archive on
+  # every platform a release serves (build.yml).
   portability:
-    name: portability (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-26, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # `lake build` builds the exported page's engine with Emscripten, which runs on Python.
-      - name: Install Python for the page engine build
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.15.2"
-
-      # As in the gate job: the weekly run builds the page engine from scratch on each platform.
-      - name: Cache the page engine build
-        id: engine-cache
-        if: github.event_name != 'schedule'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            .lake/build/wasm/*
-            !.lake/build/wasm/download
-          key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean') }}
-
-      - name: Remove a partial page engine build
-        if: github.event_name != 'schedule' && steps.engine-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: rm -rf .lake/build/wasm
-
-      # Lean's Windows toolchain targets the MinGW ABI; the C digest code builds with MinGW gcc.
-      - name: Select the C compiler
-        if: runner.os == 'Windows'
-        shell: bash
-        run: echo "CC=gcc" >> "$GITHUB_ENV"
-
-      - name: Build + test with the Lean toolchain named in lean-toolchain
-        uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
-        with:
-          auto-config: "false"
-          build: "true"
-          test: "true"
-          use-github-cache: "false"
+    uses: $/.github/workflows/build.yml

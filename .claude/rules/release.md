@@ -1,0 +1,18 @@
+---
+paths:
+  - "tools/release.sh"
+  - "tools/release/**"
+  - ".github/workflows/build.yml"
+  - ".github/workflows/release.yml"
+  - ".github/workflows/gate.yml"
+  - "README.md"
+---
+
+# Release archives
+
+- `build.yml` (reusable) = every platform a release serves (linux x86_64 + arm64, macOS arm64, Windows x86_64): `lake build` + `lake test`, then `tools/release.sh package <target>` = `dist/fvtrace-<version>-<target>.tar.gz` (Windows `.zip`) + a `sha256sum`-format `.sha256`, checked at once. gate.yml's `portability` job calls it on every run ⇒ a change that breaks a release archive fails CI; `release.yml` calls it with `release` = engine built from scratch (no Actions cache feeds a published binary: zizmor `cache-poisoning`) + archives uploaded as artifacts.
+- `release.yml`: tag `v<version>` → `build` → `publish` (the one `contents: write` job; refuses unless every archive is named for the tag's version) → `installed` (each archive downloaded from the release + `tools/release.sh check` on its own OS, no Lean, a fresh checkout). Tags = the user's push. Dry run = a `ci/release-*` branch push: no publish, `installed` reads the build's artifacts.
+- `tools/release.sh check DIR TARGET VERSION` = what a user's download must pass: digest, files (binary, `LICENSE`, `README.md`, `NOTICES.md`, `licenses/*.txt`), platform floor, `fvtrace --version` = `fvtrace VERSION`, `fvtrace check --strict` on the synthetic study. Floors (`glibc_max`, `macos_min`) = README Install's system table, moved together: glibc = the newest symbol version the build needs (Lean's sysroot: 2.17 on both Linux targets); macOS = the `MACOSX_DEPLOYMENT_TARGET` build.yml sets from `macos_min` (leanc links for macOS 99.0 otherwise, which dyld does not enforce) and the macOS that `installed` runs the program on (`macos-14` = the oldest arm64 runner; its retirement moves the floor). Windows: every imported DLL = an API set or a file in System32, and the program runs with `PATH` = Windows' own folders (a runner's MinGW on `PATH` would hide a missing `libwinpthread`).
+- Notices: the binary statically links the Lean runtime + what the Lean toolchain links into every program (GMP = LGPL-3, LLVM, libuv, mimalloc) + HACL*; the embedded page engine adds Emscripten's libraries + musl. `package` copies the texts from the toolchain prefix (`LICENSE`, `LICENSES`), `c/hacl/LICENSE`, the build's Emscripten tree and `tools/release/libuv.txt` (libuv v1.48.0 `LICENSE` + `LICENSE-extra`: Lean's `LICENSES` omits libuv + mimalloc); `tools/release/NOTICES.md` = the human-facing index + the GMP relink route (source at the tag).
+- Reusable calls use GitHub's self-repository form `uses: $/.github/workflows/build.yml` (zizmor `self-repository`); actionlint 1.7.12 predates it (rhysd/actionlint#711) ⇒ `.github/actionlint.yaml` ignores that call error for `$/` paths alone.
+- Probe `release` (`bash tools/gate-probe.sh release`): a negative control (`package` on this host), a planted digest, a repacked archive whose program reports another version, a missing license text, a lowered glibc floor. The macOS + Windows floors fire on their own OS alone: a change to them records a planted CI run (floors lowered, System32 path moved) in its commit body.

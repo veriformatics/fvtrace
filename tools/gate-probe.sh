@@ -435,9 +435,39 @@ probe_compare() {
         bash tools/compare.sh --timeout 1 "$oracle" "$oracle"
 }
 
+# tools/release.sh check (each CI build's archive + each downloaded release archive): a digest that
+# differs, an archive whose program reports another version, a missing license text, a Linux binary
+# past the glibc floor. The macOS + Windows floors fire on their own platforms alone (CI plants).
+probe_release() {
+    local dist="$backup/dist" version a
+    version="$(sed -n 's/^def version : String := "\(.*\)"$/\1/p' Fvtrace/Version.lean)"
+    a="fvtrace-$version-linux-x86_64"
+    allow release-package env DIST="$dist" bash tools/release.sh package linux-x86_64
+    keep "$dist/$a.tar.gz.sha256"
+    sed -i -E 's/^[0-9a-f]{64}/'"$(printf '0%.0s' {1..64})"'/' "$dist/$a.tar.gz.sha256"
+    expect release-digest "$a.tar.gz: sha256 differs" bash tools/release.sh check "$dist" linux-x86_64 "$version"
+    # Repacked as 9.9.9 (its program still says $version), then without one license text.
+    local tree="$backup/repack"
+    mkdir -p "$tree" && tar -xzf "$dist/$a.tar.gz" -C "$tree" && mv "$tree/$a" "$tree/fvtrace-9.9.9-linux-x86_64"
+    repack() {
+        (cd "$tree" && tar -czf "$dist/fvtrace-9.9.9-linux-x86_64.tar.gz" fvtrace-9.9.9-linux-x86_64)
+        (cd "$dist" && sha256sum fvtrace-9.9.9-linux-x86_64.tar.gz >fvtrace-9.9.9-linux-x86_64.tar.gz.sha256)
+    }
+    repack
+    expect release-version "fvtrace --version printed \"fvtrace $version\", not \"fvtrace 9.9.9\"" \
+        bash tools/release.sh check "$dist" linux-x86_64 9.9.9
+    rm "$tree/fvtrace-9.9.9-linux-x86_64/licenses/musl.txt" && repack
+    expect release-license 'fvtrace-9.9.9-linux-x86_64.tar.gz lacks licenses/musl.txt' \
+        bash tools/release.sh check "$dist" linux-x86_64 9.9.9
+    keep tools/release.sh
+    sed -i 's/^glibc_max=.*/glibc_max=2.16/' tools/release.sh
+    expect release-glibc 'needs GLIBC_2\.17, newer than the floor 2\.16' \
+        bash tools/release.sh check "$dist" linux-x86_64 "$version"
+}
+
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
