@@ -7,7 +7,7 @@
 emsdk 6.0.12 darwin-aarch64 8e91c0eca2b8728aa2babb32b805318eaf5e8d6652c6535163d0ea467a6d907c https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries-arm64.tar.xz
 emsdk 6.0.12 darwin-x86_64 2a36ac0619ad5e065d8b520c62ca8228ddf18aaf9624d4e1959b06fc4b9ebfab https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries.tar.xz
 emsdk 6.0.12 linux-aarch64 207b288eef73de3aeb3e5e492b76e3e395d049eee9f6c96bfc4396ba275a9bac https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries-arm64.tar.xz
-emsdk 6.0.12 linux-x86_64 7b073a102b07eca5a0fe344037681e53162639f3540432456874c0446a5e8fa7 https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries.tar.xz
+emsdk 6.0.13 linux-x86_64 7b073a102b07eca5a0fe344037681e53162639f3540432456874c0446a5e8fa7 https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries.tar.xz
 emsdk 6.0.12 windows-x86_64 51ac2e51a2c6eeba09fa04418496750662b5c1f022665814b0ee8f557c8328c9 https://storage.googleapis.com/webassembly/emscripten-releases-builds/win/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries.zip
 lean-runtime 4.35.0 eb6cafb7290e8bd5f2937522d8d804f58f02bafc b590df3d2367ec02b8e682a058fb2338fa8ebab61f3295d4188beafd60b38158 https://github.com/leanprover/lean4
 libuv 1.48.0 e9f29cb984231524e3931aa0ae2c5dae1a32884e 87218dbe4ad38fd5c4c64f71592ad1aa106cd66369898615c72a9ec23afe073d https://github.com/libuv/libuv
