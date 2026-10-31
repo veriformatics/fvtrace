@@ -234,13 +234,39 @@ async function steps(browser, mode, url) {
   }
 }
 
-// Signals are handled here, not by Playwright (its SIGINT handler exits at once): a signal sent to
-// this driver alone would otherwise leave the server running and its data folder behind.
-const browser = await chromium.launch({
-  handleSIGINT: false,
-  handleSIGTERM: false,
-  handleSIGHUP: false,
-});
+/** The browser's launch: a signal during it still closes what it made (its profile folder). */
+/** @type {Promise<import("@playwright/test").Browser> | undefined} */
+let launching;
+/** @type {Promise<void> | undefined} */
+let stopping;
+/** Stops the server and waits for its exit (it may still write its data folder until then), closes
+ * the browser, removes the folder; once, on every way out. */
+function stop() {
+  stopping ??= (async () => {
+    if (server.pid !== undefined && server.exitCode === null && server.signalCode === null) {
+      const exited = once(server, "exit");
+      server.kill();
+      const force = setTimeout(() => server.kill("SIGKILL"), 5000);
+      await exited;
+      clearTimeout(force);
+    }
+    await launching?.then(
+      (b) => b.close(),
+      () => {},
+    );
+    rmSync(home, { recursive: true, force: true });
+  })();
+  return stopping;
+}
+// Signals are handled here, not by Playwright (its SIGINT handler exits at once), and from before
+// the folder + server exist: without a listener a signal ends node by its default action, leaving
+// both behind. A listener runs between ticks, so it finds both made (the same tick makes them).
+for (const [signal, code] of /** @type {const} */ ([
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+  ["SIGHUP", 129],
+]))
+  process.once(signal, () => void stop().finally(() => process.exit(code)));
 const home = mkdtempSync(join(tmpdir(), "scale-gui-"));
 const server = spawn(
   bin,
@@ -256,31 +282,9 @@ const server = spawn(
   ],
   { env: { ...process.env, FVTRACE_HOME: home }, stdio: ["ignore", "pipe", "ignore"] },
 );
-/** @type {Promise<void> | undefined} */
-let stopping;
-/** Stops the server and waits for its exit (it may still write its data folder until then), closes
- * the browser, removes the folder; once, on every way out. */
-function stop() {
-  stopping ??= (async () => {
-    if (server.pid !== undefined && server.exitCode === null && server.signalCode === null) {
-      const exited = once(server, "exit");
-      server.kill();
-      const force = setTimeout(() => server.kill("SIGKILL"), 5000);
-      await exited;
-      clearTimeout(force);
-    }
-    await browser.close();
-    rmSync(home, { recursive: true, force: true });
-  })();
-  return stopping;
-}
-for (const [signal, code] of /** @type {const} */ ([
-  ["SIGINT", 130],
-  ["SIGTERM", 143],
-  ["SIGHUP", 129],
-]))
-  process.once(signal, () => void stop().finally(() => process.exit(code)));
 try {
+  launching = chromium.launch({ handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
+  const b = await launching;
   let out = "";
   /** @type {string} */
   const link = await new Promise((resolve, reject) => {
@@ -291,8 +295,8 @@ try {
     });
     server.on("exit", () => reject(new Error(`fvtrace serve exited: ${out}`)));
   });
-  await steps(browser, "served", hash ? `${link}&${hash}` : link);
-  await steps(browser, "page", `${pathToFileURL(page).href}${hash ? `#${hash}` : ""}`);
+  await steps(b, "served", hash ? `${link}&${hash}` : link);
+  await steps(b, "page", `${pathToFileURL(page).href}${hash ? `#${hash}` : ""}`);
 } finally {
   await stop();
 }
