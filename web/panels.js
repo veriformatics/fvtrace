@@ -7,6 +7,7 @@ import {
   andList,
   count,
   efforts,
+  failEnding,
   kinds,
   lintNeeds,
   routes,
@@ -147,6 +148,26 @@ function detailed(d, show) {
   return null;
 }
 
+/**
+ * The page line under the review line: every replay notice (kernel.md § Replay, Notice), facts as
+ * references, exclusions as plain ids (they have no details).
+ * @param {import("./envelope.js").Notice[]} ns @param {Lookups} ix @param {Handlers} on
+ * @returns {Children}
+ */
+export function noticeLine(ns, ix, on) {
+  const ids = ns.map((n) => (ix.facts.has(n.id) ? ref("fact", n.id, on) : n.id));
+  const facts = ns.filter((n) => ix.facts.has(n.id));
+  const lone = ns.length === 1 ? facts[0] : undefined;
+  const open = lone
+    ? ` Open ${lone.id} to see when and why.`
+    : facts.length
+      ? " Open a fact to see when and why."
+      : "";
+  return ns.length === 1
+    ? [h("strong", {}, ids[0] ?? "", "'s check was run again and failed."), open]
+    : [h("strong", {}, "The checks of ", ...andList(ids), " were run again and failed."), open];
+}
+
 /** @param {Lookups} ix @param {string} id @param {Handlers} on @param {DetailsView} [d] */
 function inspectFact(ix, id, on, d) {
   const f = ix.facts.get(id);
@@ -199,6 +220,14 @@ function inspectFact(ix, id, on, d) {
           f.receipt.current
             ? "The receipt matches the project folder."
             : `The receipt no longer matches: ${f.receipt.reasons.join(", ")}.`,
+        )
+      : null,
+    f.evidence?.replay?.failed
+      ? h(
+          "p",
+          { class: "warning" },
+          `Its check was run again on ${f.evidence.replay.failed.date} and failed: `,
+          failEnding(f.evidence.replay.failed.reason),
         )
       : null,
     f.trusts.length

@@ -16,6 +16,7 @@ import Tests.Server
 import Tests.Export
 import Tests.Fields
 import Tests.Replay
+import Tests.Notices
 import Tests.Snapshot
 import Tests.Wasm
 import Tests.Scale
@@ -62,6 +63,7 @@ def native : TestM Unit := do
   area "differential" Tests.Differential.tests
   area "json-scale" Tests.Json.scaleTests
   area "replay" Tests.Replay.tests
+  area "notices" Tests.Notices.tests
   area "fields-native" Tests.Fields.nativeTests
   area "snapshot-native" Tests.Snapshot.nativeTests
   area "wasm-native" Tests.Wasm.nativeTests

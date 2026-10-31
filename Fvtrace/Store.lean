@@ -66,9 +66,18 @@ structure Target where
 
 def Target.cacheFile (t : Target) : System.FilePath := t.entry / "cache.json"
 
+/-- Every `pin --replay` + `verify --run` run, one D-canon JSON line each (`kernel.md` § Replay). -/
+def Target.logFile (t : Target) : System.FilePath := t.entry / "replays.log"
+
 def projectFile (entry : System.FilePath) : System.FilePath := entry / "project.json"
 
 def projectJson (project : System.FilePath) : Value := .obj [("path", .str project.toString)]
+
+/-- The project's data-folder entry, created with its `project.json` when absent. -/
+def Target.ensureEntry (t : Target) : IO Unit := do
+  IO.FS.createDirAll t.entry
+  unless ← (projectFile t.entry).pathExists do
+    IO.FS.writeFile (projectFile t.entry) (projectJson t.project).pretty
 
 /-- The project recorded beside a trace in the data folder, if `file` is one. -/
 def recordedProject (env : Env) (file : System.FilePath) : IO (Option System.FilePath) := do

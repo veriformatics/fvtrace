@@ -455,3 +455,40 @@ test("a damaged recorded view says so, also behind an older action link", async 
   await expect(page.locator("#error")).toContainText("This page is damaged");
   await context.close();
 });
+
+test("an exported page shows a replay notice, with or without its engine", async ({ browser }) => {
+  const study = await prepareStudy("synthetic", (t) => {
+    const facts = t["facts"];
+    /** @type {unknown} */
+    const o1 = Array.isArray(facts) ? facts.find((f) => isRecord(f) && f["id"] === "O1") : null;
+    if (!isRecord(o1) || !isRecord(o1["evidence"])) throw new Error("no O1 evidence");
+    o1["evidence"]["replay"] = {
+      command: ["true"],
+      failed: { date: "2026-10-31", reason: "output changed" },
+    };
+  });
+  const file = join(study.dir, "notice.html");
+  /** The recorded view carries the notice: the page's engine is not needed to show it. */
+  const shows = async (/** @type {boolean} */ wasm) => {
+    const { context, page, url } = await openOffline(browser, "", file);
+    if (!wasm)
+      await page.addInitScript(() => {
+        Object.defineProperty(globalThis, "WebAssembly", { value: undefined });
+      });
+    await page.goto(url);
+    await expect(page.locator("#replays")).toHaveText(
+      "O1's check was run again and failed. Open O1 to see when and why.",
+    );
+    await page.locator("#replays").getByRole("button", { name: "O1" }).click();
+    await expect(page.locator("#inspector")).toContainText(
+      "Its check was run again on 2026-10-31 and failed: its output changed since it was pinned.",
+    );
+    await context.close();
+  };
+  try {
+    fvtrace(["export", "--html", file], study.project, study.env);
+    await Promise.all([shows(true), shows(false)]);
+  } finally {
+    await rm(study.dir, { recursive: true, force: true });
+  }
+});

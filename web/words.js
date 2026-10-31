@@ -92,6 +92,20 @@ export const lintNeeds = {
 /** @type {Record<string, string>} */
 export const efforts = { hours: "Hours", days: "Days", weeks: "Weeks", months: "Months" };
 
+/** A notice's reason as the end of "Its check was run again on DATE and failed: …". */
+/** @type {Record<string, string>} */
+const failEndings = {
+  timeout: "the command ran past its time limit.",
+  "cannot start": "the command could not start.",
+  "output changed": "its output changed since it was pinned.",
+};
+
+/** @param {string} reason */
+export function failEnding(reason) {
+  const code = /^exit (\d+)$/.exec(reason)?.[1];
+  return code === undefined ? word(failEndings, reason) : `the command ended with code ${code}.`;
+}
+
 /** @param {Record<string, string>} table @param {string} code */
 export function word(table, code) {
   return table[code] ?? code;

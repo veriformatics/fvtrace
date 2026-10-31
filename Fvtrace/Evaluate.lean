@@ -60,6 +60,14 @@ def factJson (A : Answers) (bindingFor : String → Option Receipt.Binding) (f :
      | some b => [("receipt", .obj [("current", .bool b.current), ("reasons", strs b.reasons)])]
      | none => []))
 
+/-- The recorded trace's replay notices (`kernel.md` V-env `notices`), absent when none: a
+notice-free envelope keeps its v1 bytes. -/
+def noticesJson (t : Trace) : List (String × Value) :=
+  match t.notices with
+  | [] => []
+  | ns => [("notices", .arr (ns.map fun (id, x) =>
+      .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]))]
+
 /-- A plan's result kind + its state when planned (the envelope's plan; the whole = details). -/
 def planSummaryJson : PlanSummary → Value
   | .planned st => .obj [("result", .str "planned"), ("state", .str st.name)]
@@ -230,7 +238,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
   let views := t.claims.map fun c => (c, A.claimView c)
   let finals := (views.filter fun x => !A.prospective x.1.subject).map (·.2.final)
   let byId := Receipt.BindingIndex.of bindings
-  .obj [("schema", .str "fvtrace.evaluation/2"),
+  .obj ([("schema", .str "fvtrace.evaluation/2"),
     ("mode", .str (if sc.overrides.isEmpty then "recorded" else "what-if")),
     ("overrides", overridesJson sc.overrides),
     ("trace", traceJson t digest review),
@@ -260,7 +268,8 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
         (match w.waived with | some r => [("waived", .str r)] | none => [])))),
     ("actions", .arr ((actionRefs t A (views.map fun (c, v) => (c, v.plan))).map
         fun (id, kind, target) =>
-      .obj [("id", .str id), ("kind", .str kind), ("target", .str target)]))]
+      .obj [("id", .str id), ("kind", .str kind), ("target", .str target)]))] ++
+    noticesJson t)
 
 /-- The full envelope for one snapshot, read off the scenario's fast answers (`Answers.fast`,
 proved equal to the `Scenario` functions for every scenario: `Spec.AnswersAgree`). -/

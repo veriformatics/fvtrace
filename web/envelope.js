@@ -5,9 +5,12 @@
 /** @typedef {{ fact: string, status: string }} Override */
 /** @typedef {{ claim: string, from: State, to: State }} Move */
 /** @typedef {{ path: string, sha256?: string, role?: string }} Artifact */
+/** A failed replay's notice (kernel.md § Replay, Notice). */
+/** @typedef {{ date: string, reason: string }} Failure */
+/** @typedef {{ id: string } & Failure} Notice */
 /**
  * @typedef {{ summary: string, artifacts: Artifact[], verifier?: string, statement?: string,
- *   statementDigest?: string }} Evidence
+ *   statementDigest?: string, replay?: { failed?: Failure } }} Evidence
  */
 /**
  * @typedef {{ id: string, subject: string, kind: string, text: string, route: string,
@@ -57,7 +60,7 @@
  *   blockers: { fact: string, claims: string[] }[], experiments: Experiment[],
  *   exclusions: Exclusion[],
  *   lints: { rule: string, claim: string, message: string, waived?: string }[],
- *   actions: Action[] }} Envelope
+ *   actions: Action[], notices: Notice[] }} Envelope
  */
 
 /**
@@ -172,6 +175,23 @@ function opt(r, key, path) {
   return key in r ? str(r[key], `${path}/${key}`) : undefined;
 }
 
+/** @param {unknown} v @param {string} path @returns {Failure} */
+function failure(v, path) {
+  const r = obj(v, path);
+  return { date: str(r["date"], `${path}/date`), reason: str(r["reason"], `${path}/reason`) };
+}
+
+/** @param {unknown} v @param {string} path @returns {Notice} */
+function notice(v, path) {
+  return { id: str(obj(v, path)["id"], `${path}/id`), ...failure(v, path) };
+}
+
+/** The replay member: the GUI reads its notice alone. @param {unknown} v @param {string} path */
+function replay(v, path) {
+  const r = obj(v, path);
+  return "failed" in r ? { failed: failure(r["failed"], `${path}/failed`) } : {};
+}
+
 /** @param {unknown} v @param {string} path @returns {Evidence} */
 function evidence(v, path) {
   const r = obj(v, path);
@@ -193,6 +213,7 @@ function evidence(v, path) {
     ...(verifier === undefined ? {} : { verifier }),
     ...(statement === undefined ? {} : { statement }),
     ...(statementDigest === undefined ? {} : { statementDigest }),
+    ...("replay" in r ? { replay: replay(r["replay"], `${path}/replay`) } : {}),
   };
 }
 
@@ -438,6 +459,7 @@ export function decodeEnvelope(json) {
         target: str(x["target"], `${at}/target`),
       };
     }),
+    notices: "notices" in r ? arr(r["notices"], "/notices", notice) : [],
   };
   // The prospective qualifier names its creator by id (no text repeats per claim, kernel.md
   // V-env); shown with that experiment's title, as the engine words it on the CLI.

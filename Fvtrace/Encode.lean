@@ -38,8 +38,12 @@ def question (q : Question) : Value :=
 def artifact (a : Artifact) : Value :=
   .obj (field "path" (str a.path) ++ optField "sha256" str a.sha256 ++ optField "role" str a.role)
 
+def replayFailure (x : ReplayFailure) : Value :=
+  .obj (field "date" (str x.date) ++ field "reason" (str x.reason))
+
 def replay (r : Replay) : Value :=
-  .obj (field "command" (.arr (r.command.map str)) ++ optField "output" str r.output)
+  .obj (field "command" (.arr (r.command.map str)) ++ optField "output" str r.output ++
+    optField "failed" replayFailure r.failed)
 
 def evidence (e : Evidence) : Value :=
   .obj (field "summary" (str e.summary) ++ listField "artifacts" artifact e.artifacts ++

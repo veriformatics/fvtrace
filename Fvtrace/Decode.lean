@@ -56,6 +56,15 @@ def validDate (s : String) : Bool :=
        1 ≤ m && m ≤ 12 && 1 ≤ d && d ≤ 31)
   | _ => false
 
+/-- A replay notice's reason (`kernel.md` § Model): `timeout` · `cannot start` · `output changed`
+· `exit N`, N the decimal of a nonzero exit code (`UInt32`), without a leading zero. -/
+def validFailReason (s : String) : Bool :=
+  s == "timeout" || s == "cannot start" || s == "output changed" ||
+    (s.startsWith "exit " &&
+      (let n := (s.drop 5).toString
+       !n.isEmpty && n.all Char.isDigit && !n.startsWith "0" && n.length ≤ 10 &&
+         n.toNat! < 4294967296))
+
 def string : Field String := fun path v =>
   match v with
   | .str s => pure (some s)
@@ -203,16 +212,33 @@ def arg : Field String := fun path v => do
     else do report "invalid-arg" path "an argument must be non-empty and free of NUL"; pure none
   | none => pure none
 
+def failReason : Field String := fun path v => do
+  match ← string path v with
+  | some s =>
+    if validFailReason s then pure (some s)
+    else do
+      report "invalid-replay" path
+        "expected timeout, cannot start, output changed or exit N (a nonzero exit code)"
+      pure none
+  | none => pure none
+
+def replayFailure : Field ReplayFailure := fun path v => do
+  let some kvs ← members path v ["date", "reason"] | pure none
+  let d ← req path kvs "date" date
+  let r ← req path kvs "reason" failReason
+  pure do pure { date := ← d, reason := ← r }
+
 def replay : Field Replay := fun path v => do
-  let some kvs ← members path v ["command", "output"] | pure none
+  let some kvs ← members path v ["command", "output", "failed"] | pure none
   let command ← req path kvs "command" (array arg)
   let output ← opt path kvs "output" sha
+  let failed ← opt path kvs "failed" replayFailure
   if command == some [] then
     report "invalid-replay" (path ++ ["command"]) "a command needs a program"
   pure do
     let c ← command
     if c.isEmpty then none
-    pure { command := c, output := ← output }
+    pure { command := c, output := ← output, failed := ← failed }
 
 def artifact : Field Artifact := fun path v => do
   let some kvs ← members path v ["path", "sha256", "role"] | pure none

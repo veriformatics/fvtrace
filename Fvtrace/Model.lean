@@ -92,12 +92,20 @@ structure Artifact where
   role : Option String := none
   deriving DecidableEq, Repr, Inhabited
 
+/-- A replay's last verifier failure, kept until a run passes (`kernel.md` § Replay, Notice):
+`reason` = `timeout` · `cannot start` · `exit N` · `output changed`. -/
+structure ReplayFailure where
+  date : String
+  reason : String
+  deriving DecidableEq, Repr, Inhabited
+
 /-- A verifier command fvTrace re-runs on request (`fvtrace verify --run`): program, then
 arguments, run without a shell; `output` = SHA-256 of its standard output, pinned by
-`fvtrace pin --replay`. -/
+`fvtrace pin --replay`; `failed` = the notice of its last failed run. -/
 structure Replay where
   command : List String
   output : Option String := none
+  failed : Option ReplayFailure := none
   deriving DecidableEq, Repr, Inhabited
 
 structure Evidence where
@@ -193,6 +201,24 @@ structure Trace where
   waivers : List Waiver := []
   review : Option Review := none
   deriving DecidableEq, Repr, Inhabited
+
+/-- `t` with `g id r` in place of each replay `r` of a fact or exclusion `id`. -/
+def Trace.mapReplays (t : Trace) (g : String → Replay → Replay) : Trace :=
+  let set := fun (id : String) (ev : Option Evidence) =>
+    ev.map fun e => { e with replay := e.replay.map (g id) }
+  { t with
+    facts := t.facts.map fun f => { f with evidence := set f.id f.evidence }
+    exclusions := t.exclusions.map fun x => { x with evidence := set x.id x.evidence } }
+
+/-- `t` without its replay notices: what the review digest covers (`kernel.md` § Review). -/
+def Trace.withoutNotices (t : Trace) : Trace := t.mapReplays fun _ r => { r with failed := none }
+
+/-- Every replay notice: facts, then exclusions, in array order. -/
+def Trace.notices (t : Trace) : List (String × ReplayFailure) :=
+  let of := fun (id : String) (ev : Option Evidence) =>
+    ((ev.bind (·.replay)).bind (·.failed)).map (id, ·)
+  t.facts.filterMap (fun f => of f.id f.evidence) ++
+    t.exclusions.filterMap (fun x => of x.id x.evidence)
 
 /-! ## Wire names (the JSON strings each constructor reads and writes) -/
 

@@ -362,6 +362,22 @@
         },
         "output": {
           "$ref": "#/$defs/sha256"
+        },
+        "failed": {
+          "description": "The notice of the last failed replay, kept until a replay passes. fvtrace pin --replay and fvtrace verify --run write it.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["date", "reason"],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^(timeout|cannot start|output changed|exit [1-9][0-9]{0,9})$"
+            }
+          }
         }
       }
     },
