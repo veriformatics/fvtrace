@@ -1,0 +1,97 @@
+# The binary a release ships, on each platform it serves: build + test, then package + check the
+# archive (tools/release.sh). gate.yml calls it on every run, so a change that would break a release
+# fails CI; release.yml calls it with `release`: the page engine built from scratch (no cache feeds
+# what it publishes) and the archives kept for the release.
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        description: Build the page engine from scratch and keep the archives.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-26.04
+            target: linux-x86_64
+          - os: ubuntu-26.04-arm
+            target: linux-arm64
+          - os: macos-26
+            target: macos-arm64
+          - os: windows-2025
+            target: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `lake build` builds the exported page's engine with Emscripten, which runs on Python.
+      - name: Install Python for the page engine build
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15.2"
+
+      # As in gate.yml's gate job; the weekly run and a release build the page engine from scratch.
+      - name: Cache the page engine build
+        id: engine-cache
+        if: ${{ !inputs.release && github.event_name != 'schedule' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake/build/wasm/*
+            !.lake/build/wasm/download
+          key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean') }}
+
+      - name: Remove a partial page engine build
+        if: ${{ !inputs.release && github.event_name != 'schedule' && steps.engine-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: rm -rf .lake/build/wasm
+
+      # leanc links for macOS 99.0 unless MACOSX_DEPLOYMENT_TARGET is set; the release floor
+      # (tools/release.sh macos_min) is the one release.yml's `installed` job runs the program on.
+      - name: Set the macOS floor
+        if: runner.os == 'macOS'
+        shell: bash
+        run: echo "MACOSX_DEPLOYMENT_TARGET=$(sed -n 's/^macos_min=//p' tools/release.sh)" >> "$GITHUB_ENV"
+
+      # Lean's Windows toolchain targets the MinGW ABI; the C digest code builds with MinGW gcc.
+      - name: Select the C compiler
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "CC=gcc" >> "$GITHUB_ENV"
+
+      - name: Build + test with the Lean toolchain named in lean-toolchain
+        uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
+        with:
+          auto-config: "false"
+          build: "true"
+          test: "true"
+          use-github-cache: "false"
+
+      - name: Package + check the release archive
+        shell: bash
+        run: bash tools/release.sh package "$TARGET"
+
+      - name: Keep the archive for the release
+        if: inputs.release
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fvtrace-${{ matrix.target }}
+          path: dist/fvtrace-*
+          if-no-files-found: error
+          retention-days: 7
