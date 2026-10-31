@@ -230,9 +230,15 @@ fanout() {
 
 spec() { sh .agent/spec-lint .agent/spec.md; }
 
+# Every shell script: `*.sh` + each other file whose shebang names sh or bash (`.agent/spec-lint`).
 shell() {
     local files=()
-    mapfile -t files < <(git ls-files -co --exclude-standard -- '*.sh')
+    mapfile -t files < <(
+        git ls-files -co --exclude-standard -- '*.sh'
+        git ls-files -co --exclude-standard -z -- ':!*.sh' | xargs -0 awk 'FNR == 1 {
+            if (/^#!(\/usr)?\/bin\/(env +)?(ba)?sh([ \t]|$)/) print FILENAME
+            nextfile }'
+    )
     shellcheck -- "${files[@]}"
 }
 
