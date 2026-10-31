@@ -10,6 +10,11 @@
       "groupName": "dev toolchain (npm)"
     },
     {
+      "description": "package.json engines = the dev requirement (a floor); .node-version pins CI's exact Node",
+      "matchDepTypes": ["engines"],
+      "enabled": false
+    },
+    {
       "description": "lean-toolchain + the page engine's Lean runtime sources move together",
       "matchPackageNames": ["leanprover/lean4"],
       "groupName": "Lean toolchain"
