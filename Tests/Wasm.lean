@@ -106,6 +106,19 @@ def pureTests : TestM Unit := do
     check "wasm: one lean-runtime line" (Lock.find es "lean-runtime").isOk
     check "wasm: two emsdk lines for one platform are refused"
       (Lock.find (es ++ es.take 1) "emsdk" (some (es.head!.key))).toOption.isNone
+  -- Renovate PR #5's edit: the linux-x86_64 line's version alone, its URL + digest still the old
+  -- release's. One name, two versions = a half-bumped lock.
+  let lock ← IO.FS.readFile "tools/wasm.lock"
+  let half := "\n".intercalate <| (lock.splitOn "\n").map fun l =>
+    if l.startsWith "emsdk " && (l.splitOn " ")[2]? == some "linux-x86_64" then
+      " ".intercalate ((l.splitOn " ").set 1 "99.0.0")
+    else l
+  check "wasm: the planted relabel changed one line" (half != lock)
+  match Lock.parse half with
+  | .ok _ => check "wasm: a lock whose emsdk lines name two versions is refused" false
+  | .error e =>
+    check "wasm: the refusal names emsdk's two versions"
+      ((e.splitOn "emsdk lines name versions").length == 2 && (e.splitOn "99.0.0").length == 2) e
   for (target, want) in [("x86_64-unknown-linux-gnu", some "linux-x86_64"),
       ("aarch64-unknown-linux-gnu", some "linux-aarch64"),
       ("arm64-apple-darwin23.6.0", some "darwin-aarch64"),
