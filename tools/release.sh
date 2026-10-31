@@ -32,9 +32,26 @@ version_le() { [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" == "$1" ]
 
 archive_of() { if [[ "$1" == windows-* ]]; then printf 'fvtrace-%s-%s.zip' "$2" "$1"; else printf 'fvtrace-%s-%s.tar.gz' "$2" "$1"; fi; }
 
+# The Emscripten that built the embedded page engine: the tree the build names after the host's
+# pinned emsdk line (FvtraceWasm.Build.emsdk); a warm cache keeps earlier pins' trees beside it.
+pinned_emscripten() {
+    local plat dir
+    case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64) plat=linux-x86_64 ;;
+    Linux-aarch64 | Linux-arm64) plat=linux-aarch64 ;;
+    Darwin-arm64) plat=darwin-aarch64 ;;
+    Darwin-x86_64) plat=darwin-x86_64 ;;
+    MINGW*-x86_64 | MSYS*-x86_64) plat=windows-x86_64 ;;
+    *) die "no pinned Emscripten for host $(uname -s)-$(uname -m)" ;;
+    esac
+    dir="$(awk -v p="$plat" '$1 == "emsdk" && $3 == p { print "emsdk-" $2 "-" p "-" substr($4, 1, 16) }' tools/wasm.lock)"
+    [[ -n "$dir" ]] || die "tools/wasm.lock pins no Emscripten for $plat"
+    [[ -d ".lake/build/wasm/$dir/install/emscripten" ]] || die "no .lake/build/wasm/$dir: run lake build first"
+    printf '%s' ".lake/build/wasm/$dir/install/emscripten"
+}
+
 package() {
-    local target="$1" dist="${DIST:-dist}" version name stage exe=fvtrace prefix archive
-    local emsdk=()
+    local target="$1" dist="${DIST:-dist}" version name stage exe=fvtrace prefix archive em
     version="$(sed -n 's/^def version : String := "\(.*\)"$/\1/p' Fvtrace/Version.lean)"
     [[ -n "$version" ]] || die "no version in Fvtrace/Version.lean"
     [[ "$target" == windows-* ]] && exe=fvtrace.exe
@@ -48,12 +65,10 @@ package() {
     cp "$prefix/LICENSES" "$stage/licenses/lean-toolchain.txt"
     cp c/hacl/LICENSE "$stage/licenses/hacl-star.txt"
     cp tools/release/libuv.txt "$stage/licenses/libuv.txt"
-    # The Emscripten that built the embedded page engine (one per platform in the build folder).
-    emsdk=(.lake/build/wasm/emsdk-*/install/emscripten)
-    [[ ${#emsdk[@]} -eq 1 && -d "${emsdk[0]}" ]] || die "expected one Emscripten in .lake/build/wasm, found: ${emsdk[*]}"
-    cp "${emsdk[0]}/LICENSE" "$stage/licenses/emscripten.txt"
-    cp "${emsdk[0]}/system/lib/libc/musl/COPYRIGHT" "$stage/licenses/musl.txt"
-    cp "${emsdk[0]}/system/lib/mimalloc/LICENSE" "$stage/licenses/mimalloc.txt"
+    em="$(pinned_emscripten)"
+    cp "$em/LICENSE" "$stage/licenses/emscripten.txt"
+    cp "$em/system/lib/libc/musl/COPYRIGHT" "$stage/licenses/musl.txt"
+    cp "$em/system/lib/mimalloc/LICENSE" "$stage/licenses/mimalloc.txt"
     # The builder's umask would reach the user's extracted files.
     chmod -R u=rwX,go=rX "$stage"
     archive="$(archive_of "$target" "$version")"
