@@ -299,13 +299,18 @@ def link (cfg : Config) (t : Tools) (objs : Array FilePath) (wasm : FilePath) : 
   let rsp := cfg.cache / "link.rsp.utf-8"
   IO.FS.writeFile rsp <| String.join <| objs.toList.map fun o =>
     "\"" ++ ((slashed o).replace "\\" "\\\\").replace "\"" "\\\"" ++ "\"\n"
-  let out ← runOut t.python (#[slashed t.emxx, "-O2", "-fwasm-exceptions", s!"@{slashed rsp}",
-      "-o", slashed wasm, "-sSTANDALONE_WASM", "--no-entry", "-sALLOW_MEMORY_GROWTH=1",
-      "-sSTACK_SIZE=1MB", "-sMALLOC=mimalloc", s!"-sEXPORTED_FUNCTIONS={exportedFunctions}",
-      "-Wl,--gc-sections"])
-    (env := t.env)
-  let extra := unexpectedWarnings out.stderr
-  unless extra.isEmpty do fail s!"unexpected linker warnings:\n{"\n".intercalate extra}"
+  -- Removed once the link ends: a failed link's list (a probe's bridge) left beside the cached
+  -- engine would let a manual relink build an engine without the Lean closure.
+  try
+    let out ← runOut t.python (#[slashed t.emxx, "-O2", "-fwasm-exceptions", s!"@{slashed rsp}",
+        "-o", slashed wasm, "-sSTANDALONE_WASM", "--no-entry", "-sALLOW_MEMORY_GROWTH=1",
+        "-sSTACK_SIZE=1MB", "-sMALLOC=mimalloc", s!"-sEXPORTED_FUNCTIONS={exportedFunctions}",
+        "-Wl,--gc-sections"])
+      (env := t.env)
+    let extra := unexpectedWarnings out.stderr
+    unless extra.isEmpty do fail s!"unexpected linker warnings:\n{"\n".intercalate extra}"
+  finally
+    if ← rsp.pathExists then IO.FS.removeFile rsp
 
 /-- base64(gzip(module)): Python's `gzip` (Lean has no compressor; Emscripten needs Python). -/
 def compress (t : Tools) (wasm out : FilePath) : IO Unit :=
