@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Re-pins one scanner in tools/tools.lock to a release: every platform line gets the release's
-# asset URL + the sha256 digest GitHub records for it. Usage: tools/pin-tool.sh <name> <version>
-# (a Renovate PR bumps the linux-x86_64 version alone; this rewrites all four lines).
+# Re-pins one tool in tools/tools.lock to a release: every platform line gets the release's asset
+# URL + the sha256 digest GitHub records for it (linux + darwin tarballs; the Windows zip for a tool
+# that pins one, i.e. elan-init). Usage: tools/pin-tool.sh <name> <version> (a Renovate PR bumps
+# the linux-x86_64 version alone; this rewrites every line).
 set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,13 +18,16 @@ fi
 
 release="$(curl -fsSL "https://api.github.com/repos/$repo/releases/tags/v$version" ||
     curl -fsSL "https://api.github.com/repos/$repo/releases/tags/$version")"
-lines="$(jq -r --arg n "$name" --arg v "$version" '.assets[]
-    | select(.name | test("(linux|darwin).*tar.gz$"))
-    | (if (.name | test("linux")) then "linux" else "darwin" end) as $os
+windows="$(awk -v n="$name" '$1 == n && $3 ~ /^windows-/ { print "true"; exit }' "$lock")"
+want=4
+[[ "$windows" == true ]] && want=5
+lines="$(jq -r --arg n "$name" --arg v "$version" --argjson w "${windows:-false}" '.assets[]
+    | select((.name | test("(linux|darwin).*tar.gz$")) or ($w and (.name | test("windows.*zip$"))))
+    | (if (.name | test("linux")) then "linux" elif (.name | test("darwin")) then "darwin" else "windows" end) as $os
     | (if (.name | test("x86_64|amd64|x64")) then "x86_64" elif (.name | test("aarch64|arm64")) then "aarch64" else empty end) as $arch
     | "\($n) \($v) \($os)-\($arch) \(.digest | sub("^sha256:"; "")) \(.browser_download_url)"' <<<"$release" | sort -u)"
-if [[ "$(wc -l <<<"$lines")" -ne 4 ]]; then
-    printf 'pin-tool: expected 4 platform assets for %s %s, found:\n%s\n' "$name" "$version" "$lines" >&2
+if [[ "$(wc -l <<<"$lines")" -ne $want ]]; then
+    printf 'pin-tool: expected %d platform assets for %s %s, found:\n%s\n' "$want" "$name" "$version" "$lines" >&2
     exit 1
 fi
 

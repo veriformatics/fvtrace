@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Installs the scanner binaries pinned in tools/tools.lock into .tools/bin/, verifying each
-# archive's sha256 before extracting it. Idempotent: a binary whose stamp matches its pinned
+# Installs the binaries pinned in tools/tools.lock (the scanners + elan-init, CI's Lean installer:
+# tools/install-lean.sh) into .tools/bin/, verifying each archive's sha256 before extracting it. Idempotent: a binary whose stamp matches its pinned
 # version + digest is kept. Usage: tools/fetch-tools.sh [name...] (default: every pinned tool).
 set -euo pipefail
 
@@ -14,6 +14,7 @@ case "$(uname -s)-$(uname -m)" in
     Linux-aarch64 | Linux-arm64) platform=linux-aarch64 ;;
     Darwin-x86_64) platform=darwin-x86_64 ;;
     Darwin-arm64) platform=darwin-aarch64 ;;
+    MINGW*-x86_64 | MSYS*-x86_64) platform=windows-x86_64 ;;
     *)
         printf 'fetch-tools: unsupported platform %s-%s\n' "$(uname -s)" "$(uname -m)" >&2
         exit 2
@@ -37,12 +38,15 @@ while read -r name version plat digest url; do
     fi
     found=$((found + 1))
     stamp="$bin/.$name.stamp"
-    if [[ -x "$bin/$name" && -f "$stamp" && "$(cat "$stamp")" == "$version $digest" ]]; then
+    exe="$name"
+    [[ "$platform" == windows-* ]] && exe="$name.exe"
+    if [[ -x "$bin/$exe" && -f "$stamp" && "$(cat "$stamp")" == "$version $digest" ]]; then
         continue
     fi
     archive="$cache/$(basename "$url")"
     if [[ ! -f "$archive" || "$(sha256 "$archive")" != "$digest" ]]; then
-        curl -fsSL --retry 3 -o "$archive.part" "$url"
+        # Bounded: a server that stalls mid-transfer fails the fetch (tools/install-lean.sh retries).
+        curl -fsSL --retry 3 --connect-timeout 30 --max-time 300 -o "$archive.part" "$url"
         mv "$archive.part" "$archive"
     fi
     got="$(sha256 "$archive")"
@@ -52,14 +56,14 @@ while read -r name version plat digest url; do
         exit 1
     fi
     work="$(mktemp -d)"
-    tar -xzf "$archive" -C "$work"
-    member="$(find "$work" -type f -name "$name" | head -n 1)"
+    if [[ "$archive" == *.zip ]]; then unzip -q "$archive" -d "$work"; else tar -xzf "$archive" -C "$work"; fi
+    member="$(find "$work" -type f -name "$exe" | head -n 1)"
     if [[ -z "$member" ]]; then
-        printf 'fetch-tools: %s archive holds no %s binary\n' "$name" "$name" >&2
+        printf 'fetch-tools: %s archive holds no %s binary\n' "$name" "$exe" >&2
         rm -rf "$work"
         exit 1
     fi
-    install -m 0755 "$member" "$bin/$name"
+    install -m 0755 "$member" "$bin/$exe"
     rm -rf "$work"
     printf '%s %s\n' "$version" "$digest" >"$stamp"
     printf 'fetch-tools: %s %s installed\n' "$name" "$version"

@@ -33,7 +33,7 @@ const managers = (
 /** @type {Record<string, string[]>} file → dependency names its managers must find */
 const expected = {
   "lean-toolchain": [""],
-  "tools/tools.lock": ["actionlint", "betterleaks", "zizmor"],
+  "tools/tools.lock": ["actionlint", "betterleaks", "elan-init", "zizmor"],
   "tools/wasm.lock": ["emsdk", "lean-runtime"],
 };
 

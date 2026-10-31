@@ -75,13 +75,19 @@ jobs:
         shell: bash
         run: echo "CC=gcc" >> "$GITHUB_ENV"
 
-      - name: Build + test with the Lean toolchain named in lean-toolchain
-        uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1.6.2
-        with:
-          auto-config: "false"
-          build: "true"
-          test: "true"
-          use-github-cache: "false"
+      # As in gate.yml: pinned elan, bounded + retried downloads.
+      - name: Install the Lean toolchain named in lean-toolchain
+        timeout-minutes: 10
+        shell: bash
+        run: bash tools/install-lean.sh
+
+      - name: Build
+        shell: bash
+        run: lake build
+
+      - name: Test
+        shell: bash
+        run: lake test
 
       - name: Package + check the release archive
         shell: bash

@@ -1,5 +1,6 @@
-# Pinned scanner binaries: name version platform sha256 url (one line per platform).
-# tools/fetch-tools.sh verifies each archive against its sha256 before extracting.
+# Pinned tool binaries (the scanners + elan-init, CI's Lean installer: tools/install-lean.sh):
+# name version platform sha256 url, one line per platform; tools/fetch-tools.sh verifies each archive
+# against its sha256 before extracting it. Re-pin: bash tools/pin-tool.sh NAME VERSION.
 actionlint 1.7.12 darwin-aarch64 aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_arm64.tar.gz
 actionlint 1.7.12 darwin-x86_64 5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644 https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_amd64.tar.gz
 actionlint 1.7.12 linux-aarch64 325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6 https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_arm64.tar.gz
@@ -8,6 +9,11 @@ betterleaks 1.9.0 darwin-aarch64 83dd7eaab13d44a1e8e347a17064cdef153a1478db47327
 betterleaks 1.9.0 darwin-x86_64 68dfd83458d9e7f90663daa7a81c7f944083b170dae82e4f5f8d0581ed519ef1 https://github.com/betterleaks/betterleaks/releases/download/v1.9.0/betterleaks_1.9.0_darwin_x64.tar.gz
 betterleaks 1.9.0 linux-aarch64 1d39116e0a58dc94574715e2aa12a2dbd5062f193eee3fec011fef6ba06bd13b https://github.com/betterleaks/betterleaks/releases/download/v1.9.0/betterleaks_1.9.0_linux_arm64.tar.gz
 betterleaks 1.9.0 linux-x86_64 f8b185a39ffcece2a1ca82bf3a4e7435cd81963ffd16b7a9128daf75f35f6de7 https://github.com/betterleaks/betterleaks/releases/download/v1.9.0/betterleaks_1.9.0_linux_x64.tar.gz
+elan-init 4.2.4 darwin-aarch64 7ad829861392c718dfebde3a83b5c8508df47be02af68894b094b0b3952616e5 https://github.com/leanprover/elan/releases/download/v4.2.4/elan-aarch64-apple-darwin.tar.gz
+elan-init 4.2.4 darwin-x86_64 8a340b309d8ed2e96f930761fa223b3af57a38f5d253b53ac90293c9516f8cd4 https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-apple-darwin.tar.gz
+elan-init 4.2.4 linux-aarch64 05febd124d84ebf994b2e7479922a5650b1e950c17ae3bd1ddd776b65bb72bf9 https://github.com/leanprover/elan/releases/download/v4.2.4/elan-aarch64-unknown-linux-gnu.tar.gz
+elan-init 4.2.4 linux-x86_64 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63 https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-unknown-linux-gnu.tar.gz
+elan-init 4.2.4 windows-x86_64 fad2e980a191c15884cc1d80d170ffc5fa84f3774541020145b66d1a644c6111 https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-pc-windows-msvc.zip
 zizmor 1.31.1 darwin-aarch64 ad5aa633cd56215b11e6c51d51f90c7e6b22904a75047d1215abbd422f61d698 https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-aarch64-apple-darwin.tar.gz
 zizmor 1.31.1 darwin-x86_64 72ae63bb85b67229c06242f04195cb43927e9fab5f43803c6434dc701a517d61 https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-x86_64-apple-darwin.tar.gz
 zizmor 1.31.1 linux-aarch64 37eebbd5762a44f262d94875431b14a6d2402991e90a685113ea97b8b41be833 https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-aarch64-unknown-linux-gnu.tar.gz
