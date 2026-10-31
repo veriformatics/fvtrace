@@ -51,6 +51,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] fvapi readiness: probe v0 against fvTrace → deferred row (fvTrace client waits for fvapi IMPLEMENT)
+- [ ] Replay notices (user rulings): a failed `pin --replay` | `verify --run` records `replay.failed` in the trace (cleared by a pass), every run appends to a replay log; GUI fact details + page line + `check` show it; `check --strict` fails on it; the review digest skips it
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
