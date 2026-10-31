@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { isRecord, serveFvtrace } from "./fvtrace-server.js";
+import { fvtrace, isRecord, serveFvtrace } from "./fvtrace-server.js";
 
 const root = new URL("../../", import.meta.url).pathname;
 
@@ -465,6 +465,80 @@ test.describe("the feature fixture", () => {
     // The engine's message opens with the claim's id; the row shows that id once, as its link.
     await expect(page.locator("#check-list .plain-row").first()).toHaveText(
       /^C1 concerns publication but needs no release fact/,
+    );
+  });
+});
+
+/**
+ * `trace` with a replay notice on each of `ids` (kernel.md § Replay, Notice), as `fvtrace pin
+ * --replay` or `verify --run` would leave it.
+ * @param {Record<string, unknown>} trace @param {Record<string, string>} reasons id ↦ reason
+ */
+function withNotices(trace, reasons) {
+  for (const key of ["facts", "exclusions"]) {
+    const list = trace[key];
+    if (!Array.isArray(list)) continue;
+    for (const x of list) {
+      if (!isRecord(x) || typeof x["id"] !== "string" || !(x["id"] in reasons)) continue;
+      const ev = isRecord(x["evidence"]) ? x["evidence"] : { summary: "A planted replay." };
+      ev["replay"] = {
+        command: ["true"],
+        failed: { date: "2026-10-31", reason: reasons[x["id"]] },
+      };
+      x["evidence"] = ev;
+    }
+  }
+}
+
+test.describe("replay notices", () => {
+  test("a fact's failed replay shows under the review line and in its details", async ({
+    page,
+  }) => {
+    web = await serveFvtrace("synthetic", (t) => withNotices(t, { O1: "exit 1" }));
+    await page.goto(web.url);
+    const line = page.locator("#replays");
+    await expect(line).toHaveText(
+      "O1's check was run again and failed. Open O1 to see when and why.",
+    );
+    await card(page, "C1").locator(".contact-label").filter({ hasText: "O1" }).click();
+    const inspector = page.locator("#inspector");
+    await expect(inspector).toContainText(
+      "Its check was run again on 2026-10-31 and failed: the command ended with code 1.",
+    );
+    await line.getByRole("button", { name: "O1" }).click();
+    await expect(inspector.getByRole("heading", { level: 2 })).toHaveText(/./);
+    await expect(inspector).toContainText("The receipt matches the project folder.");
+  });
+
+  test("several notices, an exclusion's among them, share one line", async ({ page }) => {
+    web = await serveFvtrace("fixture", (t) =>
+      withNotices(t, { O2: "timeout", X1: "output changed" }),
+    );
+    await page.goto(web.url);
+    await expect(page.locator("#replays")).toHaveText(
+      "The checks of O2 and X1 were run again and failed. Open a fact to see when and why.",
+    );
+    await expect(page.locator("#replays").getByRole("button")).toHaveText(["O2"]);
+  });
+
+  test("a notice written while the page is open shows after the next request", async ({ page }) => {
+    web = await serveFvtrace();
+    await page.goto(web.url);
+    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#replays")).toBeHidden();
+    // kernel.md V-serve: the view names the notices, so the details request meets 409 + reloads.
+    const file = fvtrace(["path"], web.project, web.env);
+    /** @type {unknown} */
+    const trace = JSON.parse(await readFile(file, "utf8"));
+    if (!isRecord(trace)) throw new Error("the trace is not an object");
+    withNotices(trace, { O1: "cannot start" });
+    await writeFile(file, JSON.stringify(trace, null, 2));
+    await card(page, "C1").locator(".contact-label").filter({ hasText: "O1" }).click();
+    await expect(page.locator("#inspector")).toContainText(
+      "Its check was run again on 2026-10-31 and failed: the command could not start.",
+    );
+    await expect(page.locator("#replays")).toHaveText(
+      "O1's check was run again and failed. Open O1 to see when and why.",
     );
   });
 });

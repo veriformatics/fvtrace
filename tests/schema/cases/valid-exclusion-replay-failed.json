@@ -1,0 +1,131 @@
+{
+  "fvtrace": 1,
+  "analysis": {
+    "id": "demo",
+    "title": "Demo",
+    "summary": "A demo analysis.",
+    "source": "Hand-written."
+  },
+  "subjects": [
+    {
+      "id": "S",
+      "title": "Existing data",
+      "kind": "existing"
+    },
+    {
+      "id": "P",
+      "title": "New cohort",
+      "kind": "prospective",
+      "createdBy": "X1"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Effect",
+      "text": "Is there an effect?"
+    }
+  ],
+  "facts": [
+    {
+      "id": "O1",
+      "subject": "S",
+      "kind": "result",
+      "text": "The effect is positive.",
+      "status": "open",
+      "route": "runtime-checker",
+      "evidence": {
+        "summary": "Checker run.",
+        "artifacts": [
+          {
+            "path": "out/check.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "receipt"
+          }
+        ],
+        "verifier": "checker 1.0",
+        "statement": "positive",
+        "statementDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "replay": {
+          "command": ["lake", "build", "an argument with spaces"],
+          "output": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "trusts": ["Checker runtime"],
+      "why": "The claim reports this effect, so the data must show it."
+    },
+    {
+      "id": "E1",
+      "subject": "S",
+      "kind": "entailment",
+      "text": "O1 entails C1.",
+      "status": "assumed",
+      "route": "human-ruling"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "question": "Q1",
+      "subject": "S",
+      "level": "descriptive",
+      "text": "The effect is positive.",
+      "needs": ["O1"],
+      "entailment": "E1",
+      "latent": true,
+      "headline": "The effect is positive."
+    }
+  ],
+  "experiments": [
+    {
+      "id": "X1",
+      "subject": "S",
+      "kind": "wet",
+      "effort": "months",
+      "title": "Cohort",
+      "method": "Collect.",
+      "resources": "Animals.",
+      "success": {
+        "O1": "checked"
+      },
+      "failure": {
+        "O1": "violated"
+      },
+      "requires": [],
+      "caveat": "None."
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "X2",
+      "subject": "S",
+      "between": ["O1", "E1"],
+      "text": "Not both.",
+      "status": "assumed",
+      "route": "human-ruling",
+      "evidence": {
+        "summary": "Ruling.",
+        "replay": {
+          "command": ["no-run"],
+          "failed": {
+            "date": "2026-10-31",
+            "reason": "timeout"
+          }
+        }
+      }
+    }
+  ],
+  "waivers": [
+    {
+      "rule": "L-result",
+      "claim": "C1",
+      "reason": "Descriptive count."
+    }
+  ],
+  "review": {
+    "reviewer": "R. Viewer",
+    "date": "2026-10-19",
+    "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "note": "First pass."
+  }
+}

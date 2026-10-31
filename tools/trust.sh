@@ -43,10 +43,13 @@ replay_key() {
 
 # The self-trace's proof facts replay their statement fingerprints (fvtrace verify --run): a
 # definition a statement reads changed without a re-pin fails here. Runs with the kernel replay.
+# A failed replay writes its notice into the trace it read, so it reads a copy: the committed
+# self-trace stays as it is.
 statements() {
     local home rc
     home="$(mktemp -d)"
-    FVTRACE_HOME="$home" .lake/build/bin/fvtrace verify --run --trace examples/fvtrace/trace.json \
+    cp examples/fvtrace/trace.json "$home/self-trace.json"
+    FVTRACE_HOME="$home" .lake/build/bin/fvtrace verify --run --trace "$home/self-trace.json" \
         --project .
     rc=$?
     rm -rf "$home"

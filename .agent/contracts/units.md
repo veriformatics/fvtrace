@@ -101,3 +101,10 @@ Staged so every commit keeps the full gate green (consultant-7 C12): reference p
 | U9 scale tools + measurements | gate tool + data (measurements) | P-bound, P-evidence | `tools/scale.sh --assert` + probes (each new breach); idle-host run in the commit body |
 | U10 docs, rules, skill, self-trace | docs | README, SKILL.md, SECURITY.md (POST route, view header, worker policy), rules (server, web, fast, wasm, ops) in their owning units, Decisions + Artifacts | consistency pass (L-CLAIM); self-trace receipts + statement replays re-pinned |
 | U11 closing review | — | lenses fixed before reading | `.agent/archive/review-implement-whatifs.md` (one `reviewer` per lens; their deliverables beside it) |
+
+# Units → tier → contract → evidence (MAINTAIN — fvapi readiness)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| fvapi readiness | docs | spec Decisions Product; `.agent/deferred.md` fvapi client row | live probe of fvapi v0 (bundle → receipt, planted `sorry`, client allowlist); scientist-1 appraisal (K0 + K5 overstated → adopted) |
+| replay notices + log | kernel (shell) + data (GUI) | `kernel.md` § Model `replay.failed`, § Replay Notice + Log + Acceptance, § Review digest, V-env `notices`, V-serve view; Decisions Evidence binding + Review (user rulings) | consultant-1 before code (9 rows: R2 R4 R5 R7 R8 R9 adopted); tester-1 diff-blind suite `Tests/Notices.lean` + 19 schema cases, red on 5c959c9 (177 checks); e2e `replay notices` red on 5c959c9 + on the new binary with `web/` reverted; engine differential cases with notices; reviewer-1 closing diff (10 rows, 3 findings fixed + re-probed green); mutation Replay.lean + Decode.lean `validFailReason` |

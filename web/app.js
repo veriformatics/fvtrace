@@ -27,6 +27,7 @@ import {
   markRow,
   noExperiments,
   noWork,
+  noticeLine,
   openFactRow,
   openFactSig,
   textRow,
@@ -823,6 +824,10 @@ function renderScenario(
           ]
         : h("strong", {}, "Not reviewed yet."),
   );
+  // Replay notices are recorded: the same line in every mode.
+  const replays = byId("replays");
+  replays.hidden = e.notices.length === 0;
+  fill(replays, e.notices.length ? noticeLine(e.notices, x, on) : []);
 }
 
 /** The focused re-rendered control, so a render can hand focus back to its successor. */

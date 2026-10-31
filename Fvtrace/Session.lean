@@ -143,12 +143,17 @@ def details (l : Loaded) (item : String) : Except Problem Value :=
     .badItem
 
 /-- The view an answer reads (`kernel.md` V-serve `X-Fvtrace-View`): the envelope's `trace` member
-(content digest + review), the receipt bindings with their reasons, the what-if. -/
+(content digest + review), the receipt bindings with their reasons, the replay notices (the
+content digest skips them; absent when none, so a notice-free view keeps its v1 value), the
+what-if. -/
 def viewOf (l : Loaded) : IO String :=
-  Digest.ofString (Value.obj [("trace", Evaluate.traceJson l.scenario.trace l.digest l.review),
+  let notices := l.scenario.trace.notices
+  Digest.ofString (Value.obj ([("trace", Evaluate.traceJson l.scenario.trace l.digest l.review),
     ("bindings", .arr (l.bindings.map fun b => .obj [("id", .str b.id),
-      ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))])),
-    ("overrides", Evaluate.overridesJson l.scenario.overrides)]).canonical
+      ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))]))] ++
+    (if notices.isEmpty then [] else [("notices", .arr (notices.map fun (id, x) =>
+      .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]))]) ++
+    [("overrides", Evaluate.overridesJson l.scenario.overrides)])).canonical
 
 /-- The batch document (`kernel.md` V-complete). -/
 def complete (l : Loaded) : Value :=

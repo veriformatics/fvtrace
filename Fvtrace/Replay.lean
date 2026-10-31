@@ -1,5 +1,4 @@
 import Fvtrace.Digest
-import Fvtrace.Index
 import Fvtrace.Model
 
 /-!
@@ -109,20 +108,76 @@ def reasons (pinned : Option String) : Except String Run → List String
       | some d => if d == r.digest then [] else ["output changed"]
     | some n => [s!"exit {n}"]
 
-/-- `t` with each id's replay `output` set (pairs from `pin --replay`). -/
-def withOutputs (t : Trace) (outputs : List (String × String)) : Trace :=
-  let ix := Index.ofKeys compare (outputs.map (·.1))
-  let arr := outputs.toArray
-  -- `outputs.lookup id` (its first match) through an index.
-  let lookup := fun (id : String) => ((ix.first? (cmp := compare) id).bind (arr[·]?)).map (·.2)
-  let setReplay := fun (id : String) (r : Replay) =>
-    match lookup id with
-    | some d => { r with output := some d }
+/-- A run's verifier failure, its output aside (`kernel.md` § Replay, Notice); `none` = it exited
+with 0. A spawn exception's message stays in the run's report + the log, out of the trace. -/
+def verifierFailure? : Except String Run → Option String
+  | .error _ => some "cannot start"
+  | .ok r =>
+    match r.exit with
+    | none => some "timeout"
+    | some 0 => none
+    | some n => some s!"exit {n}"
+
+/-- What a run does to its replay's notice. -/
+inductive NoticeChange where
+  | set (notice : ReplayFailure)
+  | clear
+  | keep
+  deriving DecidableEq, Repr
+
+/-- `verify --run` on `date`: a pass clears, a verifier failure or a changed output sets; `output
+not pinned` is no verifier failure, so the notice stays as it was. -/
+def verifyChange (date : String) (pinned : Option String) (res : Except String Run) :
+    NoticeChange :=
+  match verifierFailure? res, res with
+  | some why, _ => .set { date, reason := why }
+  | none, .ok r =>
+    match pinned with
+    | none => .keep
+    | some d => if d == r.digest then .clear else .set { date, reason := "output changed" }
+  | none, .error _ => .keep
+
+/-- `pin --replay` on `date`: exit 0 pins the output, so it passes. -/
+def pinChange (date : String) (res : Except String Run) : NoticeChange :=
+  match verifierFailure? res with
+  | some why => .set { date, reason := why }
+  | none => .clear
+
+/-- Why a `pin --replay` run failed, as `reasons` words it; `[]` = it exited with 0. -/
+def pinReasons (res : Except String Run) : List String :=
+  if (verifierFailure? res).isNone then [] else reasons none res
+
+def NoticeChange.apply : NoticeChange → Replay → Replay
+  | .set x, r => { r with failed := some x }
+  | .clear, r => { r with failed := none }
+  | .keep, r => r
+
+/-- `t` with `g i r` in place of the `i`-th replay of `targets t`: by position, so each result
+lands on its own record when a decode-only trace repeats an id. -/
+def updateAt (t : Trace) (g : Nat → Replay → Replay) : Trace := Id.run do
+  let mut i := 0
+  let mut facts := #[]
+  for f in t.facts do
+    match f.evidence with
+    | some ev@{ replay := some r, .. } =>
+      facts := facts.push { f with evidence := some { ev with replay := some (g i r) } }
+      i := i + 1
+    | _ => facts := facts.push f
+  let mut exclusions := #[]
+  for x in t.exclusions do
+    match x.evidence with
+    | some ev@{ replay := some r, .. } =>
+      exclusions := exclusions.push { x with evidence := some { ev with replay := some (g i r) } }
+      i := i + 1
+    | _ => exclusions := exclusions.push x
+  return { t with facts := facts.toList, exclusions := exclusions.toList }
+
+/-- `t` with each run's result applied to its replay, `results` in `targets t` order: the new
+`output` (`pin --replay`'s exit 0) and the notice change. -/
+def withResults (t : Trace) (results : Array (Option String × NoticeChange)) : Trace :=
+  updateAt t fun i r =>
+    match results[i]? with
+    | some (out, change) => change.apply { r with output := out <|> r.output }
     | none => r
-  let set := fun (id : String) (ev : Option Evidence) =>
-    ev.map fun e => { e with replay := e.replay.map (setReplay id) }
-  { t with
-    facts := t.facts.map fun f => { f with evidence := set f.id f.evidence }
-    exclusions := t.exclusions.map fun x => { x with evidence := set x.id x.evidence } }
 
 end Fvtrace.Replay

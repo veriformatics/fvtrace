@@ -94,9 +94,9 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
 |---|---|
 | `fvtrace init` | Creates the trace of the project and shows where it is. |
 | `fvtrace path` | Prints the location of the trace. |
-| `fvtrace check [--strict]` | Checks the trace and the evidence of each verified fact. With `--strict`, a warning without a waiver or changed evidence also fails. |
-| `fvtrace pin [--replay]` | Records the SHA-256 of each evidence file and statement. With `--replay`, it first runs each replay command and records the SHA-256 of its output. |
-| `fvtrace verify [--run]` | Lists the replay command of each fact. With `--run`, it runs each command and checks that it exits with 0 and prints the same output as when it was pinned. |
+| `fvtrace check [--strict]` | Checks the trace and the evidence of each verified fact. With `--strict`, a warning without a waiver, changed evidence or a failed replay also fails. |
+| `fvtrace pin [--replay]` | Records the SHA-256 of each evidence file and statement. With `--replay`, it first runs each replay command and records the SHA-256 of its output. A replay that fails keeps the pin and leaves a notice on its fact. |
+| `fvtrace verify [--run \| --log]` | Lists the replay command of each fact. With `--run`, it runs each command and checks that it exits with 0 and prints the same output as when it was pinned. With `--log`, it shows every replay that ran for the project and how it ended. |
 | `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. The review vouches that the claims and facts match the study, that each headline says no more than its exact statement, and that the universal premises hold. |
 | `fvtrace claims` | Shows each claim with its verdict, by question. |
 | `fvtrace gaps` | Shows the facts whose verification makes the most claims available. |
@@ -163,6 +163,14 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
   build files. Nothing runs without `--run` or `--replay`. Before you use them on a trace from
   someone else, for example a bundle, run `fvtrace verify` to read the commands. Use `--run` only
   when you trust them.
+- **Failed replays**: when a replay fails, `pin --replay` still records the digests, and both
+  commands write a notice into the trace: the date and the reason (`exit 1`, `timeout`, `cannot
+  start` or `output changed`). The next replay of that fact that passes removes the notice. So
+  `verify --run` can also rewrite the trace file. `fvtrace check` shows each notice, and
+  `check --strict` fails while one is there. The page shows a line under the review line, and
+  the fact's details show the date and the reason. A notice does not change the review. Every
+  replay that runs, passed or failed, also goes into a log in the data folder: `fvtrace verify
+  --log` shows it. The log keeps each command and the end of its error output.
 - **Subjects**: what the facts are about. The existing analysis is one subject. Data that an
   experiment would create is another subject: such an experiment can raise claims about the new
   data, never the claims of the existing analysis.
@@ -187,7 +195,7 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 ## Where fvTrace keeps its files
 
 fvTrace keeps its own files in its data folder: one folder for each project, with the trace, the
-project location and a cache of file digests. The folder `serve` holds the page that sends your
+project location, a cache of file digests and the replay log. The folder `serve` holds the page that sends your
 browser to `fvtrace serve`; only you can open that folder. It writes into your project folder only where you
 point it: `--trace` at a file there, or `FVTRACE_HOME` or `skills install --dir` at a folder in
 it. The data folder is

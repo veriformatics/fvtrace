@@ -242,6 +242,21 @@ function randomSpecs(facts, next, count) {
 
 /** The fixture with its exclusion verified (a receipt), so derived violations + exclusion
  * bindings reach the envelope. */
+/**
+ * `trace` with a replay notice on each of `ids` (kernel.md § Replay, Notice): the envelope's
+ * `notices` + the fact's `evidence.replay.failed`. @param {Json} trace @param {string[]} ids
+ */
+function withNotices(trace, ids) {
+  const t = structuredClone(trace);
+  for (const x of [...records(t["facts"]), ...records(t["exclusions"])]) {
+    if (!ids.includes(String(x["id"]))) continue;
+    const ev = isJson(x["evidence"]) ? x["evidence"] : { summary: "A planted replay." };
+    ev["replay"] = { command: ["true"], failed: { date: "2026-10-31", reason: "exit 1" } };
+    x["evidence"] = ev;
+  }
+  return t;
+}
+
 function verifiedExclusion() {
   const t = traceAt("tests/fixtures/synthetic.trace.json");
   for (const x of records(t["exclusions"]))
@@ -388,6 +403,8 @@ export function cases(seed) {
     ["restating fixture", traceAt("tests/fixtures/restates.trace.json"), {}],
     ["verified exclusion", verifiedExclusion(), {}],
     ["verified exclusion, stale receipt", verifiedExclusion(), { stale: ["X1"] }],
+    ["synthetic, replay notices on O1 + O2", withNotices(synthetic, ["O1", "O2"]), {}],
+    ["verified exclusion, a replay notice on X1", withNotices(verifiedExclusion(), ["X1"]), {}],
     ["twenty-one experiments (tooLarge)", wide(), {}],
     ["a 4 MB legal trace (memory growth)", big, {}],
     ["12,000 claims (past the wasm call depth)", manyClaims(12000), {}],

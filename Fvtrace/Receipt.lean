@@ -183,9 +183,10 @@ def pin (t : Trace) (root : System.FilePath) (cache : IO.Ref Cache) :
 
 /-! ## Review record -/
 
-/-- SHA-256 of the canonical trace without its review record (contract § Review). -/
+/-- SHA-256 of the canonical trace without its review record + replay notices (contract
+§ Review: a notice never changes the review state). -/
 def reviewDigest (t : Trace) : IO String :=
-  Digest.ofString (Encode.trace { t with review := none }).canonical
+  Digest.ofString (Encode.trace { t.withoutNotices with review := none }).canonical
 
 /-- A draft needs no digest, which keeps FFI-free callers FFI-free (the interpreted suite). -/
 def reviewState (t : Trace) : IO ReviewState := do

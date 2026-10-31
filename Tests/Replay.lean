@@ -154,8 +154,10 @@ def tests : TestM Unit := do
     check "replay: the weakened statement leaves every receipt current"
       (count out "\"current\": false" == 0) out
     let (rc, out, _) ← run ["verify", "--run", "--json"]
+    -- Each failing row names its reason + carries the notice it left (kernel.md § Replay).
     check "replay: the weakened statement fails its replays (fact + exclusion)"
-      (rc == 1 && count out "\"output changed\"" == 2) out
+      (rc == 1 && count out "\"output changed\"" == 4 &&
+        count out "\"reason\": \"output changed\"" == 2) out
     -- Exit status, timeout + a missing program each fail, whatever the output.
     Cli.writeTrace traceFile
       (setReplay pinned "O1" { command := fx ["out:spec.txt", "exit:7"], output := outputOf "O1" })

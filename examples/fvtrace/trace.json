@@ -70,7 +70,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckAcceptsExactlyWellFormed"
           ],
-          "output": "7c55f153392c57d130b2805054aa0e3fcce536bd99ed8c699f2082e459c9ea5b"
+          "output": "93215af3c27ddb4f8584abd4afc6a54fcfe4d95be9e33f72e8275cc3dcea13ca"
         }
       },
       "trusts": [
@@ -112,7 +112,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckViolationsSound"
           ],
-          "output": "bca61fd7b0aee18f63f1f4bfc403c1321be9f2dff76bfa33181363a737489e6c"
+          "output": "70d53081b6c0a60180ecfd389f3efa7cdde3a29ddf20aaaef8a93136b775b9e3"
         }
       },
       "trusts": [
@@ -154,7 +154,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.RecordedCanIsVerified"
           ],
-          "output": "b6b78a575eaadc34da57482ff237a2eb0aee617f5d6b2bf92a43327f2cbfb897"
+          "output": "1631ff7aa82b93ff213d7a8ecdccbf8ff77ff1234867f40cf22ac8ea83c28660"
         }
       },
       "trusts": [
@@ -196,7 +196,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.RulingCeiling"
           ],
-          "output": "4d5a719f3257b6d82aa97d9c526c64c8d4463a8dd6fa36391686fe7a2b2e55e6"
+          "output": "aa63f2133d592999bd1ce11df7e92ad0ead4e0256b8cb6f749bbd2f47e4f6c37"
         }
       },
       "trusts": [
@@ -238,7 +238,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CannotExplained"
           ],
-          "output": "b2c4444ef66dba7f11396f64f64743386786c40b79bcf6381acf08eafd0300bb"
+          "output": "8e1a02d9462e00d56a8c3e9921481715a5a00459f8d899187cb642f6f8710458"
         }
       },
       "trusts": [
@@ -280,7 +280,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanSound"
           ],
-          "output": "36ac82e05aa8a25a3a73209e34d03068c64988f5aac523273c2d428be43d40e3"
+          "output": "ee99af43bcc6331d74c827810557e6270b399adb96b12004c8c9b95779eca00f"
         }
       },
       "trusts": [
@@ -322,7 +322,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanOptimal"
           ],
-          "output": "9173eed72d7024002637ec2a5262c15cbca27c516f02b2dfcabe1537744162e8"
+          "output": "c73be2164bcc49657907360428c852cb9c4827096b48e98dd6bbf0d7d2c1f1b5"
         }
       },
       "trusts": [
@@ -364,7 +364,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.SubjectIsolation"
           ],
-          "output": "15317b2b7bb2158eb590aa02305c827ae19a2feb97b7d2ae7031c1feb0aa4b3a"
+          "output": "7e5a131008455395050e087012f16f8901d1776bee41d48d894a6d69d4fa1c68"
         }
       },
       "trusts": [
@@ -404,7 +404,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.ConditionalNeedsVerified"
           ],
-          "output": "d96dcdea2f2f269a465bc7d5d0232d7da3cce8b30db4320f7f275840a13bbdf6"
+          "output": "325402012940b4d42709a41a3ed03bcab783da1bba9bc69568be149ee5a177da"
         }
       },
       "trusts": [
@@ -456,12 +456,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "8257e2aea0af6d0c38e03a9e004bee8c73e2a343d150cd80e6cd501100577790",
+            "sha256": "2ad3a55edc548b3551acb73b91025ac21dc4ea5585bbf3f4096d43c40db0f111",
             "role": "code"
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "2a44fddbd1f163adc479ce2b547c5394a9cb6fcb55c8d8e3e1e8925a35351997",
+            "sha256": "f687899da8301c75dcab30c504d9c4854bb8c650963bebf57bd2e7989498965e",
             "role": "tests"
           }
         ],
@@ -480,7 +480,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Receipt.lean",
-            "sha256": "ea1cf8d3f2953c69bd75d446574758708588657dd392d3e7fb5943623e7d54f5",
+            "sha256": "a5df3a68c1d219fb1384b6888e6b79bbed4201fc0eb74d94f51b69e36f0370b7",
             "role": "code"
           },
           {
@@ -765,7 +765,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.AnswersAgree"
           ],
-          "output": "5e83f2adb5ad21b83f17798edd0ae7b684a6c5bd984e08e0c789afc5fe75770f"
+          "output": "6f8061c8526da38753bd65596c8e44a51b9a8f100e8b79ba0620429414ea90b1"
         }
       },
       "trusts": [
@@ -807,7 +807,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.LookupsAgree"
           ],
-          "output": "3442885fc7de7ddec8e0199f3e09c9a03a390762d42a5fadc9dc753c4519d586"
+          "output": "1c572926399bde29a1727d252ded450cb53c3afdc7483f59b11be1b69eb6f899"
         }
       },
       "trusts": [

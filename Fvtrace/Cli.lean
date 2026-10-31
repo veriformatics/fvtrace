@@ -35,18 +35,21 @@ def usage : String :=
   "      Print the location of the trace of the project.\n" ++
   "  check [--strict] [--json]\n" ++
   "      Check the trace, and the receipt of each verified fact against the project\n" ++
-  "      folder. With --strict, a warning without a waiver or a stale receipt also\n" ++
-  "      fails the check.\n" ++
+  "      folder. With --strict, a warning without a waiver, a stale receipt or a\n" ++
+  "      failed replay also fails the check.\n" ++
   "      It reads every evidence file again.\n" ++
   "  pin [--replay [--timeout S]]\n" ++
   "      Record the sha256 of each evidence artifact and statement in the trace.\n" ++
   "      With --replay, first run each replay command of the trace in the project\n" ++
-  "      folder and record the sha256 of its output.\n" ++
-  "  verify [--run [--timeout S]] [--json]\n" ++
+  "      folder and record the sha256 of its output. A replay that fails keeps the\n" ++
+  "      pin and leaves a notice on its fact until a later replay passes.\n" ++
+  "  verify [--run [--timeout S] | --log] [--json]\n" ++
   "      List the replay command of each fact. With --run, run each command in the\n" ++
   "      project folder: it passes when it exits with 0 and its output is unchanged\n" ++
-  "      since pin --replay. A command runs with your rights: run only the commands\n" ++
-  "      of a trace that you trust.\n" ++
+  "      since pin --replay. A failed replay leaves a notice on its fact in the\n" ++
+  "      trace, and a passing replay removes it. A command runs with your rights:\n" ++
+  "      run only the commands of a trace that you trust.\n" ++
+  "      With --log, show every replay that ran for this project and how it ended.\n" ++
   "  review --reviewer NAME [--note TEXT]\n" ++
   "      Record that NAME reviewed the current content of the trace.\n" ++
   "  claims [--question Q]\n" ++
@@ -115,8 +118,14 @@ def replaceFile (file : System.FilePath) (body : String) : IO Unit := do
   h.flush
   IO.FS.rename tmp file
 
-def writeTrace (file : System.FilePath) (t : Trace) : IO Unit :=
-  replaceFile file (Encode.trace t).pretty
+/-- Writes `t` in place; a body past the decoder's limit (D-json) is refused, the file kept as it
+was, since the next read would refuse it. -/
+def writeTrace (file : System.FilePath) (t : Trace) : IO Unit := do
+  let body := (Encode.trace t).pretty
+  if body.utf8ByteSize > maxTraceBytes then
+    throw (IO.userError s!"the trace would have {body.utf8ByteSize} bytes, over the limit of \
+      {maxTraceBytes} bytes; {file} stays as it was")
+  replaceFile file body
 
 def diagJson (code path message : String) : Value :=
   .obj [("code", .str code), ("path", .str path), ("message", .str message)]
@@ -125,6 +134,63 @@ def warningJson (w : Lint.Warning) : Value :=
   .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
     ("message", .str w.message)] ++
     (match w.waived with | some r => [("waived", .str r)] | none => []))
+
+/-- Writes `t` over the trace that `cmd` read as `read`, unless the file's content changed since
+(an edit while the replays ran wins: the file stays, rc 2). -/
+def writeOver (cmd : String) (tg : Store.Target) (explicit : Bool) (read t : Trace) : IO Unit := do
+  let same ← match ← Session.read tg explicit with
+    | .ok (.ok now) => pure (now == read)
+    | _ => pure false
+  unless same do
+    throw (IO.userError s!"{tg.trace} changed while fvtrace {cmd} ran; it stays as it was, so \
+      run the command again")
+  writeTrace tg.trace t
+
+def noticeJson (id : String) (x : ReplayFailure) : Value :=
+  .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]
+
+/-- `; last run failed on DATE: REASON`, or nothing (the `verify` listing's suffix). -/
+def noticeSuffix (x? : Option ReplayFailure) : String :=
+  match x? with
+  | some x => s!"; last run failed on {x.date}: {x.reason}"
+  | none => ""
+
+/-- The local date + date-time of a run (`kernel.md` § Replay: notice date, log `at`). -/
+def stamp : IO (String × String) := do
+  let now ← Std.Time.PlainDateTime.now
+  let two := fun (n : Nat) => if n < 10 then s!"0{n}" else toString n
+  let date := toString now.date
+  return (date, s!"{date}T{two now.time.hour.val.toNat}:{two now.time.minute.val.toNat}:\
+    {two now.time.second.val.toNat}")
+
+/-- One replay log line (`kernel.md` § Replay, Log); `trace` = the trace's real path, so a link
+and its target log the same draft. -/
+def logEntry (tg : Store.Target) (trace : System.FilePath) (at_ run id : String)
+    (command reasons : List String) (res : Except String Replay.Run) : Value :=
+  .obj ([("at", .str at_), ("run", .str run), ("trace", .str trace.toString),
+    ("project", .str tg.project.toString), ("id", .str id),
+    ("command", .arr (command.map .str)), ("passed", .bool reasons.isEmpty),
+    ("reasons", .arr (reasons.map .str))] ++
+    (match res with
+     | .ok r => if r.stderrTail.isEmpty then [] else [("stderr", .str r.stderrTail)]
+     | .error _ => []))
+
+/-- Appends `entry` to the project's replay log, right after its run (an interrupted command
+keeps the events before it); `some why` = it could not. -/
+def appendLog (tg : Store.Target) (entry : Value) : IO (Option String) := do
+  try
+    tg.ensureEntry
+    let h ← IO.FS.Handle.mk tg.logFile .append
+    -- A line longer than the stream's buffer reaches the file in several writes, so commands
+    -- appending at once would interleave them: one exclusive lock per line.
+    h.lock
+    try
+      h.putStrLn entry.canonical
+      h.flush
+    finally
+      h.unlock
+    return none
+  catch e => return some (toString e)
 
 def bindingJson (b : Receipt.Binding) : Value :=
   .obj [("id", .str b.id), ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))]
@@ -176,8 +242,7 @@ def initCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   if ← t.trace.pathExists then
     complain s!"fvtrace: {t.trace} already exists"
     return 2
-  IO.FS.createDirAll t.entry
-  IO.FS.writeFile (Store.projectFile t.entry) (Store.projectJson t.project).pretty
+  t.ensureEntry
   writeTrace t.trace (Store.starter t.project)
   say s!"Created the trace {t.trace}"
   say s!"for the project folder {t.project}."
@@ -197,7 +262,7 @@ def checkSpec : Args.Spec := { valued := located, switches := ["--json", "--stri
 def pinSpec : Args.Spec := { valued := located ++ ["--timeout"], switches := ["--replay"] }
 
 def verifySpec : Args.Spec :=
-  { valued := located ++ ["--timeout"], switches := ["--run", "--json"] }
+  { valued := located ++ ["--timeout"], switches := ["--run", "--log", "--json"] }
 
 /-- `--timeout S` (whole seconds ≥ 1), accepted beside the flag that runs commands alone. -/
 def timeoutArg (p : Args.Parsed) (runs : Bool) (flag : String) : Except String (Option Nat) :=
@@ -252,12 +317,15 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
       receipts ← Receipt.bindings t tg.project cache true L
       Session.closeCache tg cache
   let stale := receipts.filter (!·.current)
+  let notices := match trace? with | some (t, _) => t.notices | none => []
   if p.has "--json" then
     IO.print (Value.obj ([("trace", .str tg.trace.toString),
       ("project", .str tg.project.toString), ("valid", .bool errors.isEmpty),
       ("errors", .arr (errors.map fun (c, path, m) => diagJson c path m)),
       ("warnings", .arr (warnings.map warningJson))] ++
       (if errors.isEmpty then [("receipts", .arr (receipts.map bindingJson))] else []) ++
+      (if notices.isEmpty then []
+       else [("notices", .arr (notices.map fun (id, x) => noticeJson id x))]) ++
       (match review with
        | some (st, r) => [("review", .obj ([("state", .str st.name)] ++
            (match r with
@@ -274,10 +342,12 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
     for b in receipts do
       let state := if b.current then "current" else s!"stale ({", ".intercalate b.reasons})"
       say s!"  receipt {b.id}: {state}"
+    for (id, x) in notices do say s!"  replay {id}: last run failed on {x.date} ({x.reason})"
     if let some (st, r) := review then
       let by_ := match r with | some r => s!" by {r.reviewer} on {r.date}" | none => ""
       say s!"  review: {st.name}{by_}"
-  let strictFail := p.has "--strict" && (warnings.any (·.waived.isNone) || !stale.isEmpty)
+  let strictFail := p.has "--strict" &&
+    (warnings.any (·.waived.isNone) || !stale.isEmpty || !notices.isEmpty)
   return if !errors.isEmpty || strictFail then 1 else 0
 
 def pin (env : Store.Env) (args : List String) : IO UInt32 := do
@@ -298,39 +368,95 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
       return 1
     | .error rc => return rc
   -- Every replay runs before any receipt is hashed: a verifier may rewrite an artifact.
-  let mut outputs : Array (String × String) := #[]
+  let mut results : Array (Option String × Replay.NoticeChange) := #[]
   let mut failed := 0
+  let mut logFailed := false
+  let tracePath ← try IO.FS.realPath tg.trace catch _ => pure tg.trace
   if p.has "--replay" then
     for (id, r) in Replay.targets t do
-      match ← runReplay tg id r timeout say with
+      let res ← runReplay tg id r timeout say
+      let (date, at_) ← stamp
+      let why := Replay.pinReasons res
+      match res with
       | .ok { exit := some 0, digest, .. } =>
-        outputs := outputs.push (id, digest)
+        results := results.push (some digest, Replay.pinChange date res)
         say s!"  {id}: output pinned"
-      | res =>
+      | _ =>
+        results := results.push (none, Replay.pinChange date res)
         failed := failed + 1
-        complain s!"  {id}: output not pinned ({", ".intercalate (Replay.reasons none res)}); \
-          it stays as it was"
+        complain s!"  {id}: output not pinned ({", ".intercalate why}); a notice records the \
+          failure until a replay passes"
+      unless logFailed do
+        if let some e ← appendLog tg (logEntry tg tracePath at_ "pin" id r.command why res) then
+          logFailed := true
+          complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}"
   let cache ← Session.openCache tg
-  let (pinned, problems) ← Receipt.pin (Replay.withOutputs t outputs.toList) tg.project cache
+  let (pinned, problems) ←
+    Receipt.pin (Replay.withResults t results) tg.project cache
   Session.closeCache tg cache
-  if pinned != t then writeTrace tg.trace pinned
+  if pinned != t then writeOver "pin" tg (p.value? "--trace").isSome t pinned
   for prob in problems do complain s!"  cannot pin {prob}"
   let tail := (if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found") ++
     (if failed == 0 then "" else s!", {failed} replay(s) failed")
   say s!"{tg.trace}: pinned against {tg.project}{tail}"
-  return if problems.isEmpty && failed == 0 then 0 else 1
+  return if logFailed then 2 else if problems.isEmpty && failed == 0 then 0 else 1
+
+/-- `verify --log`: the project's replay log, one line per run (`kernel.md` § Replay, Log). Reads
+no trace, so the history of a deleted or broken draft stays readable. -/
+def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
+  let file := tg.logFile
+  -- Entries name real paths (`logEntry`): the project's own trace, as one.
+  let ownTrace := tg.entry / "trace.json"
+  let own := (← (try IO.FS.realPath ownTrace catch _ => pure ownTrace)).toString
+  let mut runs : Array Value := #[]
+  let mut bad := 0
+  -- Line by line: the log only grows.
+  let h? ← if ← file.pathExists then pure (some (← IO.FS.Handle.mk file .read)) else pure none
+  repeat
+    let some h := h? | break
+    let raw ← h.getLine
+    if raw.isEmpty then break
+    match Json.parse raw.trimAsciiEnd.toString.toUTF8 with
+    | .ok v@(.obj kvs) =>
+      match kvs.lookup "at", kvs.lookup "run", kvs.lookup "id", kvs.lookup "passed",
+        kvs.lookup "reasons", kvs.lookup "trace" with
+      | some (.str at_), some (.str run), some (.str id), some (.bool passed),
+        some (.arr reasons), some (.str trace) =>
+        let why := reasons.filterMap fun | .str r => some r | _ => none
+        if why.length != reasons.length then bad := bad + 1; continue
+        runs := runs.push v
+        unless json do
+          let result := if passed then "passed" else s!"failed ({", ".intercalate why})"
+          let other := if trace == own then "" else s!" in {trace}"
+          say s!"{at_} {run} {id}: {result}{other}"
+      | _, _, _, _, _, _ => bad := bad + 1
+    | _ => bad := bad + 1
+  if json then
+    -- Its real path, as the entries name theirs (`/var` is a link on macOS, `RUNNER~1` a short
+    -- name on Windows).
+    let shown ← try pure ((← IO.FS.realPath tg.entry) / "replays.log") catch _ => pure file
+    IO.print (Value.obj [("schema", .str "fvtrace.replays/1"), ("log", .str shown.toString),
+      ("runs", .arr runs.toList)]).pretty
+  else if runs.isEmpty && bad == 0 then say "No replay has run for this project yet."
+  if bad > 0 then
+    complain s!"fvtrace: {bad} line(s) of {file} are not replay log entries; they were skipped"
+  return if bad == 0 then 0 else 1
 
 def verify (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs verifySpec args with
     | .ok p => pure p
     | .error rc => return rc
   let runs := p.has "--run"
+  if p.has "--log" && (runs || (p.value? "--timeout").isSome) then
+    return ← usageError "--log runs nothing: it takes neither --run nor --timeout"
   let timeout ← match timeoutArg p runs "--run" with
     | .ok t => pure t
     | .error m => return ← usageError m
   let tg ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
+  let json := p.has "--json"
+  if p.has "--log" then return ← showLog tg json
   let t ← match ← readTarget p tg with
     | .ok (.ok t) => pure t
     | .ok (.error _) =>
@@ -339,7 +465,6 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
   unless (Check.violations t).isEmpty do
     complain s!"fvtrace: {tg.trace} is not well-formed; run fvtrace check"
     return 1
-  let json := p.has "--json"
   let note := fun (line : String) => if json then complain line else say line
   let targets := Replay.targets t
   if targets.isEmpty then note "No fact or exclusion declares a replay command."
@@ -347,26 +472,44 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
     note s!"{targets.length} replay command(s). None runs without --run:"
     for (id, r) in targets do
       let pinned := if r.output.isSome then "output pinned" else "output not pinned yet"
-      note s!"  {id}: {Replay.display r.command} ({pinned})"
-  let mut rows : Array Value := #[]
+      note s!"  {id}: {Replay.display r.command} ({pinned}{noticeSuffix r.failed})"
+  let mut rows : Array (String × List (String × Value)) := #[]
+  let mut results : Array (Option String × Replay.NoticeChange) := #[]
   let mut failed := 0
+  let mut logFailed := false
+  let tracePath ← try IO.FS.realPath tg.trace catch _ => pure tg.trace
   for (id, r) in targets do
     let mut fields := [("id", Value.str id), ("command", .arr (r.command.map .str)),
       ("pinned", .bool r.output.isSome), ("ran", .bool runs)]
     if runs then
-      let why := Replay.reasons r.output (← runReplay tg id r timeout note)
+      let res ← runReplay tg id r timeout note
+      let (date, at_) ← stamp
+      results := results.push (none, Replay.verifyChange date r.output res)
+      let why := Replay.reasons r.output res
       if why.isEmpty then note s!"  {id}: passed"
       else
         failed := failed + 1
         note s!"  {id}: failed ({", ".intercalate why})"
+      unless logFailed do
+        if let some e ← appendLog tg (logEntry tg tracePath at_ "verify" id r.command why res) then
+          logFailed := true
+          complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}"
       fields := fields ++ [("passed", .bool why.isEmpty), ("reasons", .arr (why.map .str))]
-    rows := rows.push (.obj fields)
+    rows := rows.push (id, fields)
+  -- The notices are written once, after every run, and only when one changed.
+  let after := Replay.withResults t results
+  if after != t then writeOver "verify" tg (p.value? "--trace").isSome t after
   if runs && !targets.isEmpty then
     note s!"{targets.length - failed} of {targets.length} replay(s) passed."
   if json then
+    let notices := after.notices
+    let rowJson := fun ((id, fields) : String × List (String × Value)) =>
+      Value.obj (fields ++ match notices.lookup id with
+        | some x => [("failed", .obj [("date", .str x.date), ("reason", .str x.reason)])]
+        | none => [])
     IO.print (Value.obj [("schema", .str "fvtrace.verify/1"), ("trace", .str tg.trace.toString),
-      ("project", .str tg.project.toString), ("replays", .arr rows.toList)]).pretty
-  return if failed == 0 then 0 else 1
+      ("project", .str tg.project.toString), ("replays", .arr (rows.toList.map rowJson))]).pretty
+  return if logFailed then 2 else if failed == 0 then 0 else 1
 
 def review (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs reviewSpec args with
