@@ -14,6 +14,7 @@
 // exported also `startup` (the symbol clicked as soon as the board shows, the engine still
 // starting → its answer).
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -116,6 +117,9 @@ async function timed(p, waits, click) {
       },
     );
   }, /** @type {[Wait[], number]} */ ([waits, patience]));
+  // A click that throws (the browser closed under a signal) abandons `result`: its rejection must
+  // not end the process before the server is stopped.
+  result.catch(() => {});
   await click();
   return result;
 }
@@ -230,7 +234,13 @@ async function steps(browser, mode, url) {
   }
 }
 
-const browser = await chromium.launch();
+// Signals are handled here, not by Playwright (its SIGINT handler exits at once): a signal sent to
+// this driver alone would otherwise leave the server running and its data folder behind.
+const browser = await chromium.launch({
+  handleSIGINT: false,
+  handleSIGTERM: false,
+  handleSIGHUP: false,
+});
 const home = mkdtempSync(join(tmpdir(), "scale-gui-"));
 const server = spawn(
   bin,
@@ -246,6 +256,30 @@ const server = spawn(
   ],
   { env: { ...process.env, FVTRACE_HOME: home }, stdio: ["ignore", "pipe", "ignore"] },
 );
+/** @type {Promise<void> | undefined} */
+let stopping;
+/** Stops the server and waits for its exit (it may still write its data folder until then), closes
+ * the browser, removes the folder; once, on every way out. */
+function stop() {
+  stopping ??= (async () => {
+    if (server.pid !== undefined && server.exitCode === null && server.signalCode === null) {
+      const exited = once(server, "exit");
+      server.kill();
+      const force = setTimeout(() => server.kill("SIGKILL"), 5000);
+      await exited;
+      clearTimeout(force);
+    }
+    await browser.close();
+    rmSync(home, { recursive: true, force: true });
+  })();
+  return stopping;
+}
+for (const [signal, code] of /** @type {const} */ ([
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+  ["SIGHUP", 129],
+]))
+  process.once(signal, () => void stop().finally(() => process.exit(code)));
 try {
   let out = "";
   /** @type {string} */
@@ -260,7 +294,5 @@ try {
   await steps(browser, "served", hash ? `${link}&${hash}` : link);
   await steps(browser, "page", `${pathToFileURL(page).href}${hash ? `#${hash}` : ""}`);
 } finally {
-  server.kill();
-  await browser.close();
-  rmSync(home, { recursive: true, force: true });
+  await stop();
 }
