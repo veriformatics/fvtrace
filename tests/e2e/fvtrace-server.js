@@ -5,6 +5,7 @@
 // prerequisites, waivers) with the example's proof files.
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { rmSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +18,27 @@ const traces = {
   synthetic: join(root, "examples", "synthetic", "trace.json"),
   fixture: join(root, "tests", "fixtures", "synthetic.trace.json"),
 };
+
+/**
+ * Servers + temporary folders made here and not yet closed. A test past its time limit never
+ * reaches its own `finally`, so the worker ends them as it exits (an `exit` handler runs
+ * synchronously).
+ * @type {Set<import("node:child_process").ChildProcess>}
+ */
+const servers = new Set();
+/** @type {Set<string>} */
+const folders = new Set();
+process.on("exit", () => {
+  for (const server of servers) server.kill();
+  for (const dir of folders) rmSync(dir, { recursive: true, force: true });
+});
+
+/** A new temporary folder, removed when the worker exits at the latest. @param {string} prefix */
+async function tempFolder(prefix) {
+  const dir = await mkdtemp(join(tmpdir(), prefix));
+  folders.add(dir);
+  return dir;
+}
 
 /** @param {unknown} v @returns {v is Record<string, unknown>} */
 export function isRecord(v) {
@@ -42,7 +64,7 @@ export function fvtrace(args, cwd, env) {
  * @returns {Promise<{ dir: string, project: string, env: NodeJS.ProcessEnv }>}
  */
 export async function prepareStudy(study, edit) {
-  const dir = await mkdtemp(join(tmpdir(), "fvtrace-e2e-"));
+  const dir = await tempFolder("fvtrace-e2e-");
   const project = join(dir, "proj");
   await mkdir(project, { recursive: true });
   await cp(join(root, "examples", "synthetic", "project", "proofs"), join(project, "proofs"), {
@@ -69,6 +91,8 @@ export async function prepareStudy(study, edit) {
  */
 async function launch(args, cwd, env, dir) {
   const server = spawn(bin, ["serve", "--port", "0", "--no-browser", ...args], { cwd, env });
+  servers.add(server);
+  server.on("exit", () => servers.delete(server));
   const url = await new Promise(
     /** @param {(link: string) => void} resolve */ (resolve, reject) => {
       let out = "";
@@ -92,6 +116,7 @@ async function launch(args, cwd, env, dir) {
         await exited;
       }
       await rm(dir, { recursive: true, force: true });
+      folders.delete(dir);
     },
   };
 }
@@ -116,7 +141,7 @@ export async function serveFvtrace(study = "synthetic", edit, extra) {
  * @returns {Promise<{ url: string, close: () => Promise<void> }>}
  */
 export async function serveScale(shape, n) {
-  const dir = await mkdtemp(join(tmpdir(), "fvtrace-e2e-scale-"));
+  const dir = await tempFolder("fvtrace-e2e-scale-");
   const made = spawnSync("node", [join(root, "tools", "scale.mjs"), shape, String(n), dir], {
     encoding: "utf8",
   });
