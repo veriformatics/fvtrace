@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
-import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fvtrace, isRecord, serveFvtrace } from "./fvtrace-server.js";
 
@@ -573,4 +573,25 @@ test("claims and facts with errors: the page says it cannot show them, with no l
   await expect(page.getByRole("button", { name: "Take the tour" })).toBeHidden();
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations.map((v) => v.id)).toEqual([]);
+});
+
+test("no claims and facts yet, or a record that cannot be read: the page names the command to run", async ({
+  page,
+}) => {
+  web = await serveFvtrace();
+  const path = fvtrace(["path"], web.project, web.env);
+  const title = page.getByRole("heading", { level: 1 });
+  await rm(path);
+  await page.goto(web.url);
+  await expect(title).toHaveText("This analysis cannot be shown");
+  await expect(page.getByRole("alert")).toHaveText(
+    "This project has no claims and facts on record yet. To start, run fvtrace init in the project folder.",
+  );
+  // A folder where the record's file should be: it exists, but it cannot be read as one.
+  await mkdir(path);
+  await page.reload();
+  await expect(title).toHaveText("This analysis cannot be shown");
+  await expect(page.getByRole("alert")).toHaveText(
+    "The claims and facts on record cannot be read. To see why, run fvtrace check in the project folder.",
+  );
 });

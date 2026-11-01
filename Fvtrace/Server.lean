@@ -118,16 +118,20 @@ def decide (cfg : Config) (req : Req) : Action :=
     | some (_, contentType, body) => .reply { status := .ok, contentType, body := body.toUTF8 }
     | none => text .notFound "Not found."
 
-/-- Claims and facts that `fvtrace check` refuses, in the GUI's words (user ruling 2026-11-01). -/
+/-- Claims and facts that `fvtrace check` refuses, in the GUI's words (user ruling 2026-11-01; the
+other record problems below likewise name the command to run, never a file). -/
 def recordErrors : String :=
   "The claims and facts on record have errors. " ++
     "To see them, run fvtrace check in the project folder."
 
 /-- A problem in the GUI's words. -/
 def problemReply : Session.Problem → Reply
-  | .noTrace p =>
-    problemJson .conflict "no-trace" s!"No trace for the project {p} yet. Run fvtrace init."
-  | .unreadable f why => problemJson .conflict "unreadable" s!"Cannot read {f}: {why}"
+  | .noTrace _ => problemJson .conflict "no-trace" <|
+    "This project has no claims and facts on record yet. " ++
+      "To start, run fvtrace init in the project folder."
+  | .unreadable _ _ => problemJson .conflict "unreadable" <|
+    "The claims and facts on record cannot be read. " ++
+      "To see why, run fvtrace check in the project folder."
   | .undecodable _ _ | .illFormed _ _ => problemJson .conflict "invalid" recordErrors
   | .badWhatif m => problemJson .badRequest "what-if" m
   | .badAction m => problemJson .badRequest "action" m
