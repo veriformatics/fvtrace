@@ -1,13 +1,20 @@
 # A `v*` tag publishes a release: build.yml's archives (page engine built from scratch), then each
 # archive downloaded from the release and checked on its own platform, as a user would get it.
 # A `ci/release-*` branch runs the same jobs without publishing: the check reads the build's
-# artifacts instead (.claude/rules/ops.md: Release).
+# artifacts instead. A manual run (`gh workflow run release.yml -f tag=vX.Y.Z`) checks a published
+# release's archives again on today's runners, from that tag's tree (.claude/rules/release.md).
 name: release
 
 on:
   push:
     tags: ["v*"]
     branches: ["ci/release-*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The published release to check again (vX.Y.Z)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,6 +25,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch'
     uses: $/.github/workflows/build.yml
     with:
       release: true
@@ -84,7 +92,7 @@ jobs:
   installed:
     name: installed (${{ matrix.target }})
     needs: [build, publish]
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result != 'failure' }}
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.build.result == 'success' && needs.publish.result != 'failure')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -93,8 +101,8 @@ jobs:
             target: linux-x86_64
           - os: ubuntu-26.04-arm
             target: linux-arm64
-          # The oldest macOS runner = tools/release.sh macos_min: the program runs on its floor.
-          - os: macos-14
+          # The oldest arm64 macOS runner (macos-14 retired 2026-11-02; floor: release.md).
+          - os: macos-15
             target: macos-arm64
           - os: windows-2025
             target: windows-x86_64
@@ -102,23 +110,32 @@ jobs:
     timeout-minutes: 15
     env:
       TARGET: ${{ matrix.target }}
+      # The published release this job checks (none on a `ci/release-*` dry run).
+      TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
     steps:
-      # The synthetic study + tools/release.sh; no Lean, no build.
+      - name: Require a release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "release: $TAG is not vX.Y.Z" >&2; exit 1; }
+
+      # The synthetic study + tools/release.sh of the release's own tree; no Lean, no build.
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The commit, not the branch: tools/ci-gate.sh deletes a green `ci/release-*` branch early.
+          ref: ${{ env.TAG || github.sha }}
           persist-credentials: false
 
       - name: Download the archive from the release
-        if: github.ref_type == 'tag'
+        if: env.TAG != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
         run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist --pattern "fvtrace-*-$TARGET.*"
 
       - name: Download the archive from the build
-        if: github.ref_type != 'tag'
+        if: env.TAG == ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: fvtrace-${{ matrix.target }}
@@ -126,10 +143,8 @@ jobs:
 
       - name: Check the archive
         shell: bash
-        env:
-          TAG: ${{ github.ref_name }}
         run: |
-          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+          if [[ -n "$TAG" ]]; then
             version="${TAG#v}"
           else
             version="$(sed -n 's/^def version : String := "\(.*\)"$/\1/p' Fvtrace/Version.lean)"
