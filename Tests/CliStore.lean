@@ -344,4 +344,26 @@ def referenceTests : TestM Unit := do
       capture (Cli.runIn repo (["eval", "--details", "claim:C2", "--complete"] ++ ex))
     checkEq "cli: --details with --complete rc" rc 2
 
+/-- A data folder entry that cannot take the digest cache (another user's, read-only) answers as
+before. -/
+def cacheTests : TestM Unit := do
+  let fixture ← decoded
+  IO.FS.withTempDir fun dir => do
+    let proj := dir / "proj"
+    IO.FS.createDirAll proj
+    let env : Store.Env := { home := dir / "home", cwd := proj }
+    let run := fun (args : List String) => capture (Cli.runIn env args)
+    let _ ← run ["init"]
+    let (_, pathOut, _) ← run ["path"]
+    let trace := System.FilePath.mk (line pathOut)
+    Cli.writeTrace trace fixture
+    let (rc, before, _) ← run ["eval"]
+    checkEq "cli: eval rc, the digest cache saved" rc 0
+    let cacheFile := trace.parent.get! / "cache.json"
+    if ← cacheFile.pathExists then IO.FS.removeFile cacheFile
+    IO.FS.createDirAll cacheFile
+    let (rc, out, err) ← run ["eval"]
+    check "cli: an entry that cannot take the digest cache answers as before"
+      (rc == 0 && out == before) err
+
 end Tests.CliStore

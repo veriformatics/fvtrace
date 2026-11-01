@@ -37,8 +37,11 @@ structure Loaded where
 def openCache (t : Store.Target) : IO (IO.Ref Receipt.Cache) := do
   if ← t.entry.isDir then IO.mkRef (← Receipt.Cache.load t.cacheFile) else IO.mkRef {}
 
+/-- Saves the digest cache, best effort: it only spares rehashing under `--cached`, so an entry
+that cannot take it (another user's data folder, read-only) costs speed, never an answer. -/
 def closeCache (t : Store.Target) (cache : IO.Ref Receipt.Cache) : IO Unit := do
-  if ← t.entry.isDir then (← cache.get).save t.cacheFile
+  if ← t.entry.isDir then
+    try (← cache.get).save t.cacheFile catch _ => pure ()
 
 /-- The first `n` bytes of `path` (all of it when shorter), read in 1 MiB chunks. -/
 def readPrefix (path : System.FilePath) (n : Nat) : IO ByteArray := do

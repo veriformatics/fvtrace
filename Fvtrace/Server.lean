@@ -209,14 +209,17 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
       set { st with trace := some (key, tr, prep), last := some (v, A, some body) }
       return tagged { status := .ok, contentType := "application/json", body }
 
-/-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem. -/
+/-- A read request body (none = past `bodyCap`): its answer, an I/O failure as a problem.
+`eval` = how its text is answered (a test plants the failure: none of the route's own fires on
+every platform and uid). -/
 def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
-    (view : Option String) (body : Option ByteArray) : IO Reply := do
+    (view : Option String) (body : Option ByteArray)
+    (eval : String → IO Reply := answer cfg cache kept view) : IO Reply := do
   let some b := body
     | return problemJson .payloadTooLarge "invalid"
         "The what-if is too long to evaluate. Suppose fewer facts, then try again."
   let some text := String.fromUTF8? b | return problemJson .badRequest "invalid" Request.malformed
-  try answer cfg cache kept view text
+  try eval text
   catch e =>
     return problemJson .internalServerError "io" s!"fvtrace could not read the project: \
       {(toString e).replace "\n" " "}"

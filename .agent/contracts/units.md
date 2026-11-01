@@ -119,3 +119,9 @@ Staged so every commit keeps the full gate green (consultant-7 C12): reference p
 | unit | tier | contract | evidence |
 |---|---|---|---|
 | serve behind a login proxy | kernel (shell, security) | Decisions GUI access ("Behind a login proxy"); `kernel.md` V-serve; `.claude/rules/server.md` | consultant-1 on the contract before code (C4 defect → credential sequence; C8 → JSON-only answers, user ruling); Tests Cli `tokenOf` (mutation 7/7 killed) + Server `Content-Type` (red: 6 FAIL without the check; mutation 3/3 killed) + smoke `--token-file` (red: 3 FAIL on HEAD's CLI) + e2e `proxy.spec.js` (Basic login, `/fvtrace/` path, token added; red: HEAD page + absolute URL `:79`, keep on 401 + no retry `:90`, pre-sequence page `:102`, `undefined`-first order `:103`) + e2e `access.spec.js` late refusal (red `:112`); reviewer-1 closing diff (8 rows: 6 pass, F1 minor → fixed) |
+
+# Units → tier → contract → evidence (MAINTAIN — deferred rows, sixth sweep)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| digest cache best effort | kernel (shell) | `kernel.md` § Receipts (digest cache saved best effort); `.claude/rules/server.md` I/O; row acceptance | Tests CliStore `cacheTests` + Server "an entry that cannot take the digest cache" (red on HEAD + seam); moved I/O case: hand mutant (catch removed → FAIL), `mutate.mjs --list` 0 mutants; smoke: `serve` ↔ `eval` bytes |

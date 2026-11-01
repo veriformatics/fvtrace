@@ -218,8 +218,13 @@ def nativeTests : TestM Unit := do
     let r ← ask (some "O3=proved")
     checkEq "server: a what-if above the route" (r.status.toCode, problemKind r)
       (400, some "what-if")
+    let r0 ← ask none
     IO.FS.createDirAll (c.target.entry / "cache.json")
     let r ← ask none
+    check "server: an entry that cannot take the digest cache answers as before"
+      (r.status.toCode == 200 && r0.status.toCode == 200 && r.body == r0.body) (bodyText r)
+    let r ← answerBody c cache kept none (requestOf none) fun _ =>
+      throw (IO.userError "planted")
     checkEq "server: an I/O failure answers a JSON problem, not an empty 500"
       (r.status.toCode, problemKind r) (500, some "io")
     IO.FS.removeDirAll (c.target.entry)

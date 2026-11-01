@@ -54,7 +54,8 @@ every mutant): native binary alone (`lake test`). -/
 def native : TestM Unit := do
   area "digest" Tests.Digest.tests
   area "receipt" Tests.Receipt.tests
-  area "cli-store" do Tests.CliStore.tests; Tests.CliStore.referenceTests
+  area "cli-store" do
+    Tests.CliStore.tests; Tests.CliStore.referenceTests; Tests.CliStore.cacheTests
   area "server-native" do Tests.Server.nativeTests; Tests.Server.answerTests
   area "export-native" Tests.Export.nativeTests
   area "plan-scale" Tests.Engine.scaleTests
