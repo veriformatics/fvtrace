@@ -44,17 +44,17 @@ example `0.1.0`.
 | macOS 14 or later on Apple silicon | `fvtrace-VERSION-macos-arm64.tar.gz` |
 | Windows 10 version 1903 or later on x86-64 | `fvtrace-VERSION-windows-x86_64.zip` |
 
-1. Download the archive for your system and the `.sha256` file that has the same name.
+1. Download the archive for your system and the `.sha256` file that has the same name. In the
+   commands below, replace `ARCHIVE` with the name of the archive, for example
+   `fvtrace-0.1.0-linux-arm64.tar.gz`.
 2. Make sure that the download is complete and unchanged. On Linux, run
-   `sha256sum -c fvtrace-VERSION-linux-x86_64.tar.gz.sha256`. On macOS, run
-   `shasum -a 256 -c fvtrace-VERSION-macos-arm64.tar.gz.sha256`. Each command must print `OK`.
-   On Windows, run `Get-FileHash fvtrace-VERSION-windows-x86_64.zip` in PowerShell. The hash
-   must be the same as the first word in the `.sha256` file (the case of the letters does not
-   matter).
+   `sha256sum -c ARCHIVE.sha256`. On macOS, run `shasum -a 256 -c ARCHIVE.sha256`. Each command
+   must print `OK`. On Windows, run `Get-FileHash ARCHIVE` in PowerShell. The hash must be the
+   same as the first word in the `.sha256` file (the case of the letters does not matter).
 3. To make sure that the archive was built from this repository, use the
    [GitHub CLI](https://cli.github.com): run
-   `gh attestation verify fvtrace-VERSION-linux-x86_64.tar.gz -R veriformatics/fvtrace`. The
-   command must report that the verification succeeded. This step is optional.
+   `gh attestation verify ARCHIVE -R veriformatics/fvtrace`. The command must report that the
+   verification succeeded. This step is optional.
 4. Extract the archive. Copy `fvtrace` (on Windows, `fvtrace.exe`) to a folder on your `PATH`.
 5. Run `fvtrace --version` to check the installation.
 
