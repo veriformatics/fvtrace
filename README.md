@@ -32,7 +32,40 @@ vouches for them once. Until a reviewer signs off the trace, every verdict is pr
 
 ## Install
 
-fvTrace is one program, `fvtrace`. To build it from source:
+fvTrace is one program, `fvtrace`. Each
+[release](https://github.com/veriformatics/fvtrace/releases/latest) has an archive for each
+system that fvTrace supports. In the file names, `VERSION` is the number of the release, for
+example `0.1.0`.
+
+| System | Archive |
+|---|---|
+| Linux on x86-64, with glibc 2.17 or later | `fvtrace-VERSION-linux-x86_64.tar.gz` |
+| Linux on ARM64, with glibc 2.17 or later | `fvtrace-VERSION-linux-arm64.tar.gz` |
+| macOS 14 or later on Apple silicon | `fvtrace-VERSION-macos-arm64.tar.gz` |
+| Windows 10 version 1903 or later on x86-64 | `fvtrace-VERSION-windows-x86_64.zip` |
+
+1. Download the archive for your system and the `.sha256` file that has the same name.
+2. Make sure that the download is complete and unchanged. On Linux, run
+   `sha256sum -c fvtrace-VERSION-linux-x86_64.tar.gz.sha256`. On macOS, run
+   `shasum -a 256 -c fvtrace-VERSION-macos-arm64.tar.gz.sha256`. Each command must print `OK`.
+   On Windows, run `Get-FileHash fvtrace-VERSION-windows-x86_64.zip` in PowerShell. The hash
+   must be the same as the first word in the `.sha256` file (the case of the letters does not
+   matter).
+3. To make sure that the archive was built from this repository, use the
+   [GitHub CLI](https://cli.github.com): run
+   `gh attestation verify fvtrace-VERSION-linux-x86_64.tar.gz -R veriformatics/fvtrace`. The
+   command must report that the verification succeeded. This step is optional.
+4. Extract the archive. Copy `fvtrace` (on Windows, `fvtrace.exe`) to a folder on your `PATH`.
+5. Run `fvtrace --version` to check the installation.
+
+On macOS, a browser marks each file that it downloads. Because the program is not notarized by
+Apple, macOS then refuses to start it. To remove the mark, run
+`xattr -d com.apple.quarantine fvtrace`. A download with `curl` gets no mark.
+
+The archive also holds `NOTICES.md` and the `licenses` folder: the licenses of the other
+projects whose code `fvtrace` contains.
+
+### Build from source
 
 1. Install [elan](https://github.com/leanprover/elan) (the Lean toolchain manager) and a C
    compiler (`cc`). On Windows, the build uses MinGW `gcc` (set `CC=gcc`). The build also needs
