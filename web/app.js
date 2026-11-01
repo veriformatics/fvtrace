@@ -452,6 +452,17 @@ async function evaluation(n, request) {
   }
 }
 
+/** The server cannot read the claims and facts on record (V-serve: 409): no view to show. */
+const recordProblems = new Set(["no-trace", "unreadable", "invalid"]);
+
+/** The page in place of its view when the record cannot be read: its title says so, the server's
+ * message gives the fix, and the loading lines, board + tour leave (`.unavailable`). */
+function cannotShow(/** @type {string} */ message) {
+  byId("analysis-title").textContent = "This analysis cannot be shown";
+  document.body.classList.add("unavailable");
+  showError(message);
+}
+
 /** A problem the page's engine may answer without failing (kernel.md E-gui). */
 const recoverable = new Set(["what-if", "action", "item"]);
 
@@ -493,6 +504,10 @@ async function load(action, link = false) {
       engineFailure(exported);
       return;
     }
+    if (problem && !exported && recordProblems.has(problem.kind)) {
+      cannotShow(problem.message);
+      return;
+    }
     if (problem) {
       // A refused what-if falls back to the recorded evidence; the message outlives that load.
       if (problem.kind === "what-if" && spec) {
@@ -518,6 +533,7 @@ async function load(action, link = false) {
       } else writeHash();
     }
     byId("error").hidden = true;
+    document.body.classList.remove("unavailable");
     excludedPairs = new Map();
     pairsAsked = new Set();
     render();
@@ -601,6 +617,10 @@ async function loadDetails() {
     if (problem?.kind === "view") {
       // The claims or their evidence changed since this page's answer: show them again first.
       await load();
+      return;
+    }
+    if (problem && recordProblems.has(problem.kind)) {
+      cannotShow(problem.message);
       return;
     }
     details = problem

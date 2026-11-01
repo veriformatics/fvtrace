@@ -1623,3 +1623,16 @@ footer {
     animation: none !important;
   }
 }
+
+/* The record cannot be read (web/app.js cannotShow): the title + the reason stay, nothing else
+   on the page means anything then. */
+.unavailable .tour-start,
+.unavailable .scenario,
+.unavailable .how,
+.unavailable .question-nav,
+.unavailable .mobile-question,
+.unavailable .workspace,
+.unavailable .experiments,
+.unavailable .work {
+  display: none;
+}
