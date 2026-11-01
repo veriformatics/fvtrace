@@ -124,4 +124,4 @@ Staged so every commit keeps the full gate green (consultant-7 C12): reference p
 
 | unit | tier | contract | evidence |
 |---|---|---|---|
-| digest cache best effort | kernel (shell) | `kernel.md` § Receipts (digest cache saved best effort); `.claude/rules/server.md` I/O; row acceptance | Tests CliStore `cacheTests` + Server "an entry that cannot take the digest cache" (red on HEAD + seam); moved I/O case: hand mutant (catch removed → FAIL), `mutate.mjs --list` 0 mutants; smoke: `serve` ↔ `eval` bytes |
+| digest cache best effort | kernel (shell) | `kernel.md` § Receipts (digest cache saved best effort); `.claude/rules/server.md` I/O; row acceptance | Tests CliStore `cacheTests` + Server "an entry that cannot take the digest cache" (red on 6fec4e3 + seam + tests: 1832/1834); moved I/O case: hand mutant (catch removed → FAIL), `mutate.mjs --list` 0 mutants; smoke: `serve` ↔ `eval` bytes |
