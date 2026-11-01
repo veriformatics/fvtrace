@@ -51,6 +51,10 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] Deferred sweep 6, row `serve` 500 on an unwritable digest cache: `Session.closeCache` best effort (CLI + serve); the I/O-failure case moves to a failure planted through `answerBody`'s `eval` (case change: user approval 2026-11-01)
+- [ ] Deferred sweep 6, find e2e leak: a timed-out test leaves its `fvtrace serve` + temp folder → teardown that runs after a timeout
+- [ ] Deferred sweep 6, row release binaries: the first tag `v0.1.0` (user's go) → README Install download section, `main` green, tag, release + `installed` + attestations
+- [ ] Deferred sweep 6 close: closing review (one `reviewer`, every lens) + full gate on a clean tree
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
