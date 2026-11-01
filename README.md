@@ -41,7 +41,7 @@ example `0.1.0`.
 |---|---|
 | Linux on x86-64, with glibc 2.17 or later | `fvtrace-VERSION-linux-x86_64.tar.gz` |
 | Linux on ARM64, with glibc 2.17 or later | `fvtrace-VERSION-linux-arm64.tar.gz` |
-| macOS 14 or later on Apple silicon | `fvtrace-VERSION-macos-arm64.tar.gz` |
+| macOS 15 or later on Apple silicon | `fvtrace-VERSION-macos-arm64.tar.gz` |
 | Windows 10 version 1903 or later on x86-64 | `fvtrace-VERSION-windows-x86_64.zip` |
 
 1. Download the archive for your system and the `.sha256` file that has the same name. In the

@@ -101,7 +101,7 @@ jobs:
             target: linux-x86_64
           - os: ubuntu-26.04-arm
             target: linux-arm64
-          # The oldest arm64 macOS runner (macos-14 retired 2026-11-02; floor: release.md).
+          # The oldest arm64 macOS runner = tools/release.sh macos_min: the program runs on its floor.
           - os: macos-15
             target: macos-arm64
           - os: windows-2025
