@@ -23,6 +23,7 @@ User rulings 2026-10-31: MAIN pushes `main` once CI is green ("You can push for 
 | find: GUI fast clicks | dad91f5 · 8a2e3fe | 41200137878 | closed (user ruling) |
 | find: exported page licenses | 753c868 | 41201121623 | closed (user ruling) |
 | find: engine-build downloads | 0c806c1 | 41202685165 | closed |
+| find: notices tests read the date once | this commit | CI on this commit | a run crossing midnight failed them (main 41254317836 attempt 1) → `daysOf`: the day before + after each run |
 | find: release hardening | eda47dd | close commit's | user ruling "Add both": green-gate guard + SLSA provenance in `publish`; held with row 2 (first run = the first tag) |
 | close | f93289d · 3bb85c3 · close commit | close commit's | reviewer-1 (`maintain-deferred-5/reviewer-1.md`): R1–R10 = 8 pass + 2 minor defects (R1 `package` vs a two-Emscripten cache → f93289d; R6 signal before the driver's handlers → 3bb85c3), both closed on re-review; MAIN's workflow security pass: no defect, two hardening gaps → the closing question; rules upkeep (ops.md origin story out; renovate.md: validator at the newest ≥ 7-day release + the local lookup recipe) |
 

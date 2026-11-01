@@ -160,9 +160,15 @@ def codecTests : TestM Unit := withFixture fun f => do
     (rc == 0 && member (replayOf (← readJson f.trace) "exclusions") "failed" ==
       notice "2026-10-31" "timeout") err
 
+/-- `act`'s result + the days a stamp it writes may carry: the day before it starts and the day
+after it ends (equal unless it crosses midnight; one read before or after alone fails then). -/
+def daysOf {α : Type} (act : TestM α) : TestM (α × List String) := do
+  let before := toString (← Std.Time.PlainDate.now)
+  let r ← act
+  return (r, [before, toString (← Std.Time.PlainDate.now)])
+
 /-- Cartesian outcome × prior-notice coverage; each attempt must append its own event. -/
 def matrixTests : TestM Unit := withFixture fun f => do
-  let today := toString (← Std.Time.PlainDate.now)
   let changedDigest ← Digest.ofString "different\n"
   for mode in ["pin", "verify"] do
     let outcomes := if mode == "pin" then ["pass", "repin", "exit", "timeout", "missing"]
@@ -189,7 +195,9 @@ def matrixTests : TestM Unit := withFixture fun f => do
         let args := [mode, if mode == "pin" then "--replay" else "--run"] ++
           (if outcome == "timeout" then ["--timeout", "1"] else []) ++
           (if mode == "verify" then ["--json"] else [])
-        let (rc, out, err) ← f.run args
+        -- A run may cross midnight: its notice carries the day before it starts or after it ends.
+        let days ← daysOf (f.run args)
+        let (rc, out, err) := days.1
         let actual ← readJson f.trace
         let got := field (replayOf actual) "failed"
         let reason := match outcome with
@@ -197,10 +205,10 @@ def matrixTests : TestM Unit := withFixture fun f => do
           | "timeout" => "timeout"
           | "changed" => "output changed"
           | _ => "cannot start"
-        let want := if pass then none
-          else if outcome == "unpinned" then old else some (notice today reason)
-        let matchNotice := if outcome == "missing" then
-            got == want || got == some (notice today "exit 255")
+        let matchNotice := days.2.any fun today =>
+          let want := if pass then none
+            else if outcome == "unpinned" then old else some (notice today reason)
+          if outcome == "missing" then got == want || got == some (notice today "exit 255")
           else got == want
         let tag := s!"notices matrix: {mode}/{outcome}/prior={prior}"
         check (tag ++ " result + notice")
@@ -243,13 +251,12 @@ def reviewTests : TestM Unit := withFixture fun f => do
   let clean ← IO.FS.readBinFile f.trace
   let (_, cleanOut, _) ← f.run ["eval"]
   IO.FS.removeFile (f.project / "gate.bin")
-  let (rc, _, _) ← f.run ["pin", "--replay"]
-  let today := toString (← Std.Time.PlainDate.now)
+  let ((rc, _, _), days) ← daysOf (f.run ["pin", "--replay"])
   let failed ← readJson f.trace
   let (checkRc, out, _) ← f.run ["check"]
   check "notices review: failure keeps pin + reviewed + check rc 0"
-    (rc == 1 && checkRc == 0 && has out "receipt O1: current" &&
-      has out "review: reviewed" && member (replayOf failed) "failed" == notice today "exit 1") out
+    (rc == 1 && checkRc == 0 && has out "receipt O1: current" && has out "review: reviewed" &&
+      days.any fun today => member (replayOf failed) "failed" == notice today "exit 1") out
   let first ← IO.FS.readBinFile f.trace
   let beforeLog ← f.log
   let _ ← f.run ["pin", "--replay"]
@@ -353,15 +360,14 @@ def domainTests : TestM Unit := withFixture fun f => do
   let _ ← f.run ["review", "--reviewer", "Domain reviewer"]
   let clean ← IO.FS.readBinFile f.trace
   IO.FS.removeFile (f.project / "gate.bin")
-  let (rc, _, _) ← f.run ["pin", "--replay"]
+  let ((rc, _, _), days) ← daysOf (f.run ["pin", "--replay"])
   let actual ← readJson f.trace
-  let today := toString (← Std.Time.PlainDate.now)
   let events ← f.log
   let (_, out, _) ← f.run ["check", "--json"]
   let notices := items (member (parsed out) "notices")
   check "notices domain: fact then exclusion fail independently + stay reviewed"
-    (rc == 1 && member (replayOf actual) "failed" == notice today "exit 1" &&
-      member (replayOf actual "exclusions") "failed" == notice today "exit 1" &&
+    (rc == 1 && (days.any fun today => member (replayOf actual) "failed" == notice today "exit 1" &&
+      member (replayOf actual "exclusions") "failed" == notice today "exit 1") &&
       notices.map (member · "id") == [.str "O1", .str "X"] &&
       events.map (member · "id") == [.str "O1", .str "X", .str "O1", .str "X"]) out
   let (_, out, _) ← f.run ["check"]
@@ -396,15 +402,14 @@ def logTests : TestM Unit := withFixture fun f => do
     checkEq s!"notices log: rejects {args}" rc 2
   let value := f.setCommand f.pinned ["out:output.bin", "err:private-log-tail", "exit:7"]
   write f.trace value
-  let _ ← f.run ["verify", "--run"]
+  let (_, days) ← daysOf (f.run ["verify", "--run"])
   let logPath := f.entry / "replays.log"
   let text ← readIf logPath
   let events ← f.log
   let event := events.getD 0 .null
-  let today := toString (← Std.Time.PlainDate.now)
   let atText := match member event "at" with | .str s => s | _ => ""
   check "notices log: event has canonical fields + local timestamp + resolved paths"
-    (events.length == 1 && timestampShape atText && atText.startsWith today &&
+    (events.length == 1 && timestampShape atText && days.any (atText.startsWith ·) &&
       member event "run" == .str "verify" &&
       member event "trace" == .str (← IO.FS.realPath f.trace).toString &&
       member event "project" == .str (← IO.FS.realPath f.project).toString &&
@@ -496,11 +501,11 @@ def duplicateTests : TestM Unit := withFixture fun f => do
       (some (notice "2000-01-01" "timeout"))
   let value := put f.pinned "facts" (some (.arr [first, second]))
   write f.trace value
-  let (rc, _, err) ← f.run ["pin", "--replay"]
+  let ((rc, _, err), days) ← daysOf (f.run ["pin", "--replay"])
   let actual ← readJson f.trace
-  let today := toString (← Std.Time.PlainDate.now)
   check "notices duplicate: same id retains failed first + clears passing second"
-    (rc == 1 && member (replayOf actual "facts" 0) "failed" == notice today "exit 7" &&
+    (rc == 1 && (days.any fun today =>
+      member (replayOf actual "facts" 0) "failed" == notice today "exit 7") &&
       (field (replayOf actual "facts" 1) "failed").isNone) err
   let log ← f.log
   check "notices duplicate: two positional events kept"
@@ -578,13 +583,13 @@ def boundaryTests : TestM Unit := withFixture fun f => do
       ("evidence", .obj [("summary", .str "Relation."), ("replay", .obj [("command", cmd)])])]
   write f.trace (put one "exclusions" (some (.arr
     [relation "X1" pass, relation "X2" (f.command ["exit:7"])])))
-  let _ ← f.run ["pin", "--replay"]
+  let (_, days) ← daysOf (f.run ["pin", "--replay"])
   let actual ← readJson f.trace
-  let today := toString (← Std.Time.PlainDate.now)
   check "notices boundary: the second exclusion's failure lands on it alone"
     (field (replayOf actual) "failed" == none &&
       field (replayOf actual "exclusions" 0) "failed" == none &&
-      field (replayOf actual "exclusions" 1) "failed" == some (notice today "exit 7"))
+      days.any fun today =>
+        field (replayOf actual "exclusions" 1) "failed" == some (notice today "exit 7"))
     actual.pretty
   write f.trace one
   if !System.Platform.isWindows then
