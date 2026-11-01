@@ -145,6 +145,30 @@ if [[ "$(uname -s)" == Linux ]]; then
     serve_until_ready DISPLAY=:9 PATH="$tmp/bin"
     grep -q '^Open http://fvtrace.localhost:[0-9]*/#token=[0-9a-f]*$' "$tmp/serve.out" ||
         expect "no opener: serve prints the link" "Open http://…/#token=…" "$(cat "$tmp/serve.out")"
+    # --token-file: a token the user made stays out of the output (a service's output lands in
+    # logs), and no browser opens.
+    # shellcheck disable=SC2016 # $1 + $OPENED belong to the fake opener
+    printf '#!/bin/sh\nprintf "%%s\\n" "$1" >"$OPENED"\n' >"$tmp/bin/xdg-open"
+    chmod +x "$tmp/bin/xdg-open"
+    tok=0123456789abcdef0123456789abcdef0123456789abcdef
+    printf '%s\n' "$tok" >"$tmp/token"
+    serve_until_ready DISPLAY=:9 --token-file "$tmp/token"
+    expect "--token-file: no browser opens" "" "$(cat "$tmp/opened" 2>/dev/null)"
+    grep -qx "Serving http://fvtrace.localhost:[0-9]*/ with the token in $tmp/token." "$tmp/serve.out" ||
+        expect "--token-file: serve names the address + the file" "Serving http://…/ with the token in …" \
+            "$(cat "$tmp/serve.out")"
+    if grep -q "$tok" "$tmp/serve.out"; then
+        expect "--token-file: the token stays out of the output" "" "$(cat "$tmp/serve.out")"
+    fi
+    printf '0123456789abcdef 0123456789abcdef\n' >"$tmp/token"
+    out="$(fv FVTRACE_HOME="$tmp/fv" "$bin" serve --port 0 --token-file "$tmp/token" 2>&1)"
+    expect "--token-file: a token with a space rc" 2 $?
+    [[ "$out" == "fvtrace: the token file $tmp/token must hold one token of at least 32 "* ]] ||
+        expect "--token-file: the refusal names the file" "fvtrace: the token file … must hold …" "$out"
+    out="$(fv FVTRACE_HOME="$tmp/fv" "$bin" serve --port 0 --token-file "$tmp/no-token" 2>&1)"
+    expect "--token-file: a missing file rc" 2 $?
+    [[ "$out" == "fvtrace: cannot read the token file $tmp/no-token: "* && "$out" != *'\u{0a}'* ]] ||
+        expect "--token-file: a missing file, named on one line" "fvtrace: cannot read the token file …" "$out"
 fi
 
 rm -rf "$tmp/proj/rel"

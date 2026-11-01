@@ -218,10 +218,32 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
   outside the project folder. On another computer, go to `DIR/project` and run
   `fvtrace serve --trace ../trace.json`.
-- `fvtrace serve` answers on this computer only. Each run makes a new secret token. The page
-  keeps it, so no other program on this computer can read the claims. With `--host ADDRESS`,
+- `fvtrace serve` answers on this computer only. Each run makes a new secret token, unless you
+  give it one with `--token-file` (see below). The page keeps it, so no other program on this
+  computer can read the claims. With `--host ADDRESS`,
   computers on your network can open the page with the link that the command prints. The page
   is not encrypted, so use `--host` only on a network that you trust.
+- To let a web server that asks for a password show the page (a proxy, for example Caddy or
+  nginx), give `fvtrace serve` a token file:
+
+  ```sh
+  (umask 077 && openssl rand -hex 32 > token)
+  fvtrace serve --host ADDRESS --token-file token
+  ```
+
+  Keep the token secret: make it with a random generator, as above, and let only the proxy and
+  the server read the file. fvTrace reads the file when it starts, so restart it after you
+  change the token. The command then prints no link and opens no browser.
+
+  Set the proxy to log users in first. Then it must send each request on to
+  `http://ADDRESS:8718/` with the header `Authorization: Bearer TOKEN` in place of the header
+  that the browser sent, where `TOKEN` is the content of the file, and with the header
+  `Host: ADDRESS:8718`. The proxy can show the page under a path, for example `/fvtrace/`, if it
+  removes that path from each request. Also send the address without the last slash
+  (`/fvtrace`) to the address with it. The page holds no token, so the login of the proxy
+  decides who can see the claims. Every page at the same address as the proxy (the same scheme,
+  host name and port) can also read the claims. If you do not trust all those pages, give
+  fvTrace an address of its own, for example its own host name.
 
 ## Use fvTrace with a coding agent
 

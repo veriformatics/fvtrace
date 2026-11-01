@@ -71,6 +71,7 @@ structure Req where
   authorization : Option String
   /-- `X-Fvtrace-View`: the view the page shows (`kernel.md` V-serve). -/
   view : Option String := none
+  contentType : Option String := none
 
 /-- Equal strings, compared in time independent of where they differ. -/
 def sameSecret (a b : String) : Bool :=
@@ -80,6 +81,12 @@ def sameSecret (a b : String) : Bool :=
 /-- The token of an `Authorization: Bearer <token>` header. -/
 def bearer (header : String) : Option String :=
   if header.startsWith "Bearer " then some (header.drop 7).toString else none
+
+/-- `application/json`, parameters aside. A page from another origin cannot send it without a
+preflight (refused: 405), so behind a login proxy that adds the token, the browser's own login
+cannot carry another site's form or `text/plain` post to the engine. -/
+def isJson (contentType : String) : Bool :=
+  ((contentType.splitOn ";").headD "").trimAscii.toString.toLower == "application/json"
 
 inductive Action where
   | reply (r : Reply)
@@ -109,10 +116,13 @@ def decide (cfg : Config) (req : Req) : Action :=
   else if !(req.host.any cfg.hosts.contains) then
     text .misdirectedRequest "This server answers its own address only."
   else if api then
-    if (req.authorization.bind bearer).any (sameSecret · cfg.token) then .answer req.view
-    else
+    if !(req.authorization.bind bearer).any (sameSecret · cfg.token) then
       .reply (problemJson .forbidden "access" ("This page has no access to the claims. Use the " ++
         "link that fvtrace serve prints, or run fvtrace serve again."))
+    else if !req.contentType.any isJson then
+      .reply (problemJson .unsupportedMediaType "invalid"
+        "fvtrace answers JSON requests alone (Content-Type: application/json).")
+    else .answer req.view
   else
     match FvtraceWeb.files.find? (·.1 == req.path) with
     | some (_, contentType, body) => .reply { status := .ok, contentType, body := body.toUTF8 }
@@ -215,7 +225,8 @@ def reqOf (r : Std.Http.Request Body.Stream) : Req :=
   let header := fun (n : String) => (r.line.headers.get? (Header.Name.ofString! n)).map toString
   { method := r.line.method, path := toString r.line.uri.path,
     query := fun k => r.line.uri.query.get k, host := header "host",
-    authorization := header "authorization", view := header "x-fvtrace-view" }
+    authorization := header "authorization", view := header "x-fvtrace-view",
+    contentType := header "content-type" }
 
 def toResponse (r : Reply) : Async (Response Body.Full) := do
   let b := (fixedHeaders ++ [("Content-Type", r.contentType)] ++ r.headers).foldl

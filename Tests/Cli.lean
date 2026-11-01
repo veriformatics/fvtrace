@@ -37,6 +37,17 @@ def bindTests : TestM Unit := do
   check "serve: a host name is refused"
     ((Fvtrace.Cli.bindAddress (some "lab") 8642).toOption.isNone)
   checkEq "serve: the default port is 8718" Fvtrace.Cli.defaultPort 8718
+  let hex := "0123456789abcdef0123456789abcdef"
+  checkEq "serve: a token file's hex token, its newline dropped" (Fvtrace.Cli.tokenOf s!"{hex}\n")
+    (some hex)
+  checkEq "serve: a token file's base64url token, white space around it dropped"
+    (Fvtrace.Cli.tokenOf s!" \t{hex}-_AZ\r\n") (some s!"{hex}-_AZ")
+  checkEq "serve: a token of 31 characters is refused" (Fvtrace.Cli.tokenOf (hex.drop 1).toString)
+    none
+  checkEq "serve: an empty token file is refused" (Fvtrace.Cli.tokenOf "\n") none
+  for bad in [" ", "+", "/", "=", ".", "é", "\x00"] do
+    checkEq s!"serve: a token holding {repr bad} is refused" (Fvtrace.Cli.tokenOf s!"{hex}{bad}x")
+      none
   -- A recording `start` (bound port = 40000 + call number), `[::1]` busy on its first try.
   let log ← IO.mkRef (#[] : Array String)
   let served ← Fvtrace.Cli.serveLoopback 0 fun a => do

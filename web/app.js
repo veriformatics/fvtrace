@@ -122,6 +122,18 @@ function keepToken(token) {
   }
 }
 
+/** Drops a refused token, so later requests stop sending it; a token that another tab stored
+ * since (a newer run's) stays.
+ * @param {string} token */
+function forgetToken(token) {
+  if (kept === token) kept = undefined;
+  try {
+    if (localStorage.getItem(tokenKey) === token) localStorage.removeItem(tokenKey);
+  } catch {
+    // Storage off: `kept` was the only copy.
+  }
+}
+
 /** Takes the token out of the address before anything reads or pushes the hash, so no history
  * entry keeps it. */
 function takeToken() {
@@ -400,24 +412,42 @@ async function answerOf(request, shown) {
     );
     return out;
   }
-  const send = (/** @type {string} */ token) =>
-    fetch("/api/answer", {
+  // Relative: a proxy may serve the page under a path. Without a token, no `Authorization`
+  // header, so the browser's own login reaches a proxy that adds the token (`--token-file`).
+  const send = (/** @type {string | undefined} */ token) =>
+    fetch("api/answer", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }),
         "Content-Type": "application/json",
         ...(shown === undefined ? {} : { "X-Fvtrace-View": shown }),
       },
       body: JSON.stringify(request),
     });
+  // Each credential once, in order: the address token, the stored one, none (a login proxy in
+  // front adds its own). 403 = fvtrace refused the token; 401 = a login proxy refused the request
+  // (fvtrace never answers 401).
   const stored = storedToken();
-  let res = await send(offered ?? stored ?? "");
-  if (offered !== undefined) {
-    // Any answer but 403 accepts it: a refused what-if counts, since access is decided first.
-    if (res.status !== 403) keepToken(offered);
-    else if (stored !== undefined) res = await send(stored);
-    offered = undefined;
+  const address = offered;
+  let res;
+  const tokens = new Set([address, stored].filter((t) => t !== undefined));
+  for (const token of [...tokens, undefined]) {
+    // Each next credential waits on the last one's refusal.
+    // oxlint-disable-next-line no-await-in-loop
+    res = await send(token);
+    if (res.status !== 401 && res.status !== 403) {
+      // Kept on an answer fvtrace gives past its access check alone: the envelope or a problem
+      // (a refused what-if counts); a proxy's or a router's error proves nothing.
+      if (token !== undefined && token === address && [200, 400, 409].includes(res.status)) {
+        keepToken(token);
+      }
+      break;
+    }
+    if (token !== undefined && token === stored) forgetToken(token);
   }
+  // Offered to every request that starts before the first one settles, as before.
+  if (offered === address) offered = undefined;
+  if (res === undefined) throw new Error("no request was sent");
   /** @type {unknown} */
   const json = await res.json();
   return { json, view: res.headers.get("X-Fvtrace-View") ?? undefined };
