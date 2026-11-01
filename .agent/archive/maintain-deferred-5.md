@@ -2,11 +2,11 @@
 
 > Work every `.agent/deferred.md` row in rank order until none remains that you can fund. (request body: see the commit log)
 
-User rulings 2026-10-31: the user pushes `main` once CI is green; MAIN comments on + closes the six Renovate PRs after that push; the first release is held (no tag yet); Bioconda + Homebrew dropped; release hardening = both (green-gate guard + provenance attestation); row 10's gate change approved (lint scripts by shebang); GUI clicks during a pending answer stack onto the newest requested what-if; exported pages end in a collapsed "Licenses" section.
+User rulings 2026-10-31: MAIN pushes `main` once CI is green ("You can push for me"); MAIN comments on + closes the six Renovate PRs after that push; the first release is held (no tag yet); Bioconda + Homebrew dropped; release hardening = both (green-gate guard + provenance attestation); row 10's gate change approved (lint scripts by shebang); GUI clicks during a pending answer stack onto the newest requested what-if; exported pages end in a collapsed "Licenses" section.
 
 | row | commit | CI | outcome |
 |---|---|---|---|
-| 1 Renovate PRs | 30a1980 | 41192366505 | verdicts recorded, #1's python 3.15.2 pin landed (security release); owed: the user's push, then MAIN's comment + close on #1 #2 #4 #5 #6 #7 |
+| 1 Renovate PRs | 30a1980 · row closed after the push | 41192366505; main 41254317836 (attempt 1 red: a test crossed UTC midnight, attempt 2 green) + codeql 41254317844 | closed: MAIN pushed main on the user's word (405bf98..62806a0); #1 #2 #4 #5 #6 #7 each closed with its reason (Renovate had autoclosed #1 #5 #6 #7; comments added) |
 | 2 release binaries | 4fb754a · f8735ef · f93289d | 41193890247 · dry run 41193890240 | `release.yml` + `build.yml` (four platforms on every CI run) + `tools/release.sh`; planted floors 41192970514 red on all four; held by the user (no tag); README Install back to build-from-source |
 | 3 CI cache weekly run | 3e01f1a | evidence: scheduled run 40326880550 | closed: engine built from scratch in all five jobs, cache step skipped |
 | 4 npm holds | 509b4c5 | 41194124487 | closed |
