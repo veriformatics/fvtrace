@@ -14,7 +14,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$root"
 
 glibc_max=2.17
-macos_min=14.0
+macos_min=15.0
 licenses=(lean lean-toolchain libuv hacl-star mimalloc emscripten musl)
 
 die() {
