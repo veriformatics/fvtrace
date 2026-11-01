@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { AxeBuilder } from "@axe-core/playwright";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fvtrace, isRecord, serveFvtrace } from "./fvtrace-server.js";
@@ -541,4 +542,35 @@ test.describe("replay notices", () => {
       "O1's check was run again and failed. Open O1 to see when and why.",
     );
   });
+});
+
+test("claims and facts with errors: the page says it cannot show them, with no loading lines", async ({
+  page,
+}) => {
+  web = await serveFvtrace();
+  // The record turns ill-formed (an entailment fact cannot be assumed: `fvtrace check` WF-route).
+  const path = fvtrace(["path"], web.project, web.env);
+  /** @type {unknown} */
+  const trace = JSON.parse(await readFile(path, "utf8"));
+  if (!isRecord(trace) || !Array.isArray(trace["facts"])) throw new Error("no facts");
+  /** @type {unknown} */
+  const entailment = trace["facts"].find(
+    (/** @type {unknown} */ f) => isRecord(f) && f["kind"] === "entailment",
+  );
+  if (!isRecord(entailment)) throw new Error("no entailment fact");
+  entailment["status"] = "assumed";
+  await writeFile(path, JSON.stringify(trace, null, 2));
+  await page.goto(web.url);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("This analysis cannot be shown");
+  await expect(page.getByRole("alert")).toHaveText(
+    "The claims and facts on record have errors. To see them, run fvtrace check in the project folder.",
+  );
+  await Promise.all(
+    ["Loading the question…", "Showing the facts as recorded."].map((loading) =>
+      expect(page.getByText(loading)).toBeHidden(),
+    ),
+  );
+  await expect(page.getByRole("button", { name: "Take the tour" })).toBeHidden();
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations.map((v) => v.id)).toEqual([]);
 });
