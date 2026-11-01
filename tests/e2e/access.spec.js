@@ -4,6 +4,8 @@
 // that holds the token still cannot read the claims: its `Authorization` header needs a preflight,
 // which fvtrace serve refuses (OPTIONS → 405, no CORS header).
 import http from "node:http";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test, expect } from "@playwright/test";
 import { serveFvtrace } from "./fvtrace-server.js";
 
@@ -63,6 +65,56 @@ test("another server on this computer learns no credential", async ({ page }) =>
     expect(seen["crossOrigin"]).toBe("refused");
   } finally {
     thief.close();
+    await web.close();
+  }
+});
+
+// Two tabs on one origin around a restart on a fixed port: an older tab's request carries the
+// previous run's stored token, and its 403 lands after a newer tab stored the current run's token.
+// The refusal retires the refused token alone (reviewer-1 F1).
+test("a late refusal of an old token keeps the token another tab stored since", async ({
+  context,
+}) => {
+  const old = "0".repeat(64);
+  const current = "1".repeat(64);
+  const web = await serveFvtrace("synthetic", undefined, async (dir) => {
+    const file = join(dir, "token");
+    await writeFile(file, `${current}\n`, { mode: 0o600 });
+    return ["--token-file", file];
+  });
+  /** @type {((v?: unknown) => void) | undefined} */
+  let release;
+  try {
+    const older = await context.newPage();
+    await older.addInitScript((token) => localStorage.setItem("fvtrace-token", token), old);
+    const released = new Promise((resolve) => {
+      release = resolve;
+    });
+    const held = new Promise((resolve) => {
+      void older.route("**/api/answer", async (route) => {
+        if (route.request().headers()["authorization"] === `Bearer ${old}`) {
+          const refused = await route.fetch();
+          resolve(refused.status());
+          await released;
+          await route.fulfill({ response: refused });
+        } else await route.continue();
+      });
+    });
+    await older.goto(web.url);
+    expect(await held).toBe(403);
+    const newer = await context.newPage();
+    await newer.goto(`${web.url}#token=${current}`);
+    await newer.locator("article.circuit").first().waitFor();
+    const stored = () => newer.evaluate(() => localStorage.getItem("fvtrace-token"));
+    expect(await stored()).toBe(current);
+    release?.();
+    await older.getByRole("alert").waitFor();
+    expect(await stored()).toBe(current);
+    await newer.reload();
+    await newer.locator("article.circuit").or(newer.getByRole("alert")).first().waitFor();
+    await expect(newer.getByRole("alert")).toBeHidden();
+  } finally {
+    release?.();
     await web.close();
   }
 });

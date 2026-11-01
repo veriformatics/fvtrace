@@ -49,7 +49,21 @@ def pureTests : TestM Unit := do
     (405, some "POST", "Only POST is served.\n")
   checkEq "server: a POST with the token reaches the answer, with its view"
     (outcome (decide c { req "/api/answer" (authorization := bearerOk) (method := .post) with
-      view := some "v1" })) (1, some "v1", "")
+      view := some "v1", contentType := some "application/json" })) (1, some "v1", "")
+  -- Only JSON (kernel.md V-serve): behind a login proxy that adds the token, another site's form
+  -- or `text/plain` post would otherwise reach the engine; a JSON body needs a preflight.
+  let typed := fun (ct : Option String) (token : Option String) =>
+    let a := decide c { req "/api/answer" (authorization := token) (method := .post) with
+      contentType := ct }
+    ((outcome a).1, decidedKind a)
+  for ct in [none, some "text/plain", some "application/x-www-form-urlencoded",
+      some "multipart/form-data; boundary=x", some "application/jsonx", some "text/json"] do
+    checkEq s!"server: a POST with the token but Content-Type {ct} is refused"
+      (typed ct bearerOk) (415, some "invalid")
+  for ct in ["application/json; charset=utf-8", "Application/JSON", " application/json "] do
+    checkEq s!"server: Content-Type {ct} reaches the answer" (typed (some ct) bearerOk).1 1
+  checkEq "server: the token decides before the type (no credential learns the rule)"
+    (typed (some "text/plain") none) (403, some "access")
   checkEq "server: a POST without the token is refused before its body is read"
     (let a := decide c (req "/api/answer" (method := .post)); ((outcome a).1, decidedKind a))
     (403, some "access")

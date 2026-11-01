@@ -74,12 +74,15 @@ def usage : String :=
   "      Share the claims. --html writes one page that opens in any browser and\n" ++
   "      evaluates what-ifs there, offline. --bundle writes the trace and copies of\n" ++
   "      its evidence files for another computer with fvtrace.\n" ++
-  "  serve [--port N] [--host ADDRESS] [--cached] [--no-browser]\n" ++
+  "  serve [--port N] [--host ADDRESS] [--token-file FILE] [--cached] [--no-browser]\n" ++
   "      Show the claims in your browser: the command opens it. The port is 8718\n" ++
   "      by default (0 = any free port). With --no-browser, or where it cannot open\n" ++
   "      a browser (an SSH session), it prints a link to open instead. With --host,\n" ++
   "      computers on your network can open the page at ADDRESS. The page is not\n" ++
-  "      encrypted: share it on a network that you trust.\n" ++
+  "      encrypted: share it on a network that you trust. With --token-file, the\n" ++
+  "      server takes its secret token from FILE (at least 32 letters, digits, - or\n" ++
+  "      _), for a proxy that logs users in and sends the token for them. The\n" ++
+  "      command then opens no browser and prints no link.\n" ++
   "  schema\n" ++
   "      Print the JSON Schema of the trace format.\n" ++
   "  skills install [--agent claude|agents] [--dir DIR]\n" ++
@@ -911,7 +914,8 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
 /-! ## The GUI server -/
 
 def serveSpec : Args.Spec :=
-  { valued := located ++ ["--port", "--host"], switches := ["--cached", "--no-browser"] }
+  { valued := located ++ ["--port", "--host", "--token-file"],
+    switches := ["--cached", "--no-browser"] }
 
 /-- 8718 = U+220E ∎, the end of a proof (an easter egg: the help leaves it unsaid). -/
 def defaultPort : UInt16 := 8718
@@ -934,6 +938,13 @@ def bindAddress (host : Option String) (port : UInt16) :
 where
   wildcard := "--host needs the address that others use to reach this computer, \
     not a wildcard address"
+
+/-- The token in a `--token-file`: its text without surrounding white space, at least 32 letters,
+digits, `-` or `_` (hex and base64url fit; a proxy sends it in a header, so no space or control
+character). -/
+def tokenOf (text : String) : Option String :=
+  let t := text.trimAscii.toString
+  if t.length ≥ 32 && t.all (fun c => c.isAlphanum || c == '-' || c == '_') then some t else none
 
 /-- `Host` names a loopback server answers: the browser's `fvtrace.localhost`, plus `localhost` and
 both addresses for a link typed by hand. -/
@@ -1018,7 +1029,19 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let tg ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
-  let token := Digest.hex (← IO.getRandomBytes 16)
+  let tokenFile := p.value? "--token-file"
+  let token ← match tokenFile with
+    | none => pure (Digest.hex (← IO.getRandomBytes 16))
+    | some f =>
+      match tokenOf <$> (← (IO.FS.readFile f).toBaseIO) with
+      | .error e =>
+        complain s!"fvtrace: cannot read the token file {f}: {(toString e).replace "\n" " "}"
+        return 2
+      | .ok (some t) => pure t
+      | .ok none =>
+        complain s!"fvtrace: the token file {f} must hold one token of at least 32 letters, \
+          digits, - or _ (for example, the output of: openssl rand -hex 32)"
+        return 2
   let cache ← Session.openCache tg
   let kept ← Std.Mutex.new ({} : Server.Kept)
   let cfg ← IO.mkRef ({ target := tg, explicit := (p.value? "--trace").isSome, token, hosts := [],
@@ -1046,7 +1069,7 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   say s!"Serving the project {tg.project}"
   let vars ← ["SSH_CONNECTION", "SSH_TTY", "WSL_DISTRO_NAME", "DISPLAY", "WAYLAND_DISPLAY"].mapM
     fun n => do return (n, ← Store.envVar n)
-  let opener := if p.has "--no-browser" || host.isSome then none
+  let opener := if p.has "--no-browser" || host.isSome || tokenFile.isSome then none
     else browserOpener (fun n => (vars.lookup n).join) System.Platform.isWindows
       System.Platform.isOSX
   let opened ← match opener with
@@ -1057,9 +1080,15 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     -- An opener's success does not prove the page loaded (a Snap browser cannot read hidden
     -- folders; macOS may hand HTML files to another app).
     say s!"If the page did not open, use this link: {link}"
-  else say s!"Open {link}"
+  else match tokenFile with
+    -- A token the user made stays out of the output: a service's output lands in logs.
+    | some f => say s!"Serving {site} with the token in {f}."
+    | none => say s!"Open {link}"
   if host.isSome then
-    say "Anyone on your network who has this link can see the trace (the link is not encrypted)."
+    if tokenFile.isSome then
+      say "Anyone on your network who has the token can see the trace (the page is not encrypted)."
+    else
+      say "Anyone on your network who has this link can see the trace (the link is not encrypted)."
   say "Stop with Ctrl+C."
   (← IO.getStdout).flush
   repeat IO.sleep 3600000

@@ -62,8 +62,8 @@ export async function prepareStudy(study, edit) {
 }
 
 /**
- * `fvtrace serve` with `args` in `cwd` + `env`, once it prints its link; `close` stops it, waits
- * for its exit and removes `dir`.
+ * `fvtrace serve` with `args` in `cwd` + `env`, once it prints its link (`--token-file`: its
+ * address, which carries no token); `close` stops it, waits for its exit and removes `dir`.
  * @param {string[]} args @param {string} cwd @param {NodeJS.ProcessEnv} env @param {string} dir
  * @returns {Promise<{ url: string, close: () => Promise<void> }>}
  */
@@ -74,8 +74,11 @@ async function launch(args, cwd, env, dir) {
       let out = "";
       server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
         out += chunk.toString();
-        const link = /^Open (http:\/\/\S+)$/m.exec(out);
-        if (link?.[1]) resolve(link[1]);
+        const link = /^(?:Open (http:\/\/\S+)|Serving (http:\/\/\S+) with the token in .+)$/m.exec(
+          out,
+        );
+        const found = link?.[1] ?? link?.[2];
+        if (found) resolve(found);
       });
       server.on("exit", (code) => reject(new Error(`fvtrace serve exited ${code}: ${out}`)));
     },
@@ -95,12 +98,14 @@ async function launch(args, cwd, env, dir) {
 
 /**
  * @param {string} [study] @param {(trace: Record<string, unknown>) => void} [edit]
+ * @param {(dir: string) => Promise<string[]>} [extra] more `serve` flags, made in the run's
+ *   temporary folder (removed with it)
  * @returns {Promise<{ url: string, base: string, project: string, env: NodeJS.ProcessEnv,
  *   close: () => Promise<void> }>}
  */
-export async function serveFvtrace(study = "synthetic", edit) {
+export async function serveFvtrace(study = "synthetic", edit, extra) {
   const { dir, project, env } = await prepareStudy(study, edit);
-  const run = await launch([], project, env, dir);
+  const run = await launch((await extra?.(dir)) ?? [], project, env, dir);
   return { ...run, base: new URL(run.url).origin, project, env };
 }
 
