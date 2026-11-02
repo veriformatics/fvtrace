@@ -1,0 +1,10 @@
+# gh attestation verify on the v0.1.0 release archives (2026-11-02T00:17:30Z); gh 2.102.1
+fvtrace-0.1.0-linux-arm64.tar.gz: OK
+fvtrace-0.1.0-linux-x86_64.tar.gz: OK
+fvtrace-0.1.0-macos-arm64.tar.gz: OK
+fvtrace-0.1.0-windows-x86_64.zip: OK
+fvtrace-0.1.0-linux-arm64.tar.gz rc=0 https://github.com/veriformatics/fvtrace/.github/workflows/release.yml@refs/tags/v0.1.0 source=958a956c6be5b129a55f67d337e214a45cefe582
+fvtrace-0.1.0-linux-x86_64.tar.gz rc=0 https://github.com/veriformatics/fvtrace/.github/workflows/release.yml@refs/tags/v0.1.0 source=958a956c6be5b129a55f67d337e214a45cefe582
+fvtrace-0.1.0-macos-arm64.tar.gz rc=0 https://github.com/veriformatics/fvtrace/.github/workflows/release.yml@refs/tags/v0.1.0 source=958a956c6be5b129a55f67d337e214a45cefe582
+fvtrace-0.1.0-windows-x86_64.zip rc=0 https://github.com/veriformatics/fvtrace/.github/workflows/release.yml@refs/tags/v0.1.0 source=958a956c6be5b129a55f67d337e214a45cefe582
+tampered.tar.gz rc=1  Error: HTTP 404: Not Found (https://api.github.com/repos/veriformatics/fvtrace/attestations/sha256:cf39f5fef318a0c36583705582263414be48e3114219ece413a57305b617

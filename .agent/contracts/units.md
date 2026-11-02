@@ -125,3 +125,7 @@ Staged so every commit keeps the full gate green (consultant-7 C12): reference p
 | unit | tier | contract | evidence |
 |---|---|---|---|
 | digest cache best effort | kernel (shell) | `kernel.md` § Receipts (digest cache saved best effort); `.claude/rules/server.md` I/O; row acceptance | Tests CliStore `cacheTests` + Server "an entry that cannot take the digest cache" (red on 6fec4e3 + seam + tests: 1832/1834); moved I/O case: hand mutant (catch removed → FAIL), `mutate.mjs --list` 0 mutants; smoke: `serve` ↔ `eval` bytes |
+| e2e teardown after a timeout | data (test harness: the e2e stage re-runs it) | `.claude/rules/server.md` e2e | planted timed-out spec: 1 server + folder left on c88ecfc → 0 + 0 on d4fed63; reviewer-1 R5 (seven lifecycle probes) |
+| README Install downloads | docs | `CLAUDE.md` Authoring (human-facing); `.claude/rules/release.md` | reviewer-1 R6 (ARCHIVE fix 5cd5e3e, re-review pass); archive names vs build.yml + release.yml targets |
+| first release v0.1.0 | kernel (gate) | `.claude/rules/release.md`; row acceptance | release run 41313866322 + re-check 41317969385 (`installed` ×4); `gh attestation verify` ×4 rc 0 + tampered rc 1 |
+| release re-check + macOS floor 15 | kernel (gate) | `.claude/rules/release.md` (floor = a macOS the program runs on; user ruling 2026-11-02) | dry run red on `github.ref` checkout (41315202647) → green (41316953453); planted target 26.0 > floor 15.0 → check red; dry run on the floor move with `installed` on macos-15 |
