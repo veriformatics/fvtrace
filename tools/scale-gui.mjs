@@ -282,19 +282,23 @@ const server = spawn(
   ],
   { env: { ...process.env, FVTRACE_HOME: home }, stdio: ["ignore", "pipe", "ignore"] },
 );
+let out = "";
+// Watched from the spawn on: a server that exits while the browser launches emits its `exit` before
+// a later listener exists, and the wait for its link never ended (until scale.sh's timeout).
+/** @type {Promise<string>} */
+const linked = new Promise((resolve, reject) => {
+  server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
+    out += chunk.toString();
+    const m = /http:\/\/\S+#token=[0-9a-f]+/.exec(out);
+    if (m) resolve(m[0]);
+  });
+  server.on("exit", () => reject(new Error(`fvtrace serve exited: ${out}`)));
+});
+linked.catch(() => {}); // awaited after the launch: a rejection during it is handled there
 try {
   launching = chromium.launch({ handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
   const b = await launching;
-  let out = "";
-  /** @type {string} */
-  const link = await new Promise((resolve, reject) => {
-    server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
-      out += chunk.toString();
-      const m = /http:\/\/\S+#token=[0-9a-f]+/.exec(out);
-      if (m) resolve(m[0]);
-    });
-    server.on("exit", () => reject(new Error(`fvtrace serve exited: ${out}`)));
-  });
+  const link = await linked;
   await steps(b, "served", hash ? `${link}&${hash}` : link);
   await steps(b, "page", `${pathToFileURL(page).href}${hash ? `#${hash}` : ""}`);
 } finally {
