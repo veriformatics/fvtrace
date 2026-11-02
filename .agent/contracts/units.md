@@ -129,3 +129,10 @@ Staged so every commit keeps the full gate green (consultant-7 C12): reference p
 | README Install downloads | docs | `CLAUDE.md` Authoring (human-facing); `.claude/rules/release.md` | reviewer-1 R6 (ARCHIVE fix 5cd5e3e, re-review pass); archive names vs build.yml + release.yml targets |
 | first release v0.1.0 | kernel (gate) | `.claude/rules/release.md`; row acceptance | release run 41313866322 + re-check 41317969385 (`installed` ×4); `gh attestation verify` ×4 rc 0 + tampered rc 1 |
 | release re-check + macOS floor 15 | kernel (gate) | `.claude/rules/release.md` (floor = a macOS the program runs on; user ruling 2026-11-02) | dry run red on `github.ref` checkout (41315202647) → green (41316953453); planted target 26.0 > floor 15.0 → check red; dry run on the floor move with `installed` on macos-15 |
+
+# Units → tier → contract → evidence (MAINTAIN — dependency upgrade, second sweep)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| pins at latest eligible release | data (pins: the gate runs every tool they feed) | `.claude/rules/deps.md` (release age, user ruling) | CI gate on the commit (run in its body); fast gate + e2e under pnpm 12.16.0 (SLSA provenance checked); floored refresh `Progress: resolved 142`, lock diff = pnpm's 15 packages alone; HACL* trial `--check` at f557259; probes; every `fvtrace` command driven + served/exported what-if screenshots |
+| scale GUI driver: link wait from the spawn | data (dev timing harness outside the gate; its check = gate-probe's scale probes) | `kernel.md` U-time grader (`tools/scale.sh`); 3bb85c3's signal ordering kept | red on 6d42757 (stub server `exit 3` → `timeout 60` rc 124) → green rc 1 in 704 ms; probe `scale-gui-serve-exit` (DID NOT FIRE rc 124 at 60 s on 6d42757's driver, fired < 1 s on the fix); `gate-probe.sh scale compare release locks` 28/28 + `scale` 17/17 |
