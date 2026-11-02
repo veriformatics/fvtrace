@@ -368,6 +368,10 @@ fi
 exit "${STUB_RC:-0}"
 STUB
     chmod +x "$stub"
+    # A server that exits while the GUI driver's browser launches: the driver reports it. Bounded,
+    # since a driver that misses the exit waits for a link that never comes (rc 124, no cause).
+    STUB_RC=3 expect scale-gui-serve-exit 'fvtrace serve exited' \
+        timeout 60 node tools/scale-gui.mjs "$stub" "$backup/wide-2" "$backup/page.html"
     local run=(bash tools/scale.sh --assert --bin "$stub" --n "2 4" wide)
     STUB_RC=3 expect scale-rc 'FAIL wide check n=2: rc 3' "${run[@]}"
     STUB_RC=3 STUB_ONLY=plan expect scale-text 'FAIL wide plan n=2: rc 3' "${run[@]}"
