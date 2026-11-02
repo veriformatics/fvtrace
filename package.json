@@ -4,7 +4,7 @@
   "description": "Dev-only toolchain for fvTrace's GUI checks; the shipped binary carries no Node code.",
   "license": "Apache-2.0 WITH LLVM-exception",
   "type": "module",
-  "packageManager": "pnpm@12.15.0",
+  "packageManager": "pnpm@12.16.0",
   "engines": {
     "node": ">=24"
   },
