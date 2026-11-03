@@ -56,7 +56,7 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-47 | F-serve | 5 | harvested |
 | reviewer-48 | L-template (L-T1..L-T23) | 5 | harvested |
 | reviewer-49 | L-rules-a (ops lean deps renovate release examples) | 5 | harvested |
-| reviewer-50 | L-rules-b (server wasm web fast) | 5 | running |
+| reviewer-50 | L-rules-b (server wasm web fast) | 5 | harvested |
 | general-purpose-4 | fixer: F30 F35 F71 TrustMain + trust.sh key (wt/general-purpose-4) | fix | running |
 
 Row state: C-eval pass · C-fast pass · C-engine F1 · C-receipt F4 F5 F8 · C-check: reviewer-3 F6 (reviewer-4 pending) · C-codec: F7 (reviewer-1, reviewer-2 pending).
