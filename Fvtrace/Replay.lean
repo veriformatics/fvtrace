@@ -40,6 +40,15 @@ def deadline (start s : Nat) : Nat := start + s * 1000
 
 def expired (now limit : Nat) : Bool := now ≥ limit
 
+/-- A byte-limited tail may start inside one UTF-8 scalar (at most three continuation bytes). -/
+def decodeTail (bytes : ByteArray) (cut : Bool) : String := Id.run do
+  let mut start := 0
+  if cut then
+    for _ in [:3] do
+      if let some b := bytes[start]? then
+        if b ≥ 0x80 && b < 0xc0 then start := start + 1
+  return (String.fromUTF8? (bytes.extract start bytes.size)).getD "(not UTF-8)"
+
 /-- Runs `command` in `cwd`, `timeout` in whole seconds; `.error` = the process did not start. -/
 def run (cwd : System.FilePath) (command : List String) (timeout : Option Nat) :
     IO (Except String Run) := do
@@ -60,12 +69,14 @@ def run (cwd : System.FilePath) (command : List String) (timeout : Option Nat) :
       sha.update chunk
   let err ← IO.asTask (prio := .dedicated) do
     let mut tail := ByteArray.empty
+    let mut cut := false
     repeat
       let chunk ← child.stderr.read 65536
       if chunk.isEmpty then break
       let all := tail ++ chunk
+      if all.size > tailBytes then cut := true
       tail := if all.size ≤ tailBytes then all else all.extract (all.size - tailBytes) all.size
-    return tail
+    return (tail, cut)
   let exit ← match timeout with
     | none =>
       let _ ← IO.wait out
@@ -92,7 +103,7 @@ def run (cwd : System.FilePath) (command : List String) (timeout : Option Nat) :
         pure none
       else pure code
   let tail ← match ← IO.wait err with
-    | .ok bytes => pure (String.fromUTF8? bytes |>.getD "(not UTF-8)")
+    | .ok (bytes, cut) => pure (decodeTail bytes cut)
     | .error e => pure s!"(unreadable: {e})"
   return .ok { exit, digest := Digest.hex (← sha.finish), stderrTail := tail }
 

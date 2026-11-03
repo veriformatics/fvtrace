@@ -280,11 +280,12 @@ def timeoutArg (p : Args.Parsed) (runs : Bool) (flag : String) : Except String (
 /-- Runs one replay command, saying what runs (on stderr when stdout carries JSON) + why it
 failed with its stderr's tail. -/
 def runReplay (tg : Store.Target) (id : String) (r : Replay) (timeout : Option Nat)
-    (note : String → IO Unit) : IO (Except String Replay.Run) := do
+    (note : String → IO Unit) (reasons : Except String Replay.Run → List String) :
+    IO (Except String Replay.Run) := do
   note s!"  {id}: running {Replay.display r.command}"
   let res ← Replay.run tg.project r.command timeout
   if let .ok run := res then
-    unless run.exit == some 0 || run.stderrTail.isEmpty do
+    unless (reasons res).isEmpty || run.stderrTail.isEmpty do
       note s!"  {id}: its error output ends with: {run.stderrTail.trimAscii.toString}"
   return res
 
@@ -377,7 +378,7 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
   let tracePath ← try IO.FS.realPath tg.trace catch _ => pure tg.trace
   if p.has "--replay" then
     for (id, r) in Replay.targets t do
-      let res ← runReplay tg id r timeout say
+      let res ← runReplay tg id r timeout say Replay.pinReasons
       let (date, at_) ← stamp
       let why := Replay.pinReasons res
       match res with
@@ -485,7 +486,7 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
     let mut fields := [("id", Value.str id), ("command", .arr (r.command.map .str)),
       ("pinned", .bool r.output.isSome), ("ran", .bool runs)]
     if runs then
-      let res ← runReplay tg id r timeout note
+      let res ← runReplay tg id r timeout note (Replay.reasons r.output)
       let (date, at_) ← stamp
       results := results.push (none, Replay.verifyChange date r.output res)
       let why := Replay.reasons r.output res
