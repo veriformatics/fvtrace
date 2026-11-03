@@ -2,18 +2,18 @@
 
 | id | commit sha | red command → output (short) | green command → result | sweep | status |
 |---|---|---|---|---|---|
-| F24 | d009e38 | `playwright test export.spec.js --grep 'idle Worker'` → 2 failures, empty notice | same → 2 pass; fast gate + e2e rc 0 (235.5s, 65 pass) | both Worker failure events + idle/pending call guards | fixed |
+| F24 | d009e38 | `playwright test export.spec.js --grep 'idle Worker'` → 2 failures, empty notice | same → 2 pass; reached gate rc 0 (244.0s, 38 browser pass); prior full fast gate rc 0 (235.5s, 65 pass) | both Worker failure events + idle/pending call guards | fixed |
 | F37 | d009e38 | `playwright test export.spec.js --grep 'fatal .*engine answer'` → 3 failures (superseded shape/invalid, invalid details) | same → 3 pass; fast gate + e2e rc 0 | evaluation/details/pairs decoded before queue release; no post-failure calls | fixed |
 | F38 | d009e38 | `playwright test export.spec.js --grep 'invalid JSON in the recorded'` → no damage notice | same → pass; fast gate + e2e rc 0 | data-block parse + export decode in damage handler | fixed |
-| F39 | unknown | unknown | unknown | unknown | unknown |
-| F40 | unknown | unknown | unknown | unknown | unknown |
-| F41 | unknown | unknown | unknown | unknown | unknown |
-| F42 | unknown | unknown | unknown | unknown | unknown |
-| F43 | unknown | unknown | unknown | unknown | unknown |
-| F44 | unknown | unknown | unknown | unknown | unknown |
-| F45 | unknown | unknown | unknown | unknown | unknown |
-| F25 | unknown | unknown | unknown | unknown | unknown |
-| F27 | unknown | unknown | unknown | unknown | unknown |
+| F39 | 3c3de98 | `playwright test responsive.spec.js -g 'action while'` → action sent pending O2 instead of shown empty view | same → pass; reached rc 0 (366.6s, 42 browser cases) | action payload captures normalized shown overrides | fixed |
+| F40 | 3c3de98 | `playwright test responsive.spec.js -g 'chosen match'` → history q stayed Q1, expected Q2 | same → pass, reload keeps C3 selected | both `on.select` + `reveal` persist target q before history | fixed |
+| F41 | 3c3de98 | `playwright test responsive.spec.js -g 'details for another'` → foreign overrides/header accepted ready | both cases pass; reached rc 0 | selected details + pairs compare generation/header/overrides; selected item matches | fixed |
+| F42 | 3c3de98 | `playwright test responsive.spec.js -g 'Back retains'` → stale title restored before later envelope | pass + 5 consecutive runs (24.2s); reached rc 0 | render/popstate retain unavailable view until envelope | fixed |
+| F43 | b191e25 | `playwright test responsive.spec.js -g 'Text-layout'` → selected class absent | pass; reached rc 0 (147.4s, 45 browser cases) | shared claim marking in both layouts + pressed state + Text ink border | fixed |
+| F44 | b191e25 | `playwright test responsive.spec.js -g 'equal titles'` → one same-title subject's claim absent | pass; both distinct groups + claims present | role/subject-id keys, display titles kept separate | fixed |
+| F45 | b191e25 | `playwright test responsive.spec.js -g 'reordered outside'` → selected C290 unmounted | pass; selected card + focused switch kept; reached rc 0 | keep focused/selected claim in lazy window; linked scroll + refocus preserved | fixed |
+| F25 | 25ff71b | `playwright test gui.spec.js -g 'twelve-fact'` → phone card overlaps spotlight | pass; every step at 1280×720 + 390×844; reached rc 0 (159.6s, 50 browser cases) | facts-step compact first contact; placement unchanged | fixed |
+| F27 | 25ff71b | `playwright test gui.spec.js -g 'ends the active tour'` → 1 tour card remains | pass; card/spot/room removed; reached rc 0 | shared tour end removes listeners; cannotShow ends active tour | fixed |
 | F26 | unknown | unknown | unknown | unknown | unknown |
 | F72-a (row clicks) | unknown | unknown | unknown | unknown | unknown |
 | F72-b (group order) | unknown | unknown | unknown | unknown | unknown |
@@ -21,7 +21,9 @@
 
 ## Needs MAIN
 
-No unwritten application fix in the assigned set: all original classes + F72 GUI were implemented before the code-ownership cutoff. Work left = verification + integration/commits. F72 Lean lint wording is general-purpose-1's; Worker silence deadline remains outside this assignment.
+No unwritten confirmed fix in the assigned set: all original classes + F72 GUI were implemented before the code-ownership cutoff. Work left = verification + integration/commits. F72 Lean lint wording is general-purpose-1's; Worker silence deadline remains outside this assignment.
+
+Unconfirmed follow-on → MAIN: `load(action)` captures shown payload but leaves pending `view.spec` until success. A recoverable action problem may leave a superseded symbol what-if in the address while the old envelope stays shown. Looked at action-spec + problem branches of `web/app.js`; no runtime witness/new test. Normal F39 payload case passes. No new application code added after cutoff.
 
 MAIN approved harness synchronization fixes + reached-stage batching; selector commit = `46df169`, startup-sync commit = `0c45309`, lazy work-row synchronization joins F26. Every exported-module change runs export.spec.js + engine.spec.js. No assertion, case or limit edits.
 
@@ -36,10 +38,9 @@ MAIN approved harness synchronization fixes + reached-stage batching; selector c
 
 Worktree = `/home/eturkes/Projects/fvtrace/.scratch/worktrees/general-purpose-2`; branch = `wt/general-purpose-2`; base = `3957c87`.
 
-- Original combined commit `353de5d` is being split per MAIN: selector = `46df169` (reached rc 0, 405.0s, 43 browser cases); startup sync = `0c45309` (mechanical/native pass + serial 17/17 browser pass). Engine source/spec restored to assigned worktree; reached gate running (`b7nutjxn1`, export + engine + responsive + smoke, serial). Original six regressions already red → green; original combined tree passed full fast gate (`engine-fast-2.log`, 235.5s, 65 e2e pass). MAIN baseline `e1fbcf7` is cherry-picked as `e341b7b`. Finding commit cells update when the split engine commit lands.
-- Sequencing class integrated: 5 regressions red (`sequence-red.log`) → 5 pass (`sequence-wt-green.log`). First scratch green run = 3 pass + navigation/recovery timeouts; Back isolation pass (`back-green.log`); tests now scroll the initial board + await the released envelope before restoration checks. Back five-repeat passed; full fast gate ended with the existing-check failures above. Assigned tree holds this class uncommitted.
-- Board class: 3 regressions red → green (`board-red.log`, `board-green.log`). Saved code = `board-{app,circuit,style}`, suite = `board-spec.js`.
-- Tour class: 2 regressions red → green (`tour-red.log`, `tour-green.log`); 12-fact fixture walked at 1280×720 + 390×844. `facts-tour-phone.png` inspected: first contact spotlit, card clear of it, controls visible.
+- Harness commits: `46df169` selectors (reached rc 0, 405.0s, 43 browser cases); `0c45309` startup sync (mechanical/native pass + serial 17/17 browser pass). MAIN baseline `e1fbcf7` cherry-picked as `e341b7b`. Original combined commit `353de5d` is superseded; its full fast gate passed (`engine-fast-2.log`, 235.5s, 65 e2e). Engine app source rematches `d009e38` byte-for-byte.
+- Engine = `d009e38`, reached rc 0 (244.0s, 38 browser cases). Sequencing = `3c3de98`, reached rc 0 (366.6s, 42 browser cases); deterministic Back also passed five consecutive runs. No assertion/limit changed; fixed synchronization observes mounted rows/replies.
+- Board = `b191e25`, reached rc 0 (147.4s, 45 browser cases). Tour = `25ff71b`, reached rc 0 (159.6s, 50 browser cases); 12-fact fixture walked at 1280×720 + 390×844. `facts-tour-phone.png` inspected: first contact spotlit, card clear of it, controls visible. Work snapshots + approved work-row scrolling synchronization integrated; reached verification running (`bhgyd82br`).
 - Work class: 300 gated claims positive control; red mounts 300, green ≤40 offscreen + end line, keyboard reaches all 300; exact first/last sentences unchanged (`work-red.log`, `work-green.log`).
 - Visual QA: `text.png` + `hub.png` inspected; Text selected border visible, long work text retains its form. Explicit-context harness: `visual-qa-3.log` rc 0, axe `[]` in both states. Prior harness failures: navigation timeout; axe requires `browser.newContext()` instead of owned `browser.newPage()`. Navigation-timeout cause unconfirmed; looked in Playwright output only; no app/gate limit changed.
 - F72 GUI class: six repo regressions red (`f72-red-2.log`: blocker/check plain clicks independently at desktop + phone; overlooked/new-data order independently; native state positive control passed) → 6 pass; three existing tour walks also pass (`f72-green.log`, 9 total). Snapshots = `f72-{app,panels,tour,style}`, `f72-gui-spec.js`. Tour copy states existing-analysis coverage + new-data counts apart; no copy-word lint added. Lean lint wording remains general-purpose-1's.
