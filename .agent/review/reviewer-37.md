@@ -36,7 +36,7 @@ Audit command (own copy):
 ```sh
 (cd /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-37/tree && FVTRACE_HOME=/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-37/home LEAN_PATH=/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-37/tree/.lake/build/lib/lean .lake/build/bin/fvtrace-trust)
 ```
-rc 0, `trust: 26 claims, 0 findings`; each of the 26 claim→proof rows preserved in `.scratch/review/reviewer-37/trust.log`. Initial invocation without `LEAN_PATH` failed (`unknown module prefix 'Fvtrace'`); corrected environment above passed. Known F30/F35 limit the audit mechanism; no repeat finding here. No `.lean` LSP server was available (hover on the real Spec file returned that error); source + Lean kernel/interpreter used instead.
+rc 0, `trust: 26 claims, 0 findings`; each of the 26 claim→proof rows preserved in `.scratch/review/reviewer-37/trust.log`. Initial invocation without `LEAN_PATH` failed (`No directory 'Fvtrace' or file 'Fvtrace.olean' in the search path entries: /opt/lean/lib/lean`); corrected environment above passed. Known F30/F35 limit the audit mechanism; no repeat finding here. No `.lean` LSP server was available (hover on the real Spec file returned that error); source + Lean kernel/interpreter used instead.
 
 ### Tested-label map
 

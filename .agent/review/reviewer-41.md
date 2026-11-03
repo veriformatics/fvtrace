@@ -52,8 +52,8 @@ AssertionError: FAIL: contract-required trace removed from every CLI projection,
 - Severity: minor. Target: `Tests/Wasm.lean:31-45` @ `48bc51d`.
 - Contract: kernel.md E-build explicitly requires memory + `_initialize`, `fvtrace_init`, `fvtrace_alloc`, `fvtrace_free`, `fvtrace_load`, `fvtrace_answer`; CLAUDE.md Engineering Verification integrity requires a contract-derived oracle.
 - Fault: `goodExports` comes from `Binary.requiredExports`, then the expected parsed count comes from that same production list. Positive fixtures shrink with an accidental omission. Negative cases independently remove `fvtrace_answer` and wrong-kind `memory` alone; no contract-owned complete set or per-export negative covers the other required exports.
-- Anchors: `def goodExports : List (List UInt8) := Binary.requiredExports.map fun (n, k) => exportOf n k` (:32); `(Binary.allowedImports.length, Binary.requiredExports.length)` (:45).
-- Red command (private copy; restores source in `finally`): `(cd /home/eturkes/Projects/fvtrace && offload run --local -- python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-41/red-wasm-oracle.py)` → rc 1. Plant: drop `fvtrace_load` only from `FvtraceWasm/Binary.lean:139`'s `requiredExports`; incremental `lake build Tests.Wasm`; run unmodified `Tests.Wasm.pureTests` interpreted. Probe independently constructs E-build's fixed export set minus `fvtrace_load`.
+- Anchors: `def goodExports : List (List UInt8) := Binary.requiredExports.map fun (n, k) => exportOf n k` (:31); `(Binary.allowedImports.length, Binary.requiredExports.length)` (:44).
+- Red command (private copy; restores source in `finally`): `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-41/red-wasm-oracle.py` → rc 1. Plant: drop `fvtrace_load` only from `FvtraceWasm/Binary.lean:139`'s `requiredExports`; incremental `lake build Tests.Wasm`; run unmodified `Tests.Wasm.pureTests` interpreted. Probe independently constructs E-build's fixed export set minus `fvtrace_load`.
 
 ```text
 positive control: unmodified missing-load module
@@ -65,13 +65,13 @@ wasm suite rc=0; missing-fvtrace_load problems=[]
 AssertionError: FAIL: checker accepts a missing E-build export while Tests.Wasm.pureTests stays green
 ```
 
-- Logs / inputs: `wasm-oracle-red.log`, `wasm-oracle-build.log`, `wasm-contract.lean` under the scratch directory.
+- Logs / inputs: `wasm-oracle-direct-red.log` (direct rerun), `wasm-oracle-red.log` (initial slot run), `wasm-oracle-build.log`, `wasm-contract.lean` under the scratch directory.
 - Fix direction: independent E-build export fixture + one omitted/wrong-kind case per required export; the plant must kill the suite.
 
 ## Evidence / coverage
 
 - Native baseline: `(cd /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-41/tree && FVTRACE_HOME=/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-41/home .lake/build/bin/fvtrace-tests)` through `offload run --local` → rc 0, `1834/1834 checks passed` (`baseline-native.log`).
-- Wiring: `Tests.lean:30-69` calls every target test entry; `TestMain.lean:11` → `Tests.all`; `lakefile.lean:13,88` sets/builds testDriver; `tools/gate.sh:79-82` runs `lake test`, interpreted `TestPure.lean`, shell smoke. Baseline native execution proves all target areas ran (no FAIL / no IPv6-skip message).
+- Wiring: `Tests.lean:30-70` calls every target test entry; `TestMain.lean:10` → `Tests.all`; `lakefile.lean:13,88` sets/builds testDriver; `tools/gate.sh:76-82` runs `lake test`, interpreted `TestPure.lean`, shell smoke. Baseline native execution proves all target areas ran (no FAIL / no IPv6-skip message).
 - History: 13 complete per-file `git log 48bc51d -p --follow -- FILE` logs → 66 deletion hunks in `history-deletions.txt`, all read; wiring history checked separately. Changes = helper centralization, named verdict / must-verify rulings, new default port/token protocol, v1 route retirement, snapshot + Worker schema cutover, obsolete `fvtrace_evaluate` / stateless snapshot hook retirement under E-state, clock-boundary allowance. No dropped target test or time-limit increase found. `c88ecfc` body explicitly records approval for the I/O-plant change + its old firing and new catch-removal witness; the new injected fault runs on every uid/OS.
 - Guards: `Replay.lean:142` skips process-group kill on Windows because § Replay explicitly supports process-alone there; single-process timeout still runs. `Cli.lean:193` skips `/dev/null` on Windows; regular-file + exact-size + growing-prefix tests remain; Linux smoke adds FIFO/device/64-GiB binary cases. `Notices.lean:595` POSIX linked-log path test: general path/link behavior remains in cross-platform helper-backed CliStore/Receipt/Export tests (Windows execution not rerun here). `CliStore.lean:178-190` can skip a real `[::1]` refusal when binding fails; pure `Cli.bindTests` uses an injected busy-v6 binder to exercise retry/stop logic, baseline emitted no skip. Smoke's GNU-stat/FIFO/opener block = Linux-only; pure platform opener mapping covers macOS/Windows names, but no Windows/macOS runtime run performed here.
 - No nested agents, target mutation, full gate or mutation campaign. Additional probes pending.

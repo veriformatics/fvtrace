@@ -9,7 +9,7 @@ Target = `48bc51d` in `/home/eturkes/Projects/fvtrace/.scratch/review-base`. Che
 | V-js | tests/schema + cases | finding F7 (existing) | 61 cases = 15 valid + 44 invalid + 2 decoder-only; overflow case misclassified as decoder-only = F7. Node corpus passes; extra-field schema defect fires. |
 | V-js | tests/palette | finding reviewer-42-F2 | Floors + text surface table read; contrast/hue plants fire, but Culori applies Machado matrices to nonlinear RGB; independent linear calculation + ColorAide show a base pair below 8. |
 | V-js | tests/renovate | pass | File/dependency expectations follow actual pinned inputs; intentionally extraction-only (renovate.md). Broken scanner manager fires on missing actionlint. |
-| V-js | wiring (runners, globs, gate stages) + history | unknown | unknown |
+| V-js | wiring (runners, globs, gate stages) + history | pass | Playwright lists 58 tests/7 specs; 5 Node test modules match directory discovery; gate :99/:144/:146 runs all. Current + history suppression searches clean; 41 relevant commit bodies + removed-test/limit inventory read: format/API rewrites preserve checks, 27787a1 records the user's timeout ruling + original firing. |
 
 ## reviewer-42-F1 — minor — final refused loads bypass the Node stderr oracle
 

@@ -107,7 +107,7 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 
 | id | Decisions scope | verdict |
 |---|---|---|
-| F-model | trace model, FV stance, must-verify kinds, claim state + verdict words, Conditional, entailment, exclusions, subjects, results + lints, where FV pays, experiments + outcome honesty, plans | unknown |
+| F-model | trace model, FV stance, must-verify kinds, claim state + verdict words, Conditional, entailment, exclusions, subjects, results + lints, where FV pays, experiments + outcome honesty, plans | F6 (reviewer-44: 8 of 9 Decisions rows pass on real-binary probes; plans vs 3 exhaustive oracles) |
 | F-cli | Product (data folder, no writes into the project, export refusal), Evidence binding + replay + notices + log, Review, Headline + exact statement, Agent instructions, Examples, Trace format, Batch path, What-if refusals | F4, F5, F7, F8, F11, F12, F13, F17, F53 (reviewer-45: no new departure; Headline + What-if refusals pass) |
 | F-gui | GUI rulings (claim diagrams, labels, copy, key table, review line, evidence bar, claim layout, tour, plain reasons, lists, exclusions note, suppose wording), Exported page in a Worker, without WebAssembly, Envelope lists on request | unknown |
 | F-serve | GUI access + login proxy, Sharing (export + bundle), Engine speed, Capability first, Response time, GUI responsiveness, Prerequisite chains, Memory | unknown |

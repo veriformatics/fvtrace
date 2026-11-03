@@ -16,7 +16,7 @@ Check set fixed before target reads: scoped comments/JSDoc vs their code (behavi
 - Location: `tools/scale.mjs:350`.
 - Contract: S-comments-other; a status/bound description must match the code; `CLAUDE.md` Engineering claim soundness.
 - Anchor: `every fact at its route's ceiling`.
-- Contradiction: `tools/scale.mjs:358` emits `F${i}=assumed,E${i}=tested`; `wide` assigns E* route `lean` (`:92`), whose ceiling is `proved` (`Fvtrace/Model.lean:280–283`, `:305–306`). The top-level shape description at `tools/scale.mjs:22–23` correctly says E* stays `tested` so it remains closable; the helper's JSDoc is stale.
+- Contradiction: `tools/scale.mjs:358` emits `F${i}=assumed,E${i}=tested`; `wide` assigns E* route `lean` (`:91`), whose ceiling is `proved` (`Fvtrace/Model.lean:280–283`, `:305–306`). The top-level shape description at `tools/scale.mjs:22–23` correctly says E* stays `tested` so it remains closable; the helper's JSDoc is stale.
 - Live cross-check: generator `whatif 3`, then built `fvtrace eval --whatif <whatif.txt>` under this review's `FVTRACE_HOME` → rc 0; E0 `{route: lean, effective: tested, ceiling: proved}`.
 - Fix direction: name the actual statuses + retain the below-ceiling rationale; keep the intended grading input unchanged.
 
@@ -26,7 +26,7 @@ Check set fixed before target reads: scoped comments/JSDoc vs their code (behavi
 - Contract: S-comments-other (layout/order/color claims + removed-code descriptions); Decisions GUI label = id first, kind on ink, verdict in its own color.
 - Anchors + contradiction:
   - `its kind joined to its verdict in the verdict's color` (`web/circuit.js:96`): `claimTag` makes distinct kind + verdict chips (`:106–115`); `.tag-kind` is white on ink (`web/style.css:552–555`), not verdict-colored.
-  - `the claim id at its end` (`web/style.css:503`): `claimTag` appends `.tag-id` first (`web/circuit.js:103`); the newer stylesheet comment at `web/style.css:509` also says id first.
+  - `the claim id at its end` (`web/style.css:503`): `claimTag` appends `.tag-id` first (`web/circuit.js:104`); the newer stylesheet comment at `web/style.css:509` also says id first.
   - `The claim id leads its label row, larger than the tag beside it.` (`web/style.css:829`): detached from the label rules (`:522–535`), now heads `.moves, .changes` (`:830–835`), neither of which styles that label. A residual comment describes code no longer at its anchor.
 - Fix direction: prune the stale descriptions/displaced comment; retain only the non-obvious label-alignment rationale.
 
