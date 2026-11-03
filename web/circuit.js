@@ -198,7 +198,7 @@ export function circuit(c, ix, on) {
  * @param {HTMLElement} card @param {boolean} selected */
 export function markCard(card, selected) {
   card.classList.toggle("selected", selected);
-  card.querySelector(".claim-head .tag-id .ref")?.setAttribute("aria-pressed", String(selected));
+  card.querySelector(".tag-id .ref")?.setAttribute("aria-pressed", String(selected));
 }
 
 /**
