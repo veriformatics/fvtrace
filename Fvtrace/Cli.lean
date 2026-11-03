@@ -1132,22 +1132,26 @@ def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
   | [] => IO.eprint usage; pure 2
   | cmd :: _ => usageError s!"unknown command '{cmd}'"
 
-/-- A command in `env`. An I/O failure that no command anticipated (a permission, a vanished
-file) is a read error: exit 2 with its message. -/
-def runIn (env : Store.Env) (args : List String) : IO UInt32 := do
-  try dispatch env args
+/-- An unanticipated I/O failure, including environment detection, uses the CLI's exit-2
+boundary. -/
+def withIOErrors (action : IO UInt32) : IO UInt32 := do
+  try action
   catch e =>
     complain s!"fvtrace: {(toString e).replace "\n" " "}"
     return 2
 
+/-- A command in `env`, with I/O failures reported as exit 2. -/
+def runIn (env : Store.Env) (args : List String) : IO UInt32 :=
+  withIOErrors (dispatch env args)
+
 /-- The process entry: reads the data folder + current folder once. -/
-def run (args : List String) : IO UInt32 := do
+def run (args : List String) : IO UInt32 := withIOErrors do
   match ← Store.Env.detect with
-  | .ok env => runIn env args
+  | .ok env => dispatch env args
   | .error m =>
     match args with
     | ["--version"] | ["--help"] | ["-h"] | ["schema"] | [] =>
-      runIn { home := ".", cwd := "." } args
+      dispatch { home := ".", cwd := "." } args
     | _ => complain s!"fvtrace: {m}"; pure 2
 
 end Fvtrace.Cli
