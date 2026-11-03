@@ -880,18 +880,13 @@ function mark(sel, selected) {
  * overlooked + new-data apart, titled. */
 /** @param {Envelope} e @param {import("./lookups.js").Lookups} x @returns {[string, string, Claim[]][]} */
 function groups(e, x) {
-  const mine = x.byQuestion.get(view.question) ?? [];
+  const claims = x.byQuestion.get(view.question) ?? [];
+  const mine = ["can", "conditional", "open", "cannot"].flatMap((st) =>
+    claims.filter((c) => c.final === st),
+  );
   const existing = mine.filter((c) => !x.prospective.has(c.subject));
   /** @type {[string, string, Claim[]][]} */
-  const out = [
-    [
-      "existing",
-      "",
-      ["can", "conditional", "open", "cannot"].flatMap((st) =>
-        existing.filter((c) => !c.latent && c.final === st),
-      ),
-    ],
-  ];
+  const out = [["existing", "", existing.filter((c) => !c.latent)]];
   out.push(["latent", "Overlooked directions", existing.filter((c) => c.latent)]);
   // One pass by subject: a filter per new-data subject cost subjects × claims (prereqs at 26,825:
   // 8,942 subjects, 1.4 s per render).
