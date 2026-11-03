@@ -435,7 +435,7 @@ async function engineStarted(page) {
   await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceReady") === true, null, {
     timeout: 60_000,
   });
-  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+  await page.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
 }
 
 /** @param {import("@playwright/test").Page} page */
