@@ -30,7 +30,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 
 - WF-ids: ids unique across all collections. WF-refs: every reference resolves (question, subject, needs, entailment, variantOf, outcome keys, requires, exclusion pair + subject, createdBy, waiver claim, instantiates).
 - WF-subject: claim needs + entailment, experiment outcome keys, exclusion pair all on the owner's subject; `instantiates` names a fact on another subject.
-- WF-entail: a claim names `entailment` ⇔ ¬`restates`; an entailment fact has kind `entailment`, ∉ the claim's needs, used by exactly one claim; no `entailment` fact in any `needs`. A restating claim needs exactly one fact, of kind `result`, restated by no other claim.
+- WF-entail: a claim names `entailment` ⇔ ¬`restates`; the entailment fact a claim names has kind `entailment`, ∉ that claim's needs, named by no other claim (an entailment fact no claim names is valid); no `entailment` fact in any `needs`. A restating claim needs exactly one fact, of kind `result`, restated by no other claim.
 - WF-needs: needs non-empty + duplicate-free.
 - WF-route: every recorded fact status + every outcome status `allows`-ed by its fact (route + kind: no must-verify fact holds `assumed`); every exclusion status `allowed` by its route.
 - WF-outcome: success non-empty, values ∈ asserted; failure values = `violated`; `requires` names experiments listed earlier on the experiment's subject (acyclic by construction: list prerequisites first).
@@ -86,7 +86,7 @@ Scope = the judgment-bearing core every surface (CLI, server, GUI, export) displ
 
 - Claim + premise texts emitted verbatim (no case or punctuation change). can: `text`; conditional: `Assuming “p₁”; “p₂”: text` (premises in needsAll order); open / cannot: `text` with the verdict word beside it.
 - Verdict words: can = `Fully supported`, conditional = `Conditional`, open = `Pending verification`, cannot = `Claim not possible`.
-- Label = verdict word + qualifier list: `what-if` (hypothetical), `draft` | `stale review` (provisional), `if <creator title> runs` (prospective; the envelope carries the token `if-creator-runs` + `label.creator` = the creator's id, V-env), `conflicting what-if` (reason conflict).
+- Label = verdict word + qualifier list: `what-if` (changed by ω: some need's `eff` or the subject's validity differs from its ω = ∅ value; a prospective claim alone is `hypothetical` yet carries none), `draft` | `stale review` (provisional), `if <creator title> runs` (prospective; the envelope carries the token `if-creator-runs` + `label.creator` = the creator's id, V-env), `conflicting what-if` (reason conflict).
 - G6: a conditional sentence contains every premise text + the claim text verbatim; the emitted label's verdict word is `Fully supported` only for final = can.
 
 ## Ranking + blockers
