@@ -36,7 +36,7 @@ MAIN approved harness synchronization fixes + reached-stage batching; selector c
 
 ## Final verification
 
-- `FVTRACE_HOME=.scratch/fix/general-purpose-2/home nice -n 10 bash tools/fast-gate.sh --e2e` on committed HEAD `d742331`, tree `50ccfc148b0980cb26ed8ce14d6a25651a00310f`: rc 0, 201.1s (`final-fast.log`). Native 1834/1834; pure 779/779; e2e 81/81 (axe included); JS tests 64/64; Node engine differential passed (51.1s). All fast-gate stages passed.
+- `FVTRACE_HOME=/home/eturkes/Projects/fvtrace/.scratch/fix/general-purpose-2/home nice -n 10 bash tools/fast-gate.sh --e2e` on committed HEAD `d742331`, tree `50ccfc148b0980cb26ed8ce14d6a25651a00310f`: rc 0, 201.1s (`final-fast.log`). Native 1834/1834; pure 779/779; e2e 81/81 (axe included); JS tests 64/64; Node engine differential passed (51.1s). All fast-gate stages passed.
 - Fast-gate skipped stages, unchanged: `tools`, `trust`, `c-analyze`, `vendor`, `audit`, `secrets`, `workflows`. Full CI/full gate, reference-host scale/timing/memory assertions + mutation campaigns not run by this fixer. New functional cases have red witnesses; no existing case/assertion/limit removed or weakened.
 - Four screenshots inspected: `facts-tour-phone.png`, `text.png`, `hub.png`, `tour-counts-phone.png`; Text + hub additional axe checks = `[]`. Finite synthetic/fixture/scale samples; no N_cap or repeated-what-if heap-soak claim.
 - Cleanup: scratch source/build copy + 26 superseded integration/helper snapshots removed; evidence logs/images + QA/reached drivers retained. Working tree clean (`git status --porcelain` rc 0, 0 bytes; HEAD positive control present). Owned server pattern control = 1 match, rc 0; final owned-server listing = 0, rc 1 (`final-servers.txt`). No owned fvTrace server remains.
