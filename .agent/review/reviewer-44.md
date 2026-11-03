@@ -4,8 +4,8 @@
 |---|---|---|---|
 | F-model | Trace model + FV stance | pass | `probe-model.py model`: 30 route × status cases + model-field relationships; ceilings, all six statuses, verbatim text/headline/why/trusts/evidence. |
 | F-model | Only background conditions may be assumed | finding F6 (known) | `probe-model.py must`: 24 must-verify refusals; all 6 premise kinds allowed; 12 empirical/human must-verify ceilings = tested. Failure-side advice meets existing F6; enforcement passes. |
-| F-model | Claim state + verdict words + Conditional + Entailment | unknown | unknown |
-| F-model | Subjects + Exclusions | unknown | unknown |
+| F-model | Claim state + verdict words + Conditional + Entailment | pass | `probe-model.py claims`: exhaustive 80-case valid status product; all 4 verdict words + conditional sentence; 8 malformed entailment/restates shapes; single-result exception + stale rewording. |
+| F-model | Subjects + Exclusions | pass | `probe-model.py subjects`: creator+prerequisite closure lights 3 prospective siblings only; 5 cross-subject/reuse refusals; 5 exclusion statuses × 3 conflicts; verified-only derivation, recorded contradictions, stale relation, unrelated subject isolation. |
 | F-model | Results + lints | unknown | unknown |
 | F-model | Where FV pays + latent | unknown | unknown |
 | F-model | Experiments + outcome honesty | unknown | unknown |
