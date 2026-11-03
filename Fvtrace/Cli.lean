@@ -116,10 +116,14 @@ included, is removed first and never written through. -/
 def replaceFile (file : System.FilePath) (body : String) : IO Unit := do
   let tmp : System.FilePath := file.toString ++ ".fvtrace-tmp"
   try IO.FS.removeFile tmp catch _ => pure ()
-  let h ← IO.FS.Handle.mk tmp .writeNew
-  h.putStr body
-  h.flush
-  IO.FS.rename tmp file
+  try
+    let h ← IO.FS.Handle.mk tmp .writeNew
+    h.putStr body
+    h.flush
+    IO.FS.rename tmp file
+  catch e =>
+    try IO.FS.removeFile tmp catch _ => pure ()
+    throw e
 
 /-- Writes `t` in place; a body past the decoder's limit (D-json) is refused, the file kept as it
 was, since the next read would refuse it. -/
