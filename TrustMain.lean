@@ -44,6 +44,8 @@ where
       if seen.contains c then go rest seen out
       else go (((expand c).getD #[]).toList ++ rest) (seen.insert c) (out.push c)
 
+/-- Constructor field dependencies are absent from an inductive's own type; theorem bodies
+add no compiled code and their axioms are collected separately. -/
 def meaningDeps (ci : ConstantInfo) : Array Name :=
   let ty := ci.type.getUsedConstants
   match ci with
@@ -81,7 +83,9 @@ def audit (core : Std.HashSet Name) : CoreM (Array (Name × Array Name) × Array
     -- the declaration kind alone separates them; a name filter would hide a user `def eq_1`.
     if isSpecModule (modOf env n) && !n.isInternal then
       if let .defnInfo d := ci then
-        if d.type == .sort .zero then claims := claims.push n
+        -- Reducibility hints on a type alias cannot hide a Prop-valued definition.
+        let type ← (Meta.withTransparency .all (Meta.whnf d.type)).run'
+        if type == .sort .zero then claims := claims.push n
   claims := claims.qsort Name.lt
   let mut proofsOf : Std.HashMap Name (Array Name) := {}
   for (n, ci) in env.constants.toList do
@@ -105,8 +109,7 @@ def audit (core : Std.HashSet Name) : CoreM (Array (Name × Array Name) × Array
         unless standardAxioms.contains ax do
           findings := findings.push { claim := c, issue := s!"{p} uses axiom {ax}" }
       let full := closure #[p] fun n => match env.find? n with
-        | some ci => if isCore n then none
-            else some (ci.type.getUsedConstants ++ (ci.value?.map Expr.getUsedConstants).getD #[])
+        | some ci => if isCore n then none else some (meaningDeps ci)
         | none => none
       for n in full do
         if let some ci := env.find? n then

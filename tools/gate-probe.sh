@@ -138,6 +138,20 @@ probe_trust() {
         >>Fvtrace/Spec.lean
     expect trust-unproven 'eq_987654: no proof' trust_build
 
+    # The claim's type may reduce to Prop through either reducible or ordinary definitions.
+    local alias name
+    for alias in abbrev def '@[irreducible] def'; do
+        case "$alias" in
+            abbrev) name=trust-alias ;;
+            def) name=trust-alias-def ;;
+            *) name=trust-alias-irreducible ;;
+        esac
+        keep Fvtrace/Spec.lean
+        printf 'namespace Fvtrace.Spec\n%s PlantedProp := Prop\ndef PlantedAlias : PlantedProp := by unfold PlantedProp; exact Fvtrace.version = "planted"\nend Fvtrace.Spec\n' \
+            "$alias" >>Fvtrace/Spec.lean
+        expect "$name" 'PlantedAlias: no proof' trust_build
+    done
+
     keep Fvtrace/Spec.lean
     keep Fvtrace/Proofs.lean
     plant_import
@@ -158,6 +172,24 @@ probe_trust() {
     printf 'namespace Fvtrace.Proofs\ntheorem plantedPartial : Spec.PlantedPartial := rfl\nend Fvtrace.Proofs\n' \
         >>Fvtrace/Proofs.lean
     expect trust-escape-hatch 'reaches (partial|opaque) Fvtrace.plantedLoop' trust_build
+
+    # The inductive's own type omits the constructor's opaque dependency.
+    keep Fvtrace/Version.lean
+    keep Fvtrace/Spec.lean
+    keep Fvtrace/Proofs.lean
+    plant_import
+    cat >>Fvtrace/Version.lean <<'PLANT'
+namespace Fvtrace
+opaque plantedCtorBound : Nat := 3
+inductive PlantedCtorBox where
+  | box : Fin plantedCtorBound → PlantedCtorBox
+end Fvtrace
+PLANT
+    printf 'namespace Fvtrace.Spec\ndef PlantedCtor : Prop := ∀ x : PlantedCtorBox, x = x\nend Fvtrace.Spec\n' \
+        >>Fvtrace/Spec.lean
+    printf 'namespace Fvtrace.Proofs\ntheorem plantedCtor : Spec.PlantedCtor := by intro x; rfl\nend Fvtrace.Proofs\n' \
+        >>Fvtrace/Proofs.lean
+    expect trust-ctor 'reaches opaque Fvtrace.plantedCtorBound' trust_build
 
     keep Fvtrace/Spec.lean
     keep Fvtrace/Proofs.lean
