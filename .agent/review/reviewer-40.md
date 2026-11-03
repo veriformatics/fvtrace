@@ -4,7 +4,7 @@
 |---|---|---|---|
 | V-lean-kernel | codec tests (Json, Decode, Fields, Schema, Digest) | reviewer-40-F1 | Contract-owned JSON/schema/round-trip/NIST expectations; Digest's only nonempty file = 300,000 bytes, below its 1 MiB read chunk. Planted one-chunk reader: 8/8 Digest tests green, independent whole-file oracle red. SHA upper-bound probe pending. |
 | V-lean-kernel | Tests/Check | pass | Every WF rule has a negative witness; expected rule/path pairs derive from WF-*, restating cases extend WF-entail; assigned pure baseline 488/488. Known F6/F9 concern diagnostics/wording, not new findings. |
-| V-lean-kernel | Tests/Engine + Details | unknown | unknown |
+| V-lean-kernel | Tests/Engine + Details | reviewer-40-F2 | Engine expectations follow S-*, regressions + plan rules; Details' experiment oracle reuses its graded serializer. Empty raised-values serialization: all 142 Details checks green, contract-derived E1 assertion red. Known F1 label-contract wording not re-reported. |
 | V-lean-kernel | Tests/Differential (oracle independence) | unknown | unknown |
 | V-lean-kernel | Tests/Scale (bounds vs P-*) | pass | Contract P-evidence separates load-tolerant regression witnesses (20 s at n=3,000/2,000; ≤4,000n what-if bytes) from idle-host N_cap acceptance (10 s, 2.5× time/RSS, 2.2× bytes, external scale.sh). c930c8c adds enforceable bounds; no relaxation. No independent cap timing claimed here. |
 | V-lean-kernel | wiring + history (nothing skipped or weakened) | pass | All 19 assigned suite entry points reach pure/native → all → TestMain → Lake testDriver. Per-file log -p --follow inspected through 48bc51d: additions, equivalent API migrations, v2 payload relocation; no unreplaced removal/skip/weakening. |

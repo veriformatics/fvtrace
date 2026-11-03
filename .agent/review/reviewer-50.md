@@ -5,13 +5,13 @@ Target = `48bc51d`, frozen `.scratch/review-base`; check set = L-srv1…9, L-was
 | row | bullet | verdict | basis |
 |---|---|---|---|
 | L-srv1 | server.md Routes | F19, F20 | Server.decide/answer + Tests.Server.answerTests: routes + CLI byte equality + problem copy agree; known framing-cap + untagged item-error exceptions. |
-| L-srv2 | server.md I/O | unknown | unknown |
+| L-srv2 | server.md I/O | pass | lean-test Tests.Server.nativeTests + Session.closeCache; native suite green; lean-plants.py changes I/O response to 400 → same native-test predicate FAIL got (400, some io), want (500, some io). |
 | L-srv3 | server.md Access order | F19 | Server.decide + Cli.tokenOf/serveCmd agree; framing-limit ordering already F19; pure/native server tests pass in native suite. |
-| L-srv4 | server.md Bind | unknown | unknown |
-| L-srv5 | server.md Link + opener | unknown | unknown |
+| L-srv4 | server.md Bind | pass | Cli.serveLoopback bounded retry + fixed-port busy/unsupported branches read; lean-pure Tests.Cli.bindTests fires when IPv6 bind removed (24/26; named busy-[::1] FAIL). |
+| L-srv5 | server.md Link + opener | pass | Cli.browserOpener/openBrowser/serveCmd + bindTests agree; linux display opener changed to none → lean-pure named xdg-open FAIL; native base suite green; full output modes read. |
 | L-srv6 | server.md GUI token | unknown | unknown |
 | L-srv7 | server.md Fixed headers | F19 | Server.toResponse appends fixedHeaders; known framing response bypass = F19 (no new security analysis). |
-| L-srv8 | server.md Config Ref | unknown | unknown |
+| L-srv8 | server.md Config Ref | pass | Cli.serveCmd builds IO.mkRef hosts=[] before start, modifies afterward; lean-build compiler fires on non-Ref plant: expected IO.Ref Server.Config (lean-plants.log). |
 | L-srv9 | server.md e2e harness | unknown | unknown |
 | L-wasm1 | wasm.md Pipeline | unknown | unknown |
 | L-wasm2 | wasm.md Closure | unknown | unknown |
@@ -22,22 +22,22 @@ Target = `48bc51d`, frozen `.scratch/review-base`; check set = L-srv1…9, L-was
 | L-wasm7 | wasm.md Determinism | unknown | unknown |
 | L-wasm8 | wasm.md CI cache | unknown | unknown |
 | L-wasm9 | wasm.md Probes | unknown | unknown |
-| L-web1 | web.md Display only | unknown | unknown |
+| L-web1 | web.md Display only | pass | Judgment: app groups + circuit/conditions + panels inspector/work/experiments/plan consume engine final, verdict, summary, lists and rankings; display transformations only, no re-derived engine judgment. |
 | L-web2 | web.md Request law | F24, F37–F41 | app.js ask/evaluation/load/loadDetails/readHash + worker reviewed; known idle error, fatal shape, action pending-view, hash question, detail-view gaps. |
 | L-web3 | web.md Record problem | F27, F42 | cannotShow + .unavailable + gui.spec.js: active tour stays; history can restore old envelope before a new one (known). |
 | L-web4 | web.md Responsiveness | F26, F43–F45, F50 | app.js/renderBoard/find + lazy.js + panels.js + responsive.spec.js: known eager Needed-by, text highlight, duplicate titles, focus window + find lookup gaps. |
-| L-web5 | web.md DOM sinks | unknown | unknown |
-| L-web6 | web.md No build + types | unknown | unknown |
+| L-web5 | web.md DOM sinks | pass | js-lint oxlint --type-aware --deny-warnings web; .oxlintrc no-restricted-properties; planted document.body.innerHTML assignment fires HTML-string sink rc=1 (static-plants.log); CSP clause covered by F19 row. |
+| L-web6 | web.md No build + types | pass | web/tsconfig strict+noUncheckedIndexedAccess+exactOptionalPropertyTypes; JS modules no bundler; unknown-property plant → tsc rc=1, fetched-any plant → oxlint no-unsafe-assignment rc=1. |
 | L-web7 | web.md Chromium | unknown | unknown |
 | L-web8 | web.md e2e limits | unknown | unknown |
 | L-web9 | web.md Palette | unknown | unknown |
-| L-web10 | web.md Selectors | unknown | unknown |
+| L-web10 | web.md Selectors | pass | js-lint stylelint selector-max-id=0 + specificity=0,2,1 fires planted #reviewer-50-probe rc=2; existing display-setting hidden controls .working/.find*/.work/.tour-spot checked for hidden rules. |
 | L-web11 | web.md Selectable text | unknown | unknown |
 | L-web12 | web.md Startup | unknown | unknown |
 | L-web13 | web.md Verdict words | unknown | unknown |
 | L-web14 | web.md Fonts | unknown | unknown |
 | L-web15 | web.md Tour | unknown | unknown |
-| L-fast1 | fast.md Equality proofs | unknown | unknown |
+| L-fast1 | fast.md Equality proofs | pass | Spec.Fast + Proofs.Agree/Lookups/Json; lean-build kernel fires on all three false-conjoined equality plants (lean-plants.py); actual native 1,001,225 differential comparisons + base suite green. |
 | L-fast2 | fast.md Cost traps | F47 | Receipt.BindingIndex, ClaimMemo.needs, forest closures + plan memoAt reviewed; known Snapshot.answer rebuilds immutable binding index on cached details (F47). |
 | L-fast3 | fast.md Pair projections | pass | Judgment: rewrite-sensitive pair lambdas in Spec.Fast + Proofs.Agree/Answers/Lookups/Positions + Json use projections or rewrite locally; native build proof artifacts + 1834-check suite green. |
 | L-fast4 | fast.md Evidence | unknown | unknown |
