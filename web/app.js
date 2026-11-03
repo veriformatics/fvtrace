@@ -867,7 +867,7 @@ function mark(sel, selected) {
   if (sel?.kind === "claim") {
     for (const g of boardGroups.values()) {
       const n = g.list.node(`claim:${sel.id}`);
-      if (n?.classList.contains("circuit")) markCard(n, selected);
+      if (n) markCard(n, selected);
     }
   } else if (sel?.kind === "experiment") {
     const n = experimentList.node(`experiment:${sel.id}`);
@@ -877,20 +877,21 @@ function mark(sel, selected) {
 
 /** Claims of the question in the engine's verdict order, untitled (each card names its verdict);
  * overlooked + new-data apart, titled. */
-/** @param {Envelope} e @param {import("./lookups.js").Lookups} x @returns {[string, Claim[]][]} */
+/** @param {Envelope} e @param {import("./lookups.js").Lookups} x @returns {[string, string, Claim[]][]} */
 function groups(e, x) {
   const mine = x.byQuestion.get(view.question) ?? [];
   const existing = mine.filter((c) => !x.prospective.has(c.subject));
-  /** @type {[string, Claim[]][]} */
+  /** @type {[string, string, Claim[]][]} */
   const out = [
     [
+      "existing",
       "",
       ["can", "conditional", "open", "cannot"].flatMap((st) =>
         existing.filter((c) => !c.latent && c.final === st),
       ),
     ],
   ];
-  out.push(["Overlooked directions", existing.filter((c) => c.latent)]);
+  out.push(["latent", "Overlooked directions", existing.filter((c) => c.latent)]);
   // One pass by subject: a filter per new-data subject cost subjects × claims (prereqs at 26,825:
   // 8,942 subjects, 1.4 s per render).
   /** @type {Map<string, Claim[]>} */
@@ -901,9 +902,9 @@ function groups(e, x) {
     else bySubject.set(c.subject, [c]);
   }
   for (const s of e.subjects.filter((y) => x.prospective.has(y.id))) {
-    out.push([`On new data: ${s.title}`, bySubject.get(s.id) ?? []]);
+    out.push([`subject:${s.id}`, `On new data: ${s.title}`, bySubject.get(s.id) ?? []]);
   }
-  return out.filter(([, cs]) => cs.length > 0);
+  return out.filter(([, , cs]) => cs.length > 0);
 }
 
 function renderScenario(
@@ -993,7 +994,7 @@ function boardNode(key) {
 
 /** The question + layout the board's groups show. */
 let boardShows = "";
-/** The board's groups by layout + title: each a section with its own feed (U-long). */
+/** The board's groups by layout + identity: each a section with its own feed (U-long). */
 /** @type {Map<string, { section: HTMLElement, head: string, list: LazyList }>} */
 const boardGroups = new Map();
 /** @param {string} id @param {[string, string]} noun */
@@ -1106,39 +1107,36 @@ function renderBoard() {
     boardGroups.clear();
     boardShows = shows;
   }
+  const focused =
+    document.activeElement instanceof Element
+      ? document.activeElement.closest(".circuit, .text-row")?.getAttribute("data-row")
+      : undefined;
+  const keep =
+    focused ?? (view.selection?.kind === "claim" ? `claim:${view.selection.id}` : undefined);
   /** @type {[string, string, Row[]][]} */
-  const parts = gs.map(([title, cs]) => [
+  const parts = gs.map(([key, title, cs]) => [
+    key,
     title,
-    `${title}|${cs.length}`,
-    cs.map((c) =>
-      view.layout === "text"
-        ? {
-            key: `claim:${c.id}`,
-            sig: () => claimSig(c, x, on),
-            make: () => {
-              askPairs(c);
-              return textRow(c, x, on);
-            },
-          }
-        : {
-            key: `claim:${c.id}`,
-            sig: () => claimSig(c, x, on),
-            make: () => {
-              askPairs(c);
-              const card = circuit(c, x, on);
-              markCard(card, selects(view.selection, "claim", c.id));
-              return card;
-            },
-          },
-    ),
+    cs.map((c) => ({
+      key: `claim:${c.id}`,
+      sig: () => claimSig(c, x, on),
+      make: () => {
+        askPairs(c);
+        const row = view.layout === "text" ? textRow(c, x, on) : circuit(c, x, on);
+        markCard(row, selects(view.selection, "claim", c.id));
+        return row;
+      },
+    })),
   ]);
   if (view.layout === "text") {
     // Each open fact once, under the claims: what the text view asks to verify.
-    const open = [...new Set(gs.flatMap(([, cs]) => cs.flatMap((c) => c.gaps.concat(c.premises))))];
+    const open = [
+      ...new Set(gs.flatMap(([, , cs]) => cs.flatMap((c) => c.gaps.concat(c.premises)))),
+    ];
     if (open.length)
       parts.push([
+        "facts",
         "Facts to verify",
-        `Facts to verify|${open.length}`,
         open.map((id) => ({
           key: `fact:${id}`,
           sig: () => openFactSig(id, x),
@@ -1149,8 +1147,9 @@ function renderBoard() {
   /** @type {HTMLElement[]} */
   const sections = [];
   const seen = new Set();
-  for (const [title, head, rows] of parts) {
-    const name = `${view.layout}|${title}`;
+  for (const [key, title, rows] of parts) {
+    const name = `${view.layout}|${key}`;
+    const head = `${title}|${rows.length}`;
     seen.add(name);
     let g = boardGroups.get(name);
     if (!g) {
@@ -1177,7 +1176,7 @@ function renderBoard() {
       );
       g.head = head;
     }
-    g.list.set(rows);
+    g.list.set(rows, keep === undefined ? {} : { keep });
     sections.push(g.section);
   }
   for (const name of boardGroups.keys()) if (!seen.has(name)) boardGroups.delete(name);
@@ -1187,8 +1186,7 @@ function renderBoard() {
   // A linked selection past the first rows renders first, in view (U-long).
   const sel = view.selection;
   if (!boardShown && sel?.kind === "claim")
-    for (const g of boardGroups.values())
-      if (!g.list.node(`claim:${sel.id}`)) g.list.show(`claim:${sel.id}`)?.scrollIntoView();
+    for (const g of boardGroups.values()) g.list.show(`claim:${sel.id}`)?.scrollIntoView();
   drawSelection();
 }
 

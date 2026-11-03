@@ -528,3 +528,88 @@ test("Back retains the record-problem view until a later envelope", async ({ pag
   await expect(page.locator("#analysis-title")).toHaveText("Synthetic study");
   await expect(page.locator("#board")).toBeVisible();
 });
+test("a Text-layout selection has its highlight and pressed state", async ({ page }) => {
+  web = await serveFvtrace();
+  await page.goto(web.url);
+  await card(page, "C2").waitFor();
+  await page.getByRole("button", { name: "Text", exact: true }).click();
+  const row = page.locator('.text-row:has([data-key="text:C2"])');
+  await row.locator('[data-key="text:C2"]').click();
+  await expect(row).toHaveClass(/selected/);
+  await expect(row.locator('[data-key="text:C2"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('[data-key="text:C1"]').click();
+  await expect(row).not.toHaveClass(/selected/);
+  await expect(row.locator('[data-key="text:C2"]')).toHaveAttribute("aria-pressed", "false");
+});
+
+test("prospective subjects with equal titles keep distinct board groups", async ({ page }) => {
+  web = await serveFvtrace("synthetic", (t) => {
+    const subjects = t["subjects"];
+    const facts = t["facts"];
+    const claims = t["claims"];
+    const experiments = t["experiments"];
+    if (
+      !Array.isArray(subjects) ||
+      !Array.isArray(facts) ||
+      !Array.isArray(claims) ||
+      !Array.isArray(experiments)
+    )
+      throw new Error("missing collections");
+    /** @type {unknown} */
+    const subject = subjects.find((s) => isRecord(s) && s["id"] === "N");
+    /** @type {unknown} */
+    const creator = experiments.find((e) => isRecord(e) && e["id"] === "E3");
+    if (!isRecord(subject) || !isRecord(creator)) throw new Error("missing new-data fixture");
+    subjects.push({ ...subject, id: "N2", createdBy: "E5" });
+    facts.push({
+      id: "M2",
+      subject: "N2",
+      kind: "result",
+      text: "The second cohort shows a rise.",
+      status: "open",
+      route: "runtime-checker",
+    });
+    claims.push({
+      id: "C4",
+      question: "Q1",
+      subject: "N2",
+      level: "descriptive",
+      text: "The second new cohort shows a rise.",
+      needs: ["M2"],
+      restates: true,
+    });
+    experiments.push({
+      ...creator,
+      id: "E5",
+      subject: "N2",
+      title: "Collect the second cohort",
+      success: { M2: "checked" },
+      failure: { M2: "violated" },
+    });
+  });
+  await page.goto(web.url);
+  await card(page, "C1").waitFor();
+  await expect(card(page, "C3")).toHaveCount(1);
+  await expect(card(page, "C4")).toHaveCount(1);
+  await expect(
+    page.locator(".group-title").filter({ hasText: "On new data: New cohort" }),
+  ).toHaveCount(2);
+});
+
+test("a selected focused card reordered outside its lazy window stays mounted", async ({
+  page,
+}) => {
+  web = await serveScale("wide", 300);
+  await page.goto(web.url);
+  await page.locator("article.circuit").first().waitFor();
+  await page.locator("#find").fill("C290");
+  await page.locator("#find").press("Enter");
+  await expect(card(page, "C290")).toHaveClass(/selected/);
+  const control = page.locator('[data-key="switch:C290:E290"]');
+  await control.focus();
+  await control.press("Enter");
+  await expect(page.locator("#scenario-text")).toContainText("E290 is proved");
+  await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
+  await expect(card(page, "C290")).toHaveClass(/selected/);
+  await expect(control).toBeFocused();
+});
