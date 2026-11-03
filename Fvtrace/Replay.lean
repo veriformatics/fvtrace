@@ -40,13 +40,19 @@ def deadline (start s : Nat) : Nat := start + s * 1000
 
 def expired (now limit : Nat) : Bool := now ≥ limit
 
-/-- A byte-limited tail may start inside one UTF-8 scalar (at most three continuation bytes). -/
-def decodeTail (bytes : ByteArray) (cut : Bool) : String := Id.run do
-  let mut start := 0
-  if cut then
-    for _ in [:3] do
-      if let some b := bytes[start]? then
-        if b ≥ 0x80 && b < 0xc0 then start := start + 1
+/-- Three look-behind bytes distinguish a cut scalar from a genuinely invalid orphan byte. -/
+def decodeTail (bytes : ByteArray) : String := Id.run do
+  let cut := bytes.size - tailBytes
+  let mut start := cut
+  if let some b := bytes[cut]? then
+    if b ≥ 0x80 && b < 0xc0 then
+      for back in [1:4] do
+        if back ≤ cut then
+          let pos := cut - back
+          if let some c := bytes.utf8DecodeChar? pos then
+            if pos + c.utf8Size > cut then
+              start := pos + c.utf8Size
+              break
   return (String.fromUTF8? (bytes.extract start bytes.size)).getD "(not UTF-8)"
 
 /-- Runs `command` in `cwd`, `timeout` in whole seconds; `.error` = the process did not start. -/
@@ -69,14 +75,13 @@ def run (cwd : System.FilePath) (command : List String) (timeout : Option Nat) :
       sha.update chunk
   let err ← IO.asTask (prio := .dedicated) do
     let mut tail := ByteArray.empty
-    let mut cut := false
+    let keep := tailBytes + 3
     repeat
       let chunk ← child.stderr.read 65536
       if chunk.isEmpty then break
       let all := tail ++ chunk
-      if all.size > tailBytes then cut := true
-      tail := if all.size ≤ tailBytes then all else all.extract (all.size - tailBytes) all.size
-    return (tail, cut)
+      tail := if all.size ≤ keep then all else all.extract (all.size - keep) all.size
+    return tail
   let exit ← match timeout with
     | none =>
       let _ ← IO.wait out
@@ -103,7 +108,7 @@ def run (cwd : System.FilePath) (command : List String) (timeout : Option Nat) :
         pure none
       else pure code
   let tail ← match ← IO.wait err with
-    | .ok (bytes, cut) => pure (decodeTail bytes cut)
+    | .ok bytes => pure (decodeTail bytes)
     | .error e => pure s!"(unreadable: {e})"
   return .ok { exit, digest := Digest.hex (← sha.finish), stderrTail := tail }
 
