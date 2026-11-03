@@ -22,7 +22,7 @@ Frozen target = `/home/eturkes/Projects/fvtrace/.scratch/review-base` (`48bc51d`
 uv run --no-project python -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-44/probe-model.py
 ```
 
-Final run: rc **0**, `17/17 checks passed`; all 9 table rows adjudicated, **0 new findings**, known **F6** met. Rows can run separately: script argument `model`, `must`, `claims`, `subjects`, `lints`, `work`, `experiments`, `plans`, `intent`.
+Final run: rc **0**, `17/17 checks passed`; all 9 table rows adjudicated, **0 new findings**, known **F6** met. Report validator: 9/9 rows + completion marker, pending cells 0 (rc 0); planted unfinished-cell copy rejected (rc 1, `unadjudicated cells remain`). Rows can run separately: script argument `model`, `must`, `claims`, `subjects`, `lints`, `work`, `experiments`, `plans`, `intent`.
 
 Evidence root = `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-44/`:
 

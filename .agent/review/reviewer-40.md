@@ -2,7 +2,7 @@
 
 | row | target | verdict | basis |
 |---|---|---|---|
-| V-lean-kernel | codec tests (Json, Decode, Fields, Schema, Digest) | reviewer-40-F1 | Contract-owned JSON/schema/round-trip/NIST expectations; Digest's only nonempty file = 300,000 bytes, below its 1 MiB read chunk. Planted one-chunk reader: 8/8 Digest tests green, independent whole-file oracle red. SHA upper-bound probe pending. |
+| V-lean-kernel | codec tests (Json, Decode, Fields, Schema, Digest) | reviewer-40-F1, reviewer-40-F3 | Contract-owned JSON/schema/round-trip/NIST expectations; one-chunk file hash survives 8/8 Digest checks; SHA length ≥64 survives 108/108 Decode+Schema checks. Each independently contract-graded witness red. Known F7 schema gaps not re-reported. |
 | V-lean-kernel | Tests/Check | pass | Every WF rule has a negative witness; expected rule/path pairs derive from WF-*, restating cases extend WF-entail; assigned pure baseline 488/488. Known F6/F9 concern diagnostics/wording, not new findings. |
 | V-lean-kernel | Tests/Engine + Details | reviewer-40-F2 | Engine expectations follow S-*, regressions + plan rules; Details' experiment oracle reuses its graded serializer. Empty raised-values serialization: all 142 Details checks green, contract-derived E1 assertion red. Known F1 label-contract wording not re-reported. |
 | V-lean-kernel | Tests/Differential (oracle independence) | unknown | unknown |
@@ -28,3 +28,38 @@ FAIL: a one-chunk file digest violates the whole-file receipt contract but every
 ```
 
 - Fix: file vectors at a full chunk + past it (distinct suffix); make the one-chunk mutant red through the public file-hash behavior.
+
+## reviewer-40-F2 — minor — experiment-details oracle calls the serializer it grades
+
+- Target: `Tests/Details.lean:33` (absolute base `/home/eturkes/Projects/fvtrace/.scratch/review-base/Tests/Details.lean`). Anchor: `got (Evaluate.experimentLists R e)`.
+- Contract: CLAUDE.md Engineering, Verification integrity; assigned V check explicitly rejects an oracle calling its graded function. kernel.md V-details owns each experiment's `closure`, `raises`, `wins`, `losses`.
+- Call chain: the actual value comes from `detailsOf` → `Evaluate.detailsWith` → `itemLists` → `experimentLists A e` (`Fvtrace/Evaluate.lean:209–211`); the expected value invokes `experimentLists R e`. Fast/reference record separation tests engine answers, but gives no independent check of this serializer. A wrong serialization therefore changes both sides equally.
+- Witness: `bash /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-40/probe.sh details` plants `("raises", overridesJson [])` in the isolated copy's `Evaluate.experimentLists` (its reference + fast engine remain unchanged). Build rc 0; witness rc 1. Existing suite passes 142/142; explicit fixture E1 = success O2 checked, recorded O2 open ⇒ V-details must carry O2 checked, not `[]`. Unmodified control rc 0 (`details-control.log`); planted log = `details-mutant.log`:
+
+```text
+FAIL: the experiment-details oracle accepts the same wrong serializer on both sides
+142/142 checks passed (slowest: )
+existing Details suite rc=0
+E1 raises: got=some (Fvtrace.Json.Value.arr []); contract=Fvtrace.Json.Value.arr
+  [Fvtrace.Json.Value.obj [("fact", Fvtrace.Json.Value.str "O2"), ("status", Fvtrace.Json.Value.str "checked")]]
+verification-integrity witness rc=1
+```
+
+- Fix: build expected wire values independently from the contract/reference fields, with distinct closure/raises/wins/losses fixtures; retain fast-vs-reference comparisons as a separate concern.
+
+## reviewer-40-F3 — minor — D-sha's past-the-upper-bound input is absent
+
+- Target: `Tests/Decode.lean:98` (absolute base `/home/eturkes/Projects/fvtrace/.scratch/review-base/Tests/Decode.lean`), shared corpus `tests/schema/cases/`. Anchor: `decode: short sha256`.
+- Contract: kernel.md D-sha = exactly 64 lowercase hex; assigned boundary check = each D-* limit at and past its bound.
+- Why: cases exercise 64 characters + 63 characters, case + alphabet, but no 65-character digest. All receipt/output/review digest fields share `Decode.validSha`; changing its length guard from `== 64` to `≥ 64` remains green.
+- Witness: `bash /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-40/probe.sh sha`; the isolated copy changes that one guard, incrementally builds `Tests.Decode` + `Tests.Schema`, then runs both existing suites + an independently expected rejection. Unmodified control rc 0 (`sha-control.log`); mutant build rc 0; witness rc 1 (`sha-mutant.log`):
+
+```text
+FAIL: the SHA-256 upper-bound defect survives every Decode + Schema test
+108/108 checks passed (slowest: )
+existing Decode + Schema rc=0
+65-digit sha256 diagnostics: got=[]; contract=[("invalid-sha256", "/review/digest")]
+verification-integrity witness rc=1
+```
+
+- Fix: add an invalid 65-character lowercase-hex digest corpus case + assert its decoder diagnostic; keep 64 accepted + 63 rejected. The planted `≥ 64` guard must fail the suite.
