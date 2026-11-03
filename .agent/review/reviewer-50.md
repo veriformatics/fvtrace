@@ -13,34 +13,34 @@ Target = `48bc51d`, frozen `.scratch/review-base`; check set = L-srv1…9, L-was
 | L-srv7 | server.md Fixed headers | F19 | Server.toResponse appends fixedHeaders; known framing response bypass = F19 (no new security analysis). |
 | L-srv8 | server.md Config Ref | pass | Cli.serveCmd builds IO.mkRef hosts=[] before start, modifies afterward; lean-build compiler fires on non-Ref plant: expected IO.Ref Server.Config (lean-plants.log). |
 | L-srv9 | server.md e2e harness | pass | e2e helper source + gate STAGES; planted hanging spec hits actual default 90000ms limit, rc=1; worker exit removes observed study + closes both listeners; pgrep own binary path = 0 processes. |
-| L-wasm1 | wasm.md Pipeline | unknown | unknown |
+| L-wasm1 | wasm.md Pipeline | pass | lakefile engine closure+C/tool/lock/bridge/LICENSE/build-step traces + addTrace licenses + needs inspected; build-step plant fires owning lean-build; Tests.Assets embeds byte-equal, native suite green; selected probe rc=0. |
 | L-wasm2 | wasm.md Closure | reviewer-50-F3 | Current Snapshot closure is Init + Fvtrace; unused @[extern] added to Receipt.Basic is dropped by link GC, so engine build succeeds. Parenthetical guarantee overstated; no structural closure guard (nofire-wasm.py). |
-| L-wasm3 | wasm.md Pins | unknown | unknown |
-| L-wasm4 | wasm.md Runtime patch | unknown | unknown |
+| L-wasm3 | wasm.md Pins | pass | Build.emsdk/gitTree pins, manifest ordering, githash/libuv checks + curl/git stall args + pin-wasm/renovate recipes read; wasm-manifest plant fires named mismatch rc=1; Tests.Wasm native/pure green. |
+| L-wasm4 | wasm.md Runtime patch | pass | Pinned runtime git diff cmp byte-equals sole runtime patch (rc=0), all four compatibility hunks match law; engine-panic plant fires differential stderr check rc=1. Historical upstream/measurement claims not independently replayed. |
 | L-wasm5 | wasm.md Allocator | reviewer-50-F4 | Build.link currently passes -sMALLOC=mimalloc, headers omit LEAN_MIMALLOC; dlmalloc plant is accepted by owning engine-build check. No firing allocator-policy assertion (nofire-wasm.py). |
-| L-wasm6 | wasm.md Link contract | unknown | unknown |
+| L-wasm6 | wasm.md Link contract | pass | Binary allowedImports/requiredExports + Build.unexpectedWarnings + C bridge + worker/loader lists agree; actual module ABI inspected; wasm-import + wasm-warning plants fail with named causes; native Wasm unit checks green. |
 | L-wasm7 | wasm.md Determinism | reviewer-50-F5 | Source sorts app/Init and preserves runtime order; relative flags/object hash + CFGDIR + mtime=0 agree. mtime=None plant still builds; no reproducibility check compares clean folders (nofire-wasm.py). |
 | L-wasm8 | wasm.md CI cache | reviewer-50-F2 | Current CI key/cache scope/weekly bypass/partial restore match rule; planted omission of FvtraceWasm/** + WasmMain.lean → workflows+fanout rc=0; no firing cache-shape check (nofire-cache.py). |
-| L-wasm9 | wasm.md Probes | unknown | unknown |
+| L-wasm9 | wasm.md Probes | pass | Private-copy gate-probe wasm engine: manifest/import/warning/build-step + panic plants all fire rc=1; response-file finally removes link list; whole selected 30-probe run rc=0 (probes.log). |
 | L-web1 | web.md Display only | pass | Judgment: app groups + circuit/conditions + panels inspector/work/experiments/plan consume engine final, verdict, summary, lists and rankings; display transformations only, no re-derived engine judgment. |
 | L-web2 | web.md Request law | F24, F37–F41 | app.js ask/evaluation/load/loadDetails/readHash + worker reviewed; known idle error, fatal shape, action pending-view, hash question, detail-view gaps. |
 | L-web3 | web.md Record problem | F27, F42 | cannotShow + .unavailable + gui.spec.js: active tour stays; history can restore old envelope before a new one (known). |
 | L-web4 | web.md Responsiveness | F26, F43–F45, F50 | app.js/renderBoard/find + lazy.js + panels.js + responsive.spec.js: known eager Needed-by, text highlight, duplicate titles, focus window + find lookup gaps. |
 | L-web5 | web.md DOM sinks | pass | js-lint oxlint --type-aware --deny-warnings web; .oxlintrc no-restricted-properties; planted document.body.innerHTML assignment fires HTML-string sink rc=1 (static-plants.log); CSP clause covered by F19 row. |
 | L-web6 | web.md No build + types | pass | web/tsconfig strict+noUncheckedIndexedAccess+exactOptionalPropertyTypes; JS modules no bundler; unknown-property plant → tsc rc=1, fetched-any plant → oxlint no-unsafe-assignment rc=1. |
-| L-web7 | web.md Chromium | unknown | unknown |
+| L-web7 | web.md Chromium | pass | playwright.config browserName=chromium, no default executablePath; CI installs chromium-headless-shell; baseline logs launch .cache/ms-playwright/chromium_headless_shell-1248 (actual bundled Chromium), CHROME remains optional override. |
 | L-web8 | web.md e2e limits | F34, F36 | Configured 90s/default + 300s/smoke + 600s/engine match law; planted hang fires actual 90000ms timeout. Known load-threshold floor + interrupted-load cleanup defects F34/F36; no loaded-host rerun here. |
-| L-web9 | web.md Palette | unknown | unknown |
+| L-web9 | web.md Palette | pass | tests/palette tables + CSS pairings reviewed; gate js-test uses culori Machado + OKLab all-pairs, 4.5/3/15/8 floors; palette-contrast plant fires conductor-on-paper rc=1 in own copy. |
 | L-web10 | web.md Selectors | pass | js-lint stylelint selector-max-id=0 + specificity=0,2,1 fires planted #reviewer-50-probe rc=2; existing display-setting hidden controls .working/.find*/.work/.tour-spot checked for hidden rules. |
 | L-web11 | web.md Selectable text | unknown | unknown |
 | L-web12 | web.md Startup | unknown | unknown |
-| L-web13 | web.md Verdict words | unknown | unknown |
+| L-web13 | web.md Verdict words | pass | Tests.Assets asserts all four words vs State.verdict, assets-verdict-words plant fires rc=1; panels.togetherWith takes engine gaps minus row fact and handles final-state wording (judgment reviewed); gui.spec work-row assertions match. |
 | L-web14 | web.md Fonts | reviewer-50-F1 | CSS has cap trimming + tabular nums, but no alignment test sets ≥2 fonts; entire tests/tools/Tests source search has 0 DejaVu/fontFamily hits; text-box:none plant passes stylelint rc=0. |
-| L-web15 | web.md Tour | unknown | unknown |
+| L-web15 | web.md Tour | F25 | Tour.target/place + expectTourClear walk tests read; desktop→above→beside/shrunk + phone dock implemented. Synthetic two-size walk passed; feature-fixture walk timed out at 90s under 56.43/8 load. Known tall-target overlap F25. |
 | L-fast1 | fast.md Equality proofs | pass | Spec.Fast + Proofs.Agree/Lookups/Json; lean-build kernel fires on all three false-conjoined equality plants (lean-plants.py); actual native 1,001,225 differential comparisons + base suite green. |
 | L-fast2 | fast.md Cost traps | F47 | Receipt.BindingIndex, ClaimMemo.needs, forest closures + plan memoAt reviewed; known Snapshot.answer rebuilds immutable binding index on cached details (F47). |
 | L-fast3 | fast.md Pair projections | pass | Judgment: rewrite-sensitive pair lambdas in Spec.Fast + Proofs.Agree/Answers/Lookups/Positions + Json use projections or rewrite locally; native build proof artifacts + 1834-check suite green. |
-| L-fast4 | fast.md Evidence | unknown | unknown |
+| L-fast4 | fast.md Evidence | F21 | compare/scale code reviewed; own probes compare+scale all fire (30 selected total, rc=0), including diff/timeout/rc/wall/ratio/RSS/bytes/serve/page/GUI bounds. Known untested false-pass paths F21 remain; no idle timing run. |
 | L-author-server | server.md Authoring | F19, reviewer-50-F6 | 6 quoted scope globs parse + match tracked files; dense live law + why, recipes named; known stale 413/fixed-header law F19; explicit user-rulings date remains (F6). |
 | L-author-wasm | wasm.md Authoring | reviewer-50-F3 | Dense live build law + reasons; recipes are pin/probe scripts; 13 quoted scope globs parse + match tracked files. No dates/origin story finding; link-guarantee overstatement already F3. |
 | L-author-web | web.md Authoring | reviewer-50-F6 | 3 quoted scope globs parse + match tracked files; direct agent law, committed tools named; explicit user-ruling date + old setup event remain (F6). |
