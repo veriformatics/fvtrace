@@ -2,9 +2,9 @@
 
 | id | commit sha | red command → output (short) | green command → result | sweep | status |
 |---|---|---|---|---|---|
-| F24 | unknown | unknown | unknown | unknown | unknown |
-| F37 | unknown | unknown | unknown | unknown | unknown |
-| F38 | unknown | unknown | unknown | unknown | unknown |
+| F24 | 353de5d | `playwright test export.spec.js --grep 'idle Worker'` → 2 failures, empty notice | same → 2 pass; fast gate + e2e rc 0 (235.5s, 65 pass) | both Worker failure events + idle/pending call guards | fixed |
+| F37 | 353de5d | `playwright test export.spec.js --grep 'fatal .*engine answer'` → 3 failures (superseded shape/invalid, invalid details) | same → 3 pass; fast gate + e2e rc 0 | evaluation/details/pairs decoded before queue release; no post-failure calls | fixed |
+| F38 | 353de5d | `playwright test export.spec.js --grep 'invalid JSON in the recorded'` → no damage notice | same → pass; fast gate + e2e rc 0 | data-block parse + export decode in damage handler | fixed |
 | F39 | unknown | unknown | unknown | unknown | unknown |
 | F40 | unknown | unknown | unknown | unknown | unknown |
 | F41 | unknown | unknown | unknown | unknown | unknown |
