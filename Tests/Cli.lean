@@ -193,6 +193,18 @@ def readTests : TestM Unit := do
     unless System.Platform.isWindows do
       checkEq "read: a device is never read" (codes (← at_ 10 "/dev/null"))
         ["unreadable: not a regular file"]
+      let loop := dir / "loop.json"
+      let linked ← symlink loop loop
+      check "read: a looping trace link can be made" linked
+      let result ← Fvtrace.Session.readWithin 10 { trace := loop, project := dir, entry := dir }
+        false
+      check "read: an unreadable implicit trace is not reported absent"
+        (result matches .error (.unreadable ..))
+      unlink loop
+      let result ← Fvtrace.Session.readWithin 10 { trace := loop, project := dir, entry := dir }
+        false
+      check "read: an absent implicit trace is reported absent"
+        (result matches .error (.noTrace ..))
     let big := dir / "big.bin"
     IO.FS.writeBinFile big (ByteArray.mk (Array.replicate 1048586 7))
     checkEq "read: a prefix past one chunk stops at its length"

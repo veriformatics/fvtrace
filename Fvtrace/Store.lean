@@ -29,6 +29,15 @@ def absolute (base : System.FilePath) (p : String) : System.FilePath :=
 def envVar (name : String) : IO (Option String) := do
   return (← IO.getEnv name).filter (!·.isEmpty)
 
+/-- `pathExists` treats every metadata error as absence; unreadable paths must keep their error. -/
+def pathPresent (path : System.FilePath) : IO Bool := do
+  try
+    let _ ← path.metadata
+    return true
+  catch e =>
+    if e matches .noFileOrDirectory .. then return false
+    throw e
+
 /-- Per user and machine: entries are keyed by absolute paths, so a roaming profile would only
 carry orphans. -/
 def platformData : IO (Except String System.FilePath) := do
@@ -76,7 +85,7 @@ def projectJson (project : System.FilePath) : Value := .obj [("path", .str proje
 /-- The project's data-folder entry, created with its `project.json` when absent. -/
 def Target.ensureEntry (t : Target) : IO Unit := do
   IO.FS.createDirAll t.entry
-  unless ← (projectFile t.entry).pathExists do
+  unless ← pathPresent (projectFile t.entry) do
     IO.FS.writeFile (projectFile t.entry) (projectJson t.project).pretty
 
 /-- The project recorded beside a trace in the data folder, if `file` is one. -/

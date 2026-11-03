@@ -593,10 +593,20 @@ def boundaryTests : TestM Unit := withFixture fun f => do
     actual.pretty
   write f.trace one
   if !System.Platform.isWindows then
+    -- A symlink loop is unreadable even for root; existence probes collapse it into absence.
+    IO.FS.removeFile logPath
+    let linked ← symlink logPath logPath
+    check "notices boundary: a looping log link can be made" linked
+    let (rc, out, _) ← f.run ["verify", "--log"]
+    check "notices boundary: an unreadable log is an I/O error, not empty history"
+      (rc == 2 && !has out "No replay has run") out
+    unlink logPath
+    let (rc, out, _) ← f.run ["verify", "--log"]
+    check "notices boundary: an absent log is empty history"
+      (rc == 0 && has out "No replay has run for this project yet.") out
     -- A trace reached through a link is logged by its real path.
     let alias := f.dir / "alias.json"
     let _ ← IO.Process.output { cmd := "ln", args := #["-s", f.trace.toString, alias.toString] }
-    IO.FS.removeFile logPath
     let _ ← capture (Cli.runIn { home := f.home, cwd := f.project }
       ["verify", "--run", "--trace", alias.toString])
     let event := (← f.log).getD 0 .null
