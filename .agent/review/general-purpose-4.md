@@ -46,4 +46,3 @@ None. Inherited fast-gate lint blocker resolved through MAIN's directive: cherry
 - Needs MAIN = none; unwritten scope = none. Intent / `CLAUDE*.md` / `.claude/agents/` edits = none.
 
 general-purpose-4-DONE-2
-
