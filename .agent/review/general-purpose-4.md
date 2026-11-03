@@ -1,12 +1,12 @@
-# Trust closure + claim discovery fixes
+# Trust audit + replay-cache fixes
 
 | id | commit sha | red command → output (short) | green command → result | sweep | status |
 | --- | --- | --- | --- | --- | --- |
 | F30 | `3a613b2` | `offload run --local -- bash tools/gate-probe.sh trust` @3957c87 + new probes → `trust-ctor: DID NOT FIRE (rc=0)`, 27 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); closing fast gate rc=0 (175.2 s), after MAIN's baseline lint repair | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | fixed |
 | F35 | `3a613b2` | same @3957c87 + new probes → `trust-alias`, `trust-alias-def`, `trust-alias-irreducible: DID NOT FIRE (rc=0)`, 26 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); closing fast gate rc=0 (175.2 s), after MAIN's baseline lint repair | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | fixed |
-| F71 | unknown | unknown | unknown | unknown | unknown |
+| F71 | unknown | `trust_cache` @3a613b2 + new probes → rc=1, 3 pass/2 fail (changed + missing consumer both helper rc=0); reviewer-43 live witness adapted to own worktree → trust skips rc=0, forced statements fail 0/12 | unknown | Single `replay_key` + main caller; native path matches `statements`; key law in ops.md | unknown |
 
-## Mechanism
+## F30/F35 mechanism
 
 - F30 → proof escape closure shares `meaningDeps` with statement closure/fingerprints: types + definition values + inductive constructors. Referenced recursors receive the generic type traversal; referenced `casesOn` definitions receive type/value traversal. Inference from the dependency contract: no reverse edges from an inductive to unused eliminators are needed. Its constructor signatures determine its meaning; generated recursor reduction is within Lean's trusted kernel, while unused `casesOn` code is outside the statement's dependency closure. Theorem bodies remain unwalked; `collectAxioms` remains unchanged.
 - F35 → `Meta.whnf` with transparency `.all`, then `Sort 0` classification. `abbrev`, ordinary `def` + irreducible aliases cannot hide claims; declaration-kind filtering still separates claims from theorem/equation proofs.
@@ -15,7 +15,7 @@
 - Completed probes: `bash tools/gate-probe.sh trust capability replay_policy trust_cache` → rc=0, 17 passed/0 failed. Includes all original trust plants, four new plants, capabilities, replay policy + cache controls.
 - LSP coverage unavailable for `.lean`; actual Lean compilation validates API/type correctness. `shellcheck -x tools/gate-probe.sh` + `git diff --check` → rc=0 (plain standalone shellcheck needed source following; the gate supplies every shell file as an input).
 
-## Verification
+## F30/F35 verification
 
 - `bash tools/trust.sh` → rc=0. Lean default, Lean paranoid, lean4lean, nanoda, con-leche + con-ron all accept 26 proofs; 12/12 self-trace statement replays pass.
 - Second `bash tools/trust.sh` → rc=0, replay skipped for new passing key `dcd23fbbed7f3c2417bff914fcde6eca723cb46e2620e5f80c3ce59b6ab30be1`. Old/new key comparison → `cmp` rc=1 (expected difference); recomputed key vs passing record → `cmp` rc=0. `tools/trust.sh:40` still hashes `TrustMain.lean`.
@@ -26,9 +26,16 @@
 
 None. Inherited fast-gate lint blocker resolved through MAIN's directive: cherry-picked `e1fbcf7` as `d7d9dc8` (the access test alone). Original failure: `tests/e2e/access.spec.js:160:14 eslint(no-await-in-loop)`; parent/worktree SHA-256 before repair both `7ecba9060f9f1f97d7c8472486c161bc357e5597cb8b9bdc1d99b5d51240af85`. The first fast gate was bundled into a heavy run; the closing rerun runs DIRECT as instructed. No grading check changed. Closing `bash tools/fast-gate.sh` → rc=0, 175.2 s, every listed stage passes (1834 native + 779 pure checks, 64 JS tests). Evidence: `green-fast-gate-final.log` + `.rc` in the evidence folder above.
 
-## Delivery
+## F30/F35 delivery
 
 - Branch `wt/general-purpose-4`; own fix `3a613b2c3a0adcae828f443f2590b6915b0ed9b6`; separate parent `d7d9dc8` = MAIN's baseline lint fix `e1fbcf7`.
 - Own changes: `TrustMain.lean` (normalized claim types + shared constructor-aware closure); `tools/gate-probe.sh` (four regression plants); `.claude/rules/lean.md` (document normalized types + constructor dependencies + probe invocations). `tools/trust.sh` unchanged.
 - Intent / `CLAUDE*.md` / `.claude/agents/` edits = none. Full gate/CI remains MAIN's integration check.
+
+## F71 mechanism + evidence
+
+- Key adds SHA-256 of `.lake/build/bin/fvtrace`, exactly the program `statements` runs. Full binary = all CLI/Replay/receipt/codec modules without an error-prone module list. Main returns nonzero when a required key input cannot be hashed.
+- Regression targets = `trust_cache`: mutate consumer bytes → prior key must miss; remove consumer → key generation must fail. Existing hit/export-change/no-record controls remain unchanged. Target files restored + re-hashed by the probe harness.
+- Red live witness = reviewer-43's `red-trust-key.py`, with only scratch/tree bindings redirected to owned paths; `/home/eturkes/Projects/fvtrace/.scratch/fix/general-purpose-4/f71-live-red.py`. Unfixed `Replay.reasons` comparator plant yields trust rc=0 + `skipped`; forced statements rc=1, 0/12 pass. Source + native binary restored byte-identically; library restore build passed.
+- Red logs: `f71-red-live.log`, `f71-red-probes-final.log` + corresponding `.rc` in the evidence folder. Green targeted controls: `bash tools/gate-probe.sh trust_cache replay_policy` → rc=0, 8 passed/0 failed; `shellcheck -x tools/trust.sh tools/gate-probe.sh` → rc=0. Full live green witness + closing verification pending.
 
