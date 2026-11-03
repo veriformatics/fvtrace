@@ -1,3 +1,4 @@
 # Lead directives (re-read after each row / commit)
 
 - Fixers: your report lives at /home/eturkes/Projects/fvtrace/.agent/review/<name>.md in the PRIMARY tree (allowed, unstaged), never in your worktree.
+- Fixers: the fast gate + single tests run DIRECT (machine rule: "Fast gates + single tests run direct"); offload/heavy slots are for full gates, suites over the whole repo, mutation campaigns. Never wait on a slot for the fast gate.
