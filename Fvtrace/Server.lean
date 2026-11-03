@@ -49,6 +49,9 @@ structure Reply where
   body : ByteArray := .empty
   headers : List (String × String) := []
 
+def Reply.withView (r : Reply) (view : String) : Reply :=
+  { r with headers := r.headers ++ [("X-Fvtrace-View", view)] }
+
 def csp : String :=
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; " ++
   "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; " ++
@@ -187,22 +190,21 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
         | .ok o =>
           let l' := { l with scenario := { l.scenario with overrides := o } }
           pure (l', ← Session.viewOf l')
-        | .error m => return problemReply (.badAction m)
+        | .error m => return (problemReply (.badAction m)).withView v0
       | none => pure (l, v0)
     let A := answersAt l' v
     let text := match st.last with
       | some (v', _, t) => if v' == v then t else none
       | none => none
     set { st with trace := some (key, tr, prep), last := some (v, A, text) }
-    let tagged := fun (rep : Reply) =>
-      { rep with headers := rep.headers ++ [("X-Fvtrace-View", v)] }
+    let tagged := fun (rep : Reply) => rep.withView v
     if view.any (· != v) then
       return tagged (problemJson .conflict "view"
         "The claims or their evidence changed, so this page shows them again.")
     match r.details with
     | some item => return match Evaluate.detailsWith l'.scenario A l'.digest l'.review item with
       | .ok d => tagged (json .ok d)
-      | .error m => problemReply (.badItem m)
+      | .error m => tagged (problemReply (.badItem m))
     | none =>
       let body := text.getD
         (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest l'.review).pretty.toUTF8
