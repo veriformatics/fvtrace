@@ -34,9 +34,11 @@ replay_policy() {
 
 # What decides a replay's outcome: the export (exactly what the kernels check + every definition a
 # claim's statement reads), the toolchain (which kernels), this script (which policy), and the
-# self-trace's statement replays (their pins, the fingerprint code). Arg: <export.ndjson>.
+# self-trace's statement replays (their pins, fingerprint code + receipt consumer). Hash the
+# executable so every module `verify --run` reaches participates. Arg: <export.ndjson>.
 replay_key() {
     { sha256sum <"$1" && lean --version && sha256sum <"${BASH_SOURCE[0]}" &&
+        sha256sum <.lake/build/bin/fvtrace &&
         cat examples/fvtrace/trace.json TrustMain.lean tools/statement.sh | sha256sum; } |
         sha256sum | cut -d' ' -f1
 }
@@ -79,7 +81,7 @@ main() {
     fi
 
     lake env leanexport Fvtrace -- "${proofs[@]}" >"$out/export.ndjson" || return 1
-    key="$(replay_key "$out/export.ndjson")"
+    key="$(replay_key "$out/export.ndjson")" || return 1
     if replay_cached "$out/replayed" "$key" >/dev/null; then
         printf 'trust: %d proofs; this export already passed every kernel + the self-trace statement replays (key %s): skipped\n' \
             "${#proofs[@]}" "${key:0:12}"

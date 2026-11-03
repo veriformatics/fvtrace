@@ -235,14 +235,20 @@ probe_replay_policy() {
     allow replay-optional-kernel-declines replay_policy "$log" 1
 }
 
-# The replay is skipped only for the very key that passed: an export one byte off, or no record,
-# replays.
+# A passing record covers export + receipt consumer bytes; a missing consumer cannot key a pass.
 probe_trust_cache() {
     local keyfile="$backup/replayed" export="$backup/export.ndjson" key
     printf '{"planted":1}\n' >"$export"
     key="$(replay_key "$export")"
     printf '%s\n' "$key" >"$keyfile"
     allow trust-cache-hit replay_cached "$keyfile" "$key"
+    keep .lake/build/bin/fvtrace
+    printf '\nplanted replay consumer\n' >>.lake/build/bin/fvtrace
+    expect trust-cache-changed-consumer 'replay needed' \
+        replay_cached "$keyfile" "$(replay_key "$export")"
+    keep .lake/build/bin/fvtrace
+    rm .lake/build/bin/fvtrace
+    expect trust-cache-missing-consumer 'fvtrace: No such file' replay_key "$export"
     printf '{"planted":2}\n' >"$export"
     expect trust-cache-changed-export 'replay needed' replay_cached "$keyfile" "$(replay_key "$export")"
     rm -f "$keyfile"
