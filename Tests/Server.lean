@@ -160,6 +160,17 @@ def answerTests : TestM Unit := do
       let r ← answer c cache kept none body
       checkEq s!"server: {body} refused" (r.status.toCode, problemKind r) (400, some kind)
     let first ← answer c cache kept none "{\"whatif\":\"\"}"
+    let refusedAction ← answer c cache kept (viewOf first)
+      "{\"whatif\":\"\",\"action\":\"missing\"}"
+    check "server: an evaluated action refusal carries its unexpanded view"
+      (refusedAction.status.toCode == 400 && problemKind refusedAction == some "action" &&
+        (viewOf first).isSome && viewOf refusedAction == viewOf first) (bodyText refusedAction)
+    for item in ["E9", "claim:missing", "fact:missing", "experiment:missing"] do
+      let refused ← answer c cache kept (viewOf first)
+        (Json.Value.obj [("whatif", .str ""), ("details", .str item)]).canonical
+      check s!"server: an evaluated item refusal carries its view ({item})"
+        (refused.status.toCode == 400 && (viewOf first).isSome &&
+          viewOf refused == viewOf first) (bodyText refused)
     let same ← answer c cache kept (viewOf first) "{\"whatif\":\"\",\"details\":\"fact:O2\"}"
     checkEq "server: details for the page's view" same.status.toCode 200
     let other ← answer c cache kept (some "00ff") "{\"whatif\":\"\",\"details\":\"fact:O2\"}"

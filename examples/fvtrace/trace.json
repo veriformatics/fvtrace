@@ -456,12 +456,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "2ad3a55edc548b3551acb73b91025ac21dc4ea5585bbf3f4096d43c40db0f111",
+            "sha256": "f557855b59eac0cdaa3edee7f1b08a7d1d497817ea0d87976933c789b3629a43",
             "role": "code"
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "f687899da8301c75dcab30c504d9c4854bb8c650963bebf57bd2e7989498965e",
+            "sha256": "2b5a57eb02dcb933d29f5ca5213475a91597ed5d661da624f00ec89daf5c89ad",
             "role": "tests"
           }
         ],
