@@ -188,6 +188,20 @@ def tests : TestM Unit := do
     let shown := ((out.splitOn "its error output ends with: ").getD 1 "").takeWhile (· != '\n')
     check "replay: a byte cut inside UTF-8 keeps every complete character of the tail"
       (shown.toString == "".pushn 'x' 4092 ++ "END") shown.toString
+    for (hex, fill) in [("e282ac", 4091), ("f09fa7ac", 4090)] do
+      Cli.writeTrace traceFile
+        (setReplay pinned "O1"
+          { command := fx [s!"errhex:{hex}", s!"fill:{fill}", "exit:3"], output := outputOf "O1" })
+      let (_, out, _) ← run ["verify", "--run"]
+      let shown := ((out.splitOn "its error output ends with: ").getD 1 "").takeWhile (· != '\n')
+      check "replay: a cut drops only the remainder of a three- or four-byte scalar"
+        (shown.toString == "".pushn 'x' fill ++ "END") shown.toString
+    Cli.writeTrace traceFile
+      (setReplay pinned "O1"
+        { command := fx ["errhex:7880", "fill:4092", "exit:3"], output := outputOf "O1" })
+    let (_, out, _) ← run ["verify", "--run"]
+    check "replay: truncation does not hide an orphan continuation byte"
+      (count out "its error output ends with: (not UTF-8)" == 1) out
     Cli.writeTrace traceFile
       (setReplay pinned "O1" { command := fx ["errhex:ff", "exit:3"], output := outputOf "O1" })
     let (_, out, _) ← run ["verify", "--run"]
