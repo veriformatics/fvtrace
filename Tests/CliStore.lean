@@ -21,6 +21,20 @@ def releaseWaiver : Waiver :=
 def filesystemTests : TestM Unit := do
   IO.FS.withTempDir fun dir => do
     let env : Store.Env := { home := dir / "home", cwd := dir }
+    -- Windows refuses a path past MAX_PATH (260) before fvtrace sees it, so such a project
+    -- cannot exist there.
+    let names := if System.Platform.isWindows then [] else ["".pushn 'a' 245, "".pushn '界' 81]
+    for name in names do
+      let project := dir / name
+      IO.FS.createDirAll project
+      let key ← Store.entryName project
+      check "store: a legal project basename leaves room for its data-entry digest"
+        (key.utf8ByteSize ≤ 255) s!"{key.utf8ByteSize} bytes"
+      let stem := if name.startsWith "a" then "".pushn 'a' 242 else "".pushn '-' 81
+      check "store: the bounded prefix keeps the existing basename sanitization"
+        (key.startsWith (stem ++ "-")) key
+      let (rc, _, err) ← capture (Cli.runIn env ["init", "--project", project.toString])
+      checkEq "store: a long legal project basename can be initialized" (rc, err) (0, "")
     if !System.Platform.isWindows then
       match ← Store.resolve env none none with
       | .error e => check "store: the looping trace target resolves" false e

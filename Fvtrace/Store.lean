@@ -57,13 +57,20 @@ def Env.detect : IO (Except String Env) := do
   if let some h ← envVar "FVTRACE_HOME" then return .ok { home := absolute cwd h, cwd }
   return (← platformData).map fun base => { home := base / "fvtrace", cwd }
 
-/-- `<folder name>-<12 hex digits of SHA-256 of its real path>`: readable, and distinct for
-same-named folders. -/
+/-- A 255-byte component leaves room for `-` + twelve digest digits. -/
+def entryPrefixBytes : Nat := 255 - 1 - 12
+
+/-- `<bounded folder name>-<12 hex digits of SHA-256 of its real path>`: readable + distinct for
+same-named folders; a short basename keeps its existing entry. -/
 def entryName (project : System.FilePath) : IO String := do
   let name := (project.fileName.getD "project").map fun c =>
     if c.isAlphanum || c == '-' || c == '_' || c == '.' then c else '-'
+  let mut stem := ""
+  for c in name.toList do
+    if stem.utf8ByteSize + c.utf8Size > entryPrefixBytes then break
+    stem := stem.push c
   let digest ← Digest.ofString project.toString
-  return s!"{name}-{String.ofList (digest.toList.take 12)}"
+  return s!"{stem}-{String.ofList (digest.toList.take 12)}"
 
 structure Target where
   /-- The trace a command reads (`pin` + `review` write it back). -/
