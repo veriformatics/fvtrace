@@ -33,7 +33,7 @@ const steps = [
     title: "Four verdicts",
     body: () => [
       p(
-        "Every claim gets one of four verdicts, set by its weakest fact. The key pairs each kind of fact with the verdict it gives and counts the claims in the whole analysis.",
+        "Every claim gets one of four verdicts, set by its weakest fact. The key pairs each kind of fact with the verdict it gives. Its counts cover claims about the existing analysis. Claims about new data are counted apart.",
       ),
       h(
         "ul",

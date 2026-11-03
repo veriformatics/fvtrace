@@ -664,3 +664,152 @@ test("a record problem ends the active tour", async ({ page }) => {
   await expect(page.locator(".tour-spot")).toHaveCount(0);
   await expect(page.locator(".tour-room")).toHaveCount(0);
 });
+/** @param {import("@playwright/test").Page} page @param {string} selector
+ * @param {string} kind @param {string} id @param {string} text */
+async function expectRowClick(page, selector, kind, id, text) {
+  const row = page.locator(selector).first();
+  await row.scrollIntoViewIfNeeded();
+  const point = await row.evaluate((el) => {
+    const node = [...el.childNodes].find(
+      (n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim(),
+    );
+    if (!node?.textContent) throw new Error("no plain text on the row");
+    const range = document.createRange();
+    range.setStart(node, 0);
+    range.setEnd(node, Math.min(node.textContent.length, 12));
+    const r = range.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator("#inspector h2")).toHaveText(text);
+  expect(new URLSearchParams(new URL(page.url()).hash.slice(1)).get("select")).toBe(
+    `${kind}:${id}`,
+  );
+  await page.evaluate(() => history.replaceState(null, "", "#"));
+  await page.reload();
+  await row.getByRole("button", { name: id, exact: true }).first().press("Enter");
+  await expect(page.locator("#inspector h2")).toHaveText(text);
+  await page.evaluate(() => history.replaceState(null, "", "#"));
+  await page.reload();
+}
+
+for (const width of [1280, 390])
+  for (const row of ["blocker", "check"])
+    test(`${row} rows open from their text at ${width}px`, async ({ page }) => {
+      web = await serveFvtrace("fixture", (t) => {
+        const facts = t["facts"];
+        /** @type {unknown} */
+        const o2 = Array.isArray(facts)
+          ? facts.find((f) => isRecord(f) && f["id"] === "O2")
+          : undefined;
+        const claims = t["claims"];
+        /** @type {unknown} */
+        const c1 = Array.isArray(claims) ? claims[0] : undefined;
+        if (!isRecord(o2) || !isRecord(c1)) throw new Error("missing fixture rows");
+        o2["status"] = "violated";
+        c1["level"] = "release";
+      });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await page.goto(web.url);
+      await card(page, "C1").waitFor();
+      if (row === "blocker")
+        await expectRowClick(
+          page,
+          "#blocker-list .plain-row",
+          "fact",
+          "O2",
+          "The marker rises in treated samples.",
+        );
+      else
+        await expectRowClick(
+          page,
+          "#check-list .plain-row",
+          "claim",
+          "C1",
+          "The contrast is the treatment effect.",
+        );
+    });
+
+for (const kind of ["overlooked", "new-data"])
+  test(`${kind} groups keep the engine's verdict order`, async ({ page }) => {
+    const served = await serveFvtrace("fixture", (t) => {
+      const facts = t["facts"];
+      const claims = t["claims"];
+      if (!Array.isArray(facts) || !Array.isArray(claims)) throw new Error("missing fixture lists");
+      for (const [id, subject] of [
+        ["MR", "N"],
+        ["SR", "S"],
+      ])
+        facts.push({
+          id,
+          subject,
+          kind: "result",
+          route: "runtime-checker",
+          status: subject === "N" ? "open" : "checked",
+          text: "The recorded result holds.",
+          evidence: {
+            summary: "A checker receipt.",
+            artifacts: [{ path: "proofs/Contrast.lean" }],
+            verifier: "Checker",
+            statement: "result holds",
+          },
+        });
+      claims.push(
+        {
+          id: "C4",
+          subject: "N",
+          question: "Q1",
+          level: "descriptive",
+          needs: ["MR"],
+          restates: true,
+          text: "The checked new-cohort result holds.",
+        },
+        {
+          id: "C5",
+          subject: "S",
+          question: "Q1",
+          level: "descriptive",
+          needs: ["O2"],
+          restates: true,
+          text: "An open direction.",
+          latent: true,
+        },
+        {
+          id: "C6",
+          subject: "S",
+          question: "Q1",
+          level: "descriptive",
+          needs: ["SR"],
+          restates: true,
+          text: "A checked direction.",
+          latent: true,
+        },
+      );
+    });
+    web = served;
+    /** @type {unknown} */
+    const envelope = JSON.parse(
+      fvtrace(["eval", "--whatif", "MR=checked"], served.project, served.env),
+    );
+    const claims = isRecord(envelope) ? envelope["claims"] : undefined;
+    /** @type {Map<string, string>} */
+    const states = new Map();
+    for (const c of Array.isArray(claims) ? claims : [])
+      if (isRecord(c) && typeof c["id"] === "string" && typeof c["final"] === "string")
+        states.set(c["id"], c["final"]);
+    expect([states.get("C6"), states.get("C5"), states.get("C4"), states.get("C3")]).toEqual([
+      "can",
+      "open",
+      "can",
+      "open",
+    ]);
+    await page.goto(`${web.url}&whatif=MR%3Dchecked`);
+    const title = kind === "overlooked" ? "Overlooked directions" : "On new data: New cohort";
+    const group = page
+      .locator("#board .group")
+      .filter({ has: page.locator(".group-title").filter({ hasText: title }) });
+    await group.scrollIntoViewIfNeeded();
+    await expect(group.locator(".claim-head .tag-id")).toHaveText(
+      kind === "overlooked" ? ["C6", "C5"] : ["C4", "C3"],
+    );
+  });

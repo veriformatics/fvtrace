@@ -490,6 +490,7 @@ main {
 .claim-head,
 .experiment-row,
 .work-item,
+.plain-row,
 .text-row {
   cursor: pointer;
 }

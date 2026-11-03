@@ -678,7 +678,7 @@ function togetherWith(ix, w, on) {
 export function blockerRow(b, ix, on) {
   return h(
     "li",
-    { class: "plain-row" },
+    { class: "plain-row", onclick: clickToOpen(() => on.select("fact", b.fact)) },
     ref("fact", b.fact, on),
     ` ${factText(ix, b.fact)} `,
     h("small", { class: "list-meta" }, "Blocks ", refs("claim", b.claims, on), "."),
@@ -691,7 +691,12 @@ export function checkRow(l, on) {
   const rest = l.message.startsWith(`${l.claim} `)
     ? l.message.slice(l.claim.length)
     : ` ${l.message}`;
-  return h("li", { class: "plain-row" }, ref("claim", l.claim, on), rest);
+  return h(
+    "li",
+    { class: "plain-row", onclick: clickToOpen(() => on.select("claim", l.claim)) },
+    ref("claim", l.claim, on),
+    rest,
+  );
 }
 
 /** A group's heading + count; an untitled group has none. @param {string} title @param {number} n */
