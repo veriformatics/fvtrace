@@ -9,9 +9,9 @@ Target = `48bc51d`, `/home/eturkes/Projects/fvtrace/.scratch/review-base`. Check
 | S-readme | README: The trace (+ Results, exclusions) + data folder | reviewer-35-F1, reviewer-35-F4 | Schema bytes equal; model/receipt/subject/exclusion text checked against kernel + Spec; replay-cycle.sh confirms failed/passed notice lifecycle, reviewed+can retained, log contents, no implicit replay; same-size+mtime edit gives cached can / rehashed open as disclosed; synthetic project byte-unchanged. Unpinned-output failure contradicts the notice promise. |
 | S-readme | README: Sharing + coding agent + verifies itself + Limits + Development | reviewer-35-F3; existing F21 | Page holds whole trace + recorded view + 487,472-B engine; bundle trace/artifacts match; native + exported stacked what-if C2 Conditional. Self-trace 7 can / 2 open confirmed. Spec/Proofs/trust key/differential + scale/compare branches read. Skill-compliance guarantee exceeds plain instructions; grader overpromise already ledgered F21 (not re-reported). |
 | S-readme | SECURITY.md | pass | Non-exploit consistency pass: bodyCap = maxTraceBytes + 1024; export/source worker + named policy + inline assets match; build verifies each fetched input and replay is opt-in. Supported-version policy = declared policy, not a historical guarantee. Boundary/exploit judgments remain MAIN's; GitHub reporting-tab route not visited (unconfirmed). |
-| S-readme | `fvtrace --help` + CLI messages met | unknown | unknown |
-| S-readme | spec.md Artifacts (paths + run commands) | unknown | unknown |
-| S-readme | human-facing register (README, SECURITY, --help) | unknown | unknown |
+| S-readme | `fvtrace --help` + CLI messages met | reviewer-35-F1, reviewer-35-F2; existing F13, F14 | Captured complete --help rc 0 and every driven command's stdout/stderr/rc; usage lines match implemented options/defaults/projections. Notice promise needs its unpinned-output exception; two reached errors omit remedies; existing exit-code defects not re-reported. |
+| S-readme | spec.md Artifacts (paths + run commands) | pass | All 52 concrete file/dir/executable paths exist; all 3 retired tags resolve; Lake targets/testDriver/source imports match. Built binary --help/--version + documented CLI commands driven here. MAIN baseline.md B3 reports no-op lake build, help rc 0 + CI lake test green; not independently rebuilt/retested here. Development full gate/probes/timings remain baseline-owned. |
+| S-readme | human-facing register (README, SECURITY, --help) | reviewer-35-F2 | Read all three surfaces; README + SECURITY natural/direct, condition-first instructions + fixed terms; help terse but intelligible. Filler count = 0 in every surface (positive control expected=1, actual=1). Reached CLI errors need remedies; no additional per-surface register finding. |
 
 ## Findings
 
@@ -62,8 +62,25 @@ Target = `48bc51d`, `/home/eturkes/Projects/fvtrace/.scratch/review-base`. Check
 ## Register
 
 - `README.md:255` (`so no other program on this`) → security → MAIN.
-- `README.md:138` / Limits: no README disclosure of the 20-relevant-experiment exact-plan limit; CLI itself discloses it and claims no optimum (`Cli.lean:795–796`), so this is a documentation completeness entry, not an unsound computed result.
+- `README.md:137` / Limits: no README disclosure of the 20-relevant-experiment exact-plan limit; CLI itself discloses it and claims no optimum (`Cli.lean:790–791`), so this is a documentation completeness entry, not an unsound computed result.
 
 ## Coverage / unconfirmed claims
 
-Review in progress.
+- Complete read = README (every section/table/example), SECURITY, full help, all stdout/stderr logs from `drive.sh` + the replay probes. Source/contract review = kernel.md, Decisions, rules, Cli/Store/Replay/Export, Spec Engine + Fast, trust/statement/scale/compare scripts, Lake/workflow/build-pin surfaces. Bounded `rg` searches were navigation, not a sampled README read.
+- Runtime = `drive.sh` (35 named invocation results), `replay-cycle.sh` (20 lifecycle/cache invocation results), two red scripts above; all fvtrace invocations set the brief's isolated FVTRACE_HOME. `skills install` deliberately used `--dir <scratch>/skills`; all serve runs used `--port 0 --no-browser` rather than the README's desktop opener/default-port form, per BRIEF. No claim of independently testing the actual opener or SSH forwarding.
+- Source/runtime checks confirm 7 Fully supported + 2 Pending self-claims; synthetic 3 claims (2 existing + 1 prospective); its C2 plan E1+E4; notices preserve reviewed/can, strict detects them, passing run clears them; logs retain argv/stderr; cached same-size+mtime edit misses the change, uncached read detects it. Schema bytes = emitted schema. Bundle trace + both artifacts = source; export snapshot = whole source trace, engine block = 487,472 bytes. Synthetic project compared byte-unchanged after CLI/serve/export.
+- BrowserOS own page 239: real served view, exact statement, C2 details + waiver + plan, O3 find→details, symbol suppose→reset, Text, tour→Esc; exported file page stacks O2/O3/EN2 and reads C2 Conditional, with 0 external script/stylesheet links. Inspected screenshot retained at `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-35/recorded-browser.jpg`. Exported interactive page left open for inspection.
+- Unconfirmed here: fresh compilation, full/native/pure/gate/probe/engine/e2e suites and reference-host timings (MAIN baseline owns them); clean downloads + released-archive checks/attestation; Windows/macOS installation/floors, macOS quarantine, Windows archive's approximate 700-MB size; Safari Lockdown behavior; external GitHub Security-tab/reporting UI. Looked at pins, release/build source, the local Linux archive, kernel.md evidence, and MAIN's baseline B3/B7; these are not substitute claims of running the other platforms. `tools/pin-wasm.sh` not rerun (network + pin rewrite outside this read-only review).
+- Existing findings consumed, not duplicated: F13/F14 (exit-contract exceptions), F21 (grader can accept failing outputs/session status). The brief's four explicit known exclusions were left out. Security observations are routed to MAIN alone.
+- Cleanup: owned serve PID 1261483 killed (rc 0); its tool background command ended 143 as expected. Port 38563 then refused (`curl` rc 7). Final `pgrep -af '[f]vtrace serve.*reviewer-35'` found none (rc 1); the earlier positive-control listing identified its exact PID. No target/source edits, builds, commits, branch operations or nested agents.
+
+## Primary-source excerpts — coding-agent path claim
+
+Official pages checked in own BrowserOS tabs; quotes are the page's text, not model paraphrases. These establish local skill discovery, not guaranteed agent compliance (F3).
+
+- Codex, `https://learn.chatgpt.com/docs/build-skills`: `USER` → `$HOME/.agents/skills` (table entry); `Codex reads skills from repository, user, admin, and system locations.`
+- Gemini CLI, `https://geminicli.com/docs/cli/skills/`: `User skills: Located in ~/.gemini/skills/ or the ~/.agents/skills/ alias.`
+- GitHub Copilot, `https://docs.github.com/en/copilot/concepts/customizations/agent-skills`: `Personal skills, stored in your home directory and shared across projects (~/.copilot/skills or ~/.agents/skills)`.
+- Cursor, `https://cursor.com/docs/skills`: `~/.agents/skills/` → `User-level (global) on the local machine` (table entry); `For compatibility, Cursor also loads skills from Claude and Codex directories: .claude/skills/, .codex/skills/, ~/.claude/skills/, and ~/.codex/skills/.` Cloud/remote caveat on the same page = local home skills are not automatically copied; README describes the local program/agent setup.
+
+reviewer-35-DONE-1

@@ -2,7 +2,7 @@
 
 | row | target | verdict | basis |
 |---|---|---|---|
-| F-serve | GUI access (bind, opener, redirect page, link lines, Host, --host) | unknown | unknown |
+| F-serve | GUI access (bind, opener, redirect page, link lines, Host, --host) | pass | `node …/reviewer-47/native.mjs` rc 0: same ephemeral port answers IPv4 + IPv6; four allowed Hosts 200, other Host 421; assets without credential; fake opener success/failure + private 0700 redirect + fallback lines; SSH/WSL/no-display suppress opener; concrete `--host` link + Host. Default 8718 = `Cli.lean:935`. |
 | F-serve | login proxy (--token-file, output, credential order, relative route, JSON only) | unknown | unknown |
 | F-serve | Sharing (export --html offline, --bundle round trip) | unknown | unknown |
 | F-serve | Engine speed + Capability first (named limits, on-request computation) | unknown | unknown |

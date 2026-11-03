@@ -38,7 +38,7 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-32 | K-gui-b | 3 | harvested |
 | reviewer-33 | K-gate | 3 | harvested |
 | reviewer-34 | K-scale + K-release | 3 | harvested |
-| reviewer-35 | S-readme | 4 | running |
+| reviewer-35 | S-readme | 4 | harvested |
 | reviewer-36 | S-skill | 4 | harvested |
 | reviewer-37 | S-spec | 4 | running |
 | reviewer-38 | S-comments-lean | 4 | running |
@@ -50,7 +50,7 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-44 | F-model | 4 | running |
 | reviewer-45 | F-cli | 4 | running |
 | reviewer-46 | F-gui | 4 | running |
-| general-purpose-1 | fixer: F4 F5 F6 F7 F8 F11 F12 F14 F15 F16 F17 F18 F20 (wt/general-purpose-1) | fix | running |
+| general-purpose-1 | fixer: F4 F5 F6 F7 F8 F11 F12 F14 F15 F16 F17 F18 F20 F56 (wt/general-purpose-1) | fix | running |
 | general-purpose-2 | fixer: F24–F27 F37–F45 (wt/general-purpose-2) | fix | running |
 | general-purpose-3 | fixer: F3 F21–F23 F28 F29 F31–F34 F36 (wt/general-purpose-3) | fix | running |
 | reviewer-47 | F-serve | 5 | running |

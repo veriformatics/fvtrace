@@ -3,7 +3,7 @@
 | row | target | verdict | basis |
 |---|---|---|---|
 | V-lean-kernel | codec tests (Json, Decode, Fields, Schema, Digest) | unknown | unknown |
-| V-lean-kernel | Tests/Check | unknown | unknown |
+| V-lean-kernel | Tests/Check | pass | Every WF rule has a negative witness; expected rule/path pairs derive from WF-*, restating cases extend WF-entail; assigned pure baseline 488/488. Known F6/F9 concern diagnostics/wording, not new findings. |
 | V-lean-kernel | Tests/Engine + Details | unknown | unknown |
 | V-lean-kernel | Tests/Differential (oracle independence) | unknown | unknown |
 | V-lean-kernel | Tests/Scale (bounds vs P-*) | unknown | unknown |
