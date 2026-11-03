@@ -6,14 +6,14 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 |---|---|---|---|
 | L-ops1 | Environment | pass | `lean-toolchain`, `.node-version`, `package.json`, fetch/build tools + CI provisioning read; local Lean/Node/pnpm versions agree; lock-version/digest vendor controls fire. Fresh-host install not run. |
 | L-ops2 | One gate + stages | finding F30, F35 | All STAGES entries/functions compared with bullet; runner control fails rc 7, still runs later stage, closes gate rc 1 + timings. Existing audit gaps F30/F35 remain. |
-| L-ops3 | unknown | unknown | unknown |
+| L-ops3 | CI gate script | pass | Own CI controls stub every git/gh command: green rc 0 + delete; dirty rc 2 + no push; watch failure rc 1 + branch kept. Workflow gate contains all shards + portability; no remote mutation. |
 | L-ops4 | Fresh bootstrap | finding reviewer-49-F4 | Tracked CI bootstrap agrees; local recipe is an inline multi-step recipe, not a committed bootstrap helper. Full fresh-host gate explicitly not run. |
 | L-ops5 | Fast gate | pass | Source + STAGES comparison: cheap stages fork, build/tests incremental, all omitted stages named; --e2e included conditionally. Gate-runner failure control fires; fast gate itself not run. |
 | L-ops6 | Probes | finding F29, F30, F35 | `gate-probe.sh` inventory read; own copy: 28 controls pass (probes.log); known dispatch/audit gaps retained, not re-reported. |
 | L-ops7 | Timing + parity | finding F21 | `scale.sh`, `compare.sh` contracts + existing red witnesses in F21; no reference-host timing run. |
 | L-ops8 | CI | finding F32 | All four workflows + Renovate read: triggers/platforms/SHA permissions/Python/cache agree; download hard bound gap = F32. |
 | L-lean1 | Layout + trust | finding F30, F35, reviewer-49-F1 | `TrustMain.lean` claims/proof/audit/allowlist read; constructor closure + reducible Prop alias gaps = known F30/F35; Spec imports Proofs + theorem plant also passes style/build/trust (new F1). |
-| L-lean2 | unknown | unknown | unknown |
+| L-lean2 | native_decide ban | pass | Own valid native_decide theorem compiles; fvtrace-trust fails rc 1 with generated native_decide axiom (27 claims/1 finding). Script native-decide.log; initial fixture lacked unfold and was corrected before credit. |
 | L-lean3 | Total kernel | finding F30 | `partial` direct closure probe in trust group; inductive-constructor reach gap already F30. |
 | L-lean4 | Shipped imports | finding reviewer-49-F1 | `import Lean` planted in shipped Version.lean: style + Fvtrace build + trust all rc 0, 26 claims/0 findings; no firing import-boundary check. |
 | L-lean5 | Test layout/harness | pass | `Tests.lean`, Harness, Cli/CliStore/Assets wiring read; harness red: false + exception → 2 FAIL rows, next area runs, slowest three + rc 1; pure-FFI probe fires. |
@@ -26,7 +26,7 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 | L-deps3 | Bump recipes | pass | pin-tool.sh platform selection/count/digest rewrite, pin-wasm.sh five archives + Lean/libuv manifest rewrite, vendor-hacl.sh check/verify inspected; vendor + lock half-bump controls fire. Large re-download recipes not run. |
 | L-deps4 | Lock consistency | pass | Own `gate-probe.sh locks`: tools one-line 99.0.0 + wasm one-line 99.0.0 both fire rc 1 with version mismatch (probes.log). |
 | L-deps5 | Runner label table | pass | `actionlint.yaml` declares only ubuntu-26.04(-arm); pinned actionlint 1.7.12 + release date read; own planted-label control fails rc 1 (actionlint-label.log). |
-| L-ren1 | RE2 validator | finding reviewer-49-F2 | Manual validator command is not a gate step; gate js-test uses JS RegExp. Planted unknown option + RE2-invalid lookbehind still passes all 64 js tests (rc 0). |
+| L-ren1 | RE2 validator | finding reviewer-49-F2 | Manual validator command is not a gate step; gate js-test uses JS RegExp. Planted invalid option + RE2-invalid lookbehind still passes all 64 js tests (rc 0). |
 | L-ren2 | Local lookup | finding reviewer-49-F4 | Rule supplies a multi-command local lookup/log-extraction recipe instead of a committed helper; live lookup not run (Renovate not project-pinned). |
 | L-rel1 | Platform build | pass | `build.yml` all four target pairs → build/test/package (package checks at once); gate portability reusable call; release input disables cache. |
 | L-rel2 | Publish + installed | finding F23 | release.yml job order/permissions/green-main gate/attest/download OS matrix/read-only dispatch/dry branch agree; archive-name guard gap = F23. |
@@ -36,7 +36,7 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 | L-rel6 | Release probe | pass | Own release group: package control passes, digest/version/license/glibc plants fire (28/28 combined controls). macOS/Windows plants not run on Linux. |
 | L-ex1 | Example strict checks | pass | Gate examples function resolves own/synthetic project roots + check --strict; stale-receipt plant fires rc 1; baseline release synthetic strict check passes. |
 | L-ex2 | Re-pin changes | pass | Strict examples stage rejects appended proof line (rc 1), restores it; pin command exists and receipt artifacts agree; re-pin sequencing/commit obligation = process, not additional target behavior. |
-| L-ex3 | unknown | unknown | unknown |
+| L-ex3 | README self-trace verdicts | finding reviewer-49-F3 | Native claims .final + acceptanceTests agree: 7 can, C2/C7 open. README count Seven→Eight leaves 6/6 acceptance checks passing; absent README relation check. |
 | L-ex4 | unknown | unknown | unknown |
 | L-ex5 | Stale receipt probe | pass | Own gate-probe.sh examples: examples-stale-receipt fires rc 1 on appended Plan.lean line, restored by checksum. |
 | A-ops | Authoring: ops.md | finding reviewer-49-F4 | Repo-wide gate law stays bare; compact live stage contract + rationale; fresh-host inline install && gate recipe lacks a committed wrapper. |
@@ -71,9 +71,10 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 
 ### reviewer-49-F3 — minor — no firing README synchronization check
 
-- Target: `tools/release.sh:61,151`; contract `.claude/rules/release.md:15` (README floor table moves with code) + CLAUDE Engineering deterministic checks; self-trace wording coverage under L-ex3 is checked separately.
+- Target: `tools/release.sh:61,151`; contract `.claude/rules/release.md:15` (README floor table moves with code) + CLAUDE Engineering deterministic checks; `.claude/rules/examples.md:14` (README verdicts = acceptanceTests = engine).
 - `release.sh` copies README and checks its presence, not its promised floors. Current README says glibc 2.17/macOS 15 and matches the code; a false lower promise still produces a passing release archive.
 - Red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/red-enforcement.py readme-floor` → rc 1: `README glibc floor 2.16 vs script 2.17: release check rc=0`; `release: fvtrace-0.1.0-linux-x86_64.tar.gz passed`; `AssertionError: FAIL no firing check: release package/check ships a README promising a lower glibc floor`.
+- Self-trace red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/lean-extra.py readme-verdict` → rc 1: `README says Eight vs actual Seven: acceptanceTests rc=0`; `6/6 checks passed`; `AssertionError: FAIL no firing check: self-trace acceptance tests do not check the README verdict claim`. Exact text anchor = `Seven of its claims read` (`README.md:310`); frozen native `claims --json` gives seven `.final = "can"` and C2/C7 `"open"`, matching Tests/Engine.lean:451–454.
 - Control = own `gate-probe.sh release`: package passes; real lowered binary floor fails, alongside digest/version/license plants (probes.log). Thus this is the absent README relation, not a broken archive checker.
 - Fix direction: one gate check ties README's floor values to release constants (and self-trace verdict counts to their evaluated rows); plant wrong floor/count text.
 

@@ -9,7 +9,7 @@ Check set fixed: verification integrity per BRIEF.md + LENSES.md § V; target te
 | V-lean-shell | Cli + CliStore + Args + Assets tests | reviewer-41-F2; known F13/F18 | CLI projection expectations call the production projector + key list; deleting contract-required `trace` leaves native suite 1834/1834. Skill refusal rc 1 + nonexistent-question silent filtering meet already-recorded F13/F18. Args and Assets fixed vectors/embed equality otherwise hold. |
 | V-lean-shell | Server tests | pass (known F19/F20 gaps) | Fixed status/body-cap/request-shape/rehash/view expectations + CLI-byte parity; injected I/O fault runs on root/Windows too. Native baseline 1834/1834. Base tests do not pin F19 framing or F20 refused-item view header. |
 | V-lean-shell | Export + Wasm tests | reviewer-41-F3; known F15/F56 | Export RFC base64 vectors, independent text expectations, snapshot/session byte parity + bundle round trip hold; cleanup/oversized-bundle gaps meet F15/F56. Wasm fixtures + expected lengths reuse production lists; deleting required `fvtrace_load` leaves pure Wasm 56/56 green while a missing-load module passes. |
-| V-lean-shell | tests/cli/smoke.sh (incl. the empty-folder lead) | reviewer-41-F1 | Exact source predicate tested: added file → rc 1; added empty directory → rc 0. Full smoke not rerun; the exact unchanged-folder predicate is sufficient for this witness and needs no server. |
+| V-lean-shell | tests/cli/smoke.sh (incl. the empty-folder lead) | reviewer-41-F1 | Full unmodified smoke: copied binary baseline rc 0; added-file binary wrapper → smoke rc 1; added-empty-directory wrapper → smoke rc 0 (`cli smoke: ok`). Exact predicate witness agrees. Every run's server query found 0 owned servers. |
 | V-lean-shell | wiring + history | pass | All target entry points under Tests.pure/native, TestMain → Tests.all, Lake testDriver, gate lean-test/lean-pure + cli. Every 13-file `git log 48bc51d -p --follow -- FILE` captured (7,203 lines); all 66 deletion hunks adjudicated. Retired v1/ABI cases replaced per V-*/E-state. Guard coverage + history rulings below. |
 
 ## reviewer-41-F1 — project write check ignores empty directories
@@ -26,6 +26,19 @@ added empty directory: unchanged-folder check rc=0 (expected 1)
 AssertionError: FAIL: smoke project-integrity predicate accepts an added empty directory
 ```
 
+- Full-stage witness: `env -u DISPLAY -u WAYLAND_DISPLAY python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-41/red-full-smoke.py MODE` (`MODE` = `baseline`, `file`, `directory`). Unmodified `smoke-tree/tests/cli/smoke.sh`; wrapper execs only `smoke-tree/.lake/build/bin/fvtrace`. Each invocation uses smoke's temporary `FVTRACE_HOME`; its private fake `xdg-open` is first on the serve path. Both display variables are unset in the driver + outer shell.
+
+```text
+baseline: full smoke rc=0; wrapper calls=28
+cli smoke: ok
+file: full smoke rc=1; wrapper calls=28
+FAIL project folder unchanged: … ./fvtrace-planted-file …
+directory: full smoke rc=0; wrapper calls=28
+cli smoke: ok
+AssertionError: FAIL: full smoke stays green despite a binary that creates a project directory
+```
+
+- Driver rc: baseline 0, file 0 (expected smoke refusal observed), directory 1 (red). Logs: `smoke-full-{baseline,file,directory}.log`, `smoke-full-directory-red.log`, wrapper-call inventories `smoke-plants-*.log`. After **each** run, `pgrep -af '[f]vtrace serve'` showed peer-owned servers but none under `reviewer-41/smoke-tree/`; peers left untouched (`smoke-file-servers.log`, `smoke-directory-servers.log`).
 - Fix direction: inventory entry paths + types as well as file digests; ship an empty-directory planted-write probe beside the existing file-write control.
 
 ## reviewer-41-F2 — CLI projection oracle reuses the implementation
@@ -75,7 +88,7 @@ AssertionError: FAIL: checker accepts a missing E-build export while Tests.Wasm.
 - History: 13 complete per-file `git log 48bc51d -p --follow -- FILE` logs → 66 deletion hunks in `history-deletions.txt`, all read; wiring history checked separately. Changes = helper centralization, named verdict / must-verify rulings, new default port/token protocol, v1 route retirement, snapshot + Worker schema cutover, obsolete `fvtrace_evaluate` / stateless snapshot hook retirement under E-state, clock-boundary allowance. No dropped target test or time-limit increase found. `c88ecfc` body explicitly records approval for the I/O-plant change + its old firing and new catch-removal witness; the new injected fault runs on every uid/OS.
 - Guards: `Replay.lean:142` skips process-group kill on Windows because § Replay explicitly supports process-alone there; single-process timeout still runs. `Cli.lean:193` skips `/dev/null` on Windows; regular-file + exact-size + growing-prefix tests remain; Linux smoke adds FIFO/device/64-GiB binary cases. `Notices.lean:595` POSIX linked-log path test: general path/link behavior remains in cross-platform helper-backed CliStore/Receipt/Export tests (Windows execution not rerun here). `CliStore.lean:178-190` can skip a real `[::1]` refusal when binding fails; pure `Cli.bindTests` uses an injected busy-v6 binder to exercise retry/stop logic, baseline emitted no skip. Smoke's GNU-stat/FIFO/opener block = Linux-only; pure platform opener mapping covers macOS/Windows names, but no Windows/macOS runtime run performed here.
 - Historical credit: 54 unique test-touch commit bodies scanned; 46 contain red/mutation/approval evidence (`history-credit.txt`). Fresh mutation credit + survivor adjudication belongs to V-mutation; no campaign rerun here.
-- Coverage limits: Linux only; no Windows/macOS, browser, CI, full gate, full shell-smoke or whole interpreted TestPure rerun. Compiled native baseline runs every target test. Wasm pure suite rerun interpreted (56/56) as the targeted oracle probe. LSP hover on `Tests/CliStore.lean:138` returned `No LSP server available for file type: .lean`; source reads + actual Lean builds supplied semantic checks.
-- Cleanup: both planted sources restored byte-equal (`cmp` rc 0). Private build copy + data home removed after quiescence; red scripts recreate the copy on demand. Only report + reproducible probe inputs / outputs retained. No target source, instruction, configuration or Git mutation; no nested agents, full gate or mutation campaign; no owned native/server process remains.
+- Coverage limits: Linux only; no Windows/macOS, real browser, CI, full gate or whole interpreted TestPure rerun. Full shell-smoke baseline + both planted wrappers run; opener = private fake alone. Compiled native baseline runs every target test. Wasm pure suite rerun interpreted (56/56) as the targeted oracle probe. LSP hover on `Tests/CliStore.lean:138` returned `No LSP server available for file type: .lean`; source reads + actual Lean builds supplied semantic checks.
+- Cleanup: both planted sources restored byte-equal (`cmp` rc 0); original build copy + data home removed after the initial pass's quiescence. Resumed full-smoke copy hit `cp: …/tree/.lake/config: File exists`: MAIN identified its concurrent proof rerun, confirmed all three FAILs reproduced + all its processes ended, then directed discarding that copy before any later run. Discarded `tree` after a fresh process query found none; no later result used it. Full smoke used a distinct `smoke-tree`, then removed it + generated wrappers/temp/home after quiescence. Red scripts recreate their copies on demand. No target source, instruction, configuration or Git mutation; no nested agents, full gate or mutation campaign; no owned smoke native/server/opener process remains.
 
 reviewer-41-DONE-1

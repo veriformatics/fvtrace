@@ -41,10 +41,10 @@ Target = `48bc51d`, frozen `.scratch/review-base`; check set = L-srv1…9, L-was
 | L-fast2 | fast.md Cost traps | F47 | Receipt.BindingIndex, ClaimMemo.needs, forest closures + plan memoAt reviewed; known Snapshot.answer rebuilds immutable binding index on cached details (F47). |
 | L-fast3 | fast.md Pair projections | pass | Judgment: rewrite-sensitive pair lambdas in Spec.Fast + Proofs.Agree/Answers/Lookups/Positions + Json use projections or rewrite locally; native build proof artifacts + 1834-check suite green. |
 | L-fast4 | fast.md Evidence | unknown | unknown |
-| L-author-server | server.md Authoring | unknown | unknown |
+| L-author-server | server.md Authoring | F19, reviewer-50-F6 | 6 quoted scope globs parse + match tracked files; dense live law + why, recipes named; known stale 413/fixed-header law F19; explicit user-rulings date remains (F6). |
 | L-author-wasm | wasm.md Authoring | reviewer-50-F3 | Dense live build law + reasons; recipes are pin/probe scripts; 13 quoted scope globs parse + match tracked files. No dates/origin story finding; link-guarantee overstatement already F3. |
-| L-author-web | web.md Authoring | unknown | unknown |
-| L-author-fast | fast.md Authoring | unknown | unknown |
+| L-author-web | web.md Authoring | reviewer-50-F6 | 3 quoted scope globs parse + match tracked files; direct agent law, committed tools named; explicit user-ruling date + old setup event remain (F6). |
+| L-author-fast | fast.md Authoring | reviewer-50-F6 | 32 quoted scope globs parse + match tracked files; live performance/proof rules + script recipes; historical was-n² / held-40M wording retains origin story (F6). |
 
 ## Details
 
@@ -53,16 +53,48 @@ Target = `48bc51d`, frozen `.scratch/review-base`; check set = L-srv1…9, L-was
 - Target: `.claude/rules/web.md:23` → `tests/e2e/`, `web/style.css:548–550`.
 - Contract: L-web14; rule explicitly requires an alignment check under the default + DejaVu Sans. `CLAUDE.md` Engineering requires a firing gate check for tool-decidable law.
 - Anchor: `an alignment check measures under ≥ 2 fonts` (`rg -Fn` matches rule line 23).
-- Proof: exhaustive source search over `tests/`, `Tests/`, `tools/` finds no `DejaVu` or `fontFamily`; only CSS + its comments name `text-box`. Existing `getBoundingClientRect` e2e uses measure tour overlap/headline selection, not font alignment. Positive control = the rule's single `DejaVu Sans` hit, rc 0. `python3 -I .scratch/review/reviewer-50/static-plants.py` plants `.cap-trim { text-box: none; }`; `pnpm exec stylelint web/style.css` returns 0. No multi-font alignment owner exists in the gate stage list.
+- Proof: exhaustive source search over `tests/`, `Tests/`, `tools/` finds no `DejaVu` or `fontFamily`; only CSS + its comments name `text-box`. Existing `getBoundingClientRect` e2e uses measure tour overlap/headline selection, not font alignment. Red command: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-50/red-font.py`; output `positive control: rule names DejaVu Sans=True` / `font-switch check files=[]; disabled cap trim stylelint rc=0` / `AssertionError: no firing check: required two-font alignment test is absent; disabled cap trimming passes stylelint`; rc 1. The script restores its `.cap-trim { text-box: none; }` plant. No multi-font alignment owner exists in the gate stage list.
 - Fix direction: add a bundled-Chromium alignment test that measures both named fonts; plant misalignment and record its firing. CSS implementation currently conforms; missing check is the finding.
 
 ### reviewer-50-F2 — minor — CI engine-cache shape has no firing check
 
-- Target: `.github/workflows/gate.yml:69`; `.claude/rules/wasm.md:25`.
+- Target: `.github/workflows/gate.yml:69`; `.claude/rules/wasm.md:27`.
 - Contract: L-wasm8 + deterministic-check law. Current key includes all required inputs, but nothing checks that invariant.
 - Anchor: `hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean')` matches workflow line 69. Rule anchor: `whatever renames every object or marker`.
 - Red witness: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-50/nofire-cache.py` removes `FvtraceWasm/**` + `WasmMain.lean` from the key in the private copy, runs the gate's actual `workflows` (zizmor + actionlint) + `fanout` functions, restores the file. Output: `No findings to report. Good job!` / `workflows+fanout rc=0` / `AssertionError: no firing check: the engine cache key omits both build-tool inputs, but workflows + fanout accept it`; witness rc 1.
 - Fix direction: gate a parsed cache contract (key inputs + path exclusion + skip/partial-restore policy), with a failing-key probe. Current workflow is not the stale side; enforcement is missing.
+
+### reviewer-50-F3 — minor — link success does not enforce the source-closure ban
+
+- Target: `.claude/rules/wasm.md:21`; `FvtraceWasm/Build.lean:409–425` (compilation/link + binary contract, no source-closure assertion).
+- Contract: L-wasm2: every module in Snapshot's closure stays off Std + FFI; parenthetical claims that any `@[extern]` there fails the link.
+- Anchor: `an \`@[extern]\` there fails the link` matches the rule at line 21.
+- Red witness: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-50/nofire-wasm.py` appends `@[extern "fvtrace_reviewer50_unprovided"] opaque reviewer50UnusedForeign (n : Nat) : Nat` to the closure's `Fvtrace/Receipt/Basic.lean`, alongside the F4/F5 plants, then runs the owning `nice -n 10 lake build FvtraceEngine`. Output: `Build completed successfully (40 jobs).` / `engine-build rc=0` / `AssertionError: no firing check: a closure module contains @[extern], the allocator is dlmalloc, and gzip uses wall-clock mtime; engine build accepted all three`; witness rc 1. Link section GC drops an unused foreign declaration; link success alone cannot decide this source invariant.
+- Fix direction: check the transitive module closure for forbidden imports/foreign declarations, plant an unused foreign declaration in its probe; replace the rule's overstated link-guarantee explanation. Current source closure is compliant, not an FFI-use defect.
+
+### reviewer-50-F4 — minor — allocator policy has no firing check
+
+- Target: `FvtraceWasm/Build.lean:312`; `.claude/rules/wasm.md:24`.
+- Contract: L-wasm5: link with Emscripten mimalloc, Lean's own mimalloc path off; deterministic-check law.
+- Anchor: `"-sSTACK_SIZE=1MB", "-sMALLOC=mimalloc"` matches Build line 312.
+- Red witness: same `nofire-wasm.py`; replacing `-sMALLOC=mimalloc` with valid `-sMALLOC=dlmalloc` does not fail the engine build (rc 0). `Tests/Wasm.lean` + Binary.problems check the ABI, source manifests + parsing, not the allocator flag; the gate names no allocator-policy check.
+- Fix direction: expose/check compile-link policy as data and gate its allocator choice, with a dlmalloc plant. Current flag is correct; missing enforcement is the finding. Allocator timing percentages were not remeasured.
+
+### reviewer-50-F5 — minor — reproducibility has no firing check
+
+- Target: `FvtraceWasm/Build.lean:325`; `.claude/rules/wasm.md:26`.
+- Contract: L-wasm7: two clean builds in different folders give identical bytes; deterministic-check law.
+- Anchor: `gzip.compress(data, 9, mtime=0)` matches Build line 325.
+- Red witness: same `nofire-wasm.py`; `mtime=0` → `mtime=None` makes gzip carry current wall-clock time, yet the engine build accepts it (rc 0). The gate's assets check checks each embed against its own current file; the differential checks answers, not build-byte identity. No gate stage compares independent builds or compressed metadata.
+- Fix direction: add a reproducibility check with independent output folders (or equivalent decomposed invariants), and a timestamped-compression probe. Existing sorting + path-independent keys + mtime=0 look conformant; two clean production builds were not run in this review.
+
+### reviewer-50-F6 — minor — rules retain provenance instead of live law
+
+- Targets: `.claude/rules/server.md:13`, `.claude/rules/web.md:12–13`, `.claude/rules/fast.md:40`.
+- Contract: Authoring: state rules/facts plainly; omit dates + origin stories; keep rules as live law + the reason a fresh reader needs.
+- Exact anchors, each rematched with `rg -Fn`: server `user rulings 2026-11-01`; web `user ruling 2026-11-01`; fast `it was n² per scenario` + `the chain third of prereqs held 40 M positions`. Web also narrates a former `O(n)` setup that `put a 134,196-need claim's selection at 0.46 s`.
+- These fragments identify a ruling date or an earlier failed implementation, not a current action/constraint. Scope YAML is otherwise sound: 6/13/3/32 quoted globs for server/wasm/web/fast parsed with Prettier's YAML parser; every glob matches a tracked file (scopes.mjs).
+- Fix direction: remove ruling dates; express complexity/storage constraints in present terms, retaining only measurements that explain a live bound. Preserve the actual law + its why; history belongs in commits.
 
 ## Register
 
