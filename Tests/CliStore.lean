@@ -63,6 +63,14 @@ def labelTests : TestM Unit := do
     check "cli: plan and claims keep the prospective creator and every engine qualifier"
       (rc == 0 && planned.startsWith (label ++ "\n") && count claimed label == 1)
       (planned ++ claimed)
+    for extra in [[], ["--json"]] do
+      let (rc, out, err) ← run (["claims", "--question", "NOPE"] ++ extra)
+      check "cli: an unknown question is named as a usage error on every output form"
+        (rc == 2 && out.isEmpty && err.startsWith "fvtrace: no question \"NOPE\"\n") err
+    let (rc, out, err) ← run ["claims", "--question", "Q1", "--json"]
+    check "cli: a question filter cannot be silently ignored by a JSON projection"
+      (rc == 2 && out.isEmpty &&
+        err.startsWith "fvtrace: give --question or --json, not both\n") err
 
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do

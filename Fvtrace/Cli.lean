@@ -545,10 +545,13 @@ def review (env : Store.Env) (args : List String) : IO UInt32 := do
 /-! ## Evaluation commands -/
 
 def evalSpec (positional : Nat) : Args.Spec :=
-  { valued := located ++ ["--whatif", "--action", "--question"], switches := ["--json", "--cached"],
+  { valued := located ++ ["--whatif", "--action"], switches := ["--json", "--cached"],
     positional := [positional] }
 
-/-- `eval` also takes `--details ITEM` + `--complete`. -/
+def claimsSpec : Args.Spec :=
+  { evalSpec 0 with valued := (evalSpec 0).valued ++ ["--question"] }
+
+/-- `eval` also takes `--details ITEM` + `--complete`; it always emits JSON. -/
 def evalOnlySpec : Args.Spec :=
   { evalSpec 0 with valued := (evalSpec 0).valued ++ ["--details"],
                     switches := (evalSpec 0).switches ++ ["--complete"] }
@@ -628,8 +631,11 @@ def claimLine (A : Answers) (review : Receipt.ReviewState) (c : Claim) : String 
   s!"{c.id} {(A.final c).verdict}{tail}: {A.sentence c}"
 
 def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
-  withLoaded env args 0 fun p l => do
+  withLoaded env args 0 (spec := claimsSpec) fun p l => do
     let sc := l.scenario
+    if let some id := p.value? "--question" then
+      unless sc.trace.questions.any (·.id == id) do return ← usageError s!"no question \"{id}\""
+      if p.has "--json" then return ← usageError "give --question or --json, not both"
     if p.has "--json" then
       IO.print (project (envelopeOf l) (projectionKeys ++ ["subjects", "counts", "claims"])).pretty
       return 0
@@ -1105,7 +1111,10 @@ def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
   match args with
   | ["--version"] => IO.println s!"fvtrace {version}"; pure 0
   | ["--help"] | ["-h"] => IO.print usage; pure 0
-  | ["schema"] => IO.print Assets.traceSchema; pure 0
+  | "schema" :: rest =>
+    match rest with
+    | [] => IO.print Assets.traceSchema; pure 0
+    | arg :: _ => usageError s!"schema takes no arguments; unexpected argument \"{arg}\""
   | "init" :: rest => initCmd env rest
   | "path" :: rest => pathCmd env rest
   | "check" :: rest => check env rest
