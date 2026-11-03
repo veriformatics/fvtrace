@@ -613,3 +613,36 @@ test("a selected focused card reordered outside its lazy window stays mounted", 
   await expect(card(page, "C290")).toHaveClass(/selected/);
   await expect(control).toBeFocused();
 });
+test("a work row mounts its long Needed by list on demand", async ({ page }) => {
+  web = await serveScale("hub", 300);
+  const url = new URL(web.url);
+  const token = new URLSearchParams(url.hash.slice(1)).get("token");
+  const response = await page.request.post(new URL("api/answer", url).href, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { whatif: "" },
+  });
+  /** @type {unknown} */
+  const envelope = await response.json();
+  /** @type {unknown} */
+  const work = isRecord(envelope) ? envelope["work"] : undefined;
+  /** @type {unknown} */
+  const hub = Array.isArray(work) ? work.find((w) => isRecord(w) && w["fact"] === "H") : undefined;
+  expect(isRecord(hub) && Array.isArray(hub["gates"]) ? hub["gates"].length : -1).toBe(300);
+  await page.goto(web.url);
+  await page.locator("article.circuit").first().waitFor();
+  const row = page.locator('.work-item:has([data-key="work:H"])');
+  await row.waitFor({ state: "attached" });
+  expect(await row.evaluate((el) => el.getBoundingClientRect().top > innerHeight)).toBe(true);
+  const refs = row.locator('[data-key^="ref:claim:"]');
+  expect(await refs.count()).toBeGreaterThan(0);
+  expect(await refs.count()).toBeLessThanOrEqual(40);
+  await expect(row.locator(".lazy-end:not([hidden])")).toHaveCount(1);
+  await expect(row).toContainText("Needed by C0, together with F0 and E0.");
+  await expect
+    .poll(async () => {
+      await refs.last().focus();
+      return refs.count();
+    })
+    .toBe(300);
+  await expect(row).toContainText("Needed by C299, together with F299 and E299.");
+});
