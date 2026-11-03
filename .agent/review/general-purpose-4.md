@@ -4,6 +4,7 @@
 | --- | --- | --- | --- | --- | --- |
 | F30 | `3a613b2` | `offload run --local -- bash tools/gate-probe.sh trust` @3957c87 + new probes → `trust-ctor: DID NOT FIRE (rc=0)`, 27 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); closing fast gate rc=0 (175.2 s), after MAIN's baseline lint repair | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | fixed |
 | F35 | `3a613b2` | same @3957c87 + new probes → `trust-alias`, `trust-alias-def`, `trust-alias-irreducible: DID NOT FIRE (rc=0)`, 26 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); closing fast gate rc=0 (175.2 s), after MAIN's baseline lint repair | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | fixed |
+| F71 | unknown | unknown | unknown | unknown | unknown |
 
 ## Mechanism
 
@@ -31,4 +32,3 @@ None. Inherited fast-gate lint blocker resolved through MAIN's directive: cherry
 - Own changes: `TrustMain.lean` (normalized claim types + shared constructor-aware closure); `tools/gate-probe.sh` (four regression plants); `.claude/rules/lean.md` (document normalized types + constructor dependencies + probe invocations). `tools/trust.sh` unchanged.
 - Intent / `CLAUDE*.md` / `.claude/agents/` edits = none. Full gate/CI remains MAIN's integration check.
 
-general-purpose-4-DONE-1
