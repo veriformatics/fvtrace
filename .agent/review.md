@@ -70,15 +70,15 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 |---|---|---|
 | K-codec | M-codec | F46 (reviewer-26) |
 | K-check | M-check | F46 (reviewer-26) |
-| K-engine | M-engine | unknown |
-| K-fast | M-fast | unknown |
+| K-engine | M-engine | F54 (reviewer-27) |
+| K-fast | M-fast | F54 (reviewer-27) |
 | K-receipt | M-receipt | F47 (reviewer-28) |
 | K-eval | M-eval | F47 (reviewer-28) |
 | K-cli | M-cli | F48 (reviewer-29) |
 | K-server | M-server | F49 (reviewer-30) |
 | K-export | M-export | F49 (reviewer-30) |
 | K-gui-a | M-gui-a | F50 (reviewer-31) |
-| K-gui-b | M-gui-b | unknown |
+| K-gui-b | M-gui-b | F55 (reviewer-32) |
 | K-gate | M-gate | F51 (reviewer-33) |
 | K-scale | M-scale | F52 (reviewer-34) |
 | K-release | M-release | F52 (reviewer-34) |
@@ -88,7 +88,7 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 | id | surface | verdict |
 |---|---|---|
 | S-readme | `README.md`, `SECURITY.md`, every command's `--help`, `.agent/spec.md` `Artifacts` vs behavior | unknown |
-| S-skill | `skill/fvtrace/*` + `fvtrace skills show`, `examples/fvtrace/trace.json` texts (claims, facts, receipts' statements) vs the theorems + code they name | unknown |
+| S-skill | `skill/fvtrace/*` + `fvtrace skills show`, `examples/fvtrace/trace.json` texts (claims, facts, receipts' statements) vs the theorems + code they name | F53 (reviewer-36; 12 statement fingerprints replayed equal) |
 | S-spec | `Fvtrace/Spec/*` docstrings + `kernel.md` proved/tested labels + `units.md` evidence vs the Lean statements, `fvtrace-trust` coverage + tests | unknown |
 | S-comments-lean | comments + docstrings in `Fvtrace/` (shipped), `FvtraceWasm/`, `Tests/`, `TrustMain.lean`, `lakefile.lean` vs the code they describe | unknown |
 | S-comments-other | comments in `web/`, `tools/`, `c/` (not `c/hacl/`), `.github/workflows/`, `tests/` (JS + shell) vs the code they describe | unknown |
@@ -277,3 +277,6 @@ Clauses outside this lens (bind process, not a tracked file): `CLAUDE.md` Collab
 | F50 | K-gui-a | minor | reviewer-31 F1–F7 | Cleanup: selection workflow duplicated; inert class on the board feed; six decoder fields no consumer reads; duplicated e2e selectors; unused test type alias; find rows rescan questions instead of the per-envelope lookups (`web.md` U-lookups); legacy-only history branch inside the shared loader (Altitude) | anchors rerun (MAIN script) | open | merged / removed; e2e green |
 | F51 | K-gate | minor | reviewer-33 F1–F6 | Cleanup: fast-gate metadata repeats computable state; the full gate runs independent read-only stages serially that the fast gate already parallelizes (every check kept); probe result lifecycle implemented twice; `mutate.mjs --list` writes + restores the source (red: `python3 -I .scratch/review/reviewer-33/red-list-readonly.py`); portable SHA helper repeated; identical TS compiler policy in two configs | anchors rerun (MAIN script) | open | merged; gate prints the same stages + rcs; `--list` leaves the source untouched (mtime) |
 | F52 | K-scale, K-release | minor | reviewer-34 F1–F4 | Cleanup: compare.sh duplicates its comparison/witness pipeline; the 12-shape catalog copied into scale.sh + compare.sh; scale-gui forks the e2e server lifecycle; the page-engine CI bootstrap (Python + cache + partial restore) copied across gate.yml + build.yml | anchors rerun (MAIN script) | open | one definition each; actionlint + zizmor green; cache keys unchanged |
+| F53 | S-skill | minor | `skill/fvtrace/SKILL.md:43`; `skill/fvtrace/references/trace-format.md:3`; `examples/fvtrace/trace.json:6`, `:475` | Text says more than the code + Decisions: SKILL "A change to the trace content after a review makes the review stale" omits the replay-notice exception (Decisions Review); trace-format "Absent arrays mean empty" covers required arrays too (D-shape: only the optional ones default); self-trace summary "Six claims rest on Lean proofs" (seven read Fully supported, README:310); T2 "Without --cached, fvtrace reads every evidence file again" (only recorded-verified records bind + read; reviewer-36 strace: an open fact's artifact opened 0 times) | reviewer-36-F1..F4: anchors `rg -Fn` at 48bc51d (MAIN rematch: lines 43, 3, 6, 475) | open | each sentence matches the code; self-trace re-pinned (T2 wording); sweep README for the same "every evidence file" claim |
+| F54 | K-engine, K-fast | minor | reviewer-27 F1–F7 | Cleanup: duplicate lexicographic recursion; three unused proof helpers (`coreSpec`, `reaches_le`, `mem_dedupRef`); delta helpers reimplemented in the forest layer; memo initialization repeats computed verdict inputs; shifts scan the full touched set once per subject; `StepOut` stores a second copy of its node's row; fixture helpers spread across suites | reviewer-27 report (lemma inventory: 360 declarations searched) | open | merged / removed; proofs + `fvtrace-trust` unchanged in claims; `compare.sh` old vs new = 0 differing |
+| F55 | K-gui-b | minor | reviewer-32 F1–F5 | Cleanup: repeated reference-button factory; unused lazy-list accessor; stale / ineffective stylesheet rules; vertical diagrams defined twice; one caller's style flag inside the list mechanism (Altitude) | anchors rerun (MAIN script) | open | merged / removed; e2e + stylelint + axe green; screenshots unchanged |
