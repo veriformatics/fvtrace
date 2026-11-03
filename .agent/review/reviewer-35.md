@@ -5,10 +5,10 @@ Target = `48bc51d`, `/home/eturkes/Projects/fvtrace/.scratch/review-base`. Check
 | row | target | verdict | basis |
 |---|---|---|---|
 | S-readme | README: intro + verdicts + Install + Build from source | pass | Read every statement; v0.1.0 + Lean 4.35 match binary/pin; archive names/floors match release.sh + build.yml; local emsdk archive 311,791,988 B, engine block 487,472 B. Cross-platform install + fresh compilation not independently rerun (coverage below). |
-| S-readme | README: Quick start + browser view + Commands | pass | drive.sh: fresh init/path/pin/check/claims/review; synthetic projections/details/complete/action/what-if; exports + colleague bundle check all rc 0; BrowserOS page 239: exact statement, C2 details, suppose/reset, Text + tour verified. Exit-contract exceptions already ledgered F13/F14; omitted eval/subcommand help excluded by brief. |
-| S-readme | README: The trace (+ Results, exclusions) + data folder | reviewer-35-F1 | Schema bytes equal; model/receipt/subject/exclusion text checked against kernel + Spec; replay-cycle.sh confirms failed/passed notice lifecycle, reviewed+can retained, log contents, no implicit replay; same-size+mtime edit gives cached can / rehashed open as disclosed; synthetic project byte-unchanged. Unpinned-output failure contradicts the notice promise. |
-| S-readme | README: Sharing + coding agent + verifies itself + Limits + Development | unknown | unknown |
-| S-readme | SECURITY.md | unknown | unknown |
+| S-readme | README: Quick start + browser view + Commands | existing F13, F14 | drive.sh: fresh init/path/pin/check/claims/review; synthetic projections/details/complete/action/what-if; exports + colleague bundle check all rc 0; BrowserOS page 239: exact statement, C2/fact details, suppose/reset, Text, find + tour verified. The universal exit-status wording is contradicted by existing ledger F13/F14 (not re-reported); omitted eval/subcommand help excluded by brief. |
+| S-readme | README: The trace (+ Results, exclusions) + data folder | reviewer-35-F1, reviewer-35-F4 | Schema bytes equal; model/receipt/subject/exclusion text checked against kernel + Spec; replay-cycle.sh confirms failed/passed notice lifecycle, reviewed+can retained, log contents, no implicit replay; same-size+mtime edit gives cached can / rehashed open as disclosed; synthetic project byte-unchanged. Unpinned-output failure contradicts the notice promise. |
+| S-readme | README: Sharing + coding agent + verifies itself + Limits + Development | reviewer-35-F3; existing F21 | Page holds whole trace + recorded view + 487,472-B engine; bundle trace/artifacts match; native + exported stacked what-if C2 Conditional. Self-trace 7 can / 2 open confirmed. Spec/Proofs/trust key/differential + scale/compare branches read. Skill-compliance guarantee exceeds plain instructions; grader overpromise already ledgered F21 (not re-reported). |
+| S-readme | SECURITY.md | pass | Non-exploit consistency pass: bodyCap = maxTraceBytes + 1024; export/source worker + named policy + inline assets match; build verifies each fetched input and replay is opt-in. Supported-version policy = declared policy, not a historical guarantee. Boundary/exploit judgments remain MAIN's; GitHub reporting-tab route not visited (unconfirmed). |
 | S-readme | `fvtrace --help` + CLI messages met | unknown | unknown |
 | S-readme | spec.md Artifacts (paths + run commands) | unknown | unknown |
 | S-readme | human-facing register (README, SECURITY, --help) | unknown | unknown |
@@ -43,8 +43,21 @@ Target = `48bc51d`, `/home/eturkes/Projects/fvtrace/.scratch/review-base`. Check
 
 - Target: `README.md:287–289`. Contract: S claim soundness / guarantee-vs-claim; Intent = ensure nothing overstated.
 - Anchor: `The agent never marks a fact verified without evidence, and it never` → README:288 (`rg -Fn` matched). The following line completes the promise: `signs off the trace: the review is yours.`
-- Proof: `Fvtrace/Cli.lean:823–837` installs ordinary instruction files + its marker; `skills show` prints those instructions (`Cli.lean:840–842`). `skill/fvtrace/SKILL.md:20` + `:22` instruct the agent not to record verified facts without evidence and not to run review. fvTrace never calls or controls that external agent. This establishes what the skill directs, not that the agent always complies. A runtime counterexample would require deliberately violating those instructions; none was attempted.
+- Proof: `Fvtrace/Cli.lean:823–837` installs ordinary instruction files + its marker; `skills show` prints those instructions (`Cli.lean:840–842`). `skill/fvtrace/SKILL.md:18` + `:20` instruct the agent not to record verified facts without evidence and not to run review. fvTrace never calls or controls that external agent. This establishes what the skill directs, not that the agent always complies. A runtime counterexample would require deliberately violating those instructions; none was attempted.
 - Fix direction: keep the boundary explicit: “The skill tells the agent never to mark … and never to sign off …”; retain the user's responsibility for review.
+
+### reviewer-35-F4 — minor — blanket rehash claim includes commands that read no evidence
+
+- Target: `README.md:186`. Contract: S claim soundness. kernel.md § Receipts carries the same overbroad “Artifacts are read + hashed on every command” wording; the actual command contracts distinguish evaluation/check from replay listing + review.
+- Anchor: `Each command reads every evidence file again` → README:186 (`rg -Fn` matched).
+- Why wrong: `verify` lists replay declarations after decoding/checking the trace and never binds receipts (`Cli.lean:448–515`); `review` hashes the trace content, not evidence files (`Cli.lean:517–540`). Evaluation commands and `check` do bind evidence. The README's universal wording falsely promises this read/rehash for the other commands too.
+- Red test: `bash /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-35/rehash-scope.sh` at `48bc51d` → rc 1. `strace -f -qq -e trace=openat` uses the same valid pinned fixture for the positive control and `verify`; an exact absolute-path match identifies its artifact:
+  ```text
+  positive control expected=1: check rc=0 artifact opens=1 (rg rc=0)
+  verify rc=0 artifact opens=0 (rg rc=1)
+  FAIL: README says each command reads every evidence file; verify does not open the valid trace's evidence.
+  ```
+- Fix direction: name the commands that recheck evidence; keep `verify`'s replay-only scope explicit. Align the matching kernel.md sentence through MAIN's ruling.
 
 ## Register
 

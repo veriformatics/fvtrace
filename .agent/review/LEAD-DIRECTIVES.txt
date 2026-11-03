@@ -1,3 +1,3 @@
-# Lead directives (re-read after each row)
+# Lead directives (re-read after each row / commit)
 
-(none yet)
+- Fixers: your report lives at /home/eturkes/Projects/fvtrace/.agent/review/<name>.md in the PRIMARY tree (allowed, unstaged), never in your worktree.

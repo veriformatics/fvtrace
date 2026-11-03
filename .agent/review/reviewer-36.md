@@ -76,7 +76,7 @@ AssertionError: T2 says every evidence file is read again; the open fact's pinne
 
 ## Register
 
-- `/home/eturkes/Projects/fvtrace/.scratch/review-base/examples/fvtrace/trace.json:451,705,1023` — T1/E7/C7 security → MAIN.
+- `/home/eturkes/Projects/fvtrace/.scratch/review-base/examples/fvtrace/trace.json:448,669,1016` — T1/E7/C7 security → MAIN.
 - Named-entailment ownership: existing F9 covers the contract's universal-vs-named scope; not re-reported. Known plan prospective qualifier + schema surrogate/UInt32 gaps excluded per brief.
 
 ## Coverage
@@ -86,6 +86,7 @@ AssertionError: T2 says every evidence file is read again; the open fact's pinne
 - `statements.py`: own reflink copy; each P1–P12's exact recorded `tools/statement.sh` invocation run under `nice -n 10`, incremental build only. All 12 commands rc 0; SHA-256 of each stdout equals its pinned `replay.output` (details in `statements.log`; raw dumps P1.statement … P12.statement). No independent-kernel replay run by this reviewer; MAIN baseline owns it. Natural-language ↔ Lean interpretation remains the receipt's declared trust boundary.
 - P6/P7/P8 + C5/C6's well-formed-input hypotheses are implicit in the product-facing wording, not a new unrestricted raw-Scenario guarantee: `Session.checked` (`Session.lean:117-133`) rejects malformed native inputs; `Snapshot.decode` (`Snapshot.lean:61-64`) rejects malformed page inputs. This domain restriction was checked rather than reported as an omitted-precondition defect.
 - LSP probe on real `.lean` file: no server available; source/compiled proof checks used instead.
-- Browser interaction/exported-page compatibility not run in this slice; the real HTML export command succeeds, envelope/what-if/details/complete/actions driven natively. Full gate, mutation campaigns, remote/production changes: not run. Target untouched; changes confined to this deliverable + own scratch.
+- `serve.py` rc 0: documented `serve --no-browser` (+ required ephemeral port) returned the real recorded envelope, HTTP 200, schema `fvtrace.evaluation/2`; own server match count 1 before stop, waited exit −15, final `pgrep` rc 1 / 0 matches. Initial harness readiness failed because `TextIOWrapper.readline` buffered the next line ahead of `select`; raw pipe reads fixed the harness, rerun passed. No target defect inferred from that failed attempt.
+- Browser interaction/exported-page compatibility not run in this slice; the real HTML export command succeeds, envelope/what-if/details/complete/actions driven natively. Full gate, mutation campaigns, remote/production changes: not run. Target untouched; changes confined to this deliverable + own scratch. Disposable tree, generated HTML + installed test skill removed; evidence scripts/logs/fingerprints retained (`statements.py` recreates its copy when absent).
 
-Work in progress: final CLI server smoke + cleanup + validator.
+reviewer-36-DONE-1

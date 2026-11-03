@@ -9,7 +9,7 @@ Check set fixed before target read: Cleanup + Altitude; two passes; M-gui-b + `t
 | K-gui-b | Cleanup: lazy.js + tour.js | reviewer-32-F2 | Full files + all JS size/read/reflection sites: unused `LazyList.size` getter; tour steps/state/helpers used. |
 | K-gui-b | Cleanup: style.css + index.html (unused rules, ids, properties) | reviewer-32-F3, reviewer-32-F4 | Full stylesheet + HTML; parser inventory of 259 rules, 138 class tokens, 11 properties; producer searches over all web modules + Export.lean. Dead/overridden rules + eight copied vertical-layout blocks; every custom property read; IDs referenced. |
 | K-gui-b | Cleanup: tests/palette | pass | Full test file: each helper/table used; contrast vs mark visibility vs hue-distance loops grade distinct invariants; runner/probe paths live. Direct palette test run rc 0, 3 passed / 0 skipped. |
-| K-gui-b | Altitude | unknown | unknown |
+| K-gui-b | Altitude | reviewer-32-F5 | Separate pass over shared list/render mechanisms + all callers: `endClass` transports one contact-list styling case already identifiable from DOM ancestry; remaining list options express generic structure, ARIA or mount policy. |
 
 ## Findings
 
@@ -67,6 +67,29 @@ Check set fixed before target read: Cleanup + Altitude; two passes; M-gui-b + `t
   - terminal wire 1129–1134 = 1570–1575.
 - Fix direction: one vertical layout definition; apply horizontal geometry only to non-tall diagrams above the phone breakpoint (low-specificity selectors, e.g. `:where`, preserve the existing cascade). Keep `.tall .wire-end` behavior, capital trimming, tabular digits + the terminal `.unavailable` block intact; verify rendered geometry after refactoring.
 
+### reviewer-32-F5 — minor — one caller's style flag in the list mechanism
+
+- Locations: `web/lazy.js:27–31`, `:61`, `:315–317`, `:333`; sole caller = `web/circuit.js:175`; styling = `web/style.css:1115–1127`.
+- Contract: `CLAUDE.md` Engineering Altitude → a one-caller special case on shared infrastructure calls for a mechanism fix; Cleanup → derivable state computed rather than duplicated.
+- Defect: the generic list API + its `listOf` wrapper carry `endClass` solely to give a contact list's end markers the `.wire-end` class. The generic markers already have `.lazy-end`, and the caller's root already has `.contacts`; the entire flag, propagation + duplicated marker state exists to select an element CSS can select from its existing context. No other caller uses it.
+- Anchors (rc 0):
+  - `rg -Fn 'endClass: "wire-end",' /home/eturkes/Projects/fvtrace/.scratch/review-base/web/circuit.js` → 175.
+  - `rg -Fn 's.className = opts.endClass ?' /home/eturkes/Projects/fvtrace/.scratch/review-base/web/lazy.js` → 61.
+- Proof: `rg -n --hidden --glob '!.git' 'endClass|wire-end' /home/eturkes/Projects/fvtrace/.scratch/review-base`, rc 0, complete matches = circuit caller 175; CSS 1115 + 1120; lazy API docs/types 27, 31, 315, 317 + assignments 61, 333. No other consumer. The generic sentinels are direct children of `.contacts` (`circuit.js:168`, `lazy.js:130`, `:211`, `:218`); both current `.wire-end` rules apply only under `.tall`.
+- Fix: select the existing structure (e.g. `.tall :where(.contacts) > .lazy-end` + its pseudo-element, specificity 0,2,0); remove `endClass` from both list APIs + the caller. Generic `tail` remains: unlike a style-only flag, it describes actual list structure.
+
 ## Register
 
-None yet.
+None.
+
+## Checks + limits
+
+- Target read-only; primary changes = this validator-input deliverable only. Scratch = evidence script + logs under `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-32/`.
+- Cleanup pass: all assigned source files + palette test read; reference searches covered web, tools, tests, Fvtrace, Lakefile + workflows; class-producer check covered every JS/HTML file in web + Export.lean (including its license HTML).
+- Altitude pass: separate pass over shared render/list mechanisms + their callers/options; generic ARIA, sentinel element, terminal tail + mount policy retained as deliberate structure.
+- Passed: `node --test --test-reporter=spec /home/eturkes/Projects/fvtrace/.scratch/review-base/tests/palette/palette.test.mjs` → rc 0, 3 passed / 0 failed / 0 skipped. Output `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-32/palette.log`.
+- Passed: final CSS parser inventory → rc 0. Initial attempt to resolve `postcss` as a direct package failed (`MODULE_NOT_FOUND`, rc 1); corrected to resolve it through the installed stylelint dependency. No install / base edit.
+- No full gate, e2e, browser rendering, build or behavior-changing test run (scope = Cleanup + Altitude; text/source witnesses). Known tour/work-row findings excluded as brief directs. No unconfirmed claim retained.
+
+reviewer-32-DONE-1
+
