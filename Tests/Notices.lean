@@ -318,6 +318,8 @@ def surfaceTests : TestM Unit := withFixture fun f => do
     (rc == 0 && replays.length == 2 && member (replays.getD 0 .null) "failed" == n &&
       member (replays.getD 1 .null) "failed" == notice "2026-10-30" "timeout" &&
       replays.all fun r => member r "ran" == .bool false) out
+  check "notices verify: listing rows carry an empty reasons array"
+    (rc == 0 && replays.length == 2 && replays.all fun r => member r "reasons" == .arr []) out
   for args in [["eval"], ["eval", "--whatif", "O1=open"]] do
     let (rc, out, _) ← f.run args
     let env := parsed out
