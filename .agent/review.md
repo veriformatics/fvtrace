@@ -110,7 +110,7 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 | F-model | trace model, FV stance, must-verify kinds, claim state + verdict words, Conditional, entailment, exclusions, subjects, results + lints, where FV pays, experiments + outcome honesty, plans | F6 (reviewer-44: 8 of 9 Decisions rows pass on real-binary probes; plans vs 3 exhaustive oracles) |
 | F-cli | Product (data folder, no writes into the project, export refusal), Evidence binding + replay + notices + log, Review, Headline + exact statement, Agent instructions, Examples, Trace format, Batch path, What-if refusals | F4, F5, F7, F8, F11, F12, F13, F17, F53 (reviewer-45: no new departure; Headline + What-if refusals pass) |
 | F-gui | GUI rulings (claim diagrams, labels, copy, key table, review line, evidence bar, claim layout, tour, plain reasons, lists, exclusions note, suppose wording), Exported page in a Worker, without WebAssembly, Envelope lists on request | F72 (reviewer-46; cites F24–F27, F37–F45; 171 live checks + 24 screenshots) |
-| F-serve | GUI access + login proxy, Sharing (export + bundle), Engine speed, Capability first, Response time, GUI responsiveness, Prerequisite chains, Memory | unknown |
+| F-serve | GUI access + login proxy, Sharing (export + bundle), Engine speed, Capability first, Response time, GUI responsiveness, Prerequisite chains, Memory | F26, F43, F45, F50 (reviewer-47: 5 of 6 Decisions rows pass on live probes) |
 
 ### L — `CLAUDE.md` conformance (lens × clause, each clause that binds a tracked file): a tool-decidable clause → its gate check named + run on a planted bad input (fires = pass; none or silent = finding, fixed by wiring the check); a judgment clause → adjudicated over the files it binds
 
@@ -146,45 +146,45 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 
 | id | clause | verdict |
 |---|---|---|
-| L-ops1 | `ops.md` Env | unknown |
-| L-ops2 | `ops.md` Gate (stage list = `tools/gate.sh` `STAGES`; each stage does what the bullet says) | unknown |
-| L-ops3 | `ops.md` CI gate (`tools/ci-gate.sh`) | unknown |
-| L-ops4 | `ops.md` Fresh host bootstrap | unknown |
-| L-ops5 | `ops.md` Fast gate | unknown |
-| L-ops6 | `ops.md` Probes (every purpose-built check has a probe; upstream config changes prove firing) | unknown |
-| L-ops7 | `ops.md` timing + parity tools | unknown |
-| L-ops8 | `ops.md` CI (triggers, jobs, SHA pins, permissions, `persist-credentials`, Renovate managers, Lean install bounds, Python + engine cache) | unknown |
-| L-lean1 | `lean.md` layout + `fvtrace-trust` (claims, axioms, escape hatches, capabilities) | unknown |
-| L-lean2 | `lean.md` `native_decide` banned | unknown |
-| L-lean3 | `lean.md` kernel code total; `partial` out of proof closures | unknown |
-| L-lean4 | `lean.md` shipped modules import `Init` + `Std` alone | unknown |
-| L-lean5 | `lean.md` Tests layout + harness + native vs pure placement | unknown |
-| L-lean6 | `lean.md` Lake target names | unknown |
-| L-lean7 | `lean.md` embedded files under `needs` + `Tests/Assets` byte equality | unknown |
-| L-lean8 | `lean.md` Lean 4.35 API pitfalls (nested `(← …)` in `&&`/`||`, structure-instance alignment) held in the code | unknown |
-| L-lean9 | `lean.md` mutation credit tool (operators, scratch copy, incompetent/killed semantics) | unknown |
-| L-deps1 | `deps.md` release age (every pin ≥ 7 days or a security release; held bumps = deferred rows) | unknown |
-| L-deps2 | `deps.md` lockfile refresh recipe | unknown |
-| L-deps3 | `deps.md` bump recipes | unknown |
-| L-deps4 | `deps.md` lock consistency + probe `locks` | unknown |
-| L-deps5 | `deps.md` runner labels vs actionlint | unknown |
-| L-ex1 | `examples.md` both examples `check --strict` | unknown |
-| L-ex2 | `examples.md` re-pin on edits | unknown |
-| L-ex3 | `examples.md` README self-trace verdicts = `Tests/Engine.lean` `acceptanceTests` = the engine's | unknown |
-| L-ex4 | `examples.md` statement replays | unknown |
-| L-ex5 | `examples.md` probe `examples-stale-receipt` | unknown |
+| L-ops1 | `ops.md` Env | pass |
+| L-ops2 | `ops.md` Gate (stage list = `tools/gate.sh` `STAGES`; each stage does what the bullet says) | F30, F35, F73 |
+| L-ops3 | `ops.md` CI gate (`tools/ci-gate.sh`) | pass |
+| L-ops4 | `ops.md` Fresh host bootstrap | F73 |
+| L-ops5 | `ops.md` Fast gate | pass |
+| L-ops6 | `ops.md` Probes (every purpose-built check has a probe; upstream config changes prove firing) | F29, F30, F35 |
+| L-ops7 | `ops.md` timing + parity tools | F21 |
+| L-ops8 | `ops.md` CI (triggers, jobs, SHA pins, permissions, `persist-credentials`, Renovate managers, Lean install bounds, Python + engine cache) | F32, F73 |
+| L-lean1 | `lean.md` layout + `fvtrace-trust` (claims, axioms, escape hatches, capabilities) | F30, F35, F73 |
+| L-lean2 | `lean.md` `native_decide` banned | pass |
+| L-lean3 | `lean.md` kernel code total; `partial` out of proof closures | F30 |
+| L-lean4 | `lean.md` shipped modules import `Init` + `Std` alone | F73 |
+| L-lean5 | `lean.md` Tests layout + harness + native vs pure placement | pass |
+| L-lean6 | `lean.md` Lake target names | pass |
+| L-lean7 | `lean.md` embedded files under `needs` + `Tests/Assets` byte equality | pass |
+| L-lean8 | `lean.md` Lean 4.35 API pitfalls (nested `(← …)` in `&&`/`||`, structure-instance alignment) held in the code | pass |
+| L-lean9 | `lean.md` mutation credit tool (operators, scratch copy, incompetent/killed semantics) | F3, F31, F51 |
+| L-deps1 | `deps.md` release age (every pin ≥ 7 days or a security release; held bumps = deferred rows) | F73 |
+| L-deps2 | `deps.md` lockfile refresh recipe | F73 |
+| L-deps3 | `deps.md` bump recipes | pass |
+| L-deps4 | `deps.md` lock consistency + probe `locks` | pass |
+| L-deps5 | `deps.md` runner labels vs actionlint | pass |
+| L-ex1 | `examples.md` both examples `check --strict` | pass |
+| L-ex2 | `examples.md` re-pin on edits | pass |
+| L-ex3 | `examples.md` README self-trace verdicts = `Tests/Engine.lean` `acceptanceTests` = the engine's | F73 |
+| L-ex4 | `examples.md` statement replays | pass |
+| L-ex5 | `examples.md` probe `examples-stale-receipt` | pass |
 | L-fast1 | `fast.md` fast paths proved equal (`AnswersAgree`, `LookupsAgree`, `SortMembersAgree`) | unknown |
 | L-fast2 | `fast.md` cost traps held in the code | unknown |
 | L-fast3 | `fast.md` projection-form pair lambdas in rewritten statements | unknown |
 | L-fast4 | `fast.md` evidence tools (`compare.sh`, `scale.sh --assert`, probes `compare` + `scale`) | unknown |
-| L-rel1 | `release.md` `build.yml` platforms + `portability` + `release.yml` from scratch | unknown |
-| L-rel2 | `release.md` `release.yml` job order + refusals + attestation + `installed`; dry run + re-check | unknown |
-| L-rel3 | `release.md` `release.sh check` + floors (README Install table = `glibc_max`, `macos_min`) | unknown |
-| L-rel4 | `release.md` notices (`package` copies every license text) | unknown |
-| L-rel5 | `release.md` `$/` reusable calls + actionlint ignore scoped to `$/` | unknown |
-| L-rel6 | `release.md` probe `release` | unknown |
-| L-ren1 | `renovate.md` validator recipe (RE2) | unknown |
-| L-ren2 | `renovate.md` local lookup recipe | unknown |
+| L-rel1 | `release.md` `build.yml` platforms + `portability` + `release.yml` from scratch | F73 |
+| L-rel2 | `release.md` `release.yml` job order + refusals + attestation + `installed`; dry run + re-check | F23 |
+| L-rel3 | `release.md` `release.sh check` + floors (README Install table = `glibc_max`, `macos_min`) | F73 |
+| L-rel4 | `release.md` notices (`package` copies every license text) | pass |
+| L-rel5 | `release.md` `$/` reusable calls + actionlint ignore scoped to `$/` | pass |
+| L-rel6 | `release.md` probe `release` | pass |
+| L-ren1 | `renovate.md` validator recipe (RE2) | F73 |
+| L-ren2 | `renovate.md` local lookup recipe | F73 |
 | L-srv1 | `server.md` routes + `api/answer` + problems wording | unknown |
 | L-srv2 | `server.md` I/O (best-effort cache, 500 `io`) | unknown |
 | L-srv3 | `server.md` access order (non-security reading: order + codes as specified) | unknown |
@@ -297,3 +297,4 @@ Clauses outside this lens (bind process, not a tracked file): `CLAUDE.md` Collab
 | F70 | V-gate | minor | `tools/gate.sh` (`engine`, `js-test`, `lean-style` inputs); `tools/gate-probe.sh` (no probe for `tools/mutate.mjs`) | Checks that print green on an empty input set (no differential case / no Node test / no Lean file selected → rc 0); the mutation-credit tool, a purpose-built check, has no registered planted failing input (ops.md Probes) | reviewer-43-F1, F2, MAIN rerun: `python3 -I .scratch/review/reviewer-43/red-empty-stages.py` → `FAIL: empty check inputs accepted by engine, js_test, lean_style`; `red-mutation-probe.py` → `FAIL: … no registered planted failing input` | open | each stage fails on an empty selection (probe); a `mutate` probe plants a known-survivable + a known-killable site and demands the classification |
 | F71 | V-gate | major | `tools/trust.sh` (skip key) | The trust skip key = export sha + `lean --version` + trust.sh + self-trace + TrustMain + statement.sh, but not the replay consumer (`fvtrace`'s `verify --run` code): a change that breaks `Replay.reasons` keeps the key, so the stage prints `skipped` while a forced statement replay fails 0/12 | reviewer-43-F3, MAIN rerun: `python3 -I .scratch/review/reviewer-43/red-trust-key.py` → `FAIL: trust cache skipped self-trace replays after their consumer changed; direct replay fails` | open | the key covers the replay consumer (e.g. the built `fvtrace` binary's sha256); the red test passes; probe |
 | F72 | F-gui | minor | `web/panels.js:667-683`; `Fvtrace/Lint.lean:34-35` (GUI "What may be missing"); `web/app.js:823-849`; `web/tour.js:36` | GUI departures from Decisions: blocker + check list rows open details only through the id button, not a plain click ("list rows … open their details on a plain click"); missing-check copy says "estimand"/"release" fact where Decisions name the kinds Measurement/Publication; overlooked + new-data groups keep input order (Pending before Fully supported) where claims show in verdict order; the tour says the key "counts the claims in the whole analysis" while counts cover existing subjects alone (kernel.md: prospective counted apart) | reviewer-46-F1..F3 + reviewer-39/46 lead, MAIN rerun: `node .scratch/review/reviewer-46/red-list-click.mjs`, `red-lint-words.mjs`, `red-group-order.mjs` (each AssertionError); anchor `counts the claims in the whole analysis` (tour.js:36) | open | each red test passes; the tour sentence matches the counts |
+| F73 | L-ops, L-lean, L-deps, L-ren, L-rel, L-ex | minor | reviewer-49 F1–F6 | Rule clauses with no firing check or a stale side: (1) Lean layout law (Spec imports no Proofs + holds no `theorem`; shipped modules import `Init` + `Std` alone): a planted violation passes style + build + trust; (2) Renovate options + RE2-only regexes + `minimumReleaseAge` ≥ 7 days unchecked by the gate (renovate.md recipe = manual); (3) README Install floors + the self-trace verdict counts vs `release.sh` floors + the engine: a planted mismatch passes; (4) multi-step recipes inline in rules (fresh-host bootstrap, lockfile refresh, Renovate lookup) → committed scripts; (5) cross-workflow provisioning (Python, cache, platform matrix, floors) unchecked; (6) `js-test` prints no three-slowest summary (ops.md: suites add their three slowest areas) | reviewer-49 report: red/plant evidence per finding (37/37 existing probes fired; publication dates for all 199 npm lock entries ≥ 7 days) | open | each check wired + probe fires (or the clause adapted with its why); scripts named by the rules; js-test prints its slowest three |

@@ -53,9 +53,9 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | general-purpose-1 | fixer: F4 F5 F6 F7 F8 F11 F12 F14 F15 F16 F17 F18 F20 F56 (wt/general-purpose-1) | fix | running |
 | general-purpose-2 | fixer: F24–F27 F37–F45 (wt/general-purpose-2) | fix | running |
 | general-purpose-3 | fixer: F3 F21–F23 F28 F29 F31–F34 F36 (wt/general-purpose-3) | fix | running |
-| reviewer-47 | F-serve | 5 | running |
+| reviewer-47 | F-serve | 5 | harvested |
 | reviewer-48 | L-template (L-T1..L-T23) | 5 | harvested |
-| reviewer-49 | L-rules-a (ops lean deps renovate release examples) | 5 | running |
+| reviewer-49 | L-rules-a (ops lean deps renovate release examples) | 5 | harvested |
 | reviewer-50 | L-rules-b (server wasm web fast) | 5 | running |
 | general-purpose-4 | fixer: F30 F35 F71 TrustMain + trust.sh key (wt/general-purpose-4) | fix | running |
 
