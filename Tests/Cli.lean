@@ -174,6 +174,13 @@ def writeTests : TestM Unit := do
     checkEq "write: the file gets the new content" (← IO.FS.readFile file) "new"
     check "write: the file is a plain file, not the link"
       ((← file.symlinkMetadata).type == .file)
+    let blocked := dir / "blocked"
+    IO.FS.createDir blocked
+    let result ← (Fvtrace.Cli.replaceFile blocked "temporary body").toBaseIO
+    check "write: a failed rename keeps its destination and removes its temporary"
+      ((result matches .error _) && (← blocked.isDir) && (← blocked.readDir).isEmpty &&
+        !(← (dir / "blocked.fvtrace-tmp").pathExists))
+      (match result with | .ok _ => "write succeeded" | .error e => toString e)
 
 /-- A trace is read only from a regular file and only up to one byte past the size limit. -/
 def readTests : TestM Unit := do

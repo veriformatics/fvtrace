@@ -185,6 +185,35 @@ def writeTests : TestM Unit := do
     Build.writeAtomic out fun tmp => IO.FS.writeFile tmp "module"
     check "wasm: a write replaces its target whole"
       ((← IO.FS.readFile out) == "module" && !(← (dir / "engine.tmp.wasm").pathExists))
+    let failed ← (Build.writeAtomic (dir / "cleanup.wasm") fun tmp => do
+      IO.FS.createDir tmp
+      throw (IO.userError "planted cleanup failure")).toBaseIO
+    check "wasm: cleanup trouble preserves the writer's original error"
+      (match failed with | .error e => has (toString e) "planted cleanup failure" | .ok _ => false)
+    IO.FS.removeDir (dir / "cleanup.tmp.wasm")
+    IO.FS.removeFile out
+    IO.FS.createDir out
+    let result ← (Build.writeAtomic out fun tmp => IO.FS.writeFile tmp "module").toBaseIO
+    check "wasm: a failed rename keeps its destination and removes its temporary"
+      ((result matches .error _) && (← out.isDir) && (← out.readDir).isEmpty &&
+        !(← (dir / "engine.tmp.wasm").pathExists))
+      (match result with | .ok _ => "write succeeded" | .error e => toString e)
+    if !System.Platform.isWindows && !System.Platform.isOSX then
+      let rsp := dir / "link.rsp.utf-8"
+      let linked ← symlink "/dev/full" rsp
+      check "wasm: a failing response-file writer can be planted" linked
+      let cfg : Build.Config :=
+        { root := dir, cache := dir, lean := "lean", leanSrc := dir,
+          githash := "", appC := #[], out := dir / "linked.b64" }
+      let tools : Build.Tools :=
+        { python := "fvtrace-no-python", emcc := "emcc", emxx := "em++", env := #[] }
+      let objs := Array.replicate 256 (dir / "".pushn 'x' 128)
+      let result ← (Build.link cfg tools objs (dir / "linked.wasm")).toBaseIO
+      let left ← rsp.pathExists
+      check "wasm: a failed response-file write removes the file and preserves ENOSPC"
+        ((result matches .error (.resourceExhausted _ 28 _)) && !left)
+        (match result with | .ok _ => "write succeeded" | .error e => toString e)
+      if left then unlink rsp
 
 /-- The archive check on a planted file (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do

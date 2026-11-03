@@ -96,17 +96,22 @@ def replaceDir (dir marker : FilePath) : IO Unit := do
   if ← marker.pathExists then IO.FS.removeFile marker
   if ← dir.pathExists then IO.FS.removeDirAll dir
 
+/-- Cleanup must keep the writer's original error when removing the temporary also fails. -/
+def cleanupOnError {α : Type} (file : FilePath) (action : IO α) : IO α := do
+  try action
+  catch e =>
+    try IO.FS.removeFile file catch _ => pure ()
+    throw e
+
 /-- Writes `path` whole or not at all (a stopped build leaves no half-written file; a failed write,
 such as a link that breaks the contract, leaves no temporary either). The temporary keeps the
 extension: Emscripten picks its output format by it. -/
 def writeAtomic (path : FilePath) (write : FilePath → IO Unit) : IO Unit := do
   let ext := (path.extension.map ("." ++ ·)).getD ""
   let tmp := path.withFileName s!"{path.fileStem.getD "out"}.tmp{ext}"
-  try write tmp
-  catch e =>
-    if ← tmp.pathExists then IO.FS.removeFile tmp
-    throw e
-  IO.FS.rename tmp path
+  cleanupOnError tmp do
+    write tmp
+    IO.FS.rename tmp path
 
 /-- Every file under `paths` (folders end in `/`) of `dir`: (path relative to `dir` with `/`,
 sha256). -/
@@ -302,11 +307,11 @@ def link (cfg : Config) (t : Tools) (objs : Array FilePath) (wasm : FilePath) : 
   -- One argument per line, quoted for Emscripten's `shlex` reading (Windows' command line would
   -- not hold ~700 object paths).
   let rsp := cfg.cache / "link.rsp.utf-8"
-  IO.FS.writeFile rsp <| String.join <| objs.toList.map fun o =>
-    "\"" ++ ((slashed o).replace "\\" "\\\\").replace "\"" "\\\"" ++ "\"\n"
   -- Removed once the link ends: a failed link's list (a probe's bridge) left beside the cached
   -- engine would let a manual relink build an engine without the Lean closure.
-  try
+  cleanupOnError rsp do
+    IO.FS.writeFile rsp <| String.join <| objs.toList.map fun o =>
+      "\"" ++ ((slashed o).replace "\\" "\\\\").replace "\"" "\\\"" ++ "\"\n"
     let out ← runOut t.python (#[slashed t.emxx, "-O2", "-fwasm-exceptions", s!"@{slashed rsp}",
         "-o", slashed wasm, "-sSTANDALONE_WASM", "--no-entry", "-sALLOW_MEMORY_GROWTH=1",
         "-sSTACK_SIZE=1MB", "-sMALLOC=mimalloc", s!"-sEXPORTED_FUNCTIONS={exportedFunctions}",
@@ -314,8 +319,7 @@ def link (cfg : Config) (t : Tools) (objs : Array FilePath) (wasm : FilePath) : 
       (env := t.env)
     let extra := unexpectedWarnings out.stderr
     unless extra.isEmpty do fail s!"unexpected linker warnings:\n{"\n".intercalate extra}"
-  finally
-    if ← rsp.pathExists then IO.FS.removeFile rsp
+    IO.FS.removeFile rsp
 
 /-- base64(gzip(module)): Python's `gzip` (Lean has no compressor; Emscripten needs Python). -/
 def compress (t : Tools) (wasm out : FilePath) : IO Unit :=
