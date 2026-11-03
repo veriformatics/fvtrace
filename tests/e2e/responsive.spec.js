@@ -395,6 +395,10 @@ test("a chosen match of another question no longer says so once the board shows 
   await page.locator("#find").press("Enter");
   await expect(card(page, "C3")).toHaveClass(/selected/);
   await expect(page.locator("#find-results")).not.toContainText("In another question");
+  expect(new URLSearchParams(new URL(page.url()).hash.slice(1)).get("q")).toBe("Q2");
+  await page.reload();
+  await expect(card(page, "C3")).toHaveClass(/selected/);
+  await expect(page.locator('#questions [aria-current="true"]')).toContainText("New cohort");
 });
 
 test("every list shows its size above it", async ({ page }) => {
@@ -404,4 +408,123 @@ test("every list shows its size above it", async ({ page }) => {
   await expect(page.locator(".board .group .list-count")).toHaveText("300 claims");
   await expect(page.locator("#work-count")).toHaveText("300 facts");
   await expect(page.locator("#experiment-count")).toHaveText("0 experiments");
+});
+test("an action while a symbol answer is pending expands the shown view", async ({ page }) => {
+  web = await serveFvtrace();
+  await page.goto(web.url);
+  await card(page, "C2").waitFor();
+  await page.locator('[data-key="experiment:E3"]').click();
+  await expect(page.locator("#inspector")).toHaveAttribute("data-details", "ready");
+  /** @type {(() => void) | undefined} */
+  let release;
+  /** @type {Record<string, unknown>[]} */
+  const requests = [];
+  await page.route("**/api/answer", async (route) => {
+    /** @type {unknown} */
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    if (isRecord(body) && body["details"] === undefined) {
+      requests.push(body);
+      if (body["action"] === undefined && body["whatif"] === "O2=checked")
+        await new Promise((resolve) => {
+          release = () => resolve(undefined);
+        });
+    }
+    await route.continue();
+  });
+  await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+  await expect.poll(() => release !== undefined).toBe(true);
+  await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
+  await page
+    .locator("#inspector")
+    .getByRole("button", { name: "Suppose it succeeds", exact: true })
+    .click();
+  release?.();
+  await expect(page.locator("#scenario-text")).toContainText("M1 is verified");
+  expect(requests.find((r) => r["action"] === "success:E3")?.["whatif"]).toBe("");
+  await expect(page.locator("#scenario-text")).not.toContainText("O2 is verified");
+});
+
+for (const mismatch of ["overrides", "header"])
+  test(`details for another ${mismatch} view stay pending`, async ({ page }) => {
+    const served = await serveFvtrace();
+    web = served;
+    await page.goto(web.url);
+    await page.locator("article.circuit").first().scrollIntoViewIfNeeded();
+    await card(page, "C2").waitFor();
+    const foreign = fvtrace(
+      ["eval", "--whatif", "O2=checked,O3=checked,EN2=proved", "--details", "claim:C2"],
+      served.project,
+      served.env,
+    );
+    let delivered = false;
+    await page.route("**/api/answer", async (route) => {
+      /** @type {unknown} */
+      const request = JSON.parse(route.request().postData() ?? "{}");
+      if (isRecord(request) && request["details"] === "claim:C2") {
+        const response = await route.fetch();
+        await route.fulfill({
+          response,
+          ...(mismatch === "overrides"
+            ? { body: foreign }
+            : { headers: { ...response.headers(), "x-fvtrace-view": "another-view" } }),
+        });
+        delivered = true;
+      } else await route.continue();
+    });
+    await card(page, "C2").locator(".claim-head .tag-id .ref").click();
+    await expect.poll(() => delivered).toBe(true);
+    await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
+    await expect(page.locator("#inspector")).toHaveAttribute("data-details", "pending");
+    await expect(page.locator("#inspector")).not.toContainText(
+      "No set of suggested experiments raises this claim.",
+    );
+  });
+
+test("Back retains the record-problem view until a later envelope", async ({ page }) => {
+  const served = await serveFvtrace();
+  web = served;
+  await page.goto(web.url);
+  await card(page, "C1").waitFor();
+  await card(page, "C1").locator(".claim-head .tag-id .ref").click();
+  await expect(page.locator("#inspector")).toHaveAttribute("data-details", "ready");
+  let broken = true;
+  /** @type {(() => void) | undefined} */
+  let release;
+  await page.route("**/api/answer", async (route) => {
+    if (broken) {
+      await route.fulfill({
+        status: 409,
+        json: {
+          problem: { kind: "invalid", message: "The claims and facts on record have errors." },
+        },
+      });
+    } else {
+      if (!release)
+        await new Promise((resolve) => {
+          release = () => resolve(undefined);
+        });
+      await route.continue();
+    }
+  });
+  await card(page, "C2").locator(".claim-head .tag-id .ref").click();
+  await expect(page.locator("#analysis-title")).toHaveText("This analysis cannot be shown");
+  broken = false;
+  await page.goBack();
+  // Two frames after popstate: no real server reply can race the history-only render.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await expect(page.locator("#analysis-title")).toHaveText("This analysis cannot be shown");
+  await expect(page.locator("#board")).toBeHidden();
+  await expect.poll(() => release !== undefined).toBe(true);
+  const restored = page.waitForResponse((response) => {
+    if (!response.url().endsWith("/api/answer")) return false;
+    /** @type {unknown} */
+    const request = JSON.parse(response.request().postData() ?? "{}");
+    return isRecord(request) && request["details"] === undefined;
+  });
+  release?.();
+  await restored;
+  await expect(page.locator("#analysis-title")).toHaveText("Synthetic study");
+  await expect(page.locator("#board")).toBeVisible();
 });
