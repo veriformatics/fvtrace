@@ -39,6 +39,12 @@ expect "relative FVTRACE_HOME = under the current folder" "$tmp/proj/rel" \
     "$(p="$(fv HOME="$tmp/home" FVTRACE_HOME=rel "$bin" path)" && printf '%s' "${p%/proj-*}")"
 
 if [[ "$(uname -s)" == Linux ]]; then
+    mkdir "$tmp/vanished"
+    out="$(cd "$tmp/vanished" && rmdir "$tmp/vanished" &&
+        exec env -i PATH="$PATH" FVTRACE_HOME="$tmp/fv" "$bin" path 2>&1)"
+    expect "a removed current folder is an I/O error" 2 $?
+    [[ "$out" == fvtrace:\ * && "$out" != *"uncaught exception"* ]] ||
+        expect "startup I/O errors use the CLI diagnostic" "fvtrace: …" "$out"
     p="$(fv HOME="$tmp/home" XDG_DATA_HOME="$tmp/xdg" "$bin" path)"
     expect "XDG_DATA_HOME/fvtrace" "$tmp/xdg/fvtrace" "${p%/proj-*}"
     p="$(fv HOME="$tmp/home" XDG_DATA_HOME=relative "$bin" path)"
