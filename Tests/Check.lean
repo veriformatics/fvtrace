@@ -76,8 +76,15 @@ def tests : TestM Unit := do
     [("WF-route", "/experiments/0")]
   checkEq "check: the outcome message names a repair a success can take"
     ((Check.violations assumedOutcome).map (·.message))
-    ["outcome \"O2\": a success cannot assume O2: facts of kind result must be verified; set \
-      a verified status that its route allows, or leave O2 out"]
+    ["outcome \"O2\": an outcome cannot assume O2: facts of kind result must be verified; \
+      leave O2 out"]
+  let assumedFailure := mapExperiment t "E1" fun e => { e with failure := [("O2", .assumed)] }
+  let routeMessages := ((Check.violations assumedFailure).filter (·.rule == .route)).map
+    (·.message)
+  check "check: a failure's route diagnostic gives a repair both outcome sides allow"
+    (routeMessages.length == 1 && routeMessages.all fun m =>
+      (m.splitOn "a success").length == 1 && (m.splitOn "set a verified").length == 1 &&
+        (m.splitOn "leave O2 out").length == 2) s!"{repr routeMessages}"
   expect "check: background conditions may be assumed"
     (mapFact (mapFact t "O4" fun f => { f with kind := .interpretation, status := .assumed })
       "O5" fun f => { f with kind := .specReview })

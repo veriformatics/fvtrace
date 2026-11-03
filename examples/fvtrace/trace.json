@@ -70,7 +70,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckAcceptsExactlyWellFormed"
           ],
-          "output": "93215af3c27ddb4f8584abd4afc6a54fcfe4d95be9e33f72e8275cc3dcea13ca"
+          "output": "2e8e8844b5019dbe75cf8e4dc78f188511a82e14e8b2f29ef39b96f5605c97f0"
         }
       },
       "trusts": [
@@ -112,7 +112,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckViolationsSound"
           ],
-          "output": "70d53081b6c0a60180ecfd389f3efa7cdde3a29ddf20aaaef8a93136b775b9e3"
+          "output": "7b0baedf1d9cfd5237fee7c810b2ed80c4d6a864573d0f5ecb3d44b6529b526d"
         }
       },
       "trusts": [

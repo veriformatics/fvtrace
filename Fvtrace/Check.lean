@@ -196,12 +196,11 @@ def disallowed (f : Fact) (st : Status) : String :=
       tested or a verified status"
   else s!"{st.name} exceeds route {f.route.name}"
 
-/-- Why an outcome may not set `st` on fact `f`: a success only asserts, so its repair is a verified
-status or no entry at all. -/
+/-- Both outcome sides use this diagnostic; omitting the entry is a valid repair for either. -/
 def disallowedOutcome (f : Fact) (st : Status) : String :=
   if f.route.allows st then
-    s!"a success cannot assume {f.id}: facts of kind {f.kind.name} must be verified; set a \
-      verified status that its route allows, or leave {f.id} out"
+    s!"an outcome cannot assume {f.id}: facts of kind {f.kind.name} must be verified; \
+      leave {f.id} out"
   else s!"{st.name} exceeds route {f.route.name}"
 
 def outcomeRoutes (L : Lookups) (e : Experiment) (i : Nat) : Found :=
