@@ -6,3 +6,4 @@
 - general-purpose-1 rulings: F6 = update the exact expected message (wording not contract-owned; rule + path unchanged) + add the failure-side case; F18 = refuse `claims --question Q --json` (rc 2) — yes; `eval --json` stays accepted; batching approved (per commit: reached steps; engine stage skipped only when engine.wasm sha256 = base 5a773067…; one full fast gate at batch end).
 - general-purpose-1: F20 ruling = YES, tag the action refusal with v0 too (same class, one shared helper, a Tests/Server case, same commit). F15 sweep (Build.link response file) approved.
 - ALL fixers (instruction change 12:10: MAIN writes all other code): finish + commit only the fixes already written + verified in your scope; start no new code; report what remains unwritten under "Needs MAIN". MAIN reviews every diff before merging.
+- general-purpose-3: F32 ruling = HARD bound, ops.md literal: TERM at attempt_secs-1, KILL at attempt_secs; no "soft cutoff" wording, no ops.md change.
