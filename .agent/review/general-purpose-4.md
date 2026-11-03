@@ -2,8 +2,8 @@
 
 | id | commit sha | red command → output (short) | green command → result | sweep | status |
 | --- | --- | --- | --- | --- | --- |
-| F30 | unknown | `offload run --local -- bash tools/gate-probe.sh trust` @3957c87 + new probes → `trust-ctor: DID NOT FIRE (rc=0)`, 27 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); fast gate rc=1, inherited JS lint only | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | unknown |
-| F35 | unknown | same @3957c87 + new probes → `trust-alias`, `trust-alias-def`, `trust-alias-irreducible: DID NOT FIRE (rc=0)`, 26 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); fast gate rc=1, inherited JS lint only | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | unknown |
+| F30 | `3a613b2` | `offload run --local -- bash tools/gate-probe.sh trust` @3957c87 + new probes → `trust-ctor: DID NOT FIRE (rc=0)`, 27 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); closing fast gate rc=0 (175.2 s), after MAIN's baseline lint repair | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | fixed |
+| F35 | `3a613b2` | same @3957c87 + new probes → `trust-alias`, `trust-alias-def`, `trust-alias-irreducible: DID NOT FIRE (rc=0)`, 26 claims/0 findings | Trust probes 17/17; audit 26 claims/0 findings; `trust.sh` rc=0 (6 kernels, 26 proofs, 12 statement replays); closing fast gate rc=0 (175.2 s), after MAIN's baseline lint repair | Repository-wide Lean scan → `TrustMain.lean` only; semantic closures share `meaningDeps`, claim types normalize; direct capability scan unchanged | fixed |
 
 ## Mechanism
 
@@ -23,4 +23,12 @@
 
 ## Needs MAIN
 
-None. Inherited fast-gate lint blocker resolved through MAIN's directive: cherry-picked `e1fbcf7` as `d7d9dc8` (the access test alone). Original failure: `tests/e2e/access.spec.js:160:14 eslint(no-await-in-loop)`; parent/worktree SHA-256 before repair both `7ecba9060f9f1f97d7c8472486c161bc357e5597cb8b9bdc1d99b5d51240af85`. The first fast gate was bundled into a heavy run; the closing rerun runs DIRECT as instructed. No grading check changed. Closing fast gate pending.
+None. Inherited fast-gate lint blocker resolved through MAIN's directive: cherry-picked `e1fbcf7` as `d7d9dc8` (the access test alone). Original failure: `tests/e2e/access.spec.js:160:14 eslint(no-await-in-loop)`; parent/worktree SHA-256 before repair both `7ecba9060f9f1f97d7c8472486c161bc357e5597cb8b9bdc1d99b5d51240af85`. The first fast gate was bundled into a heavy run; the closing rerun runs DIRECT as instructed. No grading check changed. Closing `bash tools/fast-gate.sh` → rc=0, 175.2 s, every listed stage passes (1834 native + 779 pure checks, 64 JS tests). Evidence: `green-fast-gate-final.log` + `.rc` in the evidence folder above.
+
+## Delivery
+
+- Branch `wt/general-purpose-4`; own fix `3a613b2c3a0adcae828f443f2590b6915b0ed9b6`; separate parent `d7d9dc8` = MAIN's baseline lint fix `e1fbcf7`.
+- Own changes: `TrustMain.lean` (normalized claim types + shared constructor-aware closure); `tools/gate-probe.sh` (four regression plants); `.claude/rules/lean.md` (document normalized types + constructor dependencies + probe invocations). `tools/trust.sh` unchanged.
+- Intent / `CLAUDE*.md` / `.claude/agents/` edits = none. Full gate/CI remains MAIN's integration check.
+
+general-purpose-4-DONE-1
