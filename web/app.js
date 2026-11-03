@@ -564,7 +564,7 @@ async function load(action, link = false) {
       return;
     }
   }
-  const spec = view.spec;
+  const spec = action ? whatifSpec(view.whatif) : view.spec;
   const n = ++evaluations;
   if (action) requested = undefined;
   try {
@@ -639,15 +639,24 @@ async function legacy(/** @type {string} */ id) {
 /** The excluded pairs a card on screen names (user ruling: lists on request), asked once per card
  * and view as the card mounts; an answer for an older view is dropped. @param {Claim} c */
 function askPairs(c) {
-  const spec = view.spec;
+  const spec = whatifSpec(view.whatif);
+  const readView = shownView;
   const asked = generation;
   if (c.incompatibleCount === 0 || pairsAsked.has(c.id) || (exported && engineDead)) return;
   pairsAsked.add(c.id);
   void (async () => {
     try {
-      const { answer } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
+      const { answer, view: read } = await ask(
+        { whatif: spec, details: `claim:${c.id}` },
+        readView,
+      );
       // An answer for an earlier envelope (another view, even with the same what-if) is dropped.
-      if (asked !== generation || answer.kind !== "details") return;
+      if (
+        asked !== generation ||
+        answer.kind !== "details" ||
+        !detailsMatch(answer.value, read, readView)
+      )
+        return;
       excludedPairs.set(c.id, answer.value.incompatible ?? []);
       renderBoard();
     } catch {
@@ -655,6 +664,12 @@ function askPairs(c) {
       if (exported) engineFailure(exported);
     }
   })();
+}
+
+/** @param {import("./envelope.js").Details} answer @param {string | undefined} read
+ * @param {string | undefined} expected */
+function detailsMatch(answer, read, expected) {
+  return read === expected && JSON.stringify(answer.overrides) === JSON.stringify(env?.overrides);
 }
 
 /** The selection's details for the shown view (kernel.md V-details); the inspector shows the
@@ -666,7 +681,9 @@ async function loadDetails() {
     return;
   }
   const item = `${sel.kind}:${sel.id}`;
-  const spec = view.spec;
+  const spec = whatifSpec(view.whatif);
+  const readView = shownView;
+  const asked = generation;
   if (exported && engineDead) {
     details = { item, spec, state: "off" };
     renderInspector();
@@ -676,8 +693,13 @@ async function loadDetails() {
   renderInspector();
   const n = ++detailsAsked;
   try {
-    const { answer } = await ask({ whatif: spec, details: item }, shownView);
-    if (n !== detailsAsked || spec !== view.spec) return;
+    const { answer, view: read } = await ask({ whatif: spec, details: item }, readView);
+    if (n !== detailsAsked || asked !== generation) return;
+    if (
+      answer.kind === "details" &&
+      (answer.value.item !== item || !detailsMatch(answer.value, read, readView))
+    )
+      return;
     const problem = answer.kind === "problem" ? answer.value : undefined;
     if (problem?.kind === "view") {
       // The claims or their evidence changed since this page's answer: show them again first.
@@ -697,7 +719,7 @@ async function loadDetails() {
       engineFailure(exported);
       return;
     }
-    if (n !== detailsAsked) return;
+    if (n !== detailsAsked || asked !== generation) return;
     details = { item, spec, state: "problem", message: "The server did not answer." };
   }
   renderInspector();
@@ -722,10 +744,11 @@ const on = {
   select(kind, id) {
     view.selection = { kind, id };
     const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
+    const changed = q && q !== view.question;
+    if (q) view.question = q;
     writeHash();
-    if (q && q !== view.question) {
+    if (changed) {
       // Another question's claim: its board replaces this one.
-      view.question = q;
       renderQuestions();
       renderBoard();
     }
@@ -777,9 +800,10 @@ const on = {
 function reveal(kind, id) {
   view.selection = { kind, id };
   const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
+  const changed = q && q !== view.question;
+  if (q) view.question = q;
   writeHash();
-  if (q && q !== view.question) {
-    view.question = q;
+  if (changed) {
     renderQuestions();
     renderBoard();
   }
@@ -983,7 +1007,7 @@ let boardShown = false;
 
 /** Every part of the page from the shown envelope. */
 function render() {
-  if (!env || !ix) return;
+  if (!env || !ix || document.body.classList.contains("unavailable")) return;
   const key = focusKey();
   const e = env;
   if (!e.questions.some((q) => q.id === view.question)) view.question = e.questions[0]?.id ?? "";
@@ -1263,7 +1287,11 @@ function wire() {
     const before = view.spec;
     const selected = view.selection;
     readHash();
-    if (view.spec === before && legacyAction === undefined) {
+    if (
+      view.spec === before &&
+      legacyAction === undefined &&
+      !document.body.classList.contains("unavailable")
+    ) {
       render();
       if (`${selected?.kind}:${selected?.id}` !== `${view.selection?.kind}:${view.selection?.id}`)
         void loadDetails();
