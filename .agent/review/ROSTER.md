@@ -46,10 +46,10 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-40 | V-lean-kernel | 4 | harvested |
 | reviewer-41 | V-lean-shell | 4 | harvested |
 | reviewer-42 | V-js | 4 | harvested |
-| reviewer-43 | V-gate | 4 | running |
+| reviewer-43 | V-gate | 4 | harvested |
 | reviewer-44 | F-model | 4 | harvested |
 | reviewer-45 | F-cli | 4 | harvested |
-| reviewer-46 | F-gui | 4 | running |
+| reviewer-46 | F-gui | 4 | harvested |
 | general-purpose-1 | fixer: F4 F5 F6 F7 F8 F11 F12 F14 F15 F16 F17 F18 F20 F56 (wt/general-purpose-1) | fix | running |
 | general-purpose-2 | fixer: F24–F27 F37–F45 (wt/general-purpose-2) | fix | running |
 | general-purpose-3 | fixer: F3 F21–F23 F28 F29 F31–F34 F36 (wt/general-purpose-3) | fix | running |
@@ -57,7 +57,7 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-48 | L-template (L-T1..L-T23) | 5 | harvested |
 | reviewer-49 | L-rules-a (ops lean deps renovate release examples) | 5 | running |
 | reviewer-50 | L-rules-b (server wasm web fast) | 5 | running |
-| general-purpose-4 | fixer: F30 F35 TrustMain (wt/general-purpose-4) | fix | running |
+| general-purpose-4 | fixer: F30 F35 F71 TrustMain + trust.sh key (wt/general-purpose-4) | fix | running |
 
 Row state: C-eval pass · C-fast pass · C-engine F1 · C-receipt F4 F5 F8 · C-check: reviewer-3 F6 (reviewer-4 pending) · C-codec: F7 (reviewer-1, reviewer-2 pending).
 

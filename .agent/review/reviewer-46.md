@@ -43,5 +43,30 @@ Frozen target: `/home/eturkes/Projects/fvtrace/.scratch/review-base` (`48bc51d`)
 - Red command: `FVTRACE_HOME=/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-46/home node /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-46/red-group-order.mjs` → rc 1 at `48bc51d`.
 - Output: `Overlooked directions`: ids `[C5,C6]`, states `[Pending verification,Fully supported]`; `On new data: New cohort`: ids `[C3,C4]`, same states. Native `eval --whatif MR=checked` independently prints C5/open, C6/can, C3/open, C4/can; the renderer is not waiting for a verdict. Assertion: `Every claim group must follow verdict order, including new-data and overlooked groups.`
 - Log: `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-46/red-group-order.log`; inspected screenshot `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-46/screenshots/group-order.png` (1280×900).
-- Anchors: `rg -Fn 'out.push(["Overlooked directions", existing.filter((c) => c.latent)]);' …/web/app.js` → 835; `rg -Fn 'out.push([`On new data: ${s.title}`, bySubject.get(s.id) ?? []]);' …/web/app.js` → 846.
+- Anchors: `rg -Fn 'out.push(["Overlooked directions"' /home/eturkes/Projects/fvtrace/.scratch/review-base/web/app.js` → 835; `rg -Fn 'bySubject.get(s.id) ?? []' /home/eturkes/Projects/fvtrace/.scratch/review-base/web/app.js` → 846.
 - Fix direction: use the same verdict-order projection inside every claim group, preserving distinct subject ids/headings.
+
+## Verification + limits
+
+Scratch prefix for every script/log/result below = `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-46/`; each binary invocation sets its `home/` as `FVTRACE_HOME`.
+
+| command (absolute scratch script) | result |
+|---|---|
+| `FVTRACE_HOME=…/home REVIEW_SKIP_SHOTS=1 node …/sweep.mjs` | rc 0; 171 checks pass; `sweep-results.json` failures `[]`. Real base `serve --port 0 --no-browser`; synthetic + feature trace (violations, exclusions, prospective subject, latent claim, notices, waivers), desktop + phone; reviewed/stale; offline exports + WebAssembly removed. |
+| `FVTRACE_HOME=…/home node …/extra.mjs` | rc 0; 32 checks pass; `extra-results.json` errors `[]`. All 12 fact kinds + 5 claim levels; single replay notice; real Worker held at startup/evaluation still permits a selected summary at both sizes; exact no-engine lines on phone. |
+| `FVTRACE_HOME=…/home node …/gestures.mjs` | rc 0; 8 gesture cases × 3 assertions. Card headline, experiment title, work text, Text row at both sizes: real drag selects ≥15 characters without opening details; subsequent plain click opens the correct details. `gesture-results.json`. |
+| `FVTRACE_HOME=…/home node …/red-list-click.mjs` | rc 1; F1 red at both sizes; id-button controls pass. |
+| `FVTRACE_HOME=…/home node …/red-lint-words.mjs` | rc 1; F2 red; kind-badge controls pass. |
+| `FVTRACE_HOME=…/home node …/red-group-order.mjs` | rc 1; F3 red; native verdicts match the displayed states. |
+
+- Screenshots: all 24 PNGs under `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-46/screenshots/` opened + inspected. Includes desktop/phone intro, claim, details, what-if, Text, tour key + contacts, exclusion conflict, exported pairs, no-engine view/detail, list rows, terminology, group order; font crops = default + DejaVu Sans.
+- Known findings: cited table rows retain F24–27/F37–38/F43–44; existing interaction findings F39–42/F45 not re-reported. No claim that their failure paths pass.
+- Unconfirmed: numerical 0.1s/1s/10s bounds, reference-host scale envelope, non-Chromium browsers + fonts beyond the two above. This slice exercised behavior in bundled Chromium, not a new U-time measurement. Full gate + existing e2e suite not run (brief forbids full gate; review uses direct real-program witnesses).
+- Harness corrections, not product findings: initial key-count expectation incorrectly included prospective claims → kernel.md G10 scopes counts to existing subjects; corrected scratch expectation → 171 pass. Initial extra fixture omitted cross-subject `instantiates`; initial group-order fixture recorded a prospective verified fact → corrected to a valid open fact + what-if. Lazy claim selection uses the find route. Initial work drag began on its id button → corrected to the readable text node; final gesture cases pass.
+- Cleanup: every started server killed by its owned PID; `server-stopped.json` records refused ports; final `pgrep -af '[r]eviewer-46'` rc 1 (no remaining driver/server). Base/primary product files untouched; only allowed report + scratch written; no Git operations.
+
+## Register
+
+- `/home/eturkes/Projects/fvtrace/.scratch/review-base/web/tour.js:36`: `counts the claims in the whole analysis.` overstates key scope (kernel.md G10 = existing-subject claims). Synthetic has three cards but key sums to two. S-comments-other lead sent to reviewer-39 + MAIN; outside F's prescribed count semantics, no duplicate F-gui finding.
+
+reviewer-46-DONE-1

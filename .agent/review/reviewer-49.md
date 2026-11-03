@@ -5,13 +5,13 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 | row | bullet | verdict | basis |
 |---|---|---|---|
 | L-ops1 | Environment | pass | `lean-toolchain`, `.node-version`, `package.json`, fetch/build tools + CI provisioning read; local Lean/Node/pnpm versions agree; lock-version/digest vendor controls fire. Fresh-host install not run. |
-| L-ops2 | One gate + stages | finding F30, F35 | All STAGES entries/functions compared with bullet; runner control fails rc 7, still runs later stage, closes gate rc 1 + timings. Existing audit gaps F30/F35 remain. |
+| L-ops2 | One gate + stages | finding F30, F35, reviewer-49-F6 | All STAGES entries/functions compared with bullet; runner control fails rc 7, still runs later stage, closes gate rc 1 + timings. Existing audit gaps F30/F35 remain; js-test prints all durations, not ranked three-slowest summary (new F6). |
 | L-ops3 | CI gate script | pass | Own CI controls stub every git/gh command: green rc 0 + delete; dirty rc 2 + no push; watch failure rc 1 + branch kept. Workflow gate contains all shards + portability; no remote mutation. |
 | L-ops4 | Fresh bootstrap | finding reviewer-49-F4 | Tracked CI bootstrap agrees; local recipe is an inline multi-step recipe, not a committed bootstrap helper. Full fresh-host gate explicitly not run. |
 | L-ops5 | Fast gate | pass | Source + STAGES comparison: cheap stages fork, build/tests incremental, all omitted stages named; --e2e included conditionally. Gate-runner failure control fires; fast gate itself not run. |
 | L-ops6 | Probes | finding F29, F30, F35 | `gate-probe.sh` inventory read; own copy: 28 controls pass (probes.log); known dispatch/audit gaps retained, not re-reported. |
 | L-ops7 | Timing + parity | finding F21 | `scale.sh`, `compare.sh` contracts + existing red witnesses in F21; no reference-host timing run. |
-| L-ops8 | CI | finding F32 | All four workflows + Renovate read: triggers/platforms/SHA permissions/Python/cache agree; download hard bound gap = F32. |
+| L-ops8 | CI | finding F32, reviewer-49-F5 | All four workflows + Renovate read: triggers/platforms/SHA permissions/Python/cache agree; download hard bound gap = F32; removed Python setup + Windows build + moved installed floor runner still pass workflow/fanout checks (new F5). |
 | L-lean1 | Layout + trust | finding F30, F35, reviewer-49-F1 | `TrustMain.lean` claims/proof/audit/allowlist read; constructor closure + reducible Prop alias gaps = known F30/F35; Spec imports Proofs + theorem plant also passes style/build/trust (new F1). |
 | L-lean2 | native_decide ban | pass | Own valid native_decide theorem compiles; fvtrace-trust fails rc 1 with generated native_decide axiom (27 claims/1 finding). Script native-decide.log; initial fixture lacked unfold and was corrected before credit. |
 | L-lean3 | Total kernel | finding F30 | `partial` direct closure probe in trust group; inductive-constructor reach gap already F30. |
@@ -28,16 +28,16 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 | L-deps5 | Runner label table | pass | `actionlint.yaml` declares only ubuntu-26.04(-arm); pinned actionlint 1.7.12 + release date read; own planted-label control fails rc 1 (actionlint-label.log). |
 | L-ren1 | RE2 validator | finding reviewer-49-F2 | Manual validator command is not a gate step; gate js-test uses JS RegExp. Planted invalid option + RE2-invalid lookbehind still passes all 64 js tests (rc 0). |
 | L-ren2 | Local lookup | finding reviewer-49-F4 | Rule supplies a multi-command local lookup/log-extraction recipe instead of a committed helper; live lookup not run (Renovate not project-pinned). |
-| L-rel1 | Platform build | pass | `build.yml` all four target pairs → build/test/package (package checks at once); gate portability reusable call; release input disables cache. |
+| L-rel1 | Platform build | finding reviewer-49-F5 | `build.yml` all four target pairs → build/test/package (package checks at once); gate portability reusable call; release input disables cache. Missing Windows matrix entry passes static workflow checks (new F5). |
 | L-rel2 | Publish + installed | finding F23 | release.yml job order/permissions/green-main gate/attest/download OS matrix/read-only dispatch/dry branch agree; archive-name guard gap = F23. |
-| L-rel3 | Archive checks + floors | finding reviewer-49-F3 | Code floors 2.17/15.0 match README + build/installed macOS. Actual glibc/version/digest/license controls fire; README lowered to 2.16 still packages/checks rc 0. |
+| L-rel3 | Archive checks + floors | finding reviewer-49-F3, reviewer-49-F5 | Code floors 2.17/15.0 match README + build/installed macOS. Actual glibc/version/digest/license controls fire; README lowered to 2.16 still packages/checks rc 0; installed runner moved off the declared macOS floor is unchecked (new F5). |
 | L-rel4 | Notices | pass | release.sh package copies seven named texts from pinned toolchain/HACL/Emscripten + libuv; release-license plant fires rc 1 (probes.log). |
 | L-rel5 | Reusable workflow form | pass | All in-repo calls use $/; actionlint ignore regexp anchored to that call form. Own malformed-reusable plant still fails rc 1; unrelated label plant fails rc 1. |
 | L-rel6 | Release probe | pass | Own release group: package control passes, digest/version/license/glibc plants fire (28/28 combined controls). macOS/Windows plants not run on Linux. |
 | L-ex1 | Example strict checks | pass | Gate examples function resolves own/synthetic project roots + check --strict; stale-receipt plant fires rc 1; baseline release synthetic strict check passes. |
 | L-ex2 | Re-pin changes | pass | Strict examples stage rejects appended proof line (rc 1), restores it; pin command exists and receipt artifacts agree; re-pin sequencing/commit obligation = process, not additional target behavior. |
 | L-ex3 | README self-trace verdicts | finding reviewer-49-F3 | Native claims .final + acceptanceTests agree: 7 can, C2/C7 open. README count Seven→Eight leaves 6/6 acceptance checks passing; absent README relation check. |
-| L-ex4 | unknown | unknown | unknown |
+| L-ex4 | Statement replays | pass | Live PlanSound fingerprint sha256 equals P6 output ee99af43…; own wrong-output plant makes trust statements fail rc 1: P6 failed (output changed), trace restored. Cache-key checks already fire. |
 | L-ex5 | Stale receipt probe | pass | Own gate-probe.sh examples: examples-stale-receipt fires rc 1 on appended Plan.lean line, restored by checksum. |
 | A-ops | Authoring: ops.md | finding reviewer-49-F4 | Repo-wide gate law stays bare; compact live stage contract + rationale; fresh-host inline install && gate recipe lacks a committed wrapper. |
 | A-lean | Authoring: lean.md | pass | Quoted paths frontmatter + concise live Lean constraints/pitfalls/why; repeated command is invocation, not an origin story. |
@@ -71,10 +71,10 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 
 ### reviewer-49-F3 — minor — no firing README synchronization check
 
-- Target: `tools/release.sh:61,151`; contract `.claude/rules/release.md:15` (README floor table moves with code) + CLAUDE Engineering deterministic checks; `.claude/rules/examples.md:14` (README verdicts = acceptanceTests = engine).
+- Target: `tools/release.sh:61,151`; contract `.claude/rules/release.md:15` (README floor table moves with code) + CLAUDE Engineering deterministic checks; `.claude/rules/examples.md:16` (README verdicts = acceptanceTests = engine).
 - `release.sh` copies README and checks its presence, not its promised floors. Current README says glibc 2.17/macOS 15 and matches the code; a false lower promise still produces a passing release archive.
 - Red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/red-enforcement.py readme-floor` → rc 1: `README glibc floor 2.16 vs script 2.17: release check rc=0`; `release: fvtrace-0.1.0-linux-x86_64.tar.gz passed`; `AssertionError: FAIL no firing check: release package/check ships a README promising a lower glibc floor`.
-- Self-trace red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/lean-extra.py readme-verdict` → rc 1: `README says Eight vs actual Seven: acceptanceTests rc=0`; `6/6 checks passed`; `AssertionError: FAIL no firing check: self-trace acceptance tests do not check the README verdict claim`. Exact text anchor = `Seven of its claims read` (`README.md:310`); frozen native `claims --json` gives seven `.final = "can"` and C2/C7 `"open"`, matching Tests/Engine.lean:451–454.
+- Self-trace red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/lean-extra.py readme-verdict` → rc 1: `README says Eight vs actual Seven: acceptanceTests rc=0`; `6/6 checks passed`; `AssertionError: FAIL no firing check: self-trace acceptance tests do not check the README verdict claim`. Exact text anchor = `Seven of its claims read` (`README.md:310`); frozen native `claims --json` gives seven `.final = "can"` and C2/C7 `"open"`, matching Tests/Engine.lean:448–451.
 - Control = own `gate-probe.sh release`: package passes; real lowered binary floor fails, alongside digest/version/license plants (probes.log). Thus this is the absent README relation, not a broken archive checker.
 - Fix direction: one gate check ties README's floor values to release constants (and self-trace verdict counts to their evaluated rows); plant wrong floor/count text.
 
@@ -89,10 +89,37 @@ Target = `48bc51d` frozen base; check set = assigned bullets + Authoring per fil
 - Fix direction: committed bootstrap/lock-refresh/local-lookup helpers accept the required version/exclusion/manager inputs; rules name one invocation + the policy/why. Judge recipe boundaries; the component commands are not alleged defective.
 
 
+### reviewer-49-F5 — minor — no firing cross-workflow provisioning/platform/floor check
+
+- Target: `tools/gate.sh:195,204`; `.github/workflows/gate.yml:49`, `build.yml:31,44`, `release.yml:105`.
+- Contract = `.claude/rules/ops.md:10` (Python in every build job) + `.claude/rules/release.md:13,15` (four release platforms built in CI; installed macOS = declared floor) + CLAUDE Engineering deterministic checks.
+- Current workflow values conform. Neither workflow linter nor shard fanout check enforces these cross-file relations: remove both setup-python steps, omit Windows from reusable build, move installed macOS from 15 to 26 → all owning static checks still pass. A later tagged release's missing-archive guard is not a gate on this ordinary CI edit; a preinstalled Python can also hide the omitted setup step.
+- Red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/ci-structure-red.py` → rc 1: `baseline workflow checks rc=0`; `no Python setup + missing Windows build + installed macOS != declared floor: workflows/fanout rc=0`; `AssertionError: FAIL no firing check: Python provisioning and floor-runner invariants are absent from workflow validation`.
+- Exact checks run = `workflows` (zizmor + actionlint) + `fanout`; every source file restored. Zizmor prints its default offline-mode warning; no online-only audit coverage claimed.
+- Fix direction: a gate structural validator joins build jobs → Python setup, build/installed targets → required release targets, macOS installed label → `macos_min`; planted omissions/mismatch fire. Keep the existing shard check.
+
+### reviewer-49-F6 — minor — js-test omits the promised three-slowest summary
+
+- Target: `tools/gate.sh:144`; contract `.claude/rules/ops.md:4` exact anchor `suites add their three slowest areas` + CLAUDE Execution gate timing.
+- Gate js-test prints all 64 per-test durations in test order and totals. It does not add a ranked three-slowest area/test summary. Lean's harness does produce its summary; the Node suite does not use that harness.
+- Red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-49/timing-red.py` → rc 1: `gate js-test rc=0 output lines=72`; 64 pass/0 fail; `AssertionError: FAIL js-test reports totals/duration alone, not the three slowest areas/tests required by ops.md`.
+- Precision: that assertion's shorthand includes the printed per-test durations; none is lost. Full captured output (`timing-js-test-output.log`) was read for the missing ranking, not just the missing word `slowest`. No claim about the engine/e2e timing summary is based on this run.
+- Fix direction: a Node reporter emits the three slowest areas/tests while retaining every test outcome + exit status; add its firing control.
+
 ## Register
 
 - `.claude/rules/lean.md:17`: guillemets remain a tracked-code convention, but not a CLI necessity: `lake build fvtrace-tests` returned 0 and built 181 jobs. The initial compiler-rejection inference is withdrawn; no defect inferred from broader accepted CLI syntax.
 - Language intelligence: LSP `documentSymbol` on TrustMain.lean returned `No LSP server available for file type: .lean`; Lean review used source reads, compiler + native audit instead.
+- Publication-source limit: Python 3.15.2 has no GitHub release record (API 404); its exact publication date was not established. HACL* pinned commit metadata = 2026-04-10T15:41:24Z (not a release date). Official Node v26.12.1 release metadata says `2026-10-21T10:38:29Z` + `This is a security release.`; saved in node-release.json.
 - Publication-source limit: emsdk has no GitHub release record for 6.0.13 (API 404); its tag commit `35659964…` says `Release 6.0.13 (#1811)` at 2026-10-19T19:48:59Z. Exact tag publication time remains unconfirmed; npm/GitHub release timestamps above are verbatim API values.
 
 
+## Checks + limits
+
+- Adjudicated = 41/41 rows (35 bullets + 6 Authoring files); new findings = 6, all minor; known finding links retained as named in table.
+- Existing probe groups run in own copy = `fanout meta lean_style vendor replay_policy trust_cache lean_pure palette examples release locks` (28/28) + `trust capability assets` (9/9). Each named plant fired or its named control passed; logs = `probes.log`, `trust-probes.log` under scratch.
+- Extra firing controls = harness false+exception/continue; native_decide axiom; actionlint label + malformed reusable call; CI script green/dirty/red with every remote command stubbed; wrong statement replay output. New-finding red commands + outputs above are the failing checks actually run.
+- Scope limits: no full gate, mutation campaign, reference-host timing/parity run, fresh-host bootstrap/resolve, external Renovate validator/lookup, clean five-platform re-pin download, macOS/Windows execution, live GitHub CI/publish action or browser interaction. Workflow checks ran locally; no remote state changed.
+- Source target stayed read-only. Private copy's final `git diff --exit-code --stat` = rc 0 after all plants restored. Scratch evidence/copy retained for MAIN's reruns. Instructions/Intent/CLAUDE files edited = none.
+
+reviewer-49-DONE-1

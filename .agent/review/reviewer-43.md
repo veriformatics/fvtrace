@@ -100,7 +100,7 @@ same planted binary: direct statements rc=1
 AssertionError: FAIL: trust cache skipped self-trace replays after their consumer changed; direct replay fails
 ```
 
-Every direct replay reports `failed (output changed)`. Logs = `red-trust-key.log`, `trust-key-stage.log`, `trust-key-statements.log`, `trust-key-build.log`. Source + original binary bytes restored; restored library rebuild passed. The script forces native relinking and rebuilds restored library artifacts, so a rerun does not depend on a prior plant's build cache.
+Red reproduced twice, rc 1 both times. All 12 direct replays report `failed (output changed)` (count 12, `rg` rc 0). Logs = `red-trust-key.log`, `trust-key-stage.log`, `trust-key-statements.log`, `trust-key-build.log`. Source + original binary bytes restored; restored library rebuild passed. The script forces native relinking and rebuilds restored library artifacts, so a rerun does not depend on a prior plant's build cache.
 
 Fix → key statement-replay reuse on the exact native replay consumer + verifier dependencies, or cache only the independent-kernel replay and rerun statements separately. Add this omitted-input plant to `trust_cache`.
 
@@ -142,6 +142,10 @@ Fix → key statement-replay reuse on the exact native replay consumer + verifie
 - Restore proof: `tools/gate-probe.sh:26` compares restored sha256; line 34 runs restore on EXIT. `red-probe-signal.py` stalled the owning layout checker after a source plant, sent TERM, observed `probe TERM rc=-15; restored=True`, then removed its child process group. Present source + absent vendor file controls restored clean. The engine probe's post-run whole-copy diff briefly saw the independent replay-consumer plant, not an engine-probe leak; the replay red then restored it and the final copy diff passed.
 - LSP `documentSymbol` on actual `tools/mutate.mjs` succeeded.
 
+- Close: private copy's tracked-source diff rc 0; native binary `cmp` against the frozen base rc 0; single-command task-owned `pgrep` scan rc 1 (none). Re-generated empty/scanner/signal/spec fixture trees removed; scripts + evidence logs retained. All background commands + the completion monitor ended. Deliverable validator: positive control count 1, rc 0; remaining seed count 0, `rg` rc 1.
+
 ## Register
 
 None.
+
+reviewer-43-DONE-1

@@ -47,6 +47,10 @@ Commands below run at `48bc51d`, target read-only; every child `fvtrace` sets `F
 
 > "past [1 s], show that the computer is working"; "a selection moves the highlight + fills the details"; "a what-if replaces only the cards whose content changed"; "long lists show their size above them … an end line"; "Find a claim, fact or experiment … exact id, then id prefix, then words; up to 20 matches; Enter takes the first".
 
+`node /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-47/responsive.mjs` → rc 0 (`responsive.log`): served + exported, held what-if paints busy + Working… and clears both after release; selection keeps every card node; a what-if replaces C2 alone. At 300 claims/experiments, initial board mounts 5 served / 9 exported cards; all positions 1..300 become reachable by scrolling both directions. Counts + exact end-line form show. Search C29 puts exact id, ten prefixes, then the C0 word-match; broad C caps the 900 results at 20; Enter chooses first; late C299, fact E299 + experiment R299 select + load details. No timing bound inferred from these waits.
+
+Known deviations = F26, F43, F45 + F50 in `/home/eturkes/Projects/fvtrace/.agent/review.md` § Findings. They intersect the fixed responsiveness row; existing proofs/rulings stand, no duplicate finding created. The probe above exercises the diagram layout + normal scrolling/selection, not those exceptional cases.
+
 Server/cache clause: "keeps the loaded trace + the last answer … reloaded when the trace or its evidence changes". `node /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-47/cache.mjs` → rc 0 (`cache.log`): repeat response bytes + view equal; artifact edit changes O1 to stale + changes view; restoring bytes restores answer; trace title edit reloads; every stage = fresh native evaluation. Source launch evaluation = `/home/eturkes/Projects/fvtrace/.scratch/review-base/Fvtrace/Cli.lean:1066`; retained server state = `/home/eturkes/Projects/fvtrace/.scratch/review-base/Fvtrace/Server.lean:39–43,163–209`; decoded-once snapshot + last answers = `/home/eturkes/Projects/fvtrace/.scratch/review-base/Fvtrace/Snapshot.lean:75–110`. Reuse counts not instrumented; cache transparency + source wiring checked.
 
 ### Prerequisite + memory scope
@@ -61,3 +65,11 @@ Generator `/home/eturkes/Projects/fvtrace/.scratch/review-base/tools/scale.mjs:3
 - Sharing = synthetic study. On-request differential = four small traces, 18 requests; no exhaustive all-domain or cap-scale compiled parity claim.
 - Timing/RSS/byte-doubling gates, full gate, mutation, axiom audit + independent-kernel replay not run; MAIN owns the relevant baseline rows. Browser functional probes use bundled Chromium + reduced motion, not the live desktop browser.
 - Preliminary probe failures = harness mismatches, not findings: schema identifier, inspector wording, refusal-triggered second evaluation, broad `C` query's 900 matches, and requiring all rows mounted at once after a window-moving find. Oracle corrected to positional reachability (the contract), not simultaneous mounting. One navigation timed out at 30 s under load ≈ 30–34; functional probe navigation then uses 90 s, without a performance claim. A pre-1 s hidden-indicator assertion raced the loaded host; functional test instead holds the request, observes busy + Working…, releases it, and observes both clear. The source's 1 s timer is read separately.
+
+## Close
+
+- 6/6 fixed targets adjudicated; new findings = 0; existing findings intersecting this row = F26/F43/F45/F50. Register = none.
+- All native servers killed by their exact child PID in `finally`, awaited, and their IPv4 ports checked refused. Final `pgrep -af '[/]reviewer-47'` → rc 1, zero matches (positive control: earlier live check listed own node + both servers). Browser contexts/browser + own proxy closed.
+- Fake opener, token files, redirect pages + transient data caches removed. Replayable probes/logs/generated inputs + exported-page/bundle/screenshot evidence retained under own scratch. Target + unrelated primary files unchanged; no Git action. No Intent/CLAUDE/agent instruction edit.
+
+reviewer-47-DONE-1
