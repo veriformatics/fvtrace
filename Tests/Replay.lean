@@ -6,6 +6,7 @@ open Tests Fvtrace
 
 /-- The verifier these tests run (`fvtrace-tests --replay-fixture STEP…`, no shell on any OS):
 `out:FILE` prints FILE's bytes, `hex:HEX` prints those bytes, `err:TEXT` writes TEXT to stderr,
+`errhex:HEX` writes those bytes to stderr,
 `fill:N` writes N `x` + `END` to stderr, `touch:FILE` creates FILE, `put:FILE` writes
 "rewritten\n" into FILE, `sleep:MS`, `exit:N` ends with N; `late:MS` leaves a child that prints
 `late` after MS (holding stdout alone), `orphan:MS` a child that sleeps MS (holding both
@@ -19,6 +20,7 @@ def fixture (steps : List String) : IO UInt32 := do
     | "out" => out.write (← IO.FS.readBinFile arg)
     | "hex" => out.write (Export.hexBytes arg)
     | "err" => (← IO.getStderr).putStr arg
+    | "errhex" => (← IO.getStderr).write (Export.hexBytes arg)
     | "fill" => (← IO.getStderr).putStr ("".pushn 'x' arg.toNat! ++ "END")
     | "touch" => IO.FS.writeFile arg ""
     | "put" => IO.FS.writeFile arg "rewritten\n"
@@ -74,7 +76,8 @@ def tests : TestM Unit := do
       { analysis := { id := "A", title := "Replay", summary := "Replay tests." },
         subjects := [{ id := "S", title := "Replay", kind := .existing }],
         questions := [{ id := "Q", title := "Q", text := "Does it hold?" }],
-        facts := [fact "O1" .proved "proofs/Thm.lean" (fx [s!"touch:{marker}", "out:spec.txt"]),
+        facts := [fact "O1" .proved "proofs/Thm.lean"
+            (fx [s!"touch:{marker}", "out:spec.txt", "err:statement diagnostic"]),
           fact "O2" .«open» "proofs/Thm.lean" (fx ["hex:ff000a0d0a", "err:diagnostics"]),
           fact "O4" .proved "proofs/Gen.lean" (fx ["put:proofs/Gen.lean"]),
           { id := "EN", subject := "S", kind := .entailment, text := "O1 entails C.",
@@ -112,6 +115,8 @@ def tests : TestM Unit := do
     -- Opted in: unpinned outputs fail, and the command did run.
     let (rc, out, _) ← run ["verify", "--run"]
     check "replay: an unpinned output fails" (rc == 1 && count out "output not pinned" == 4) out
+    check "replay: an unpinned output shows its stderr tail"
+      (count out "its error output ends with: diagnostics" == 1) out
     check "replay: --run runs the commands" (← marker.pathExists)
     -- pin --replay: outputs = raw stdout bytes; receipts hashed after the replays.
     let (rc, _, _) ← run ["pin", "--replay"]
@@ -153,7 +158,9 @@ def tests : TestM Unit := do
     let (_, out, _) ← run ["check", "--json"]
     check "replay: the weakened statement leaves every receipt current"
       (count out "\"current\": false" == 0) out
-    let (rc, out, _) ← run ["verify", "--run", "--json"]
+    let (rc, out, err) ← run ["verify", "--run", "--json"]
+    check "replay: an output mismatch shows its stderr tail beside JSON"
+      (count err "its error output ends with: statement diagnostic" == 1) err
     -- Each failing row names its reason + carries the notice it left (kernel.md § Replay).
     check "replay: the weakened statement fails its replays (fact + exclusion)"
       (rc == 1 && count out "\"output changed\"" == 4 &&
@@ -174,6 +181,18 @@ def tests : TestM Unit := do
     let shown := ((out.splitOn "its error output ends with: ").getD 1 "").takeWhile (· != '\n')
     check "replay: a failing command shows its stderr's last 4 KiB"
       (shown.toString.endsWith "END" && shown.toString.length == 4096) shown.toString
+    Cli.writeTrace traceFile
+      (setReplay pinned "O1"
+        { command := fx ["errhex:c3a9", "fill:4092", "exit:3"], output := outputOf "O1" })
+    let (_, out, _) ← run ["verify", "--run"]
+    let shown := ((out.splitOn "its error output ends with: ").getD 1 "").takeWhile (· != '\n')
+    check "replay: a byte cut inside UTF-8 keeps every complete character of the tail"
+      (shown.toString == "".pushn 'x' 4092 ++ "END") shown.toString
+    Cli.writeTrace traceFile
+      (setReplay pinned "O1" { command := fx ["errhex:ff", "exit:3"], output := outputOf "O1" })
+    let (_, out, _) ← run ["verify", "--run"]
+    check "replay: invalid UTF-8 keeps its diagnostic marker"
+      (count out "its error output ends with: (not UTF-8)" == 1) out
     Cli.writeTrace traceFile
       (setReplay pinned "O1" { command := fx ["sleep:20000"], output := outputOf "O1" })
     let t0 ← IO.monoMsNow
