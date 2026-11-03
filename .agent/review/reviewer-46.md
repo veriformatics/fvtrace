@@ -3,7 +3,7 @@
 | row | target | verdict | basis |
 |---|---|---|---|
 | F-gui | header, top columns, How this works + key table + counts, exclusions note | pass | Live synthetic desktop 1280×900 + phone 390×844: two-column → stacked intro; one four-row key, exact lead/meanings/exclusions note, symbols + engine counts, no separate counts panel. Screenshots inspected: `screenshots/{desktop,phone}-intro.png`. Count scope = existing-subject claims (kernel.md G10), not all prospective claims. |
-| F-gui | review line + evidence bar + what-if line + refusal suffix + notices lines | unknown | unknown |
+| F-gui | review line + evidence bar + what-if line + refusal suffix + notices lines | pass | Exact draft/reviewed/stale lines, recorded/amber what-if bar + reset, all four refusal forms + GUI suffix, multi-notice line + all four failure endings verified live. `sweep.mjs`: synthetic + custom feature fixture; `screenshots/{desktop,phone}-whatif.png` inspected. |
 | F-gui | claim card: label row, chips, headline/exact statement, condition lines, plain reasons, diagram end | unknown | unknown |
 | F-gui | kind + level words; no metaphor words; no "trace" | unknown | unknown |
 | F-gui | Text view, details panel, experiments + work list + Lists rulings | reviewer-46-F1; known F26, F43 | Live synthetic + feature fixture: labels, condition lines, exact statements, waiver relocation, plan, experiment success/failure, nonzero-only work count + companion facts pass. Violated-fact + missing-check rows lack plain-click selection (red at both sizes); Text highlight + eager nested work list already F43/F26. |
