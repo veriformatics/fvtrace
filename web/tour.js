@@ -84,6 +84,7 @@ const steps = [
   },
   {
     target: ["article.circuit .contacts"],
+    compact: ["article.circuit .contacts > .contact"],
     title: "The facts it needs",
     body: () => [
       p(
@@ -227,7 +228,8 @@ export function startTour(from) {
   go(0);
 }
 
-function end() {
+export function endTour() {
+  if (!card.isConnected) return;
   room.remove();
   spot.remove();
   card.remove();
@@ -239,7 +241,7 @@ function end() {
 
 /** @param {KeyboardEvent} e */
 function onKey(e) {
-  if (e.key === "Escape") end();
+  if (e.key === "Escape") endTour();
   else if (card.contains(document.activeElement) && e.key === "ArrowRight" && at < shown.length - 1)
     go(at + 1);
   else if (card.contains(document.activeElement) && e.key === "ArrowLeft" && at > 0) go(at - 1);
@@ -249,7 +251,7 @@ function onKey(e) {
 function go(i) {
   at = i;
   const st = shown[i];
-  if (!st) return end();
+  if (!st) return endTour();
   const last = i === shown.length - 1;
   fill(
     card,
@@ -259,7 +261,7 @@ function go(i) {
     h(
       "div",
       { class: "tour-buttons" },
-      h("button", { class: "tour-close", type: "button", onclick: end }, "End the tour"),
+      h("button", { class: "tour-close", type: "button", onclick: endTour }, "End the tour"),
       i > 0
         ? h(
             "button",
@@ -269,7 +271,7 @@ function go(i) {
         : null,
       h(
         "button",
-        { class: "action", type: "button", onclick: () => (last ? end() : go(i + 1)) },
+        { class: "action", type: "button", onclick: () => (last ? endTour() : go(i + 1)) },
         last ? "Finish" : "Next",
       ),
     ),

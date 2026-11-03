@@ -595,3 +595,71 @@ test("no claims and facts yet, or a record that cannot be read: the page names t
     "The claims and facts on record cannot be read. To see why, run fvtrace check in the project folder.",
   );
 });
+test("a twelve-fact diagram keeps every tour spotlight clear", async ({ page }, testInfo) => {
+  web = await serveFvtrace("synthetic", (t) => {
+    const ids = Array.from({ length: 11 }, (_, i) => `F${i}`);
+    t["facts"] = [
+      ...ids.map((id) => ({
+        id,
+        subject: "S",
+        kind: "statistical",
+        text: `${id} holds.`,
+        status: "open",
+        route: "lean",
+      })),
+      {
+        id: "EN",
+        subject: "S",
+        kind: "entailment",
+        text: "The facts support the claim.",
+        status: "open",
+        route: "lean",
+      },
+    ];
+    t["claims"] = [
+      {
+        id: "C0",
+        subject: "S",
+        question: "Q1",
+        level: "descriptive",
+        text: "The comparison follows.",
+        needs: ids,
+        entailment: "EN",
+      },
+    ];
+    t["subjects"] = [{ id: "S", title: "Study", kind: "existing" }];
+    t["experiments"] = [];
+    t["exclusions"] = [];
+    t["waivers"] = [];
+    delete t["review"];
+  });
+  await expectTourClear(page, web.url);
+  await page.locator("#tour-start").click();
+  await pressTimes(page, "ArrowRight", 5);
+  await expect(page.locator("#tour-title")).toHaveText("The facts it needs");
+  await page.screenshot({ path: testInfo.outputPath("facts-tour-phone.png") });
+});
+
+test("a record problem ends the active tour", async ({ page }) => {
+  web = await serveFvtrace();
+  await page.goto(web.url);
+  await card(page, "C1").waitFor();
+  await page.locator("#tour-start").click();
+  await expect(page.locator(".tour-card")).toBeVisible();
+  await page.route("**/api/answer", (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        problem: { kind: "invalid", message: "The claims and facts on record have errors." },
+      },
+    }),
+  );
+  // Non-modal: a new view may fail while the tour is active.
+  await page.evaluate(() => {
+    location.hash = "whatif=O2%3Dchecked";
+  });
+  await expect(page.locator("#analysis-title")).toHaveText("This analysis cannot be shown");
+  await expect(page.locator(".tour-card")).toHaveCount(0);
+  await expect(page.locator(".tour-spot")).toHaveCount(0);
+  await expect(page.locator(".tour-room")).toHaveCount(0);
+});

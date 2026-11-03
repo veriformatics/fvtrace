@@ -34,7 +34,7 @@ import {
   workRow,
   workSig,
 } from "./panels.js";
-import { startTour } from "./tour.js";
+import { endTour, startTour } from "./tour.js";
 import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./words.js";
 
 /** @typedef {import("./envelope.js").Envelope} Envelope */
@@ -526,6 +526,7 @@ const recordProblems = new Set(["no-trace", "unreadable", "invalid"]);
 /** The page in place of its view when the record cannot be read: its title says so, the server's
  * message gives the fix, and the loading lines, board + tour leave (`.unavailable`). */
 function cannotShow(/** @type {string} */ message) {
+  endTour();
   byId("analysis-title").textContent = "This analysis cannot be shown";
   document.body.classList.add("unavailable");
   showError(message);
