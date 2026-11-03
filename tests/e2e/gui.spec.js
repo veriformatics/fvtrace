@@ -250,6 +250,7 @@ test.describe("the synthetic study", () => {
     await page.goto(web.url);
     const rows = page.locator(".work-item");
     await expect(rows.filter({ hasText: "M1" })).toContainText("Makes 1 claim available alone.");
+    await rows.first().scrollIntoViewIfNeeded();
     const o2 = page.locator('.work-item:has([data-key="work:O2"])');
     await expect(o2.locator(".list-meta")).toHaveText("Needed by C2, together with O3 and EN2.");
     await expect(o2.locator(".work-count")).toBeHidden();

@@ -636,9 +636,10 @@ export function workSig(w, ix, counted) {
  */
 function togetherWith(ix, w, on) {
   const unlocks = new Set(w.unlocks);
-  return w.gates
-    .filter((id) => !unlocks.has(id))
-    .map((id, i) => {
+  return listOf(
+    h("span", {}),
+    w.gates.filter((id) => !unlocks.has(id)),
+    (id, i) => {
       const c = ix.claims.get(id);
       const others = (c?.gaps ?? []).filter((f) => f !== w.fact);
       // A long run mounts as it comes near (U-long), commas alone.
@@ -658,8 +659,18 @@ function togetherWith(ix, w, on) {
           : c?.final === "conditional"
             ? ", which holds only if it is true"
             : together;
-      return [i || w.unlocks.length ? " " : "", "Needed by ", ref("claim", id, on), tail, "."];
-    });
+      return h(
+        "span",
+        {},
+        i || w.unlocks.length ? " " : "",
+        "Needed by ",
+        ref("claim", id, on),
+        tail,
+        ".",
+      );
+    },
+    { noun: ["claim", "claims"], keyOf: (id) => id },
+  );
 }
 
 /** @param {import("./envelope.js").Envelope["blockers"][number]} b @param {Lookups} ix
