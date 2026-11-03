@@ -4,11 +4,11 @@
 |---|---|---|---|
 | C-gui-a | app.js: request sequencing + engine failure | reviewer-17-F1, reviewer-17-F3, reviewer-17-F4 | Read app.js whole + engine/worker callers; native served pending-action witness + exported invalid-details/pairs + idle-worker witnesses red. |
 | C-gui-a | app.js: hash, history, linked what-if, legacy action | reviewer-17-F2, reviewer-17-F6 | Read readHash/writeHash/load/legacy/popstate + export tests; cross-question reload + damaged-data startup witnesses red. |
-| C-gui-a | app.js: token + credential sequence (served) | unknown | unknown |
+| C-gui-a | app.js: token + credential sequence (served) | pass | Read takeToken/storedToken/keepToken/forgetToken + ask/answerOf vs server.md GUI law; real server accepts offered credential + stores it, junk offered retries valid stored, expired stored retries none + is forgotten; token removed before view history (`served-token-sequence`, green). Proxy 401/Basic/path cases source-read, not rerun. |
 | C-gui-a | app.js: render, selection, details, cannotShow | reviewer-17-F5 | Read render/adopt/selection/details + panels/circuit/lazy callees; mismatched details header + overrides accepted (red). Native served + exported smoke green; screenshots inspected. |
 | C-gui-a | envelope.js decoder | pass | Read whole decoder against every consumed field in app/panels/circuit; native envelope + three details kinds decode, 24 targeted wrong-type payloads refused; schema/problem/export-wrapper refusals green (`decoder-checks.mjs`). Response identity adoption defect = F5 in app, not decoder. |
 | C-gui-a | lookups.js + find.js | pass | Read both whole + all consumers; one lookup build in adopt, first-id semantics + need/question maps checked; search exact → prefix → words, stable order, empty query + 20-match cap green (`decoder-checks.mjs`). Cross-question routing bug = F2 in app. |
-| C-gui-a | words.js + dom.js | unknown | unknown |
+| C-gui-a | words.js + dom.js | pass | Read both whole + consumed call sites; status/verdict/kind/level words vs contract; count/list/replay-ending/qualifier helper checks green; real DOM selection suppresses open, plain click selects + focuses inspector, readable claim text outside buttons (`dom-selection`, green). |
 | C-gui-a | tests (gui, responsive, smoke specs) | unknown | unknown |
 
 ## Scope + evidence
