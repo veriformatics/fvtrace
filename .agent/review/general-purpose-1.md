@@ -38,6 +38,6 @@
 - Worktree `/home/eturkes/Projects/fvtrace/.scratch/worktrees/general-purpose-1/` stays on `wt/general-purpose-1`; MAIN merges. No push; no Intent/instruction edits; F13 skill refusal values unchanged. No new code starts under the finish-only directive.
 - Logs + rerun inputs: `/home/eturkes/Projects/fvtrace/.scratch/fix/general-purpose-1/`. `focused` = `FIX_BASE=de05748 bash …/focused.sh`; it copies real repo suites into an isolated native driver. Replay red = `FIX_REPLAY_ONLY=1 FIX_REPLAY_BASE=3957c87|de05748`; server red = `FIX_SERVER_ONLY=1 FIX_SERVER_BASE=716a4b7`. Green omits the base override. `WasmOnly.lean`, `SchemaOnly.lean`, `schema-probe.mjs`, `app-smoke.py` retain focused probes.
 - Scratch build clone + ephemeral homes/projects/exports removed; logs + probe inputs retained. Owned-process scan rc1; positive control = one recorded live-server PID line + explicit stop/port refusal. No owned background task remains.
-- Report validator: seed positive control expected 1 → rc0/1 match; report seed count 0 → rc1; finding rows 13 → rc0. No unconfirmed code finding remains in the assigned rows.
+- Report validator: seed positive control expected 1 → count 1, rc0; report seed count 0 → rc1; finding rows 13 → rc0. No unconfirmed code finding remains in the assigned rows.
 
 general-purpose-1-DONE-1
