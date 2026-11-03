@@ -43,9 +43,9 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-37 | S-spec | 4 | harvested |
 | reviewer-38 | S-comments-lean | 4 | harvested |
 | reviewer-39 | S-comments-other | 4 | harvested |
-| reviewer-40 | V-lean-kernel | 4 | running |
-| reviewer-41 | V-lean-shell | 4 | running |
-| reviewer-42 | V-js | 4 | running |
+| reviewer-40 | V-lean-kernel | 4 | harvested |
+| reviewer-41 | V-lean-shell | 4 | harvested |
+| reviewer-42 | V-js | 4 | harvested |
 | reviewer-43 | V-gate | 4 | running |
 | reviewer-44 | F-model | 4 | harvested |
 | reviewer-45 | F-cli | 4 | harvested |
