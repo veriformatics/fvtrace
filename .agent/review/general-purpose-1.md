@@ -7,13 +7,13 @@
 | F6 | unknown | unknown | unknown | unknown | unknown |
 | F7 | b736102 | new/moved corpus + original schema → rc1, five Node failures (`f7-red.log`) | Node corpus rc0; reached Schema + Assets green; embedded-schema `cmp` rc0 | 18 defs; 66,588 Unicode + 10,045 decimal boundary/sample controls pass (finite) | fixed |
 | F8 | de05748 + 5f09c9c | Replay @3957c87 → 30/33 (2–4-byte cuts lost); @de05748 → 32/33 (orphan byte hidden) | refined replay suite 33/33 | retain 3 look-behind bytes; trim only a validated scalar spanning the 4 KiB cut; invalid tail keeps marker | fixed |
-| F11 | unknown | unknown | unknown | unknown | unknown |
-| F12 | unknown | unknown | unknown | unknown | unknown |
-| F14 | unknown | unknown | unknown | unknown | unknown |
-| F15 | unknown | unknown | unknown | unknown | unknown |
-| F16 | unknown | unknown | unknown | unknown | unknown |
-| F17 | unknown | unknown | unknown | unknown | unknown |
-| F18 | unknown | unknown | unknown | unknown | unknown |
+| F11 | 839ba01 | focused @de05748 → plan loses `[what-if, draft, if … runs]` | reached 335/335; actual prospective C3 line = claims line | one shared `claimLine` renderer, two callers | fixed |
+| F12 | bfaa353 | focused @de05748 → 245-byte basename gives 258-byte entry; init rc2 | reached 335/335; actual short/long/Unicode init + scheme checks pass | sole entry constructor; ≤242-byte prefix +13-byte suffix; old names unchanged | fixed |
+| F14 | 1a7e8a8 | CLI smoke + removed cwd @3957c87 → rc1/uncaught exception | same smoke rc0; `fvtrace: …` + rc2 | one shared `withIOErrors` wraps both entry points, including Env.detect | fixed |
+| F15 | 716a4b7 | original atomic writers leave temporaries; cleanup masks original error; original link leaves response file on ENOSPC (7/8) | final Wasm writer suite 8/8; reached CLI writer green; actual HTML-export failure leaves no temporary | both replacement writers + link response-file write guarded; shared Build cleanup preserves original error | fixed |
+| F16 | 041c6a8 | focused @de05748 → `schema ARG` misnames the valid command | reached 335/335; actual schema extra-argument rc2 + named token | schema dispatch keeps valid command identity | fixed |
+| F17 | 8264349 | focused @de05748 → listing rows omit reasons | reached 335/335; actual 12-row listing has `reasons: []` | single row builder; run branch unchanged | fixed |
+| F18 | 041c6a8 | focused @de05748 → foreign/unknown question + ignored JSON filter failures | reached 335/335; actual refusals + retained `eval --json` alias pass | all Args.Spec flags traced; question is claims-only; known question+JSON refused per MAIN | fixed |
 | F20 | unknown | unknown | unknown | unknown | unknown |
 
 ## Needs MAIN
