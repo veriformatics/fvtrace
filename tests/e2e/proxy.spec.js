@@ -78,7 +78,7 @@ test("behind a login proxy, the page needs the proxy's login alone", async ({ br
     const page = await context.newPage();
     await page.goto(proxy.url);
     await shown(page);
-    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
     expect(proxy.seen).toContain("Basic");
     expect(proxy.seen).not.toContain("Bearer");
     expect(await page.evaluate(() => localStorage.getItem("fvtrace-token"))).toBeNull();

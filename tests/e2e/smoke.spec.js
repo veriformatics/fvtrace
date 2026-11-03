@@ -24,7 +24,7 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     await page.goto(web.url);
     expect(page.url()).toBe(`${web.base}/`);
     await expect(page).toHaveTitle("fvTrace");
-    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
     await page.locator("article.circuit").first().waitFor();
     // The page keeps the run's token in its origin's storage and sends it as a header.
     const evaluation = await page.evaluate(async () => {
@@ -42,7 +42,7 @@ test("the GUI loads through fvtrace serve without errors and passes axe", async 
     expect(evaluation.body).toMatchObject({ schema: "fvtrace.evaluation/2", mode: "recorded" });
     expect(await axeIds(page)).toEqual([]);
     await page.getByRole("button", { name: "Suppose O2 checked" }).first().click();
-    await expect(page.getByRole("status")).toContainText("Showing a what-if");
+    await expect(page.locator("#scenario-text")).toContainText("Showing a what-if");
     expect(await axeIds(page)).toEqual([]);
     await page.getByRole("button", { name: "Text", exact: true }).click();
     expect(await axeIds(page)).toEqual([]);

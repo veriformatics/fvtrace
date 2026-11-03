@@ -115,7 +115,7 @@ test.describe("the synthetic study", () => {
     await page.goto(web.url);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Synthetic study");
     await expect(page.locator("#review")).toHaveText("Not reviewed yet.");
-    await expect(page.getByRole("status")).toHaveText(
+    await expect(page.locator("#scenario-text")).toHaveText(
       "Showing the facts as recorded. Press a fact's symbol to see what would change if it were verified.",
     );
     const key = page.locator(".key-pairs");
@@ -155,7 +155,7 @@ test.describe("the synthetic study", () => {
     await page.goto(web.url);
     const c2 = card(page, "C2");
     await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-    await expect(page.getByRole("status")).toHaveText(
+    await expect(page.locator("#scenario-text")).toHaveText(
       "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
     );
     await expect(verdict(c2)).toHaveText("Pending verification");
@@ -171,7 +171,7 @@ test.describe("the synthetic study", () => {
       .click();
     await expect(verdict(card(page, "C2"))).toHaveText("Pending verification");
     await page.getByRole("button", { name: "Show the facts as recorded" }).click();
-    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
     await expect(card(page, "C2").locator(".tag-qualifier")).toHaveCount(0);
   });
 
@@ -180,7 +180,7 @@ test.describe("the synthetic study", () => {
     await expect(page.locator("#error")).toHaveText(
       "O2 appears twice in the what-if. This page shows the facts as recorded instead.",
     );
-    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
     expect(new URL(page.url()).hash).not.toContain("whatif=");
     await page.goto("about:blank");
     await page.goto(`${web.url}&whatif=O2%3Dassumed`);
@@ -200,7 +200,7 @@ test.describe("the synthetic study", () => {
   }) => {
     await page.goto(web.url);
     const inspector = page.locator("#inspector");
-    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
     // kernel.md V-serve: the details request names the shown view; the server answers 409.
     await appendFile(join(web.project, "proofs", "Contrast.lean"), "-- edited\n");
     await card(page, "C1").locator(".contact-label").filter({ hasText: "O1" }).click();
@@ -525,7 +525,7 @@ test.describe("replay notices", () => {
   test("a notice written while the page is open shows after the next request", async ({ page }) => {
     web = await serveFvtrace();
     await page.goto(web.url);
-    await expect(page.getByRole("status")).toContainText("Showing the facts as recorded.");
+    await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
     await expect(page.locator("#replays")).toBeHidden();
     // kernel.md V-serve: the view names the notices, so the details request meets 409 + reloads.
     const file = fvtrace(["path"], web.project, web.env);

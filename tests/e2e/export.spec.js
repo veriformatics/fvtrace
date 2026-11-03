@@ -85,11 +85,11 @@ test("offline from file://, the page's engine stacks a two-fact what-if as fvtra
   const c2 = card(page, "C2");
   await expect(verdict(c2)).toHaveText("Pending verification");
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
   );
   await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose EN2 is proved, O2 is verified by a checker. Nothing has been recorded.",
   );
   expect(new URL(page.url()).hash).toContain("whatif=EN2%3Dproved%2CO2%3Dchecked");
@@ -99,11 +99,11 @@ test("offline from file://, the page's engine stacks a two-fact what-if as fvtra
     [...native].map(([id, words]) => expect(verdict(card(page, id))).toHaveText(words)),
   );
   await c2.getByRole("button", { name: "Restore the recorded status of O2" }).click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose EN2 is proved. Nothing has been recorded.",
   );
   await page.getByRole("button", { name: "Show the facts as recorded" }).click();
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await expect(verdict(c2)).toHaveText("Pending verification");
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations.map((v) => v.id)).toEqual([]);
@@ -115,7 +115,7 @@ test("offline from file://, the page's engine stacks a two-fact what-if as fvtra
 test("a linked what-if goes to the page's engine as written", async ({ browser }) => {
   const { context, page, url } = await openOffline(browser, "#whatif=O3%3Dchecked%2CO2%3Dchecked");
   await page.goto(url);
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose O2 is verified by a checker, O3 is verified by a checker. Nothing has been recorded.",
   );
   await Promise.all(
@@ -127,7 +127,7 @@ test("a linked what-if goes to the page's engine as written", async ({ browser }
   await expect(page.locator("#error")).toHaveText(
     "O2 cannot be assumed: facts of its kind must be verified. This page shows the facts as recorded instead.",
   );
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   expect(new URL(page.url()).hash).not.toContain("whatif=");
   await page.goto(`${pathToFileURL(fixture.page).href}#whatif=O9%3Dchecked`);
   await expect(page.locator("#error")).toHaveText(
@@ -149,7 +149,7 @@ test("a reviewed study's page runs a linked what-if", async ({ browser }) => {
     );
     await page.goto(url);
     await expect(page.locator("#review")).toContainText("Reviewed by A. Reviewer on ");
-    await expect(page.getByRole("status")).toHaveText(
+    await expect(page.locator("#scenario-text")).toHaveText(
       "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
     );
     await expect(page.locator("#error")).toBeHidden();
@@ -171,7 +171,7 @@ test("an older export's action link becomes its what-if; an unknown one says so"
 }) => {
   const { context, page, url } = await openOffline(browser, "#action=suppose%3AO2");
   await page.goto(url);
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
   );
   expect(new URL(page.url()).hash).toBe("#whatif=O2%3Dchecked");
@@ -179,7 +179,7 @@ test("an older export's action link becomes its what-if; an unknown one says so"
   await expect(page.locator("#error")).toHaveText(
     'This page holds no what-if "suppose:ZZ", so it shows the facts as recorded.',
   );
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await context.close();
 });
 
@@ -193,7 +193,7 @@ test("without WebAssembly the page keeps the recorded view and says why", async 
   await expect(verdict(c2)).toHaveText("Pending verification");
   await expect(page.locator("#error")).toHaveText(engineFailed);
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await expect(page.locator("#error")).toHaveText(engineFailed);
   // Engine only (user ruling): a detail section that needs the engine says so.
   await page.locator(".experiment-row").filter({ hasText: "Check the result" }).click();
@@ -381,10 +381,10 @@ test("a details request that fails ends the engine: the facts as recorded + the 
   await plantWorker(page, { trapAt: 2 });
   await page.goto(url);
   await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.getByRole("status")).toContainText("suppose O2 is verified by a checker");
+  await expect(page.locator("#scenario-text")).toContainText("suppose O2 is verified by a checker");
   await card(page, "C1").locator(".claim-head .tag-id").getByRole("button").click();
   await expect(page.locator("#error")).toHaveText(engineFailed);
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await expect(page.locator("#inspector")).toContainText("cannot show these details");
   const calls = await page.evaluate(() => {
     /** @type {unknown} */
@@ -404,10 +404,10 @@ test("an engine that fails mid-session is never called again", async ({ browser 
   await page.goto(url);
   const c2 = card(page, "C2");
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.getByRole("status")).toContainText("suppose O2 is verified by a checker");
+  await expect(page.locator("#scenario-text")).toContainText("suppose O2 is verified by a checker");
   await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
   await expect(page.locator("#error")).toHaveText(engineFailed);
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
   await expect(page.locator("#error")).toHaveText(engineFailed);
   const calls = await page.evaluate(() => {
@@ -455,9 +455,9 @@ test("while the engine starts, a later view wins over an earlier what-if", async
   await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
   expect(new URL(page.url()).hash).toContain("whatif=O2%3Dchecked");
   await page.goBack();
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await engineStarted(page);
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   expect(new URL(page.url()).hash).not.toContain("whatif=");
   expect(await page.evaluate(() => document.body.hasAttribute("aria-busy"))).toBe(false);
   await context.close();
@@ -474,7 +474,7 @@ test("a failure ends the engine before a queued what-if enters it", async ({ bro
   // The engine works off the page's thread: the count settles once the failure shows.
   await expect(page.locator("#error")).toHaveText(engineFailed);
   expect(await evaluations(page)).toBe(1);
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await context.close();
 });
 
@@ -483,16 +483,16 @@ test("a linked what-if paints the recorded view first", async ({ browser }) => {
   await slowEngine(page, { ms: 3000 });
   await page.goto(url);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Synthetic study");
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await engineStarted(page);
-  await expect(page.getByRole("status")).toContainText("suppose O2 is verified by a checker");
+  await expect(page.locator("#scenario-text")).toContainText("suppose O2 is verified by a checker");
   await context.close();
 });
 
 test("an explicit what-if, even empty, wins over an older action link", async ({ browser }) => {
   const { context, page, url } = await openOffline(browser, "#whatif=&action=suppose%3AO2");
   await page.goto(url);
-  await expect(page.getByRole("status")).toContainText(recorded);
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
   await expect(page.locator("#error")).toBeHidden();
   await context.close();
 });
