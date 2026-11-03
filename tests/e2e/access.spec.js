@@ -118,3 +118,47 @@ test("a late refusal of an old token keeps the token another tab stored since", 
     await web.close();
   }
 });
+
+// A declared body past the cap meets Std.Http's framing limit before any route decision (server.md
+// Routes): an empty 413 that closes the connection, without the handler's headers, whatever the
+// method, path or type; no body byte is read.
+test("a declared body past the cap is refused first: an empty 413", async () => {
+  const web = await serveFvtrace();
+  const port = Number(new URL(web.url).port);
+  /** @param {string} method @param {string} path
+   * @returns {Promise<{ status: number | undefined, csp: string | undefined }>} */
+  const ask = (method, path) =>
+    new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          host: "127.0.0.1",
+          port,
+          method,
+          path,
+          headers: {
+            Host: `127.0.0.1:${port}`,
+            "Content-Type": "text/plain",
+            "Content-Length": String(17 * 1024 * 1024),
+          },
+        },
+        (res) => {
+          res.resume();
+          const csp = res.headers["content-security-policy"];
+          resolve({ status: res.statusCode, csp: typeof csp === "string" ? csp : undefined });
+          req.destroy();
+        },
+      );
+      req.on("error", reject);
+      req.flushHeaders();
+    });
+  try {
+    const answers = await Promise.all([
+      ask("POST", "/"),
+      ask("GET", "/missing"),
+      ask("POST", "/api/answer"),
+    ]);
+    for (const answer of answers) expect(answer).toEqual({ status: 413, csp: undefined });
+  } finally {
+    await web.close();
+  }
+});
