@@ -3,14 +3,14 @@
 | row | target | verdict | basis |
 |---|---|---|---|
 | C-gate | gate.sh (stages, shards, rc, timings) | pass | Every stage + caller read; STAGES ↔ gate.yml matched; sourced stage(rc 17) followed by stage(rc 0) retained the failure + printed both timings; fanout rc 0. |
-| C-gate | fast-gate.sh + ci-gate.sh | unknown | unknown |
+| C-gate | fast-gate.sh + ci-gate.sh | pass | Every function/call read: all background stage PIDs waited, stage failures retained, skipped stages listed; CI selection is workflow+branch+HEAD, watch rc controls green, red keeps branch. Remote pushes/watch not run. |
 | C-gate | gate-probe.sh (plant, cause, restore, re-hash) | reviewer-23-F1 | Every plant/expected cause + restore path read; dispatcher ignores an unexecuted probe's rc (red-probe-selection.sh rc 1). Full probe suite reserved to MAIN. |
 | C-gate | trust.sh + statement.sh + TrustMain.lean | reviewer-23-F2 | Audit/replay/cache/fingerprints read; full escape-hatch closure omits inductive constructors (red-trust-ctor.sh rc 1; direct-opaque positive control fires). |
 | C-gate | mutate.mjs | reviewer-23-F3 | Operators/ranges/protection/build+suite rc/restore/timeouts read; --list-only raw-string witness rc 1. No mutation campaign run. |
 | C-gate | fetch-tools / pin-tool / install-lean / vendor-hacl + tools.lock | reviewer-23-F4 | Digest-before-extract, stamp keys, lock versions/URLs, platform assets + vendored manifest read; installer timeout can wait past its bound (red-install-bound.sh rc 1). Live repin/download not repeated. |
-| C-gate | lean-style.sh + spec-lint + e2e-load.sh | unknown | unknown |
+| C-gate | lean-style.sh + spec-lint + e2e-load.sh | reviewer-23-F6 | All three read; style/spec baselines rc 0 and tab/wrong-section controls fire; e2e load grader rounds 1.5×CPU down (red-load-floor.sh rc 1). No host load raised. |
 | C-gate | test harness (Tests.lean, Harness, TestMain, TestPure) + lakefile.lean | reviewer-23-F5 | Suite wiring/native split + embeds read; harness exception/continuation/report witness passes; C build omits included-header dependencies (red-c-header.sh rc 1). |
-| C-gate | configs | unknown | unknown |
+| C-gate | configs | pass | Every listed config read; checkJs/strict coverage, format/lint/browser settings + pins agree with calls/rules; js_types runs all three projects rc 0. |
 
 ## Findings
 
@@ -102,6 +102,31 @@ FAIL: the cached C objects ignore changes to their project headers
 - Limit: the full gate's separate vendor check rejects this unpinned plant; this proves stale incremental C builds, not a full-gate pass on an edited vendor header. A legitimate pin update that changes only headers has the same dependency gap.
 - Fix: include relevant project headers (and the Lean header/toolchain trace for the shim) in each C object's dependency trace.
 
+### reviewer-23-F6 — minor — loaded-host grader rounds the 1.5×CPU minimum down
+
+- Base: `/home/eturkes/Projects/fvtrace/.scratch/review-base/tools/e2e-load.sh:71`, `:93`.
+- Contract: ops.md / web.md loaded-host evidence: each counted e2e run sees load ≥ 1.5× its CPUs; script's `gate` contract says a lower run returns 3 + does not count.
+- Cause: integer `nproc * 3 / 2` floors the threshold for odd CPU counts; sampled loads are compared against that lowered integer. For 1 CPU, a sample of 1.20 passes despite the required 1.50.
+- Red: `bash /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-23/red-load-floor.sh` → rc 1. Loads the unchanged `gate`, `low`, `span` helpers; stubs OS count/readings + the expensive gate command. No busy loop, full gate or browser suite runs.
+
+```text
+gate run 1 (target load 1): gate rc=0 0.2s · e2e rc=0 0.1s · during e2e: load 1.20–1.20, mean 1.2 (1 samples)
+CPUs=1; e2e sample=1.20; required=1.50; gate helper rc=0 (expected 3)
+FAIL: the load grader accepted less than 1.5 times the CPU count
+```
+
+- Fix: grade against the exact fractional threshold; an integer controller may target its ceiling.
+
 ## Coverage
 
-Read-only base; own scratch for planted inputs. Full gate + full probes + mutation campaigns reserved to MAIN.
+- Target HEAD confirmed `48bc51da577813891fc189be52d70e6ced24f951`; implementation files used by witnesses `cmp` equal to the base. Base untouched; plants/builds confined to own scratch. Header + Version plants restored (`cmp` rc 0).
+- Passed: stage failure retention + fanout; style/spec baseline + planted controls; three TypeScript projects; harness area exception/continuation/report; private C baseline; offline vendor verification.
+- Red witnesses: F1–F6, commands + outputs above. F2 = one major; F1/F3/F4/F5/F6 = five minor findings.
+- Not run: full gate, full probe suite, fast gate end-to-end, mutation campaigns, actual CI push/watch/delete, live repin/download/install, real loaded-host e2e. These remain MAIN's baseline/integration coverage; no claim of a pass on them. Mutation runtime classification/restore/timeouts = code inspection, not a campaign.
+- LSP TypeScript hover worked after correcting an out-of-range column in the initial request. No security investigation performed.
+
+## Register
+
+None.
+
+reviewer-23-DONE-1

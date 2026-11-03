@@ -3,7 +3,7 @@
 | row | evidence so far | state |
 |---|---|---|
 | B1 | CI `gate` run 41551780111 (48bc51d): checks, lean, e2e shards + portability ×4 green; `codeql` 41551779966 green; open code-scanning alert #1 (`js/remote-property-injection`, `tests/e2e/access.spec.js:44`) → M-1 | finding M-1 |
-| B2 | `offload run -- bash tools/gate-probe.sh` (local slot, primary tree), host load 25–40 on 8 CPUs: every probe `fired` or `passed as expected` except `scale-pass` (control) FAILED: `scale: 2 bound(s) exceeded`, load 40 at end ⇒ rerun on an idle host before ruling | running |
+| B2 | `offload run -- bash tools/gate-probe.sh` (local slot, primary tree), host load 25–40 on 8 CPUs: every probe `fired` or `passed as expected` except `scale-pass` (control) FAILED: `scale: 2 bound(s) exceeded`, load 40 at end ⇒ rerun on an idle host before ruling; final: `probes: 68 passed, 1 failed` (`scale-pass`), primary tree restored (only review files modified) | scale-pass rerun pending |
 | B3 | `lake build` (no-op at HEAD) + `fvtrace --help` rc 0 + `--version` = `fvtrace 0.1.0`; `lake test` = CI lean shard green | pass (pending none) |
 | B4 | `.scratch/review/main/b4.sh` (log `b4.log`): every command on the synthetic copy, self-trace (`check --strict` rc 0), fresh project, bundle round trip, export refusal inside the project (rc 2) — leads L1–L3 (`leads.md`) | leads routed |
 | B5 | `b5.mjs` (Playwright Chromium, base binary): served GUI loads, what-if O2, C2 details, Text view, tour 13 steps at 1280×900 + 390×844 (settled card never overlaps its spotlight; a 0.9 s sample overlapped mid-scroll at phone step 6, 3 s settled = clear), no-token page = access notice; no console error | pass |

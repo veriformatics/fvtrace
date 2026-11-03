@@ -5,13 +5,13 @@ Check set = Correctness × M-gate; contract + evidence bar = BRIEF.md + lead bri
 | row | target | verdict | basis |
 |---|---|---|---|
 | C-gate | gate.sh (stages, shards, rc, timings) | pass | Read every stage + gate.yml; ran fanout/spec/meta + stage-controls rc 0 (failure retained, later stage runs, rc/timing lines emitted). Full gate reserved to MAIN. |
-| C-gate | fast-gate.sh + ci-gate.sh | unknown | unknown |
-| C-gate | gate-probe.sh (plant, cause, restore, re-hash) | unknown | unknown |
-| C-gate | trust.sh + statement.sh + TrustMain.lean | unknown | unknown |
-| C-gate | mutate.mjs | unknown | unknown |
-| C-gate | fetch-tools / pin-tool / install-lean / vendor-hacl + tools.lock | unknown | unknown |
-| C-gate | lean-style.sh + spec-lint + e2e-load.sh | unknown | unknown |
-| C-gate | test harness (Tests.lean, Harness, TestMain, TestPure) + lakefile.lean | pass | Read wiring + embed `needs`; FFI-free harness-smoke.lean rc 0: exception adds one FAIL, later area runs, timings retained; all-pass rc 0 / failure rc 1. |
+| C-gate | fast-gate.sh + ci-gate.sh | pass | Read both; wrapper-controls.py rc 0: fast parallel/build failure propagation + completion + --e2e/skips; CI watcher success/failure + branch delete iff green using local command stand-ins, no remote calls. |
+| C-gate | gate-probe.sh (plant, cause, restore, re-hash) | reviewer-22-F4 | Read every plant + helper; 18 selected lightweight controls passed + copy clean after restore. Invalid requested name gives zero-check green. Full probe set reserved to MAIN. |
+| C-gate | trust.sh + statement.sh + TrustMain.lean | reviewer-22-F1, reviewer-22-F2 | Read dependency walks, axioms, fingerprint, replay policy/key; cache + replay-policy controls passed; two planted claim/closure holes accepted by audit (both red witnesses carry positive controls). |
+| C-gate | mutate.mjs | reviewer-22-F5 | Read all operators/ranges/masking/restore/child classifications; --list on valid Lean raw-string fixture misclassifies data as code; no campaign ran. |
+| C-gate | fetch-tools / pin-tool / install-lean / vendor-hacl + tools.lock | reviewer-22-F3 | Read all scripts + 17 lock entries; cached fetch/vendor + planted half bump/extra file controls passed. Extracted exact bounded function fails enforced-deadline test; no download/install. |
+| C-gate | lean-style.sh + spec-lint + e2e-load.sh | reviewer-22-F6 | Style/spec baselines + planted violations passed; e2e-load measure 0 with stand-in leaks sampler/child on TERM. No load generated. |
+| C-gate | test harness (Tests.lean, Harness, TestMain, TestPure) + lakefile.lean | reviewer-22-F7 | Harness smoke rc 0 (exception/continuation/timings/rc); embed needs fit. Later Lake buildO callee inspection + red C-header witness reverses the initial pass: incremental native objects omit header dependencies. |
 | C-gate | configs | pass | Read every named config: strict checkJs scopes, lint/format roots, Playwright timeout + bundled Chromium default, pins, LF checkout + ignored output paths fit callers. |
 
 ## Findings
@@ -70,6 +70,25 @@ Check set = Correctness × M-gate; contract + evidence bar = BRIEF.md + lead bri
 - Actual base script in own copy, `measure 0`, blocked Playwright stand-in; no CPU load generated. The test observes its child PIDs, then kills its whole process group in `finally`.
 - Fix direction: one signal-safe cleanup owner + traps for all child processes in both modes.
 
+### reviewer-22-F7 — minor — native C objects do not trace their headers
+
+- Target: `/home/eturkes/Projects/fvtrace/.scratch/review-base/lakefile.lean:105-110`.
+- Contract: CLAUDE.md Engineering Correctness — builds run current code; Execution — the incremental fast gate reaches changed inputs. Native HACL* + shim compile with the vendored headers, not only their `.c` files.
+- Defect: both `buildO` jobs trace their source alone; the includes are weak arguments + no header `extraDepTrace`. Lake's `buildO` does not discover headers automatically (`/opt/lean/src/lean/lake/Lake/Build/Common.lean:843`). A header-only vendor update reuses stale native objects. Fresh CI builds are unaffected; this is an incremental/local-build defect.
+- Red: `python3 -I /home/eturkes/Projects/fvtrace/.scratch/review/reviewer-22/red-c-header.py` → rc 1: `positive control: direct C compile rejects the included header with REVIEWER_22_HEADER_MUST_REBUILD`; `lake build fvtracec rc=0`; `Build completed successfully (2 jobs).`; `AssertionError: FAIL: lake build reuses the C objects after an included vendored header changes; headers are absent from buildO dependency traces`.
+- Plant: `#error REVIEWER_22_HEADER_MUST_REBUILD` appended to own copy's `c/hacl/Hacl_Hash_SHA2.h`; direct shim compilation sees it, Lake does not. Script restores the header + rebuilds. This witness tests the build target, not vendor verification (which correctly refuses the unpinned plant).
+- Fix direction: trace the vendored header tree + Lean FFI-header/toolchain dependency for both native object jobs.
+
 ## Register
 
 None.
+
+## Coverage + limits
+
+- Read every named M-gate target + binding rules; additional callees: gate.yml, Lake buildO/compileO, FvtraceWasm/Build string site. Security-specific review remains MAIN's scope.
+- Ran: 18 selected probes (`lean_style`, `fanout`, `meta`, `replay_policy`, `trust_cache`, `vendor`) → 18 pass / 0 fail; mechanical-controls.py → rc 0; wrapper-controls.py → rc 0; FFI-free harness smoke → rc 0; cached tool fetch + offline vendor verification → rc 0; 7 red witnesses → rc 1 each with the named failing assertion. All plants restore their owned copy.
+- Not run here: full gate, full probe set, real fast-gate build/suite chain, live CI wrapper, independent-kernel replay, self-trace replays, mutation campaigns, fresh network fetch/re-pin/install, loaded-host run. These integrations remain MAIN baseline work; conclusions outside the listed read/controls are unconfirmed.
+- Mutation build/test timeout classification + signal restoration were read, not executed (campaign boundary). Configs adjudicated by source/caller consistency, not fresh whole-tool runs.
+- Shared base + primary source/config/law remain untouched; only this deliverable + reviewer-22 scratch written. No server started. Own-copy `git status --porcelain` = empty (rc 0) after restoration.
+
+reviewer-22-DONE-1

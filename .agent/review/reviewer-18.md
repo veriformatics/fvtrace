@@ -49,6 +49,6 @@
 
 ## Register
 
-- C-gui-a caller leads handed to reviewer-17: `web/app.js:1095` group-title key collisions; `web/app.js:1122` selected/focused card can leave a preserved lazy window after verdict reordering. Unconfirmed here; reviewer-17 owns independent proof/ruling.
+- C-gui-a caller leads owned by reviewer-17: `web/app.js:1095` group-title key collisions → reviewer-17-F9; `web/app.js:1122` selected/focused card leaves a preserved lazy window after verdict reordering → reviewer-17-F10. Peer reports both red; proof + ruling in `/home/eturkes/Projects/fvtrace/.agent/review/reviewer-17.md`, log `/home/eturkes/Projects/fvtrace/.scratch/review/reviewer-17/caller-leads.log`. Not rerun in this slice; MAIN adjudicates that report.
 
 reviewer-18-DONE-1

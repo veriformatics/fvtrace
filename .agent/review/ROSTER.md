@@ -4,7 +4,7 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 
 | name | rows | wave | state |
 |---|---|---|---|
-| reviewer-1 | C-codec (A) | 1 | running |
+| reviewer-1 | C-codec (A) | 1 | harvested |
 | reviewer-2 | C-codec (B) | 1 | harvested |
 | reviewer-3 | C-check (A) | 1 | harvested |
 | reviewer-4 | C-check (B) | 1 | harvested |
@@ -20,23 +20,26 @@ Base = `.scratch/review-base` (worktree, detached 48bc51d, built). Deliverable =
 | reviewer-14 | C-cli (B) | 2 | harvested |
 | reviewer-15 | C-server (A) | 2 | harvested |
 | reviewer-16 | C-server (B) | 2 | harvested |
-| reviewer-17 | C-gui-a | 2 | running |
+| reviewer-17 | C-gui-a | 2 | harvested |
 | reviewer-18 | C-gui-b | 2 | harvested |
 | reviewer-19 | C-scale | 2 | harvested |
 | reviewer-20 | C-export (A) | 2 | harvested |
-| reviewer-21 | C-export (B) | 2 | running |
-| reviewer-22 | C-gate (A) | 2 | running |
-| reviewer-23 | C-gate (B) | 2 | running |
+| reviewer-21 | C-export (B) | 2 | harvested |
+| reviewer-22 | C-gate (A) | 2 | harvested |
+| reviewer-23 | C-gate (B) | 2 | harvested |
 | reviewer-24 | C-release (A) | 2 | harvested |
-| reviewer-25 | C-release (B) | 2 | running |
-| reviewer-26 | K-codec + K-check | 3 | running |
+| reviewer-25 | C-release (B) | 2 | harvested |
+| reviewer-26 | K-codec + K-check | 3 | harvested |
 | reviewer-27 | K-engine + K-fast | 3 | running |
-| reviewer-28 | K-receipt + K-eval | 3 | running |
-| reviewer-29 | K-cli | 3 | running |
-| reviewer-30 | K-server + K-export | 3 | running |
-| reviewer-31 | K-gui-a | 3 | running |
+| reviewer-28 | K-receipt + K-eval | 3 | harvested |
+| reviewer-29 | K-cli | 3 | harvested |
+| reviewer-30 | K-server + K-export | 3 | harvested |
+| reviewer-31 | K-gui-a | 3 | harvested |
 | reviewer-32 | K-gui-b | 3 | running |
-| reviewer-33 | K-gate | 3 | running |
+| reviewer-33 | K-gate | 3 | harvested |
+| reviewer-34 | K-scale + K-release | 3 | harvested |
+| reviewer-35 | S-readme | 4 | running |
+| reviewer-36 | S-skill | 4 | running |
 
 Row state: C-eval pass · C-fast pass · C-engine F1 · C-receipt F4 F5 F8 · C-check: reviewer-3 F6 (reviewer-4 pending) · C-codec: F7 (reviewer-1, reviewer-2 pending).
 
