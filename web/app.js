@@ -43,6 +43,9 @@ import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./
 /** @typedef {import("./lazy.js").Row} Row */
 /** @typedef {{ kind: "fact" | "claim" | "experiment", id: string }} Selection */
 /** @typedef {{ whatif: string, action?: string, details?: string }} Request */
+/** @typedef {{ kind: "envelope", value: Envelope } |
+ * { kind: "details", value: import("./envelope.js").Details } |
+ * { kind: "problem", value: { kind: string, message: string } }} Answer */
 /** The selection's details for the shown view (kernel.md V-details): pending, ready, refused, or
  * unavailable (the page's engine cannot run).
  * @typedef {{ item: string, spec: string, state: "pending" | "ready" | "problem" | "off",
@@ -151,6 +154,7 @@ let engineStart;
 /** The page engine's requests, in order (`ask`). @type {Promise<void>} */
 let engineQueue = Promise.resolve();
 let engineDead = false;
+let stopEngine = () => {};
 /** An older export's `#action=…` link, translated once the recorded envelope is known. */
 /** @type {string | undefined} */
 let legacyAction;
@@ -205,13 +209,17 @@ function makeWorker() {
 function engine() {
   engineStart ??= (async () => {
     const worker = makeWorker();
+    stopEngine = () => worker.terminate();
     let next = 0;
     /** @type {Map<number, { resolve: (v: string | null) => void, reject: (e: Error) => void }>} */
     const waiting = new Map();
     /** @param {Error} e */
     const failAll = (e) => {
+      engineDead = true;
+      stopEngine();
       for (const w of waiting.values()) w.reject(e);
       waiting.clear();
+      if (exported) engineFailure(exported);
     };
     worker.addEventListener("message", (/** @type {MessageEvent} */ event) => {
       /** @type {unknown} */
@@ -238,6 +246,10 @@ function engine() {
      * @returns {Promise<string | null>} */
     const call = (op, arg) =>
       new Promise((resolve, reject) => {
+        if (engineDead) {
+          reject(new EngineError("the engine stopped earlier"));
+          return;
+        }
         const id = next++;
         waiting.set(id, { resolve, reject });
         worker.postMessage({ id, op, arg }, []);
@@ -246,8 +258,7 @@ function engine() {
     // for this thread to read the start's reply (it is busy with the page's first view).
     const started = call("start", document.getElementById("fvtrace-engine")?.textContent ?? "");
     const loaded = call("load", snapshotText);
-    await started;
-    const problem = await loaded;
+    const [, problem] = await Promise.all([started, loaded]);
     if (problem !== null) throw new EngineError("the engine refused the page's snapshot");
     return {
       /** @param {string} text */
@@ -266,11 +277,21 @@ function engine() {
 if (island)
   engine().catch(() => {
     engineDead = true;
-    if (!view.spec) showError(engineFailed);
+    if (exported) engineFailure(exported);
   });
-/** @type {unknown} */
-const islandJson = island ? JSON.parse(island.textContent ?? "null") : undefined;
-const exported = island ? decodeExported(islandJson) : undefined;
+/** @type {ReturnType<typeof decodeExported> | undefined} */
+let exported;
+/** @type {string | undefined} */
+let exportDamage;
+if (island) {
+  try {
+    /** @type {unknown} */
+    const json = JSON.parse(island.textContent ?? "null");
+    exported = decodeExported(json);
+  } catch (e) {
+    exportDamage = `This page is damaged (${e instanceof Error ? e.message : String(e)}).`;
+  }
+}
 
 /** @param {Map<string, string>} w */
 function whatifSpec(w) {
@@ -343,6 +364,8 @@ function showRecorded(/** @type {NonNullable<typeof exported>} */ ex) {
 /** The page's engine failed: the recorded view for the rest of the session. */
 function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
   engineDead = true;
+  stopEngine();
+  requested = undefined;
   view.spec = "";
   writeHash();
   showRecorded(ex);
@@ -376,7 +399,7 @@ function busy(delta) {
  * The answer to `request` (kernel.md V-request: envelope, details or problem) + the view it read:
  * from the page's engine, or the server's answer route (`shown` = the view the page shows).
  * @param {Request} request @param {string} [shown]
- * @returns {Promise<{ json: unknown, view: string | undefined }>}
+ * @returns {Promise<{ answer: Answer, view: string | undefined }>}
  */
 async function ask(request, shown) {
   busy(1);
@@ -387,8 +410,16 @@ async function ask(request, shown) {
   }
 }
 
+/** @param {unknown} json @param {Request} request @returns {Answer} */
+function decodeAnswer(json, request) {
+  const problem = decodeProblem(json);
+  if (problem) return { kind: "problem", value: problem };
+  if (request.details !== undefined) return { kind: "details", value: decodeDetails(json) };
+  return { kind: "envelope", value: decodeEnvelope(json) };
+}
+
 /** @param {Request} request @param {string} [shown]
- * @returns {Promise<{ json: unknown, view: string | undefined }>} */
+ * @returns {Promise<{ answer: Answer, view: string | undefined }>} */
 async function answerOf(request, shown) {
   if (exported) {
     // One request at a time, each checked after the one before it settled: a request queued
@@ -399,9 +430,13 @@ async function answerOf(request, shown) {
       try {
         /** @type {unknown} */
         const json = JSON.parse(await e.request(JSON.stringify(request)));
-        return { json, view: /** @type {string | undefined} */ (undefined) };
+        const answer = decodeAnswer(json, request);
+        if (answer.kind === "problem" && !recoverable.has(answer.value.kind))
+          throw new EngineError("the engine answered a fatal problem");
+        return { answer, view: /** @type {string | undefined} */ (undefined) };
       } catch (err) {
         engineDead = true;
+        stopEngine();
         throw err;
       }
     };
@@ -450,7 +485,10 @@ async function answerOf(request, shown) {
   if (res === undefined) throw new Error("no request was sent");
   /** @type {unknown} */
   const json = await res.json();
-  return { json, view: res.headers.get("X-Fvtrace-View") ?? undefined };
+  return {
+    answer: decodeAnswer(json, request),
+    view: res.headers.get("X-Fvtrace-View") ?? undefined,
+  };
 }
 
 /**
@@ -502,6 +540,10 @@ const recoverable = new Set(["what-if", "action", "item"]);
  * action came from an older export's link, whose address keeps its other parts.
  * @param {string} [action] @param {boolean} [link] */
 async function load(action, link = false) {
+  if (exportDamage !== undefined) {
+    showError(exportDamage);
+    return;
+  }
   if (exported && !action) {
     try {
       // The recorded view paints first, with no engine: alone, or until the answer.
@@ -528,12 +570,8 @@ async function load(action, link = false) {
   try {
     const got = await evaluation(n, action ? { whatif: spec, action } : { whatif: spec });
     if (!got || n !== evaluations) return;
-    const { json, view: read } = got;
-    const problem = decodeProblem(json);
-    if (problem && exported && !recoverable.has(problem.kind)) {
-      engineFailure(exported);
-      return;
-    }
+    const { answer, view: read } = got;
+    const problem = answer.kind === "problem" ? answer.value : undefined;
     if (problem && !exported && recordProblems.has(problem.kind)) {
       cannotShow(problem.message);
       return;
@@ -549,7 +587,8 @@ async function load(action, link = false) {
       } else showError(problem.message);
       return;
     }
-    const e = decodeEnvelope(json);
+    if (answer.kind !== "envelope") throw new DecodeError("expected an envelope");
+    const e = answer.value;
     adopt(e);
     shownView = read;
     view.whatif = new Map(e.overrides.map((o) => [o.fact, o.status]));
@@ -569,13 +608,9 @@ async function load(action, link = false) {
     render();
     void loadDetails();
   } catch (e) {
-    // Exported: any failure (start-up, a trap, an answer that is no envelope) ends the engine;
-    // the notice shows whichever view is current, the view resets when this load is the latest.
-    if (exported) {
-      engineDead = true;
-      if (n === evaluations) engineFailure(exported);
-      else showError(engineFailed);
-    } else
+    // A fatal answer ends the engine even when a newer request superseded this one.
+    if (exported) engineFailure(exported);
+    else
       showError(
         e instanceof DecodeError
           ? `This page does not understand the server's answer (${e.message}). Update fvtrace.`
@@ -610,14 +645,14 @@ function askPairs(c) {
   pairsAsked.add(c.id);
   void (async () => {
     try {
-      const { json } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
+      const { answer } = await ask({ whatif: spec, details: `claim:${c.id}` }, shownView);
       // An answer for an earlier envelope (another view, even with the same what-if) is dropped.
-      if (asked !== generation || decodeProblem(json)) return;
-      excludedPairs.set(c.id, decodeDetails(json).incompatible ?? []);
+      if (asked !== generation || answer.kind !== "details") return;
+      excludedPairs.set(c.id, answer.value.incompatible ?? []);
       renderBoard();
     } catch {
       // Served: the card keeps its other lines. Exported: the engine failed, for good (E-gui).
-      if (exported && asked === generation) engineFailure(exported);
+      if (exported) engineFailure(exported);
     }
   })();
 }
@@ -641,9 +676,9 @@ async function loadDetails() {
   renderInspector();
   const n = ++detailsAsked;
   try {
-    const { json } = await ask({ whatif: spec, details: item }, shownView);
+    const { answer } = await ask({ whatif: spec, details: item }, shownView);
     if (n !== detailsAsked || spec !== view.spec) return;
-    const problem = decodeProblem(json);
+    const problem = answer.kind === "problem" ? answer.value : undefined;
     if (problem?.kind === "view") {
       // The claims or their evidence changed since this page's answer: show them again first.
       await load();
@@ -653,9 +688,8 @@ async function loadDetails() {
       cannotShow(problem.message);
       return;
     }
-    details = problem
-      ? { item, spec, state: "problem", message: problem.message }
-      : { item, spec, state: "ready", value: decodeDetails(json) };
+    if (answer.kind === "details") details = { item, spec, state: "ready", value: answer.value };
+    else if (problem) details = { item, spec, state: "problem", message: problem.message };
   } catch {
     // Exported: any failure ends the engine for the session (E-gui), whichever request met it;
     // the reset's own details request finds the engine dead and asks nothing.

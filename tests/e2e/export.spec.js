@@ -507,6 +507,131 @@ test("a damaged recorded view says so, also behind an older action link", async 
   await context.close();
 });
 
+/** Holds a planted first answer until released; counts requests, and exposes idle Worker faults.
+ * @param {import("@playwright/test").Page} page @param {string} answer */
+async function fatalWorker(page, answer) {
+  await page.addInitScript((first) => {
+    const Real = globalThis.Worker;
+    let calls = 0;
+    Reflect.set(globalThis, "fvtraceCalls", () => calls);
+    class Planted extends Real {
+      /** @param {string | URL} url @param {WorkerOptions} [options] */
+      constructor(url, options) {
+        super(url, options);
+        Reflect.set(globalThis, "fvtraceFault", (/** @type {string} */ type) => {
+          this.terminate();
+          this.dispatchEvent(new Event(type));
+        });
+        /** @type {((event: MessageEvent) => void) | undefined} */
+        this.handler = undefined;
+        /** @type {number | undefined} */
+        this.first = undefined;
+        super.addEventListener("message", (/** @type {MessageEvent} */ event) => {
+          /** @type {unknown} */
+          const data = event.data;
+          if (typeof data !== "object" || data === null) return;
+          if (Reflect.get(data, "id") === 1 && Reflect.get(data, "value") === null)
+            Reflect.set(globalThis, "fvtraceLoaded", true);
+          if (Reflect.get(data, "id") === this.first) {
+            Reflect.set(globalThis, "fvtraceRelease", () =>
+              this.handler?.(
+                new MessageEvent("message", { data: { id: this.first, value: first } }),
+              ),
+            );
+          } else this.handler?.(event);
+        });
+      }
+      /** @param {string} type @param {EventListenerOrEventListenerObject} listener */
+      addEventListener(type, listener) {
+        if (type !== "message") return super.addEventListener(type, listener);
+        if (typeof listener === "function") this.handler = (e) => listener(e);
+      }
+      /** @param {unknown} message */
+      postMessage(message) {
+        if (
+          typeof message === "object" &&
+          message !== null &&
+          Reflect.get(message, "op") === "request"
+        ) {
+          calls++;
+          /** @type {unknown} */
+          const id = Reflect.get(message, "id");
+          if (calls === 1 && typeof id === "number") this.first = id;
+        }
+        super.postMessage(message, []);
+      }
+    }
+    Reflect.set(globalThis, "Worker", Planted);
+  }, answer);
+}
+
+/** @param {import("@playwright/test").Page} page @param {string} name @param {string} [arg] */
+async function signal(page, name, arg) {
+  await page.evaluate(([key, value]) => {
+    /** @type {unknown} */
+    const fn = Reflect.get(globalThis, key);
+    if (typeof fn !== "function") throw new Error(`missing ${key}`);
+    Reflect.apply(fn, undefined, [value]);
+  }, /** @type {[string, string | undefined]} */ ([name, arg]));
+}
+
+for (const type of ["error", "messageerror"])
+  test(`an idle Worker ${type} ends the engine before the next request`, async ({ browser }) => {
+    const { context, page, url } = await openOffline(browser);
+    await fatalWorker(page, "{}");
+    await page.goto(url);
+    await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceLoaded") === true);
+    await signal(page, "fvtraceFault", type);
+    await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+    await expect(page.locator("#error")).toHaveText(engineFailed);
+    await expect(page.locator("#scenario-text")).toContainText(recorded);
+    await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
+    expect(await evaluations(page)).toBe(0);
+    await context.close();
+  });
+
+for (const answer of [
+  "{}",
+  JSON.stringify({ problem: { kind: "invalid", message: "bad engine" } }),
+])
+  for (const kind of answer === "{}" ? ["superseded"] : ["superseded", "details"])
+    test(`a fatal ${kind} engine answer (${answer}) ends the serialized request path`, async ({
+      browser,
+    }) => {
+      const { context, page, url } = await openOffline(browser);
+      await fatalWorker(page, answer);
+      await page.goto(url);
+      if (kind === "details")
+        await card(page, "C1").locator(".claim-head .tag-id").getByRole("button").click();
+      else {
+        await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+        await card(page, "C2").getByRole("button", { name: "Suppose O3 checked" }).click();
+      }
+      await page.waitForFunction(
+        () => typeof Reflect.get(globalThis, "fvtraceRelease") === "function",
+      );
+      await signal(page, "fvtraceRelease");
+      await expect(page.locator("#error")).toHaveText(engineFailed);
+      await expect(page.locator("#scenario-text")).toContainText(recorded);
+      await expect(page.locator("#analysis-title")).toHaveText("Synthetic study");
+      await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
+      await card(page, "C2").getByRole("button", { name: "Suppose EN2 proved" }).click();
+      expect(await evaluations(page)).toBe(1);
+      await context.close();
+    });
+
+test("invalid JSON in the recorded data block says that the page is damaged", async ({
+  browser,
+}) => {
+  const file = join(fixture.dir, "syntax-damaged.html");
+  const html = await readFile(fixture.page, "utf8");
+  await writeFile(file, html.replace(/(id="fvtrace-data"[^>]*>)[\s\S]*?(<\/script>)/, "$1!$2"));
+  const { context, page, url } = await openOffline(browser, "", file);
+  await page.goto(url);
+  await expect(page.locator("#error")).toContainText("This page is damaged");
+  await context.close();
+});
+
 test("an exported page shows a replay notice, with or without its engine", async ({ browser }) => {
   const study = await prepareStudy("synthetic", (t) => {
     const facts = t["facts"];
