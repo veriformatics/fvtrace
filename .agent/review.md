@@ -34,12 +34,12 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 
 | id | asks | verdict |
 |---|---|---|
-| B1 | full gate at `48bc51d`: `main` CI `gate` run (every shard) + `portability` + `codeql` green | unknown |
+| B1 | full gate at `48bc51d`: `main` CI `gate` run (every shard) + `portability` + `codeql` green | F2 (CI gate run 41551780111 + portability ×4 + codeql 41551779966 green; open code-scanning alert #1) |
 | B2 | `bash tools/gate-probe.sh` (every probe) fires its named cause | unknown |
-| B3 | `lake build fvtrace && .lake/build/bin/fvtrace --help` + `lake test` (Artifacts run + tests) | unknown |
-| B4 | every `fvtrace` command driven by its documented invocation on both examples + a fresh project: `init`, `path`, `check`, `pin`, `verify` (`--run`, `--log`), `review`, `claims`, `gaps`, `experiments`, `plan`, `eval` (`--action`, `--details`, `--complete`), `schema`, `skills install\|show`, `export --html\|--bundle`; exit codes + output vs README | unknown |
-| B5 | `fvtrace serve` (+ `--token-file`, `--no-browser`): GUI loaded, a what-if, details, tour, Diagrams \| Text; screenshot inspected | unknown |
-| B6 | exported page in a browser (file://): recorded view, a stacked what-if run by the page engine, details; a bundle served by a colleague's `serve` | unknown |
+| B3 | `lake build fvtrace && .lake/build/bin/fvtrace --help` + `lake test` (Artifacts run + tests) | pass (`lake build` no-op at HEAD; `--help` rc 0; `--version` = `fvtrace 0.1.0`; `lake test` = CI lean shard green) |
+| B4 | every `fvtrace` command driven by its documented invocation on both examples + a fresh project: `init`, `path`, `check`, `pin`, `verify` (`--run`, `--log`), `review`, `claims`, `gaps`, `experiments`, `plan`, `eval` (`--action`, `--details`, `--complete`), `schema`, `skills install\|show`, `export --html\|--bundle`; exit codes + output vs README | F11, F16, F62 (leads L1–L3; `.scratch/review/main/b4.log`) |
+| B5 | `fvtrace serve` (+ `--token-file`, `--no-browser`): GUI loaded, a what-if, details, tour, Diagrams \| Text; screenshot inspected | pass (served GUI: recorded view, what-if, details, Text view, tour 13 steps at 1280×900 + 390×844, no-token notice; no console error; screenshots inspected) |
+| B6 | exported page in a browser (file://): recorded view, a stacked what-if run by the page engine, details; a bundle served by a colleague's `serve` | pass (exported page file://: stacked what-if O2 → O3 → EN2 by the page engine, C2 → Conditional, details; bundle → `check --strict` rc 0) |
 | B7 | dev tools driven: `tools/fast-gate.sh`, `tools/ci-gate.sh` (on the first fix), `tools/compare.sh` (HEAD vs HEAD), `tools/release.sh package\|check` (this host), `node tools/mutate.mjs --list`, `tools/vendor-hacl.sh --verify`, `tools/pin-wasm.sh` + `tools/pin-tool.sh` re-pin at the pinned versions = no diff, `.agent/spec-lint` | unknown |
 | B8 | `bash tools/scale.sh --assert` on the reference host (kernel.md P-bound + U-time) | unknown |
 | B9 | `bash tools/e2e-load.sh gate <runs>` on a host loaded ≥ 1.5× its CPUs (the pool host `CLAUDE.local.md` names): the e2e limits hold | unknown |
@@ -173,10 +173,10 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 | L-ex3 | `examples.md` README self-trace verdicts = `Tests/Engine.lean` `acceptanceTests` = the engine's | F73 |
 | L-ex4 | `examples.md` statement replays | pass |
 | L-ex5 | `examples.md` probe `examples-stale-receipt` | pass |
-| L-fast1 | `fast.md` fast paths proved equal (`AnswersAgree`, `LookupsAgree`, `SortMembersAgree`) | unknown |
-| L-fast2 | `fast.md` cost traps held in the code | unknown |
-| L-fast3 | `fast.md` projection-form pair lambdas in rewritten statements | unknown |
-| L-fast4 | `fast.md` evidence tools (`compare.sh`, `scale.sh --assert`, probes `compare` + `scale`) | unknown |
+| L-fast1 | `fast.md` fast paths proved equal (`AnswersAgree`, `LookupsAgree`, `SortMembersAgree`) | pass |
+| L-fast2 | `fast.md` cost traps held in the code | F47 |
+| L-fast3 | `fast.md` projection-form pair lambdas in rewritten statements | pass |
+| L-fast4 | `fast.md` evidence tools (`compare.sh`, `scale.sh --assert`, probes `compare` + `scale`) | F21 |
 | L-rel1 | `release.md` `build.yml` platforms + `portability` + `release.yml` from scratch | F73 |
 | L-rel2 | `release.md` `release.yml` job order + refusals + attestation + `installed`; dry run + re-check | F23 |
 | L-rel3 | `release.md` `release.sh check` + floors (README Install table = `glibc_max`, `macos_min`) | F73 |
@@ -185,39 +185,39 @@ Definitive code review of the implementation at `48bc51d` (code, tests, gates, c
 | L-rel6 | `release.md` probe `release` | pass |
 | L-ren1 | `renovate.md` validator recipe (RE2) | F73 |
 | L-ren2 | `renovate.md` local lookup recipe | F73 |
-| L-srv1 | `server.md` routes + `api/answer` + problems wording | unknown |
-| L-srv2 | `server.md` I/O (best-effort cache, 500 `io`) | unknown |
-| L-srv3 | `server.md` access order (non-security reading: order + codes as specified) | unknown |
-| L-srv4 | `server.md` bind | unknown |
-| L-srv5 | `server.md` link + opener + output lines | unknown |
-| L-srv6 | `server.md` GUI token + credential sequence | unknown |
-| L-srv7 | `server.md` fixed headers | unknown |
-| L-srv8 | `server.md` `Server.Config` in an `IO.Ref` | unknown |
-| L-srv9 | `server.md` e2e harness + teardown probe | unknown |
-| L-wasm1 | `wasm.md` pipeline + traces + `addTrace` | unknown |
-| L-wasm2 | `wasm.md` closure `Init` + engine modules | unknown |
-| L-wasm3 | `wasm.md` pins + stall bounds + bump recipes | unknown |
-| L-wasm4 | `wasm.md` runtime patch hunks | unknown |
-| L-wasm5 | `wasm.md` allocator | unknown |
-| L-wasm6 | `wasm.md` link contract | unknown |
-| L-wasm7 | `wasm.md` determinism | unknown |
-| L-wasm8 | `wasm.md` CI cache key + scope | unknown |
-| L-wasm9 | `wasm.md` probes | unknown |
-| L-web1 | `web.md` display only | unknown |
-| L-web2 | `web.md` address hash + engine + request law | unknown |
-| L-web3 | `web.md` record problem view | unknown |
-| L-web4 | `web.md` responsiveness (lookups, lazy lists, busy, find) | unknown |
-| L-web5 | `web.md` DOM sinks banned (oxlint + Trusted Types) | unknown |
-| L-web6 | `web.md` no build step; `tsc -p web` strict; untyped JSON until decoded | unknown |
-| L-web7 | `web.md` bundled Chromium | unknown |
-| L-web8 | `web.md` e2e limits | unknown |
-| L-web9 | `web.md` palette + `tests/palette` | unknown |
-| L-web10 | `web.md` selectors = classes; `[hidden]` rule | unknown |
-| L-web11 | `web.md` selectable text; `idButton` + `clickToOpen` | unknown |
-| L-web12 | `web.md` `app.js` starts last (TDZ) | unknown |
-| L-web13 | `web.md` `words.js` verdicts = engine; work-row wording = engine lists | unknown |
-| L-web14 | `web.md` fonts + alignment checks | unknown |
-| L-web15 | `web.md` tour placement | unknown |
+| L-srv1 | `server.md` routes + `api/answer` + problems wording | F19, F20 |
+| L-srv2 | `server.md` I/O (best-effort cache, 500 `io`) | pass |
+| L-srv3 | `server.md` access order (non-security reading: order + codes as specified) | F19 |
+| L-srv4 | `server.md` bind | pass |
+| L-srv5 | `server.md` link + opener + output lines | pass |
+| L-srv6 | `server.md` GUI token + credential sequence | pass |
+| L-srv7 | `server.md` fixed headers | F19 |
+| L-srv8 | `server.md` `Server.Config` in an `IO.Ref` | pass |
+| L-srv9 | `server.md` e2e harness + teardown probe | pass |
+| L-wasm1 | `wasm.md` pipeline + traces + `addTrace` | pass |
+| L-wasm2 | `wasm.md` closure `Init` + engine modules | F74 |
+| L-wasm3 | `wasm.md` pins + stall bounds + bump recipes | pass |
+| L-wasm4 | `wasm.md` runtime patch hunks | pass |
+| L-wasm5 | `wasm.md` allocator | F74 |
+| L-wasm6 | `wasm.md` link contract | pass |
+| L-wasm7 | `wasm.md` determinism | F74 |
+| L-wasm8 | `wasm.md` CI cache key + scope | F74 |
+| L-wasm9 | `wasm.md` probes | pass |
+| L-web1 | `web.md` display only | pass |
+| L-web2 | `web.md` address hash + engine + request law | F24, F37–F41 |
+| L-web3 | `web.md` record problem view | F27, F42 |
+| L-web4 | `web.md` responsiveness (lookups, lazy lists, busy, find) | F26, F43–F45, F50 |
+| L-web5 | `web.md` DOM sinks banned (oxlint + Trusted Types) | pass |
+| L-web6 | `web.md` no build step; `tsc -p web` strict; untyped JSON until decoded | pass |
+| L-web7 | `web.md` bundled Chromium | pass |
+| L-web8 | `web.md` e2e limits | F34, F36 |
+| L-web9 | `web.md` palette + `tests/palette` | pass |
+| L-web10 | `web.md` selectors = classes; `[hidden]` rule | pass |
+| L-web11 | `web.md` selectable text; `idButton` + `clickToOpen` | F74 |
+| L-web12 | `web.md` `app.js` starts last (TDZ) | pass |
+| L-web13 | `web.md` `words.js` verdicts = engine; work-row wording = engine lists | pass |
+| L-web14 | `web.md` fonts + alignment checks | F74 |
+| L-web15 | `web.md` tour placement | F25 |
 
 Clauses outside this lens (bind process, not a tracked file): `CLAUDE.md` Collaboration, Teammates, Git commit form, Evidence, Delivery; `ops.md` commit-body red witnesses (commit bodies: checked under V-* where a test's credit rests on them).
 
@@ -298,3 +298,4 @@ Clauses outside this lens (bind process, not a tracked file): `CLAUDE.md` Collab
 | F71 | V-gate | major | `tools/trust.sh` (skip key) | The trust skip key = export sha + `lean --version` + trust.sh + self-trace + TrustMain + statement.sh, but not the replay consumer (`fvtrace`'s `verify --run` code): a change that breaks `Replay.reasons` keeps the key, so the stage prints `skipped` while a forced statement replay fails 0/12 | reviewer-43-F3, MAIN rerun: `python3 -I .scratch/review/reviewer-43/red-trust-key.py` → `FAIL: trust cache skipped self-trace replays after their consumer changed; direct replay fails` | open | the key covers the replay consumer (e.g. the built `fvtrace` binary's sha256); the red test passes; probe |
 | F72 | F-gui | minor | `web/panels.js:667-683`; `Fvtrace/Lint.lean:34-35` (GUI "What may be missing"); `web/app.js:823-849`; `web/tour.js:36` | GUI departures from Decisions: blocker + check list rows open details only through the id button, not a plain click ("list rows … open their details on a plain click"); missing-check copy says "estimand"/"release" fact where Decisions name the kinds Measurement/Publication; overlooked + new-data groups keep input order (Pending before Fully supported) where claims show in verdict order; the tour says the key "counts the claims in the whole analysis" while counts cover existing subjects alone (kernel.md: prospective counted apart) | reviewer-46-F1..F3 + reviewer-39/46 lead, MAIN rerun: `node .scratch/review/reviewer-46/red-list-click.mjs`, `red-lint-words.mjs`, `red-group-order.mjs` (each AssertionError); anchor `counts the claims in the whole analysis` (tour.js:36) | open | each red test passes; the tour sentence matches the counts |
 | F73 | L-ops, L-lean, L-deps, L-ren, L-rel, L-ex | minor | reviewer-49 F1–F6 | Rule clauses with no firing check or a stale side: (1) Lean layout law (Spec imports no Proofs + holds no `theorem`; shipped modules import `Init` + `Std` alone): a planted violation passes style + build + trust; (2) Renovate options + RE2-only regexes + `minimumReleaseAge` ≥ 7 days unchecked by the gate (renovate.md recipe = manual); (3) README Install floors + the self-trace verdict counts vs `release.sh` floors + the engine: a planted mismatch passes; (4) multi-step recipes inline in rules (fresh-host bootstrap, lockfile refresh, Renovate lookup) → committed scripts; (5) cross-workflow provisioning (Python, cache, platform matrix, floors) unchecked; (6) `js-test` prints no three-slowest summary (ops.md: suites add their three slowest areas) | reviewer-49 report: red/plant evidence per finding (37/37 existing probes fired; publication dates for all 199 npm lock entries ≥ 7 days) | open | each check wired + probe fires (or the clause adapted with its why); scripts named by the rules; js-test prints its slowest three |
+| F74 | L-srv, L-wasm, L-web, L-fast | minor | reviewer-50 F1–F7 | Rule clauses without a firing check or with a stale side: (1) `web.md` multi-font alignment check (default + DejaVu Sans) absent; (2) the CI engine-cache key shape (`FvtraceWasm/**`, `WasmMain.lean`, patch, pins) unchecked: dropping parts passes actionlint + fanout; (3) `wasm.md` "a `Std` import or an `@[extern]` in the closure fails the link" overstates: an unused `@[extern]` in `Receipt.Basic` links (closure ban not enforced at its source); (4) allocator flag (`-sMALLOC=mimalloc`) + (5) two-folder build determinism have no firing check; (6) provenance (dates, "user ruling 2026-11-01") in live rules (server, web, wasm, fast); (7) the selectable-text e2e never exercises `clickToOpen`'s selection guard | reviewer-50 report: plants per finding (`.scratch/review/reviewer-50/nofire-cache.py`, `nofire-wasm.log`) | open | each check wired + probe fires (or the rule's claim adapted with its why); provenance pruned |
