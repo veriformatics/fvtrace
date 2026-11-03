@@ -621,6 +621,12 @@ def prospectiveGroups (t : Trace) (subjectAt : String → Option Nat) (mine : Li
     | none => acc.push (p, #[c])
   groups.toList.filterMap fun (p, cs) => (subjects[p]?).map (·, cs.toList)
 
+/-- Every sentence printed beside a verdict keeps the engine's complete label. -/
+def claimLine (A : Answers) (review : Receipt.ReviewState) (c : Claim) : String :=
+  let qual := A.qualifiers c review
+  let tail := if qual.isEmpty then "" else s!" [{", ".intercalate qual}]"
+  s!"{c.id} {(A.final c).verdict}{tail}: {A.sentence c}"
+
 def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
   withLoaded env args 0 fun p l => do
     let sc := l.scenario
@@ -647,9 +653,7 @@ def claimsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
         unless cs.isEmpty do
           say s!"  {title}"
           for c in cs do
-            let qual := A.qualifiers c l.review
-            let tail := if qual.isEmpty then "" else s!" [{", ".intercalate qual}]"
-            say s!"    {c.id} {(A.final c).verdict}{tail}: {A.sentence c}"
+            say s!"    {claimLine A l.review c}"
             let list := fun (xs : List String) => ", ".intercalate xs
             let detail :=
               (if (A.blockers c).isEmpty then [] else [s!"violated: {list (A.blockers c)}"]) ++
@@ -763,7 +767,7 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
         | .obj kvs => kvs | _ => []) ++ [("claim", claim.getD .null),
           ("plan", Evaluate.planJson (A.plan c))])).pretty
       return 0
-    say s!"{c.id} {(A.final c).verdict}: {A.sentence c}"
+    say (claimLine A l.review c)
     let uncovered := fun (cov : Coverage) => do
       let (violated, rest) := cov.uncovered.partition (A.eff · == .violated)
       let (open_, settled) := rest.partition fun n => (A.lookups.fact? n).any A.closable

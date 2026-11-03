@@ -47,6 +47,23 @@ def filesystemTests : TestM Unit := do
           (rc == 2 && (← Store.isLink target.trace))
         unlink target.trace
 
+/-- Engine labels + question lookup through each CLI output form. -/
+def labelTests : TestM Unit := do
+  let fixture ← decoded
+  IO.FS.withTempDir fun dir => do
+    let file := dir / "trace.json"
+    Cli.writeTrace file fixture
+    let env : Store.Env := { home := dir / "home", cwd := dir }
+    let run := fun (args : List String) =>
+      capture (Cli.runIn env (args ++ ["--trace", file.toString]))
+    let label := "C3 Pending verification [what-if, draft, if Collect a new cohort runs]: " ++
+      "The new cohort shows the rise."
+    let (rc, planned, _) ← run ["plan", "C3", "--whatif", "M1=checked"]
+    let (_, claimed, _) ← run ["claims", "--whatif", "M1=checked"]
+    check "cli: plan and claims keep the prospective creator and every engine qualifier"
+      (rc == 0 && planned.startsWith (label ++ "\n") && count claimed label == 1)
+      (planned ++ claimed)
+
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do
   let fixture ← decoded
