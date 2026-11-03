@@ -504,6 +504,7 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
           logFailed := true
           complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}"
       fields := fields ++ [("passed", .bool why.isEmpty), ("reasons", .arr (why.map .str))]
+    else fields := fields ++ [("reasons", .arr [])]
     rows := rows.push (id, fields)
   -- The notices are written once, after every run, and only when one changed.
   let after := Replay.withResults t results
