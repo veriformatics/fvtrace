@@ -12,8 +12,8 @@ import { serveFvtrace } from "./fvtrace-server.js";
 test("another server on this computer learns no credential", async ({ page }) => {
   const web = await serveFvtrace();
   const token = new URLSearchParams(new URL(web.url).hash.slice(1)).get("token") ?? "";
-  /** @type {Record<string, string>} */
-  const seen = {};
+  /** @type {Map<string, string>} */
+  const seen = new Map();
   // The other server: its page asks its own origin (a same-site request, so any cookie for this
   // host would ride along), then tries the claims with the real token from its own origin.
   const thief = http.createServer((req, res) => {
@@ -40,8 +40,8 @@ test("another server on this computer learns no credential", async ({ page }) =>
       </script>`);
       return;
     }
-    if (url.pathname === "/steal") seen["cookie"] = req.headers.cookie ?? "";
-    for (const [k, v] of url.searchParams) seen[k] = v;
+    if (url.pathname === "/steal") seen.set("cookie", req.headers.cookie ?? "");
+    for (const [k, v] of url.searchParams) seen.set(k, v);
     res.end("ok");
   });
   await new Promise((resolve) => thief.listen(0, "127.0.0.1", () => resolve(undefined)));
@@ -60,9 +60,9 @@ test("another server on this computer learns no credential", async ({ page }) =>
     ).toBe(403);
     await page.goto(`http://127.0.0.1:${thiefPort}/`);
     // The other page needs three requests; a loaded host stretches them past expect's 5 s.
-    await expect.poll(() => seen["done"], { timeout: 60_000 }).toBe("yes");
-    expect(seen["cookie"]).toBe("");
-    expect(seen["crossOrigin"]).toBe("refused");
+    await expect.poll(() => seen.get("done"), { timeout: 60_000 }).toBe("yes");
+    expect(seen.get("cookie")).toBe("");
+    expect(seen.get("crossOrigin")).toBe("refused");
   } finally {
     thief.close();
     await web.close();
