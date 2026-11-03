@@ -127,3 +127,11 @@ Limits / unconfirmed:
 - Fix: add the described startup/overlap/count assertion, or limit its evidence cell to the tests actually present and record the uncovered startup assurance explicitly; attribute seeded-stack coverage to its real suite.
 
 ## Register
+
+None outside the fixed check set.
+
+## Completion
+
+6/6 seeded rows adjudicated; 3 new minor findings; existing findings cited by id. `bash .scratch/review/reviewer-37/anchors.sh` rc 0 (10/10 literal anchors); seed-token search = 0 matches (rg rc 1; seeded positive control was 6 rows, rc 0). Pure Lean domain witness = intentional red rc 1. Own audit copy removed after its run (cleanup rc 0 + absence check rc 0); regenerate it with BRIEF.md's copy command before repeating the recorded audit invocation. Retained scratch files = evidence/scripts only. No server started; target source unchanged; deliverable unstaged; no git write.
+
+reviewer-37-DONE-1
