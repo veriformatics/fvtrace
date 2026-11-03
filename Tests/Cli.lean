@@ -17,6 +17,16 @@ def tests : TestM Unit := do
   let (rc, _, err) ← capture (Fvtrace.Cli.run ["bogus"])
   checkEq "cli: unknown command rc" rc 2
   check "cli: unknown command named" (err.startsWith "fvtrace: unknown command 'bogus'") err
+  for arg in ["unexpected", "--help"] do
+    let (rc, out, err) ← capture (Fvtrace.Cli.run ["schema", arg])
+    check "cli: schema names its unexpected argument, not an unknown command"
+      (rc == 2 && out.isEmpty && (err.splitOn s!"unexpected argument \"{arg}\"").length == 2)
+      err
+  for cmd in ["gaps", "experiments", "plan", "eval"] do
+    let args := [cmd] ++ (if cmd == "plan" then ["C"] else []) ++ ["--question", "Q"]
+    let (rc, out, err) ← capture (Fvtrace.Cli.run args)
+    check s!"cli: {cmd} refuses the claims-only --question option"
+      (rc == 2 && out.isEmpty && err.startsWith "fvtrace: unknown option --question\n") err
 
 /-- `serve`'s bind address: loopback by default, a concrete `--host`, wildcards refused. -/
 def bindTests : TestM Unit := do
