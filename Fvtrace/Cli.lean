@@ -242,7 +242,7 @@ def initCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let t ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
-  if ← t.trace.pathExists then
+  if ← Store.pathPresent t.trace then
     complain s!"fvtrace: {t.trace} already exists"
     return 2
   t.ensureEntry
@@ -415,7 +415,8 @@ def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
   let mut runs : Array Value := #[]
   let mut bad := 0
   -- Line by line: the log only grows.
-  let h? ← if ← file.pathExists then pure (some (← IO.FS.Handle.mk file .read)) else pure none
+  let h? ← try pure (some (← IO.FS.Handle.mk file .read)) catch e =>
+    if e matches .noFileOrDirectory .. then pure none else throw e
   repeat
     let some h := h? | break
     let raw ← h.getLine
@@ -823,11 +824,11 @@ def skillMarker : String := ".fvtrace-skill"
 /-- Writes the skill into `root/fvtrace`; refuses a folder that fvtrace did not write. -/
 def installSkill (root : System.FilePath) : IO (Except String System.FilePath) := do
   let dir := root / "fvtrace"
-  if ← dir.pathExists then
+  if ← Store.pathPresent dir then
     -- A link would make the replacement delete the files it points at.
     if ← Store.isLink dir then
       return .error s!"{dir} is a link; remove it or give --dir"
-    unless ← (dir / skillMarker).pathExists do
+    unless ← Store.pathPresent (dir / skillMarker) do
       return .error s!"{dir} exists and was not written by fvtrace; remove it or give --dir"
     Store.removeTree dir
   for (path, body) in FvtraceSkill.files do
@@ -872,7 +873,7 @@ def outside (tg : Store.Target) (dest : System.FilePath) : IO (Except String Sys
   let some parent := dest.parent | return .error s!"{dest} has no folder"
   unless ← parent.isDir do return .error s!"no folder {parent}"
   -- An existing destination resolves through its own links too (a link into the project).
-  let real ← if ← dest.pathExists then IO.FS.realPath dest
+  let real ← if ← Store.pathPresent dest then IO.FS.realPath dest
     else pure ((← IO.FS.realPath parent) / (dest.fileName.getD ""))
   if Export.within tg.project real then
     return .error s!"{dest} lies in the project folder; fvtrace writes nothing there"
@@ -902,7 +903,7 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     replaceFile real (← Export.page l)
     say s!"Wrote {real}: the claims of {tg.project}. Its what-ifs run in the browser."
     return 0
-  if ← real.pathExists then
+  if ← Store.pathPresent real then
     unless (← real.readDir).isEmpty do
       complain s!"fvtrace: {real} is not empty"
       return 2

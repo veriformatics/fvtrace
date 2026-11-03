@@ -61,13 +61,13 @@ decoder's size rule). `reader` = how a prefix is read (a test grows the file ins
 def readRawWithin (limit : Nat) (t : Store.Target) (explicit : Bool)
     (reader : System.FilePath → Nat → IO ByteArray := readPrefix) :
     IO (Except Problem (Except (Array Decode.Diag) ByteArray)) := do
-  if !explicit && !(← t.trace.pathExists) then return .error (.noTrace t.project)
   try
     let m ← t.trace.metadata
     unless m.type == .file do return .error (.unreadable t.trace "not a regular file")
     if m.byteSize.toNat > limit then return .ok (.error #[sizeDiag m.byteSize.toNat limit])
     return .ok (.ok (← reader t.trace (limit + 1)))
   catch e =>
+    if !explicit && (e matches .noFileOrDirectory ..) then return .error (.noTrace t.project)
     return .error (.unreadable t.trace ((toString e).replace "\n" " "))
 
 def readWithin (limit : Nat) (t : Store.Target) (explicit : Bool) :

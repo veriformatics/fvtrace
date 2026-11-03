@@ -17,6 +17,22 @@ def releaseWaiver : Waiver :=
   { rule := "L-release", claim := "C2",
     reason := "Released through the journal, recorded elsewhere." }
 
+/-- Filesystem boundaries at the project → data-entry mapping. -/
+def filesystemTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let env : Store.Env := { home := dir / "home", cwd := dir }
+    if !System.Platform.isWindows then
+      match ← Store.resolve env none none with
+      | .error e => check "store: the looping trace target resolves" false e
+      | .ok target =>
+        target.ensureEntry
+        let linked ← symlink target.trace target.trace
+        check "store: a looping trace link can be made" linked
+        let (rc, _, _) ← capture (Cli.runIn env ["init"])
+        check "store: init refuses an unreadable trace instead of replacing it"
+          (rc == 2 && (← Store.isLink target.trace))
+        unlink target.trace
+
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do
   let fixture ← decoded
