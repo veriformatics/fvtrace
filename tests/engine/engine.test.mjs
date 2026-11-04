@@ -54,6 +54,7 @@ void test("the exported page's engine answers every case as the native engine do
       const problem = engine.load(c.snapshot);
       if (problem !== null) {
         assert.equal(problem, nativeAnswers(c.snapshot, [""])[0], `${c.name}: load refusal`);
+        assert.deepEqual(said, [], `${c.name}: load refusal`);
         answers++;
         continue;
       }
@@ -80,6 +81,8 @@ void test("the exported page's engine answers every case as the native engine do
         answers++;
       });
     }
+    // kernel.md E-wasm: nothing on standard error over the whole run, the last load included.
+    assert.deepEqual(said, [], "the whole run");
   } finally {
     console.error = original;
   }
@@ -106,6 +109,7 @@ void test("the engine answers every request sequence as the native engine does",
       const problem = engine.load(c.snapshot);
       if (problem !== null) {
         assert.equal(problem, nativeRequests(c.snapshot, [])[0], `${c.name}: load refusal`);
+        assert.deepEqual(said, [], `${c.name}: load refusal`);
         answers++;
         continue;
       }
@@ -144,6 +148,8 @@ void test("the engine answers every request sequence as the native engine does",
         assert.equal(byAction, bySpec, `${c.name}: action ${id} = the what-if ${spec}`);
       }
     }
+    // kernel.md E-wasm: nothing on standard error over the whole run, the last load included.
+    assert.deepEqual(said, [], "the whole run");
   } finally {
     console.error = original;
   }
