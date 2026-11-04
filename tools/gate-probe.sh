@@ -582,6 +582,19 @@ probe_c_headers() {
     expect c-header-change 'PROBE_C_HEADER_MUST_REBUILD' env CC="$cc" lake build fvtracec
     allow c-header-restored env CC="$cc" lake build fvtracec
     count="$(wc -l <"$log")"
+# The fast gate skips the engine stage while `engine_key` holds: a changed engine input must change
+# the key, an untouched tree must keep it.
+probe_fast_engine() {
+    # shellcheck disable=SC2016 # the inner script's own expansions
+    local key same=(bash -c 'source tools/gate.sh; [[ "$(engine_key)" == "$1" ]] || {
+        echo "engine inputs changed"; exit 1; }' _)
+    key="$(bash -c 'source tools/gate.sh; engine_key')"
+    allow fast-engine-key-stable "${same[@]}" "$key"
+    keep tests/engine/loader.test.mjs
+    printf '// planted\n' >>tests/engine/loader.test.mjs
+    expect fast-engine-key-change 'engine inputs changed' "${same[@]}" "$key"
+}
+
     allow c-header-compiled test "$count" -gt 0
     allow c-header-unchanged env CC="$cc" lake build fvtracec
     allow c-header-cached test "$(wc -l <"$log")" -eq "$count"
@@ -613,7 +626,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
