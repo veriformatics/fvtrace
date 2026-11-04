@@ -1,0 +1,38 @@
+name: Page engine build prerequisites
+description: >-
+  Python for the page engine build, + its build folder restored from the Actions cache
+  (law: .claude/rules/wasm.md CI cache). gate.yml + build.yml call it after their checkout.
+inputs:
+  cache:
+    description: "'true' = restore the build folder (a weekly run or a release builds from scratch)."
+    required: true
+runs:
+  using: composite
+  steps:
+    # The exported page's engine is built by `lake build`: Emscripten runs on Python >= 3.10.
+    - name: Install Python for the page engine build
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: "3.15.2"
+
+    # The page engine's build folder (Emscripten, Lean runtime sources, Init's C, objects, the
+    # engine) costs minutes to fill. Inside it a fetched input counts under its pin's marker and an
+    # object under its content digest, and Lake rebuilds what changed, so the key holds what changes
+    # every object: pins, toolchain, build tool. The folder's entries are listed (`*`) so the
+    # download archive can be left out.
+    - name: Cache the page engine build
+      id: engine-cache
+      if: inputs.cache == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          .lake/build/wasm/*
+          !.lake/build/wasm/download
+        key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean') }}
+
+    # A restore that fails midway keeps its partial files and sets no `cache-hit`: start empty, as
+    # on a miss, so neither the build nor the post step's save works from a partial folder.
+    - name: Remove a partial page engine build
+      if: inputs.cache == 'true' && steps.engine-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: rm -rf .lake/build/wasm
