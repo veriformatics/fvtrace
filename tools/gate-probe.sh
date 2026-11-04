@@ -327,6 +327,12 @@ probe_palette() {
     local css="$backup/palette.css"
     sed 's/--conductor: #506984;/--conductor: #b0bfce;/' web/style.css >"$css"
     expect palette-contrast 'conductor on --paper' env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
+    # The former shades: 8.2 apart under protan simulated on gamma-coded RGB (passes), 6.9 in
+    # linear RGB, where Machado's matrices apply: the check must simulate in linear RGB.
+    sed -e 's/--verified: #[0-9a-f]*;/--verified: #005e32;/' \
+        -e 's/--assumption: #[0-9a-f]*;/--assumption: #8a6000;/' web/style.css >"$css"
+    expect palette-simulation 'protan: --verified vs --assumption ΔE 6\.9 < 8' \
+        env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
 }
 
 # Tools install project-local (gate `tools`): a pinned name missing from .tools/bin (a fetch that

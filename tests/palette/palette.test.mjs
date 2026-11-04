@@ -4,13 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import {
-  differenceEuclidean,
-  filterDeficiencyDeuter,
-  filterDeficiencyProt,
-  parse,
-  wcagContrast,
-} from "culori";
+import { converter, differenceEuclidean, parse, wcagContrast } from "culori";
 
 const css = readFileSync(
   process.env["FVTRACE_PALETTE_CSS"] ?? new URL("../../web/style.css", import.meta.url),
@@ -59,12 +53,36 @@ void test("state marks ≥ 3:1 against the panel", () => {
   }
 });
 
+// Machado, Oliveira + Fernandes (2009) at severity 1. The matrices act on linear RGB (ColorAide's
+// `filters/cvd.py`: `ALLOWED_SPACES = ('srgb-linear',)`); Culori's `filterDeficiency*` applies them
+// to gamma-encoded sRGB, which overstated the protan separation of the verified + assumption hues.
+const PROTAN = [
+  [0.152286, 1.052583, -0.204868],
+  [0.114503, 0.786281, 0.099216],
+  [-0.003882, -0.048116, 1.051998],
+];
+const DEUTAN = [
+  [0.367322, 0.860646, -0.227968],
+  [0.280085, 0.672501, 0.047413],
+  [-0.01182, 0.04294, 0.968881],
+];
+const toLinear = converter("lrgb");
+/** @param {number[][]} m @returns {(c: import("culori").Color) => import("culori").Color} */
+const machado = (m) => (c) => {
+  const { r, g, b } = toLinear(c);
+  const row = (/** @type {number} */ i) => {
+    const [x = 0, y = 0, z = 0] = m[i] ?? [];
+    return x * r + y * g + z * b;
+  };
+  return { mode: "lrgb", r: row(0), g: row(1), b: row(2) };
+};
+
 void test("state hues differ: OKLab ΔE×100 ≥ 15 unsimulated, ≥ 8 under protan + deutan", () => {
   /** @type {[string, (c: import("culori").Color) => import("culori").Color, number][]} */
   const views = [
     ["unsimulated", (c) => c, 15],
-    ["protan", filterDeficiencyProt(1), 8],
-    ["deutan", filterDeficiencyDeuter(1), 8],
+    ["protan", machado(PROTAN), 8],
+    ["deutan", machado(DEUTAN), 8],
   ];
   for (const [view, simulate, floor] of views) {
     for (const [i, a] of states.entries()) {
