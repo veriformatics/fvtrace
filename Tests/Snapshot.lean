@@ -4,8 +4,6 @@ import Tests.Harness
 namespace Tests.Snapshot
 open Tests Fvtrace Fvtrace.Json Fvtrace.Snapshot
 
-def count (s sub : String) : Nat := (s.splitOn sub).length - 1
-
 def traceOf (path : String) : IO Trace := do
   match decodeTrace (← IO.FS.readBinFile path) with
   | .ok t => pure t

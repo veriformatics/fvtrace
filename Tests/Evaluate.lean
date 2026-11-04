@@ -15,7 +15,7 @@ def counts (can conditional «open» cannot : Int) : Value :=
 
 /-- The envelope fields no proof covers: counts, flags, receipt lookup, experiment order. -/
 def tests : TestM Unit := do
-  let t ← Tests.Engine.fixture
+  let t ← fixture
   let s : Scenario := { trace := t, current := fun _ => true }
   let env := envOf s
   -- C1 conditional + C2 open on S; C3 sits on the prospective subject N.

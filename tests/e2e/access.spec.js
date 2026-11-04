@@ -162,3 +162,23 @@ test("a declared body past the cap is refused first: an empty 413", async () => 
     await web.close();
   }
 });
+
+// Old links carried the token in the query; the access check reads the `Authorization` header
+// alone (server.md Access), so a query token opens nothing.
+test("a token in the address query opens nothing (old links)", async () => {
+  const web = await serveFvtrace();
+  const token = new URLSearchParams(new URL(web.url).hash.slice(1)).get("token") ?? "";
+  /** @param {string} path @param {Record<string, string>} [extra] */
+  const ask = (path, extra = {}) =>
+    fetch(`${web.base}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...extra },
+      body: JSON.stringify({ whatif: "" }),
+    }).then((r) => r.status);
+  try {
+    expect(await ask(`/api/answer?token=${token}`)).toBe(403);
+    expect(await ask("/api/answer", { Authorization: `Bearer ${token}` })).toBe(200);
+  } finally {
+    await web.close();
+  }
+});

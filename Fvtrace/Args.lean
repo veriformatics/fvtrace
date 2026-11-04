@@ -12,7 +12,6 @@ structure Spec where
   valued : List String := []
   /-- Flags without a value (`--json`). -/
   switches : List String := []
-  /-- Allowed positional counts. -/
   positional : List Nat := [0]
 
 structure Parsed where

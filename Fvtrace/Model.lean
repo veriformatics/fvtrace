@@ -150,7 +150,8 @@ structure Claim where
   variantOf : Option String := none
   deriving DecidableEq, Repr, Inhabited
 
-/-- `needs` + the entailment fact: everything the claim's state depends on. -/
+/-- `needs` + the entailment fact. A claim's state also reads its subject's validity (exclusions
++ facts outside these). -/
 def Claim.needsAll (c : Claim) : List String := c.needs ++ c.entailment.toList
 
 structure Experiment where
@@ -271,12 +272,10 @@ def Status.verified : Status → Bool
   | .proved | .checked => true
   | _ => false
 
-/-- Verified or a declared premise. -/
 def Status.asserted : Status → Bool
   | .proved | .checked | .assumed => true
   | _ => false
 
-/-- The strongest status a route can reach. -/
 def Route.ceiling : Route → Status
   | .lean | .refinement => .proved
   | .runtimeChecker => .checked

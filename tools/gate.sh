@@ -111,7 +111,6 @@ lean_test() { lake test; }
 # The FFI-free suites interpreted, as the mutation tool runs them (an FFI call there aborts it).
 lean_pure() { lake env lean --run TestPure.lean; }
 
-# The shipped binary end to end (data folder from the environment, exit codes, no write outside).
 cli() { bash tests/cli/smoke.sh; }
 
 # fvTrace's own trace + the synthetic study: valid, every warning waived, every receipt current.

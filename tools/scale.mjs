@@ -347,7 +347,8 @@ const shapes = {
 };
 
 /**
- * The `--whatif` argument of a shape, if it has one (`whatif`: every fact at its route's ceiling).
+ * The `--whatif` argument of a shape, if it has one (`whatif`: F_i assumed, E_i tested, below
+ * its proved ceiling, so every E_i stays closable).
  * @param {string} shape
  * @returns {((n: number) => string) | undefined}
  */
@@ -452,8 +453,11 @@ if (arg === "cap") {
   process.stdout.write(`${lo}\n`);
 } else {
   const n = Number(arg);
-  if (!Number.isInteger(n) || n < 1 || !dir) {
-    process.stderr.write("usage: node tools/scale.mjs <shape> <n> <dir>\n");
+  // The costliest action + items name F1 (deep) and R/C at third − 1 (prereqs): records that
+  // exist from these n on.
+  const least = { deep: 2, prereqs: 3 }[shape] ?? 1;
+  if (!Number.isInteger(n) || n < least || !dir) {
+    process.stderr.write(`usage: node tools/scale.mjs <shape> <n ≥ ${least}> <dir>\n`);
     process.exit(2);
   }
   mkdirSync(join(dir, "project"), { recursive: true });

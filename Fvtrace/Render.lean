@@ -9,6 +9,9 @@ the CLI prints passes through `safe`.
 
 namespace Fvtrace.Render
 
+/-- The lowercase hex digit of `n % 16`. -/
+def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
+
 /-- Lowercase hex of `n`, at least two digits. -/
 def hex (n : Nat) : String :=
   String.ofList ((if n < 16 then ['0'] else []) ++ Nat.toDigits 16 n)

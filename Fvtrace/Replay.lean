@@ -134,7 +134,6 @@ def verifierFailure? : Except String Run → Option String
     | some 0 => none
     | some n => some s!"exit {n}"
 
-/-- What a run does to its replay's notice. -/
 inductive NoticeChange where
   | set (notice : ReplayFailure)
   | clear

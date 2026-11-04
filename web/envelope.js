@@ -150,7 +150,7 @@ function overrides(v, path) {
   });
 }
 
-/** An outcome object `{fact: status}` as overrides. @param {unknown} v @param {string} path */
+/** @param {unknown} v @param {string} path */
 function outcome(v, path) {
   return Object.entries(obj(v, path)).map(([id, s]) => ({
     fact: id,
@@ -170,7 +170,7 @@ function moves(v, path) {
   });
 }
 
-/** The optional string `key` of `r`. @param {Record<string, unknown>} r @param {string} key @param {string} path */
+/** @param {Record<string, unknown>} r @param {string} key @param {string} path */
 function opt(r, key, path) {
   return key in r ? str(r[key], `${path}/${key}`) : undefined;
 }

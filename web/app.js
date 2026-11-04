@@ -736,7 +736,7 @@ async function loadDetails() {
   }
   renderInspector();
 }
-/** Sets the what-if, then asks the engine. @param {Map<string, string>} w */
+/** @param {Map<string, string>} w */
 function setWhatif(w) {
   if (exported && engineDead && w.size > 0) {
     showError(engineFailed);
@@ -835,7 +835,6 @@ function reveal(kind, id) {
   if (byIdAs("find", HTMLInputElement).value.trim()) find();
 }
 
-/** Shows the matches of the find field's text (none for an empty field). */
 function find() {
   const input = byIdAs("find", HTMLInputElement);
   const list = byId("find-results");
@@ -866,15 +865,13 @@ function find() {
 /** @type {Selection | undefined} */
 let drawn;
 
-/** Moves the drawn selection to `view.selection`. */
 function drawSelection() {
   mark(drawn, false);
   mark(view.selection, true);
   drawn = view.selection;
 }
 
-/** Draws `sel` on its card or experiment row, where one is mounted.
- * @param {Selection | undefined} sel @param {boolean} selected */
+/** @param {Selection | undefined} sel @param {boolean} selected */
 function mark(sel, selected) {
   if (sel?.kind === "claim") {
     for (const g of boardGroups.values()) {
@@ -985,12 +982,12 @@ function refocus(key) {
   if (el instanceof HTMLElement) el.focus();
 }
 
-/** The element carrying `data-key` = `key`. @param {string} key */
+/** @param {string} key */
 function keyed(key) {
   return document.querySelector(`[data-key="${CSS.escape(key)}"]`);
 }
 
-/** The mounted node of a board row. @param {string} key */
+/** @param {string} key */
 function boardNode(key) {
   for (const g of boardGroups.values()) {
     const n = g.list.node(key);
@@ -1013,7 +1010,6 @@ const checkList = rowList("check-list", ["check", "checks"]);
 /** The first board drawn: `tools/scale-gui.mjs` times the first view to the frame after it. */
 let boardShown = false;
 
-/** Every part of the page from the shown envelope. */
 function render() {
   if (!env || !ix || document.body.classList.contains("unavailable")) return;
   const key = focusKey();

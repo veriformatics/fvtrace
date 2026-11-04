@@ -60,13 +60,24 @@ def factJson (A : Answers) (bindingFor : String → Option Receipt.Binding) (f :
      | some b => [("receipt", .obj [("current", .bool b.current), ("reasons", strs b.reasons)])]
      | none => []))
 
+/-- One record's receipt binding: the snapshot, `check --json` + the served view share it. -/
+def bindingJson (b : Receipt.Binding) : Value :=
+  .obj [("id", .str b.id), ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))]
+
+def noticeJson (id : String) (x : ReplayFailure) : Value :=
+  .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]
+
 /-- The recorded trace's replay notices (`kernel.md` V-env `notices`), absent when none: a
 notice-free envelope keeps its v1 bytes. -/
 def noticesJson (t : Trace) : List (String × Value) :=
   match t.notices with
   | [] => []
-  | ns => [("notices", .arr (ns.map fun (id, x) =>
-      .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]))]
+  | ns => [("notices", .arr (ns.map fun (id, x) => noticeJson id x))]
+
+def warningJson (w : Lint.Warning) : Value :=
+  .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
+    ("message", .str w.message)] ++
+    (match w.waived with | some r => [("waived", .str r)] | none => []))
 
 /-- A plan's result kind + its state when planned (the envelope's plan; the whole = details). -/
 def planSummaryJson : PlanSummary → Value
@@ -205,14 +216,18 @@ def traceJson (t : Trace) (digest : String) (review : Receipt.ReviewState) : Val
      | some r => [("reviewer", .str r.reviewer), ("date", .str r.date)]
      | none => [])))])
 
+/-- A claim's lists (`kernel.md` V-details): its details + each claim of the batch document. -/
+def claimLists (A : Answers) (c : Claim) : List (String × Value) :=
+  [("sentence", .str (A.sentence c)), ("incompatible", strs (A.incompatible c)),
+    ("plan", planJson (A.plan c))]
+
 /-- An item's lists (`kernel.md` V-details), the item resolved by its first match. -/
 def itemLists (t : Trace) (A : Answers) : Item → Except String (List (String × Value))
   | .experiment id => match t.experiments.find? (·.id == id) with
     | some e => .ok (experimentLists A e)
     | none => .error s!"\"{id}\" is not an experiment on record"
   | .claim id => match A.lookups.claim? id with
-    | some c => .ok [("sentence", .str (A.sentence c)), ("incompatible", strs (A.incompatible c)),
-        ("plan", planJson (A.plan c))]
+    | some c => .ok (claimLists A c)
     | none => .error s!"\"{id}\" is not a claim on record"
   | .fact id => match A.lookups.fact? id with
     | some _ => .ok [("raisedBy", strs (A.raisers id))]
@@ -262,10 +277,7 @@ def envelopeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
         ("between", strs [x.between.1, x.between.2]), ("text", .str x.text),
         ("recorded", .str x.status.name), ("effective", .str (sc.exclusionEff x).name),
         ("active", .bool (A.active x))])),
-    ("lints", .arr ((Lint.warningsWith A.lookups t).map fun w =>
-      .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
-        ("message", .str w.message)] ++
-        (match w.waived with | some r => [("waived", .str r)] | none => [])))),
+    ("lints", .arr ((Lint.warningsWith A.lookups t).map warningJson)),
     ("actions", .arr ((actionRefs t A (views.map fun (c, v) => (c, v.plan))).map
         fun (id, kind, target) =>
       .obj [("id", .str id), ("kind", .str kind), ("target", .str target)]))] ++
@@ -284,8 +296,6 @@ def completeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
   let t := sc.trace
   let item := fun (name : String) (lists : List (String × Value)) =>
     Value.obj ([("item", .str name)] ++ lists)
-  let claimLists := fun (c : Claim) => [("sentence", Value.str (A.sentence c)),
-    ("incompatible", strs (A.incompatible c)), ("plan", planJson (A.plan c))]
   let order := (A.experimentOrder ()).toArray
   -- Each experiment's raised facts once, inverted: a fact's raisers in experiment order.
   let raisers := Index.build compare (order.toList.zipIdx.flatMap fun (e, p) =>
@@ -293,7 +303,7 @@ def completeWith (sc : Scenario) (A : Answers) (bindings : List Receipt.Binding)
   .obj [("schema", .str "fvtrace.complete/1"),
     ("envelope", envelopeWith sc A bindings digest review),
     ("items", .arr (order.toList.map (fun e => item s!"experiment:{e.id}" (experimentLists A e)) ++
-      t.claims.map (fun c => item s!"claim:{c.id}" (claimLists c)) ++
+      t.claims.map (fun c => item s!"claim:{c.id}" (claimLists A c)) ++
       t.facts.map (fun f => item s!"fact:{f.id}" [("raisedBy", strs
         ((raisers.group (cmp := compare) f.id).filterMap fun p => (order[p]?).map (·.id)))])))]
 

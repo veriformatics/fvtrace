@@ -4,8 +4,6 @@ import Tests.Harness
 namespace Tests.Export
 open Tests Fvtrace Fvtrace.Export
 
-def count (s sub : String) : Nat := (s.splitOn sub).length - 1
-
 /-- The page assembly pieces (no I/O). -/
 def pureTests : TestM Unit := do
   checkEq "export: base64 (RFC 4648 vectors)"

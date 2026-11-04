@@ -1,3 +1,5 @@
+import Fvtrace.Render
+
 /-!
 # SHA-256 digests
 
@@ -25,11 +27,9 @@ opaque Sha256.update (s : @& Sha256) (bytes : @& ByteArray) : IO Unit
 @[extern "fvtrace_sha256_finish"]
 opaque Sha256.finish (s : @& Sha256) : IO ByteArray
 
-def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
-
-/-- Lowercase hex, two characters per byte. -/
 def hex (bytes : ByteArray) : String :=
-  bytes.foldl (init := "") fun acc b => (acc.push (hexDigit (b.toNat / 16))).push (hexDigit b.toNat)
+  bytes.foldl (init := "") fun acc b =>
+    (acc.push (Render.hexDigit (b.toNat / 16))).push (Render.hexDigit b.toNat)
 
 def ofBytes (bytes : ByteArray) : IO String := do
   let s ← Sha256.new

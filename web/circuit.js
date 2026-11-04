@@ -92,8 +92,8 @@ function contact(f, on, claim) {
 }
 
 /**
- * The label row over a claim's words: its id (the button that opens it, given `open` + `key`), then
- * its kind joined to its verdict in the verdict's color, then its qualifiers, quiet.
+ * The label row over a claim's words: its id (the button that opens it, given `open` + `key`), its
+ * kind chip, its verdict chip in the verdict's color, then its qualifiers, quiet.
  * @param {Claim} c @param {() => void} [open] @param {string} [key] @param {boolean} [pressed]
  */
 export const claimTag = (c, open, key, pressed) => {
@@ -118,7 +118,7 @@ export const claimTag = (c, open, key, pressed) => {
   );
 };
 
-/** A claim's plain headline, or its exact statement when it has none. @param {Claim} c */
+/** @param {Claim} c */
 export const headline = (c) => c.headline ?? c.text;
 
 /**
@@ -194,8 +194,7 @@ export function circuit(c, ix, on) {
   );
 }
 
-/** Draws a card selected or not: its border + its id button's pressed state.
- * @param {HTMLElement} card @param {boolean} selected */
+/** @param {HTMLElement} card @param {boolean} selected */
 export function markCard(card, selected) {
   card.classList.toggle("selected", selected);
   card.querySelector(".tag-id .ref")?.setAttribute("aria-pressed", String(selected));

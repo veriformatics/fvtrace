@@ -373,6 +373,16 @@ test("an exported page ends in a closed Licenses section; the served GUI has non
   }
 });
 
+/** @param {import("@playwright/test").Page} page */
+const evaluations = (page) =>
+  page.evaluate(() => {
+    /** @type {unknown} */
+    const count = Reflect.get(globalThis, "fvtraceCalls");
+    /** @type {unknown} */
+    const n = typeof count === "function" ? Reflect.apply(count, undefined, []) : -1;
+    return typeof n === "number" ? n : -1;
+  });
+
 test("a details request that fails ends the engine: the facts as recorded + the notice", async ({
   browser,
 }) => {
@@ -386,13 +396,7 @@ test("a details request that fails ends the engine: the facts as recorded + the 
   await expect(page.locator("#error")).toHaveText(engineFailed);
   await expect(page.locator("#scenario-text")).toContainText(recorded);
   await expect(page.locator("#inspector")).toContainText("cannot show these details");
-  const calls = await page.evaluate(() => {
-    /** @type {unknown} */
-    const count = Reflect.get(globalThis, "fvtraceCalls");
-    /** @type {unknown} */
-    const n = typeof count === "function" ? Reflect.apply(count, undefined, []) : -1;
-    return typeof n === "number" ? n : -1;
-  });
+  const calls = await evaluations(page);
   expect(calls).toBe(2);
   await context.close();
 });
@@ -410,14 +414,7 @@ test("an engine that fails mid-session is never called again", async ({ browser 
   await expect(page.locator("#scenario-text")).toContainText(recorded);
   await c2.getByRole("button", { name: "Suppose O3 checked" }).click();
   await expect(page.locator("#error")).toHaveText(engineFailed);
-  const calls = await page.evaluate(() => {
-    /** @type {unknown} */
-    const count = Reflect.get(globalThis, "fvtraceCalls");
-    if (typeof count !== "function") return -1;
-    /** @type {unknown} */
-    const n = Reflect.apply(count, undefined, []);
-    return typeof n === "number" ? n : -1;
-  });
+  const calls = await evaluations(page);
   expect(calls).toBe(2);
   await context.close();
 });
@@ -437,16 +434,6 @@ async function engineStarted(page) {
   });
   await page.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
 }
-
-/** @param {import("@playwright/test").Page} page */
-const evaluations = (page) =>
-  page.evaluate(() => {
-    /** @type {unknown} */
-    const count = Reflect.get(globalThis, "fvtraceCalls");
-    /** @type {unknown} */
-    const n = typeof count === "function" ? Reflect.apply(count, undefined, []) : -1;
-    return typeof n === "number" ? n : -1;
-  });
 
 test("while the engine starts, a later view wins over an earlier what-if", async ({ browser }) => {
   const { context, page, url } = await openOffline(browser);

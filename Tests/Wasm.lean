@@ -78,7 +78,8 @@ def pureTests : TestM Unit := do
     checkEq s!"wasm: {name} is read to the next import"
       ((Binary.parse (moduleOf [entry, after] goodExports)).toOption.map
         (·.imports.map (·.name) |>.getLast?)) (some (some "after"))
-  -- LEB128 up to 10 bytes (a u64): a custom section's size 1 in 10 bytes reads, in 11 does not.
+  -- LEB128 up to 10 bytes (the byte cap alone; no u64 range check): a custom section's size 1 in
+  -- 10 bytes reads, in 11 does not.
   let sized := fun (n : Nat) =>
     (⟨(header ++ [0, 0x81] ++ List.replicate (n - 2) 0x80 ++ [0, 7]).toArray⟩ : ByteArray)
   check "wasm: a 10-byte LEB128 reads" (Binary.parse (sized 10)).isOk

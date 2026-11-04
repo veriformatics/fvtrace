@@ -91,8 +91,8 @@ def prepare (tr : Trace) : IO Prepared := do
   let digest ← Receipt.reviewDigest tr
   return { digest, review := Receipt.reviewStateOf tr digest }
 
-/-- `bindChecked` on the trace's prepared parts: receipts bound afresh (evidence is read again),
-then the what-if. -/
+/-- `bindChecked` on the trace's prepared parts: the what-if parsed first (a refused one reads no
+evidence), then the receipts bound afresh (evidence read again). -/
 def bindPrepared (t : Store.Target) (tr : Trace) (p : Prepared) (whatif : Option String)
     (rehash : Bool) (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
   let L := Lookups.fast tr
@@ -122,7 +122,7 @@ def checked (t : Store.Target) (decoded : Except (Array Decode.Diag) Trace) :
     let vs := Check.violationsWith (Lookups.fast tr) tr
     if vs.isEmpty then .ok tr else .error (.illFormed t.trace vs)
 
-/-- Reads, checks + binds the trace, then applies the what-if (`FACT=STATUS,…`). -/
+/-- Reads + checks the trace, parses the what-if (`FACT=STATUS,…`), then binds the receipts. -/
 def load (t : Store.Target) (explicit : Bool) (whatif : Option String) (rehash : Bool)
     (cache : IO.Ref Receipt.Cache) : IO (Except Problem Loaded) := do
   let tr ← match ← read t explicit with
@@ -150,12 +150,9 @@ def details (l : Loaded) (item : String) : Except Problem Value :=
 content digest skips them; absent when none, so a notice-free view keeps its v1 value), the
 what-if. -/
 def viewOf (l : Loaded) : IO String :=
-  let notices := l.scenario.trace.notices
   Digest.ofString (Value.obj ([("trace", Evaluate.traceJson l.scenario.trace l.digest l.review),
-    ("bindings", .arr (l.bindings.map fun b => .obj [("id", .str b.id),
-      ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))]))] ++
-    (if notices.isEmpty then [] else [("notices", .arr (notices.map fun (id, x) =>
-      .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]))]) ++
+    ("bindings", .arr (l.bindings.map Evaluate.bindingJson))] ++
+    Evaluate.noticesJson l.scenario.trace ++
     [("overrides", Evaluate.overridesJson l.scenario.overrides)])).canonical
 
 /-- The batch document (`kernel.md` V-complete). -/

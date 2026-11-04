@@ -9,7 +9,6 @@ export const verdicts = {
   cannot: "Claim not possible",
 };
 
-/** One-line meanings beside the verdict counts. */
 /** @type {Record<string, string>} */
 export const verdictMeanings = {
   can: "Every fact it needs is verified.",

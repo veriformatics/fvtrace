@@ -1,4 +1,4 @@
-import Fvtrace.Json
+import Fvtrace.Decode
 
 namespace Tests
 
@@ -20,6 +20,18 @@ def check (name : String) (ok : Bool) (detail : String := "") : TestM Unit := do
 
 def checkEq {α : Type} [BEq α] [Repr α] (name : String) (got want : α) : TestM Unit :=
   check name (got == want) s!"got {repr got}, want {repr want}"
+
+/-- How many times `sub` occurs in `s`. -/
+def count (s sub : String) : Nat := (s.splitOn sub).length - 1
+
+/-- The synthetic study (`tests/fixtures/synthetic.trace.json`), decoded. -/
+def fixture : IO Fvtrace.Trace := do
+  match Fvtrace.decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
+  | .ok t => pure t
+  | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
+
+def mapFact (t : Fvtrace.Trace) (id : String) (f : Fvtrace.Fact → Fvtrace.Fact) : Fvtrace.Trace :=
+  { t with facts := t.facts.map fun x => if x.id == id then f x else x }
 
 def fields : Fvtrace.Json.Value → List (String × Fvtrace.Json.Value)
   | .obj kvs => kvs

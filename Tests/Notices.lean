@@ -42,8 +42,6 @@ def notice (date reason : String) : J := .obj [("date", .str date), ("reason", .
 def withNotice (value : J) (n : Option J) (collection := "facts") (position := 0) : J :=
   editReplay value (put · "failed" n) collection position
 
-def count (text sub : String) : Nat := (text.splitOn sub).length - 1
-
 def has (text sub : String) : Bool := count text sub > 0
 
 def write (path : System.FilePath) (value : J) : IO Unit :=

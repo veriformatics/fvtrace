@@ -64,7 +64,7 @@ async function timed(p, waits, click) {
     /** The scenario line when the click came: an answer shows a different one. */
     let before = "";
     let detailsRequested = false;
-    /** Wait `i` holds (a function in the page). @param {number} i */
+    /** @param {number} i */
     const holds = (i) => {
       const w = ws[i];
       if (!w) return true;

@@ -20,7 +20,7 @@ def tests : TestM Unit := do
   for arg in ["unexpected", "--help"] do
     let (rc, out, err) ← capture (Fvtrace.Cli.run ["schema", arg])
     check "cli: schema names its unexpected argument, not an unknown command"
-      (rc == 2 && out.isEmpty && (err.splitOn s!"unexpected argument \"{arg}\"").length == 2)
+      (rc == 2 && out.isEmpty && count err s!"unexpected argument \"{arg}\"" == 1)
       err
   for cmd in ["gaps", "experiments", "plan", "eval"] do
     let args := [cmd] ++ (if cmd == "plan" then ["C"] else []) ++ ["--question", "Q"]
@@ -85,8 +85,8 @@ def bindTests : TestM Unit := do
   let link := "http://fvtrace.localhost:8718/#token=00ff"
   let page := Fvtrace.Cli.redirectPage link
   check "serve: the redirect page sends the browser on to the link"
-    ((page.splitOn s!"content=\"0;url={link}\"").length == 2 &&
-      (page.splitOn s!"href=\"{link}\"").length == 2 && (page.splitOn "http://").length == 3) page
+    (count page s!"content=\"0;url={link}\"" == 1 &&
+      count page s!"href=\"{link}\"" == 1 && count page "http://" == 2) page
   -- A missing opener only exits non-zero; a folder it cannot write is what throws.
   IO.FS.withTempDir fun dir => do
     IO.FS.writeFile (dir / "serve") ""
@@ -102,9 +102,9 @@ def skillTests : TestM Unit := do
     let (rc, out, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir", dir.toString])
     checkEq "skills: install rc" rc 0
     check "skills: install names the folder"
-      ((out.splitOn (dir / "fvtrace").toString).length == 2) out
+      (count out (dir / "fvtrace").toString == 1) out
     check "skills: install says how to load it"
-      ((out.splitOn "Start a new session of your coding agent to load it.").length == 2) out
+      (count out "Start a new session of your coding agent to load it." == 1) out
     let mut same := true
     for (path, body) in FvtraceSkill.files do
       same := same && (← IO.FS.readFile (dir / "fvtrace" / path)) == body
@@ -119,9 +119,9 @@ def skillTests : TestM Unit := do
     let (rc, out, err) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir", dir.toString])
     checkEq "skills: a folder fvtrace did not write is refused" rc 1
     check "skills: a refused install does not say it loads"
-      ((out.splitOn "Start a new session").length == 1) out
+      (count out "Start a new session" == 0) out
     check "skills: the refusal names the folder"
-      ((err.splitOn "was not written by fvtrace").length == 2) err
+      (count err "was not written by fvtrace" == 1) err
   IO.FS.withTempDir fun dir => do
     let target := dir / "elsewhere"
     IO.FS.createDirAll target

@@ -5,8 +5,6 @@ import Tests.Harness
 namespace Tests.Assets
 open Tests
 
-def count (s sub : String) : Nat := (s.splitOn sub).length - 1
-
 def tests : TestM Unit := do
   let onDisk ← IO.FS.readFile "schema/trace.schema.json"
   check "assets: embedded schema = schema/trace.schema.json" (Fvtrace.Assets.traceSchema == onDisk)

@@ -13,7 +13,6 @@ function strings(v) {
   return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
 }
 
-/** The regex custom managers, narrowed from the parsed JSON. */
 const managers = (
   typeof raw === "object" &&
   raw !== null &&

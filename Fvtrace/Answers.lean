@@ -23,14 +23,12 @@ structure ClaimView where
   incompatibleCount : Nat
   /-- The what-if changes a need's status or the subject's consistency. -/
   changed : Bool
-  /-- The claim's subject is consistent. -/
   valid : Bool
   hypothetical : Bool
   plan : PlanSummary
   deriving DecidableEq, Repr
 
 structure Answers where
-  /-- The trace's lookups. -/
   lookups : Lookups
   /-- The what-if's status for a fact id (its first entry). -/
   override? : String → Option Status
@@ -76,7 +74,6 @@ structure Answers where
   planSummary : Claim → PlanSummary
   /-- The experiments, in `experimentOrder`, whose success closure raises a fact (V-details). -/
   raisers : String → List String
-  /-- A claim's envelope member. -/
   claimView : Claim → ClaimView
 
 namespace Answers

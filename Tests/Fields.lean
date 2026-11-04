@@ -9,8 +9,6 @@ as a user's trace would. -/
 namespace Tests.Fields
 open Tests Fvtrace
 
-def count (s sub : String) : Nat := (s.splitOn sub).length - 1
-
 def fixtureText : IO String := IO.FS.readFile "tests/fixtures/restates.trace.json"
 
 /-- Decodes `text`; a decode failure fails the named check and yields `none`. -/
@@ -68,7 +66,7 @@ def tests : TestM Unit := do
     (count (manifest t "M1") "\"restatedBy\":{\"id\":\"C1\"" == 1 &&
       count (manifest t "M2") "\"restatedBy\":{\"id\":\"C2\"" == 1)
     s!"{manifest t "M1"} {manifest t "M2"}"
-  let main ← Tests.Engine.fixture
+  let main ← fixture
   check "fields: a result needed alone by a claim with an entailment binds no claim"
     (count (manifest main "M1") "restatedBy" == 0) (manifest main "M1")
   -- A restating claim reads as its result's effective state.

@@ -4,19 +4,11 @@ import Tests.Harness
 namespace Tests.Check
 open Tests Fvtrace
 
-def fixture : IO Trace := do
-  match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
-  | .ok t => pure t
-  | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
-
 def found (t : Trace) : List (String × String) :=
   (Check.violations t).map fun v => (v.rule.code, v.path)
 
 def mapClaim (t : Trace) (id : String) (f : Claim → Claim) : Trace :=
   { t with claims := t.claims.map fun c => if c.id == id then f c else c }
-
-def mapFact (t : Trace) (id : String) (f : Fact → Fact) : Trace :=
-  { t with facts := t.facts.map fun x => if x.id == id then f x else x }
 
 def mapExperiment (t : Trace) (id : String) (f : Experiment → Experiment) : Trace :=
   { t with experiments := t.experiments.map fun e => if e.id == id then f e else e }
