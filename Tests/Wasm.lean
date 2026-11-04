@@ -28,7 +28,13 @@ def moduleOf (imports exports : List (List UInt8)) : ByteArray :=
     wsection 7 (leb exports.length ++ exports.flatten)).toArray⟩
 
 def goodImports : List (List UInt8) := Binary.allowedImports.map fun (m, n) => importFn m n
-def goodExports : List (List UInt8) := Binary.requiredExports.map fun (n, k) => exportOf n k
+/-- kernel.md E-build's export set, spelled here (never read off `Binary.requiredExports`, the list
+under test): the memory (kind 2) + six functions (kind 0). -/
+def contractExports : List (String × Nat) :=
+  [("memory", 2), ("_initialize", 0), ("fvtrace_init", 0), ("fvtrace_alloc", 0),
+    ("fvtrace_free", 0), ("fvtrace_load", 0), ("fvtrace_answer", 0)]
+
+def goodExports : List (List UInt8) := contractExports.map fun (n, k) => exportOf n k
 
 def problemsOf (b : ByteArray) : Except String (List String) := do
   return Binary.problems (← Binary.parse b)
@@ -41,7 +47,7 @@ def pureTests : TestM Unit := do
   match Binary.parse (moduleOf goodImports goodExports) with
   | .ok m =>
     checkEq "wasm: every import + export is read" (m.imports.length, m.exports.length)
-      (Binary.allowedImports.length, Binary.requiredExports.length)
+      (Binary.allowedImports.length, contractExports.length)
   | .error e => check "wasm: the planted module parses" false e
   let planted : List (String × ByteArray × String) :=
     [("an import the page does not provide",
@@ -55,6 +61,10 @@ def pureTests : TestM Unit := do
      ("memory exported as a function",
       moduleOf goodImports ((goodExports.filter (· != exportOf "memory" 2)) ++
         [exportOf "memory" 0]), "exports no memory of kind 2")]
+  -- Each required export, missing alone, breaks the contract (the checker names it).
+  let planted := planted ++ contractExports.map fun (n, k) =>
+    (s!"no {n} export", moduleOf goodImports (goodExports.filter (· != exportOf n k)),
+      s!"exports no {n}")
   for (name, b, cause) in planted do
     match problemsOf b with
     | .ok [p] => check s!"wasm: {name} breaks the link contract" (has p cause) p
