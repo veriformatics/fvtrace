@@ -129,12 +129,10 @@ def replaceFile (file : System.FilePath) (body : String) : IO Unit := do
 /-- Writes `t` in place; a body past the decoder's limit (D-json) is refused, the file kept as it
 was, since the next read would refuse it. -/
 def writeTrace (file : System.FilePath) (t : Trace) : IO Unit := do
-  let body := (Encode.trace t).pretty
-  if body.utf8ByteSize > maxTraceBytes then
-    throw (IO.userError s!"the trace would have {body.utf8ByteSize} bytes, over the limit of \
-      {maxTraceBytes} bytes; {file} stays as it was. Shorten its texts, or split the analysis into \
-      two traces.")
-  replaceFile file body
+  match Session.traceText t with
+  | .ok body => replaceFile file body
+  | .error m => throw (IO.userError s!"{m}; {file} stays as it was. Shorten its texts, or split \
+      the analysis into two traces.")
 
 def diagJson (code path message : String) : Value :=
   .obj [("code", .str code), ("path", .str path), ("message", .str message)]

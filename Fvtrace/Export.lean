@@ -217,6 +217,11 @@ def within (outer inner : System.FilePath) : Bool :=
 /-- Copies the trace + every artifact its evidence names into `dir`: `dir/trace.json`,
 `dir/project/<path>`, `dir/README.txt`. Returns the artifacts it could not copy. -/
 def writeBundle (t : Trace) (project dir : System.FilePath) : IO (List String) := do
+  -- Checked before any copy: a bundle whose trace no command can read is no bundle.
+  let body ← match Session.traceText t with
+    | .ok b => pure b
+    | .error m => throw (IO.userError s!"{m}; no bundle was written. Shorten its texts, or \
+        split the analysis into two traces.")
   let paths := Index.eraseDups compare <|
     ((t.facts.filterMap (·.evidence)) ++ (t.exclusions.filterMap (·.evidence))).flatMap
       (·.artifacts.map (·.path))
@@ -229,7 +234,7 @@ def writeBundle (t : Trace) (project dir : System.FilePath) : IO (List String) :
       if let some parent := dest.parent then IO.FS.createDirAll parent
       copyFile real dest
   IO.FS.createDirAll (dir / "project")
-  IO.FS.writeFile (dir / "trace.json") (Encode.trace t).pretty
+  IO.FS.writeFile (dir / "trace.json") body
   IO.FS.writeFile (dir / "README.txt") <|
     "This bundle holds an fvTrace trace and copies of the evidence files that it names.\n" ++
     "To see its claims, install fvtrace, then run this command in the folder `project`:\n\n" ++

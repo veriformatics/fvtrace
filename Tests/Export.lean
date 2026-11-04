@@ -196,4 +196,21 @@ def nativeTests : TestM Unit := do
     checkEq "export: nothing written into the project"
       ((← (proj / "proofs").readDir).map (·.fileName)).toList ["Contrast.lean"]
 
+/-- A bundle's trace must stay readable (kernel.md D-json): a trace whose written form passes the
+size limit (C1 characters print escaped, 2 bytes → 6) is refused before anything is copied. -/
+def bundleSizeTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let t0 ← fixture
+    let n := maxTraceBytes / 6 + 1
+    let big := { t0 with
+      analysis := { t0.analysis with summary := String.ofList (List.replicate n '\u009b') } }
+    let out := dir / "bundle"
+    let r ← (writeBundle big dir out).toBaseIO
+    check "export: a bundle whose trace would pass the size limit is refused, nothing written"
+      ((r matches .error _) && !(← out.pathExists))
+      (match r with | .ok _ => "bundle written" | .error e => toString e)
+    let r ← (writeBundle t0 dir out).toBaseIO
+    check "export: a bundle within the limit is written" ((r matches .ok _) &&
+      (← (out / "trace.json").pathExists))
+
 end Tests.Export
