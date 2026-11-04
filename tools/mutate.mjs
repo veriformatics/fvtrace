@@ -9,21 +9,34 @@ import { execFileSync, spawn } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
-const { values, positionals } = parseArgs({
-  allowPositionals: true,
-  options: {
-    lines: { type: "string" },
-    // The interpreter skips the native compile + link of the test binary (about 10× faster).
-    test: { type: "string", default: "lake env lean --run TestPure.lean" },
-    timeout: { type: "string", default: "120" },
-    list: { type: "boolean", default: false },
-  },
-});
+const usage =
+  "usage: node tools/mutate.mjs <file.lean> [--lines A-B[,C-D…]] [--test CMD] [--timeout S] [--list] [--help]\n";
+const args = () => {
+  try {
+    return parseArgs({
+      allowPositionals: true,
+      options: {
+        lines: { type: "string" },
+        // The interpreter skips the native compile + link of the test binary (about 10× faster).
+        test: { type: "string", default: "lake env lean --run TestPure.lean" },
+        timeout: { type: "string", default: "120" },
+        list: { type: "boolean", default: false },
+        help: { type: "boolean", default: false },
+      },
+    });
+  } catch {
+    process.stderr.write(usage);
+    return process.exit(2);
+  }
+};
+const { values, positionals } = args();
+if (values.help) {
+  process.stdout.write(usage);
+  process.exit(0);
+}
 const file = positionals[0];
-if (!file) {
-  process.stderr.write(
-    "usage: node tools/mutate.mjs <file.lean> [--lines A-B[,C-D…]] [--test CMD]\n",
-  );
+if (!file || positionals.length !== 1) {
+  process.stderr.write(usage);
   process.exit(2);
 }
 // `--lines A-B[,C-D…]`: the line ranges to mutate (default: the whole file).
@@ -87,6 +100,18 @@ function protectedMask(src) {
       i += 2;
     } else if (src.startsWith("--", i)) {
       while (i < src.length && src[i] !== "\n") mask[i++] = 1;
+    } else if (
+      src[i] === "r" &&
+      (i === 0 || !/[\p{ID_Continue}'.]/u.test(src[i - 1] ?? "")) &&
+      /^r#*"/.test(src.slice(i))
+    ) {
+      const prefix = /^r(#*)"/.exec(src.slice(i));
+      const start = i + (prefix?.[0].length ?? 0);
+      const terminator = `"${prefix?.[1] ?? ""}`;
+      const end = src.indexOf(terminator, start);
+      const next = end < 0 ? src.length : end + terminator.length;
+      mask.fill(1, i, next);
+      i = next;
     } else if (src[i] === '"') {
       mask[i++] = 1;
       while (i < src.length && src[i] !== '"') {

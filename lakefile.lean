@@ -102,9 +102,12 @@ extern_lib fvtracec pkg := do
   let includes := #["-I", (← getLeanIncludeDir).toString, "-I", hacl.toString,
     "-I", (hacl / "include").toString]
   let common := #["-O2", "-fPIC", "-DKRML_VERIFIED_UINT128"]
+  let headers ← inputDir (pkg.dir / "c") true (·.extension == some "h")
+  let haclSrc ← inputTextFile (hacl / "Hacl_Hash_SHA2.c")
+  let shimSrc ← inputTextFile (pkg.dir / "c" / "fvtrace_digest.c")
   let haclO ← buildO (pkg.buildDir / "c" / "Hacl_Hash_SHA2.o")
-    (← inputTextFile (hacl / "Hacl_Hash_SHA2.c")) includes common cc
+    (haclSrc.zipWith (fun src _ => src) headers) includes common cc
   let shimO ← buildO (pkg.buildDir / "c" / "fvtrace_digest.o")
-    (← inputTextFile (pkg.dir / "c" / "fvtrace_digest.c")) includes
+    (shimSrc.zipWith (fun src _ => src) headers) includes
     (common ++ #["-Wall", "-Wextra", "-Werror"]) cc
   buildStaticLib (pkg.staticLibDir / nameToStaticLib "fvtracec") #[haclO, shimO]

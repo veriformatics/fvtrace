@@ -63,6 +63,7 @@ async function timed(p, waits, click) {
   const result = p.evaluate(([ws, wait]) => {
     /** The scenario line when the click came: an answer shows a different one. */
     let before = "";
+    let detailsRequested = false;
     /** Wait `i` holds (a function in the page). @param {number} i */
     const holds = (i) => {
       const w = ws[i];
@@ -77,7 +78,9 @@ async function timed(p, waits, click) {
         );
       // Details count once the engine's answer shows (`data-details`: a refused or failed request
       // leaves the inspector idle too).
-      const ready = document.querySelector("#inspector")?.getAttribute("data-details") === "ready";
+      const ready =
+        detailsRequested &&
+        document.querySelector("#inspector")?.getAttribute("data-details") === "ready";
       if (w.kind === "experiment")
         return (
           document.querySelector("#inspector .reference")?.textContent === `Experiment ${w.id}` &&
@@ -96,15 +99,33 @@ async function timed(p, waits, click) {
             before = document.querySelector("#scenario-text")?.textContent ?? "";
             /** @type {(number | undefined)[]} */
             const at = ws.map(() => undefined);
-            const give = setTimeout(() => resolve(at), wait);
+            // A reselected item may already be ready at capture time. Observe the click's own
+            // pending → ready transition, including one completed between animation frames.
+            const inspector = document.querySelector("#inspector");
+            const observer = new MutationObserver((records) => {
+              detailsRequested ||=
+                records.some((r) => r.oldValue === "pending") ||
+                inspector?.getAttribute("data-details") === "pending";
+            });
+            if (inspector)
+              observer.observe(inspector, {
+                attributes: true,
+                attributeOldValue: true,
+                attributeFilter: ["data-details"],
+              });
+            const finish = () => {
+              observer.disconnect();
+              clearTimeout(give);
+              resolve(at);
+            };
+            const give = setTimeout(finish, wait);
             const check = () => {
               ws.forEach((_, i) => {
                 if (at[i] === undefined && holds(i))
                   requestAnimationFrame(() => {
                     at[i] ??= performance.now() - t0;
                     if (at.every((x) => x !== undefined)) {
-                      clearTimeout(give);
-                      resolve(at);
+                      finish();
                     }
                   });
               });
@@ -293,6 +314,7 @@ const linked = new Promise((resolve, reject) => {
     if (m) resolve(m[0]);
   });
   server.on("exit", () => reject(new Error(`fvtrace serve exited: ${out}`)));
+  server.on("error", reject);
 });
 linked.catch(() => {}); // awaited after the launch: a rejection during it is handled there
 try {
