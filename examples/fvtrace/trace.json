@@ -70,7 +70,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckAcceptsExactlyWellFormed"
           ],
-          "output": "2e8e8844b5019dbe75cf8e4dc78f188511a82e14e8b2f29ef39b96f5605c97f0"
+          "output": "a404eed6d398f79fb8dfcd3eec1104e2c33198dcf86e0d5a67867d852e56223a"
         }
       },
       "trusts": [
@@ -112,7 +112,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckViolationsSound"
           ],
-          "output": "7b0baedf1d9cfd5237fee7c810b2ed80c4d6a864573d0f5ecb3d44b6529b526d"
+          "output": "7ffe8a7957f50c3fae756aad8bafc186f1ebb0270c6091a856c83bd55745c017"
         }
       },
       "trusts": [
@@ -196,7 +196,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.RulingCeiling"
           ],
-          "output": "aa63f2133d592999bd1ce11df7e92ad0ead4e0256b8cb6f749bbd2f47e4f6c37"
+          "output": "914240bf6bfa343ba50dc8ae111abde2faf68cdd8fc9b3c94951eb2762bbc6fe"
         }
       },
       "trusts": [
@@ -280,7 +280,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanSound"
           ],
-          "output": "c9d9a04bd39dbe86751c5d63789b4c776b4fee588822dbf32482dc8877d0eb11"
+          "output": "2bd0de97520527eb54d7ce932871f68a228882c95be0bfb7d66f0ecf23b4820a"
         }
       },
       "trusts": [
@@ -322,7 +322,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanOptimal"
           ],
-          "output": "73f80595a9d29cd3a39920305807be789d2d6caa7a656b3a31f0ba8fdc0b1bc1"
+          "output": "315dba10959759a07e7f7c67dc414f7187c7502deca6cfd32d63bc3f6e77914b"
         }
       },
       "trusts": [
@@ -364,7 +364,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.SubjectIsolation"
           ],
-          "output": "7e5a131008455395050e087012f16f8901d1776bee41d48d894a6d69d4fa1c68"
+          "output": "39f4ea31ee618a7610a54897cd77d5dbe59518c5fe982a06e055c4913fe7333f"
         }
       },
       "trusts": [
