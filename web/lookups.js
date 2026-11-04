@@ -9,11 +9,13 @@
 /** @typedef {import("./envelope.js").Exclusion} Exclusion */
 /** @typedef {Envelope["subjects"][number]} Subject */
 /** @typedef {Envelope["lints"][number]} Lint */
+/** @typedef {Envelope["questions"][number]} Question */
 
 /**
  * @typedef {{ facts: Map<string, Fact>, claims: Map<string, Claim>,
  *   experiments: Map<string, Experiment>, exclusions: Map<string, Exclusion>,
- *   subjects: Map<string, Subject>, actions: Set<string>, neededBy: Map<string, Claim[]>,
+ *   subjects: Map<string, Subject>, questions: Map<string, Question>, actions: Set<string>,
+ *   neededBy: Map<string, Claim[]>,
  *   raiserCount: Map<string, number>, byQuestion: Map<string, Claim[]>,
  *   lintsOf: Map<string, Lint[]>, prospective: Set<string> }} Lookups
  */
@@ -65,6 +67,7 @@ export function lookupsOf(env) {
     experiments: byId(env.experiments),
     exclusions: byId(env.exclusions),
     subjects: byId(env.subjects),
+    questions: byId(env.questions),
     actions: new Set(env.actions.map((a) => a.id)),
     neededBy,
     raiserCount,

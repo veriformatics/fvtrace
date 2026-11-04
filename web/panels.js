@@ -38,16 +38,7 @@ import {
 
 /** A link-styled button that selects `id`. @param {Handlers} on */
 function ref(/** @type {"fact" | "claim" | "experiment"} */ kind, /** @type {string} */ id, on) {
-  return h(
-    "button",
-    {
-      class: "ref",
-      "data-key": `ref:${kind}:${id}`,
-      type: "button",
-      onclick: () => on.select(kind, id),
-    },
-    id,
-  );
+  return idButton(id, `ref:${kind}:${id}`, () => on.select(kind, id));
 }
 
 const nouns = {

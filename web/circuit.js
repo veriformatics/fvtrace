@@ -171,8 +171,6 @@ export function circuit(c, ix, on) {
       {
         noun: ["fact", "facts"],
         keyOf: (f) => f.id,
-        // The wire runs on past an end line, toward the lamp.
-        endClass: "wire-end",
         tail: h(
           "li",
           { class: "terminal" },
@@ -238,17 +236,7 @@ export function claimSig(c, ix, on) {
  */
 export function conditions(c, ix, on) {
   /** @param {string} id */
-  const factRef = (id) =>
-    h(
-      "button",
-      {
-        class: "ref",
-        type: "button",
-        "data-key": `cond:${c.id}:${id}`,
-        onclick: () => on.select("fact", id),
-      },
-      id,
-    );
+  const factRef = (id) => idButton(id, `cond:${c.id}:${id}`, () => on.select("fact", id));
   /** @param {string} id */
   const factLine = (id) => {
     const f = ix.facts.get(id);

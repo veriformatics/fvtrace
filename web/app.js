@@ -540,10 +540,10 @@ const recoverable = new Set(["what-if", "action", "item"]);
 
 // The newest request wins (`evaluations`): a slower earlier answer, or the engine's start-up,
 // never overwrites a later what-if, action, reset or click.
-/** Evaluates the shown what-if, or the action `action` from it (kernel.md V-action); `link` = the
- * action came from an older export's link, whose address keeps its other parts.
- * @param {string} [action] @param {boolean} [link] */
-async function load(action, link = false) {
+/** Evaluates the shown what-if, or the action `action` from it (kernel.md V-action); an adopted
+ * action's what-if reaches the address through `record` (the caller's history policy).
+ * @param {string} [action] @param {() => void} [record] */
+async function load(action, record = () => writeHash()) {
   if (exportDamage !== undefined) {
     showError(exportDamage);
     return;
@@ -606,12 +606,7 @@ async function load(action, link = false) {
     view.whatif = new Map(e.overrides.map((o) => [o.fact, o.status]));
     if (action) {
       view.spec = whatifSpec(view.whatif);
-      if (link) {
-        const p = new URLSearchParams(location.hash.slice(1));
-        p.delete("action");
-        p.set("whatif", view.spec);
-        history.replaceState(null, "", `#${p.toString()}`);
-      } else writeHash();
+      record();
     }
     byId("error").hidden = true;
     document.body.classList.remove("unavailable");
@@ -641,7 +636,13 @@ async function legacy(/** @type {string} */ id) {
     return;
   }
   view.spec = "";
-  await load(id, true);
+  // The older link's address keeps its other parts; its `action` becomes the what-if, in place.
+  await load(id, () => {
+    const p = new URLSearchParams(location.hash.slice(1));
+    p.delete("action");
+    p.set("whatif", view.spec);
+    history.replaceState(null, "", `#${p.toString()}`);
+  });
   if (!view.spec) {
     showError(`This page holds no what-if "${id}", so it shows the facts as recorded.`);
     writeHash();
@@ -751,24 +752,35 @@ function setWhatif(w) {
 /** @param {Selection | undefined} sel @param {Selection["kind"]} kind @param {string} id */
 const selects = (sel, kind, id) => sel?.kind === kind && sel.id === id;
 
+/**
+ * Selects an item for a click + the find route: the address, another question's board when the
+ * claim sits there, then `mount` (the find route mounts its row first), the highlight + the details
+ * panel (U-select: no card is rebuilt).
+ * @param {Selection["kind"]} kind @param {string} id
+ * @param {() => HTMLElement | undefined} [mount] @returns {HTMLElement | undefined}
+ */
+function choose(kind, id, mount = () => undefined) {
+  view.selection = { kind, id };
+  const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
+  const changed = q && q !== view.question;
+  if (q) view.question = q;
+  writeHash();
+  if (changed) {
+    renderQuestions();
+    renderBoard();
+  }
+  const row = mount();
+  drawSelection();
+  renderInspector();
+  void loadDetails();
+  return row;
+}
+
 /** @type {import("./panels.js").Handlers} */
 const on = {
   select(kind, id) {
-    view.selection = { kind, id };
-    const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
-    const changed = q && q !== view.question;
-    if (q) view.question = q;
-    writeHash();
-    if (changed) {
-      // Another question's claim: its board replaces this one.
-      renderQuestions();
-      renderBoard();
-    }
-    // U-select: the highlight moves and the details panel fills; no card is rebuilt.
-    drawSelection();
-    renderInspector();
+    choose(kind, id);
     byId("inspector").focus();
-    void loadDetails();
   },
   canToggle(fact) {
     return view.whatif.has(fact) || on.hasAction(`suppose:${fact}`);
@@ -810,22 +822,13 @@ const on = {
  * the inspector. @param {Selection["kind"]} kind @param {string} id
  */
 function reveal(kind, id) {
-  view.selection = { kind, id };
-  const q = kind === "claim" ? ix?.claims.get(id)?.question : undefined;
-  const changed = q && q !== view.question;
-  if (q) view.question = q;
-  writeHash();
-  if (changed) {
-    renderQuestions();
-    renderBoard();
-  }
-  /** @type {HTMLElement | undefined} */
-  let row;
-  if (kind === "claim") for (const g of boardGroups.values()) row ??= g.list.show(`claim:${id}`);
-  else if (kind === "experiment") row = experimentList.show(`experiment:${id}`);
-  drawSelection();
-  renderInspector();
-  void loadDetails();
+  const row = choose(kind, id, () => {
+    /** @type {HTMLElement | undefined} */
+    let r;
+    if (kind === "claim") for (const g of boardGroups.values()) r ??= g.list.show(`claim:${id}`);
+    else if (kind === "experiment") r = experimentList.show(`experiment:${id}`);
+    return r;
+  });
   const button = row?.querySelector(".tag-id .ref, .experiment-meta .ref");
   if (row && button instanceof HTMLElement) {
     row.scrollIntoView({ block: "center" });
@@ -847,11 +850,11 @@ function find() {
   }
   entries ??= entriesOf(env);
   const found = search(entries, input.value);
-  const e = env;
+  const x = ix;
   const shown = results(
     input.value,
     found,
-    (q) => (q === view.question ? undefined : e.questions.find((x) => x.id === q)?.title),
+    (q) => (q === view.question ? undefined : x.questions.get(q)?.title),
     (m) => reveal(m.kind, m.id),
   );
   line.textContent = shown.line;
@@ -1088,8 +1091,7 @@ function renderQuestions() {
       h("option", { value: q.id, selected: q.id === view.question }, q.title),
     ),
   );
-  byId("question-title").textContent =
-    env.questions.find((q) => q.id === view.question)?.text ?? "";
+  byId("question-title").textContent = x.questions.get(view.question)?.text ?? "";
   for (const b of document.querySelectorAll("[data-layout]")) {
     b.setAttribute("aria-pressed", String(b.getAttribute("data-layout") === view.layout));
   }
@@ -1159,7 +1161,7 @@ function renderBoard() {
       const feed =
         view.layout === "text"
           ? h("ul", { class: "text-list", "aria-label": title || "Claims" })
-          : h("div", { class: "feed", role: "feed", "aria-label": title || "Claims" });
+          : h("div", { role: "feed", "aria-label": title || "Claims" });
       const section = h("section", { class: "group" }, feed);
       const list = new LazyList(feed, {
         posinset: true,

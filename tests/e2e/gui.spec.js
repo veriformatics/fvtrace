@@ -3,6 +3,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fvtrace, isRecord, serveFvtrace } from "./fvtrace-server.js";
+import { card, verdict } from "./selectors.js";
 
 const root = new URL("../../", import.meta.url).pathname;
 
@@ -11,16 +12,6 @@ let web;
 test.afterEach(async () => {
   await web.close();
 });
-
-/** @param {import("@playwright/test").Page} page @param {string} id */
-function card(page, id) {
-  return page
-    .locator("article.circuit")
-    .filter({ has: page.locator(".tag-id").getByText(id, { exact: true }) });
-}
-
-/** @param {import("@playwright/test").Locator} c */
-const verdict = (c) => c.locator(".tag-soft .cap-trim");
 
 /**
  * Presses `key` `n` times, one press after another (each waits for the page to take the last).
@@ -32,8 +23,6 @@ async function pressTimes(page, key, n) {
   await page.keyboard.press(key);
   await pressTimes(page, key, n - 1);
 }
-
-/** @typedef {{ top: number, left: number, bottom: number, right: number }} Box */
 
 /**
  * Walks the tour from its current step to the end; returns each step whose card overlaps the

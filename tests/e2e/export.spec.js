@@ -8,6 +8,7 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fvtrace, isRecord, prepareStudy, serveFvtrace } from "./fvtrace-server.js";
+import { card, verdict } from "./selectors.js";
 
 /** @type {{ dir: string, page: string, project: string, env: NodeJS.ProcessEnv }} */
 let fixture;
@@ -26,15 +27,6 @@ test.afterAll(async () => {
 const recorded = "Showing the facts as recorded.";
 const engineFailed =
   "This browser cannot run the what-ifs on this page, so it shows the facts as recorded.";
-
-/** @param {import("@playwright/test").Page} page @param {string} id */
-const card = (page, id) =>
-  page
-    .locator("article.circuit")
-    .filter({ has: page.locator(".tag-id").getByText(id, { exact: true }) });
-
-/** @param {import("@playwright/test").Locator} c */
-const verdict = (c) => c.locator(".tag-soft .cap-trim");
 
 /** The page in a context with the network off; every non-file request is refused + counted.
  * @param {import("@playwright/test").Browser} browser @param {string} [hash]

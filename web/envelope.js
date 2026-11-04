@@ -4,13 +4,13 @@
 /** @typedef {"can" | "conditional" | "open" | "cannot"} State */
 /** @typedef {{ fact: string, status: string }} Override */
 /** @typedef {{ claim: string, from: State, to: State }} Move */
-/** @typedef {{ path: string, sha256?: string, role?: string }} Artifact */
+/** @typedef {{ path: string, role?: string }} Artifact */
 /** A failed replay's notice (kernel.md § Replay, Notice). */
 /** @typedef {{ date: string, reason: string }} Failure */
 /** @typedef {{ id: string } & Failure} Notice */
 /**
  * @typedef {{ summary: string, artifacts: Artifact[], verifier?: string, statement?: string,
- *   statementDigest?: string, replay?: { failed?: Failure } }} Evidence
+ *   replay?: { failed?: Failure } }} Evidence
  */
 /**
  * @typedef {{ id: string, subject: string, kind: string, text: string, route: string,
@@ -23,8 +23,7 @@
  * @typedef {{ need: string, experiment: string, status: string }} Alternative
  * @typedef {{ result: "planned" | "noImprovement" | "inconsistent" | "tooLarge",
  *   experiments: string[], state?: State, planPremises: string[], planGaps: string[],
- *   contingent: boolean, premises: string[], gaps: string[], uncovered: string[],
- *   alternatives: Alternative[] }} Plan
+ *   contingent: boolean, uncovered: string[], alternatives: Alternative[] }} Plan
  */
 /**
  * @typedef {{ id: string, question: string, subject: string, level: string, text: string,
@@ -54,7 +53,7 @@
  * @typedef {{ mode: "recorded" | "what-if", overrides: Override[],
  *   review: { state: "draft" | "stale" | "reviewed", reviewer?: string, date?: string },
  *   analysis: { id: string, title: string, summary: string },
- *   subjects: { id: string, title: string, kind: string, valid: boolean, conflicts: string[] }[],
+ *   subjects: { id: string, title: string, kind: string, conflicts: string[] }[],
  *   counts: Record<State, number>, questions: { id: string, title: string, text: string }[],
  *   facts: Fact[], claims: Claim[], work: { fact: string, unlocks: string[], gates: string[] }[],
  *   blockers: { fact: string, claims: string[] }[], experiments: Experiment[],
@@ -67,7 +66,7 @@
  * One item's details (`fvtrace.details/1`, kernel.md V-details): an experiment's lists, a claim's
  * plan + sentence + excluded pairs, or the experiments that raise a fact.
  * @typedef {{ item: string, overrides: Override[], closure?: string[], raises?: Override[],
- *   wins?: Move[], losses?: Move[], plan?: Plan, sentence?: string, incompatible?: string[],
+ *   wins?: Move[], losses?: Move[], plan?: Plan, incompatible?: string[],
  *   raisedBy?: string[] }} Details
  */
 
@@ -197,22 +196,21 @@ function evidence(v, path) {
   const r = obj(v, path);
   const verifier = opt(r, "verifier", path);
   const statement = opt(r, "statement", path);
-  const statementDigest = opt(r, "statementDigest", path);
+  // Checked at the boundary, read by no view: `statementDigest`, each artifact's `sha256`.
+  opt(r, "statementDigest", path);
   return {
     summary: str(r["summary"], `${path}/summary`),
     artifacts: arr(r["artifacts"] ?? [], `${path}/artifacts`, (a, at) => {
       const x = obj(a, at);
-      const sha256 = opt(x, "sha256", at);
+      opt(x, "sha256", at);
       const role = opt(x, "role", at);
       return {
         path: str(x["path"], `${at}/path`),
-        ...(sha256 === undefined ? {} : { sha256 }),
         ...(role === undefined ? {} : { role }),
       };
     }),
     ...(verifier === undefined ? {} : { verifier }),
     ...(statement === undefined ? {} : { statement }),
-    ...(statementDigest === undefined ? {} : { statementDigest }),
     ...("replay" in r ? { replay: replay(r["replay"], `${path}/replay`) } : {}),
   };
 }
@@ -264,6 +262,10 @@ function plan(v, path) {
     "tooLarge",
   ]);
   const planned = result === "planned";
+  // The claim's own `premises` + `gaps`: checked, read by no view (a plan's = planPremises,
+  // planGaps).
+  strs(r["premises"], `${path}/premises`);
+  strs(r["gaps"], `${path}/gaps`);
   /** @type {Plan} */
   const p = {
     result,
@@ -271,8 +273,6 @@ function plan(v, path) {
     planPremises: planned ? strs(r["planPremises"], `${path}/planPremises`) : [],
     planGaps: planned ? strs(r["planGaps"], `${path}/planGaps`) : [],
     contingent: planned ? bool(r["contingent"], `${path}/contingent`) : false,
-    premises: strs(r["premises"], `${path}/premises`),
-    gaps: strs(r["gaps"], `${path}/gaps`),
     uncovered: strs(r["uncovered"], `${path}/uncovered`),
     alternatives: arr(r["alternatives"], `${path}/alternatives`, (a, at) => {
       const x = obj(a, at);
@@ -391,11 +391,11 @@ export function decodeEnvelope(json) {
     },
     subjects: arr(r["subjects"], "/subjects", (s, at) => {
       const x = obj(s, at);
+      bool(x["valid"], `${at}/valid`);
       return {
         id: str(x["id"], `${at}/id`),
         title: str(x["title"], `${at}/title`),
         kind: str(x["kind"], `${at}/kind`),
-        valid: bool(x["valid"], `${at}/valid`),
         conflicts: strs(x["conflicts"], `${at}/conflicts`),
       };
     }),
@@ -496,7 +496,7 @@ export function decodeDetails(json) {
     d.losses = moves(r["losses"], "/losses");
   } else if (item.startsWith("claim:")) {
     d.plan = plan(r["plan"], "/plan");
-    d.sentence = str(r["sentence"], "/sentence");
+    str(r["sentence"], "/sentence");
     d.incompatible = strs(r["incompatible"], "/incompatible");
   } else d.raisedBy = strs(r["raisedBy"], "/raisedBy");
   return d;
