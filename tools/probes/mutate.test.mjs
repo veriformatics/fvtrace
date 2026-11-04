@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -59,4 +59,20 @@ void test("a raw prefix requires a token boundary", () => {
     ].join("\n"),
     (out) => assert.equal(out, "mutants: 0\n"),
   );
+});
+
+void test("--list reads the source alone: no write, no backup", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mutation-probe-"));
+  try {
+    const file = join(dir, "Listed.lean");
+    writeFileSync(file, "def a : Nat := 1 + 2\n");
+    const old = new Date("2020-01-01T00:00:00Z");
+    utimesSync(file, old, old);
+    const p = spawnSync(process.execPath, [tool, file, "--list"], { encoding: "utf8" });
+    assert.equal(p.status, 0, p.stderr);
+    assert.equal(statSync(file).mtimeMs, old.getTime());
+    assert.deepEqual(readdirSync(dir), ["Listed.lean"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

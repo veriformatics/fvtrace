@@ -21,13 +21,8 @@ case "$(uname -s)-$(uname -m)" in
         ;;
 esac
 
-sha256() {
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | cut -d' ' -f1
-    else
-        shasum -a 256 "$1" | cut -d' ' -f1
-    fi
-}
+# shellcheck source=tools/sha256.sh
+source "$root/tools/sha256.sh"
 
 # `tools/pin-tool.sh` rewrites every line of a tool; one line's version alone (a Renovate edit)
 # labels the old release's archive with the new version, and its digest still matches.
