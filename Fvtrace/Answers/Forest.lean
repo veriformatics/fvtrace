@@ -179,12 +179,8 @@ structure Recount where
 
 /-- One node's row + the states of the claims attached to it. -/
 structure StepOut where
-  lights : Nat
-  clears : Nat
-  lowers : Nat
-  applied : Bool
-  contingent : Bool
   answers : List (Nat × State)
+  /-- Its row's counts + flags too (`applied` = `bad == 0`). -/
   node : Node
 
 /-- One success entry joins its key's merged value (`e` comes last in trace order); the count of
@@ -212,10 +208,6 @@ def setAt {α : Type} (pos : String → Option Nat) (keys : List String) (v : St
   keys.foldl (fun t k => match pos k with
     | some j => t.set j (some (v k))
     | none => t) t
-
-/-- The subjects of the exclusions at `δ`'s keys, each once. -/
-def touchedSubjects (cx : Ctx) (δ : Delta) : List String :=
-  Index.eraseDups compare (δ.touched.filterMap fun p => (cx.exclusions[p]?).map (·.subject))
 
 /-- The claim positions `δ` (on a node whose core is `base`) can move: needing a changed fact, or on
 a subject whose validity flips. -/
@@ -260,8 +252,7 @@ def Node.step (cx : Ctx) (s : Scenario) (core : Core) (memo : Array ClaimMemo) (
   let clears := tally nd.clears clearsTo
   let lowers := tally nd.lowers lowersTo
   let contingent := nd.contingent || e.success.any fun x => cx.isResult x.1
-  { lights, clears, lowers, applied := merge.2 == 0, contingent
-    answers := attached.filterMap fun q => (nd.recount cx memo base δ q).map fun r => (q, r.after)
+  { answers := attached.filterMap fun q => (nd.recount cx memo base δ q).map fun r => (q, r.after)
     node :=
       { eff1 := setAt (cx.factIx.first? (cmp := compare)) δ.keys δ.eff1 nd.eff1
         eff := setAt (cx.factIx.first? (cmp := compare)) δ.changed δ.eff nd.eff
@@ -270,12 +261,6 @@ def Node.step (cx : Ctx) (s : Scenario) (core : Core) (memo : Array ClaimMemo) (
           nd.act
         cnt := moved.foldl (fun t r => t.set r.pos (some r.counts)) nd.cnt
         lights, clears, lowers, bad := merge.2, contingent } }
-
-/-- `Scenario.relevant c`'s positions (`planOf`'s): success entries raising a need, on the claim's
-subject. -/
-def relevantPositions (cx : Ctx) (core : Core) (needs : List String) (subject : String) :
-    List Nat :=
-  (raisingPositions cx core needs).filter fun p => (cx.experiments[p]?).any (·.subject == subject)
 
 /-- The claim positions whose plan a forest position answers: subject consistent, that position
 their one relevant experiment. -/
@@ -343,9 +328,10 @@ def walkStep (w : WalkEnv) (acc : WalkState) (e : Experiment) : WalkState :=
   | some nd =>
     let out := nd.step w.cx w.s w.core w.memo e (w.attached[i]?.getD [])
     let row : ExperimentRow :=
-      { experiment := e, lights := out.lights, clears := out.clears, lowers := out.lowers
+      { experiment := e, lights := out.node.lights, clears := out.node.clears
+        lowers := out.node.lowers
         breaks := Scenario.breaks (if e.failure.isEmpty then [] else w.failureMoves e)
-        applied := out.applied, contingent := out.contingent }
+        applied := out.node.bad == 0, contingent := out.node.contingent }
     let plans := out.answers.foldl (init := acc.2.2) fun ps x =>
       let b := ((w.memo[x.1]?).map (·.final)).getD .cannot
       ps.set! x.1 (some (if x.2.rank > b.rank then .planned x.2 else .noImprovement))

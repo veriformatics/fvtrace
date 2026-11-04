@@ -914,8 +914,7 @@ theorem step_recount {q : Nat} (hq : q < s.trace.claims.length) :
   rw [hk']
   congr 1
   congr 1
-  · show Core.final (cxOf s) s (coreOf s) _ = _
-    rw [final_eq]
+  · rw [memo_final_core, final_eq]
   · rw [hk.activeCount, valid_count, hn.cnt q hq, hinc', final_of_counts]
   · rw [delta_valid, valid_congr (S := afterOf (s.applySuccess L) (extraRef s
       (s.successPairs L ++ e.success) e.success)) (T := s.applySuccess (L ++ [e.id])) rfl rfl h1,
@@ -1721,8 +1720,7 @@ theorem plans_fold : ∀ (xs : List (Nat × State)) (ps : Array (Option PlanSumm
         rw [← hq, ← hx]
         have hm : (ClaimMemo.of (cxOf s) s (coreOf s) s.trace.claims[x.1]).final =
             s.final s.trace.claims[x.1] := by
-          show Core.final (cxOf s) s (coreOf s) _ = _
-          rw [final_eq]
+          rw [memo_final_core, final_eq]
         simp only [memoOf, cxOf, ctx_claims, List.getElem?_toArray, Array.getElem?_map,
           List.getElem?_eq_getElem hx1, Option.map_some, Option.getD_some]
         rw [show (ClaimMemo.of (Ctx.build s.trace) s (coreOf s) s.trace.claims[x.1]).final =
@@ -1814,7 +1812,6 @@ theorem walkStep_inv (hfb : fallback = rowRefOf s)
         rw [hcl', ← hcl']
         rw [lights_count, clears_count, lowers_count, ← hrep.lights, ← hrep.clears,
           ← hrep.lowers, hfm, ← applied_count, ← contingent_keys, ← hrep.bad, ← hrep.contingent]
-        rfl
     · -- nodes: the old ones, then this one's when kept
       intro j nd' hj
       by_cases hji : j < acc.1.size

@@ -56,17 +56,6 @@ theorem dedupSorted_eq (l : List Nat) : dedupSorted l = dedupRef none l := by
   rw [dedup_fold]
   simp
 
-theorem mem_dedupRef : ∀ {l : List Nat} {last : Option Nat} {x : Nat},
-    x ∈ dedupRef last l → x ∈ l
-  | [], _, _, h => by simp [dedupRef] at h
-  | p :: ps, last, x, h => by
-    simp only [dedupRef] at h
-    split at h
-    · exact List.mem_cons_of_mem _ (mem_dedupRef h)
-    · rcases List.mem_cons.mp h with rfl | h
-      · exact List.mem_cons_self
-      · exact List.mem_cons_of_mem _ (mem_dedupRef h)
-
 /-- On a sorted list whose members are not below `last`, the run of `last` drops, the rest
 stays. -/
 theorem dedupRef_spec : ∀ {l : List Nat} {last : Option Nat},

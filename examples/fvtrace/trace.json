@@ -280,7 +280,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanSound"
           ],
-          "output": "ee99af43bcc6331d74c827810557e6270b399adb96b12004c8c9b95779eca00f"
+          "output": "c9d9a04bd39dbe86751c5d63789b4c776b4fee588822dbf32482dc8877d0eb11"
         }
       },
       "trusts": [
@@ -322,7 +322,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanOptimal"
           ],
-          "output": "c73be2164bcc49657907360428c852cb9c4827096b48e98dd6bbf0d7d2c1f1b5"
+          "output": "73f80595a9d29cd3a39920305807be789d2d6caa7a656b3a31f0ba8fdc0b1bc1"
         }
       },
       "trusts": [
@@ -731,16 +731,16 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "01f1e9c1a9dfa7c34f20d9f2d75b167e84c477d59683f0ac834ec5d58270f23e",
+            "sha256": "dbd19c99e8f0941e1bec4455406807337116246739b31bc2e0133ee011bf25fe",
             "role": "proof"
           },
           {
             "path": "Fvtrace/Proofs/Walk.lean",
-            "sha256": "06860247b8ea866aa01bb082db140d0b7c9d90f907a8b5404a03bbc98efd046a"
+            "sha256": "e8e075af047a2fe02a7f9a2c05fc907f11490b2a237fe15a280aa137f8065a3f"
           },
           {
             "path": "Fvtrace/Proofs/Forest.lean",
-            "sha256": "f245adcd8abbac51297cd7c411fb3ddef2585c53fd83eb8eda0f24094a6a87c7"
+            "sha256": "ba6d9940f0a01da2ebc69751e6f80c06ed884c4a16bf19ff580f8acb3b7b27e1"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",
@@ -753,7 +753,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Singleton.lean",
-            "sha256": "15b8bcb62d2c60134dde6b251da74da0a6ac4937a4d62755e589d6f485aea2cf"
+            "sha256": "a11720f45b5304a3668f840d83e7c4eca79ae65b551c1fa8ebe1e20a953acc86"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -765,7 +765,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.AnswersAgree"
           ],
-          "output": "6f8061c8526da38753bd65596c8e44a51b9a8f100e8b79ba0620429414ea90b1"
+          "output": "3c513b5450666a572e4abc3c6f8f1242b0cba15338c5f4142e85300b293cb68b"
         }
       },
       "trusts": [
@@ -881,15 +881,15 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "01f1e9c1a9dfa7c34f20d9f2d75b167e84c477d59683f0ac834ec5d58270f23e"
+            "sha256": "dbd19c99e8f0941e1bec4455406807337116246739b31bc2e0133ee011bf25fe"
           },
           {
             "path": "Fvtrace/Proofs/Walk.lean",
-            "sha256": "06860247b8ea866aa01bb082db140d0b7c9d90f907a8b5404a03bbc98efd046a"
+            "sha256": "e8e075af047a2fe02a7f9a2c05fc907f11490b2a237fe15a280aa137f8065a3f"
           },
           {
             "path": "Fvtrace/Proofs/Forest.lean",
-            "sha256": "f245adcd8abbac51297cd7c411fb3ddef2585c53fd83eb8eda0f24094a6a87c7"
+            "sha256": "ba6d9940f0a01da2ebc69751e6f80c06ed884c4a16bf19ff580f8acb3b7b27e1"
           },
           {
             "path": "Fvtrace/Proofs/Closure.lean",
@@ -901,7 +901,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Singleton.lean",
-            "sha256": "15b8bcb62d2c60134dde6b251da74da0a6ac4937a4d62755e589d6f485aea2cf"
+            "sha256": "a11720f45b5304a3668f840d83e7c4eca79ae65b551c1fa8ebe1e20a953acc86"
           },
           {
             "path": "Fvtrace/Proofs/Lookups.lean",

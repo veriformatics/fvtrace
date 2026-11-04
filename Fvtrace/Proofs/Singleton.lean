@@ -14,13 +14,13 @@ theorem closure_nil (s : Scenario) : s.closure [] = [] := by
     cases n <;> simp [Scenario.closureFuel, Scenario.closureStep]
   simp [Scenario.closure, hf]
 
-theorem idsLt_nil (ids : List String) : idsLt ids [] = false := by
+theorem lexLt_nil (ids : List String) : lexLt ids [] = false := by
   cases ids <;> rfl
 
 theorem better_empty (s : Scenario) (c : Claim) (ids : List String) :
     s.planBetter c ids [] =
       decide (((s.applySuccess ids).final c).rank > (s.final c).rank) := by
-  simp [Scenario.planBetter, applySuccess_nil, costOf, lexLt, idsLt_nil]
+  simp [Scenario.planBetter, applySuccess_nil, costOf, lexLt, lexLt_nil]
 
 theorem search_singleton (s : Scenario) (c : Claim) (r : String) :
     s.search c [] [r] [] =
