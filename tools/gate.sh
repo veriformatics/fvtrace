@@ -354,6 +354,62 @@ fanout() {
         printf 'fanout: %s runs no single `bash tools/gate.sh --shard "$SHARD"` step\n' "$wf" >&2
         rc=1
     fi
+    provision || rc=1
+    return $rc
+}
+
+# Cross-workflow relations no workflow linter reads (ops.md CI, release.md, wasm.md CI cache),
+# matched by text like fanout's step: the release targets (publish's archive list) = build.yml's
+# matrix = installed's; installed runs macOS on the floor's runner; Python + the engine cache come
+# before every Lean build; the cache key holds what changes every engine object. `${{ … }}` here =
+# the workflows' literal expression text.
+# shellcheck disable=SC2016
+provision() {
+    local rc=0 act=.github/actions/page-engine/action.yml b=.github/workflows/build.yml
+    local g=.github/workflows/gate.yml r=.github/workflows/release.yml
+    local published list macos os skip f
+    local -a bad=()
+    published="$(sed -n 's/^ *for a in \(.*\); do$/\1/p' "$r" | tr ' ' '\n' | sed -E 's/\.(tar\.gz|zip)$//' | sort)"
+    [[ "$(wc -w <<<"$published")" -eq 4 ]] || bad+=("$r publish names $(wc -w <<<"$published") archives, not 4")
+    for f in "$b" "$r"; do
+        list="$(sed -n 's/^ *target: \(.*\)$/\1/p' "$f" | sort)"
+        [[ "$list" == "$published" ]] ||
+            bad+=("$f targets [$(paste -sd, - <<<"$list")] != release targets [$(paste -sd, - <<<"$published")]")
+    done
+    macos="$(sed -n 's/^macos_min=//p' tools/release.sh)"
+    os="$(awk '/^ *- os: / { os = $3 } /^ *target: macos-arm64$/ { print os }' "$r")"
+    [[ "$os" == "macos-${macos%.0}" ]] ||
+        bad+=("$r runs macos-arm64 on $os, not macos-${macos%.0} (tools/release.sh macos_min)")
+    grep -qF "MACOSX_DEPLOYMENT_TARGET=\$(sed -n 's/^macos_min=//p' tools/release.sh)" "$b" ||
+        bad+=("$b sets MACOSX_DEPLOYMENT_TARGET from no tools/release.sh macos_min")
+    grep -qE '^ +uses: actions/setup-python@[0-9a-f]{40} ' "$act" || bad+=("$act installs no Python")
+    grep -qE '^ +python-version: "3\.(1[0-9]|[2-9][0-9])' "$act" || bad+=("$act names no Python >= 3.10")
+    f="$(awk '/^ *key: / { print }' "$act")"
+    [[ "$f" == *'key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('* ]] ||
+        bad+=("$act engine cache key lacks OS + arch")
+    for list in lean-toolchain tools/wasm.lock 'tools/wasm/**' 'FvtraceWasm/**' WasmMain.lean; do
+        [[ "$f" == *"'$list'"* ]] || bad+=("$act engine cache key lacks $list")
+    done
+    grep -qxF '          .lake/build/wasm/*' "$act" && grep -qxF '          !.lake/build/wasm/download' "$act" ||
+        bad+=("$act caches other than .lake/build/wasm/* minus download/")
+    for f in "$b:lake build" "$g:bash tools/gate.sh --shard"; do
+        awk -v run="${f#*:}" '/uses: \$\/\.github\/actions\/page-engine$/ { p = NR } index($0, "run: " run) && !l { l = NR }
+            END { exit !(p && l && p < l) }' "${f%%:*}" || bad+=("${f%%:*} builds without the page-engine step before it")
+    done
+    grep -qF 'cache: ${{ !inputs.release && github.event_name != '"'schedule'"' }}' "$b" ||
+        bad+=("$b caches the engine on a release or the weekly run")
+    grep -qF 'cache: ${{ github.event_name != '"'schedule'"' }}' "$g" || bad+=("$g caches the engine on the weekly run")
+    skip="$(awk '/^ *if: / { c = $0 } /uses: \$\/\.github\/actions\/page-engine$/ { print c; exit } /^ *- name: / { c = "" }' "$g")"
+    if [[ -n "$skip" ]]; then
+        skip="$(sed -n "s/^ *if: matrix.shard != '\([a-z-]*\)'\$/\1/p" <<<"$skip")"
+        if [[ -z "$skip" ]]; then
+            bad+=("$g page-engine step: a condition other than one skipped shard")
+        elif awk -v s="$skip" '$1 == "lean-build" { for (i = 2; i <= NF; i++) if ($i == s) found = 1 } END { exit !found }' <<<"$STAGES"; then
+            bad+=("$g skips Python + the engine cache on shard $skip, which builds")
+        fi
+    fi
+    for f in "${bad[@]}"; do printf 'fanout: %s\n' "$f" >&2; done
+    [[ ${#bad[@]} -eq 0 ]] || rc=1
     return $rc
 }
 
