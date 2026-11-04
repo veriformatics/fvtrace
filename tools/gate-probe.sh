@@ -607,6 +607,18 @@ probe_together() {
     expect together-red '^failed: meta$' "${run[@]}" 3
 }
 
+# Stages over a file selection fail on an empty one (an emptied folder or pattern would read green).
+probe_empty_inputs() {
+    local empty="$backup/empty-tests/" repo="$backup/empty-repo"
+    mkdir -p "$empty" "$repo"
+    git -C "$repo" init -q
+    mkdir -p "$repo/tools" && cp tools/lean-style.sh "$repo/tools/"
+    # shellcheck disable=SC2016 # the inner script's own expansions
+    expect empty-node-tests 'no test file in' \
+        bash -c 'source tools/gate.sh; node_tests "$1"' _ "$empty"
+    expect empty-lean-style 'no Lean file selected' bash "$repo/tools/lean-style.sh"
+}
+
 probe_mutate() { allow mutation-scanner node --test tools/probes/mutate.test.mjs; }
 probe_install() { allow install-attempt-bound bash tests/tools/install-bound.sh; }
 probe_load() {
@@ -633,7 +645,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2

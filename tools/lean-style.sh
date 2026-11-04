@@ -7,6 +7,8 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$root" || exit 1
 
 mapfile -t files < <(git ls-files -co --exclude-standard -- '*.lean')
+# An empty selection (a moved tree, a broken pattern) would read as clean.
+[[ ${#files[@]} -gt 0 ]] || { printf 'lean-style: no Lean file selected\n' >&2; exit 1; }
 rc=0
 for f in "${files[@]}"; do
     LC_ALL=C.UTF-8 awk -v f="$f" '

@@ -171,7 +171,17 @@ examples() {
 
 # The exported page's engine (WebAssembly, run by the page's loader) answers every differential
 # case byte for byte as the native engine does (`kernel.md` E-wasm); Chromium = e2e engine.spec.js.
-engine() { node --test tests/engine/; }
+# `node --test` over folders, each holding ≥ 1 `*.test.mjs` (an emptied folder would run nothing
+# and read green).
+node_tests() {
+    local d
+    for d in "$@"; do
+        compgen -G "$d*.test.mjs" >/dev/null || { printf 'no test file in %s\n' "$d" >&2; return 1; }
+    done
+    node --test "$@"
+}
+
+engine() { node_tests tests/engine/; }
 
 # What the engine stage reads: the built engine + its loader + worker, its tests + their traces,
 # the export + snapshot code that frames the page + answers natively, the toolchain. The fast gate
@@ -225,7 +235,7 @@ vendor() { bash tools/vendor-hacl.sh --verify; }
 # The JSON Schema agrees with the decoder on tests/schema/cases/ (Tests/Schema.lean = other half);
 # the GUI palette meets contrast + color-vision floors (tests/palette/); Renovate's regex managers
 # extract the dependencies of their files (tests/renovate/).
-js_test() { node --test tests/schema/ tests/palette/ tests/renovate/; }
+js_test() { node_tests tests/schema/ tests/palette/ tests/renovate/; }
 
 e2e() { playwright test; }
 
