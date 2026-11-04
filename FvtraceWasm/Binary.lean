@@ -149,4 +149,24 @@ def problems (m : Module) : List String :=
   (requiredExports.filter fun (e, k) => !m.exports.any fun x => x.name == e && x.kind == k).map
     fun (e, k) => s!"exports no {e} of kind {k}"
 
+/-- `needle` occurs in `hay` (a scan over a module of a few MB, once per link). -/
+def occurs (needle hay : ByteArray) : Bool := Id.run do
+  if needle.size > hay.size then return false
+  for i in [0:hay.size - needle.size + 1] do
+    let mut same := true
+    for j in [0:needle.size] do
+      if hay.get! (i + j) != needle.get! j then
+        same := false
+        break
+    if same then return true
+  return false
+
+/-- mimalloc's message prefix: in the module's data only when the link chose it
+(`-sMALLOC=mimalloc`, wasm.md Allocator); dlmalloc, Emscripten's default, carries none. -/
+def allocatorMark : String := "mimalloc: error: "
+
+/-- Why the module's allocator is not mimalloc (empty = it is). -/
+def allocatorProblems (b : ByteArray) : List String :=
+  if occurs allocatorMark.toUTF8 b then [] else ["links an allocator other than mimalloc"]
+
 end FvtraceWasm.Binary

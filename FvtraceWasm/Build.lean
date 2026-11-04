@@ -433,10 +433,11 @@ def build (input : Config) : IO Unit := do
   let wasm := cfg.cache / "engine.wasm"
   writeAtomic wasm fun tmp => do
     link cfg t objs tmp
-    match Binary.parse (← IO.FS.readBinFile tmp) with
+    let module ← IO.FS.readBinFile tmp
+    match Binary.parse module with
     | .error m => fail s!"engine.wasm: {m}"
     | .ok m =>
-      let ps := Binary.problems m
+      let ps := Binary.problems m ++ Binary.allocatorProblems module
       unless ps.isEmpty do fail s!"engine.wasm breaks its link contract:\n{"\n".intercalate ps}"
     compress t tmp cfg.out
   licenses cfg install

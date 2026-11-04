@@ -42,6 +42,16 @@ def problemsOf (b : ByteArray) : Except String (List String) := do
 def has (s sub : String) : Bool := (s.splitOn sub).length > 1
 
 def pureTests : TestM Unit := do
+  let bytes := fun (s : String) => s.toUTF8
+  checkEq "wasm: occurs finds a needle at the start, middle + end, and nowhere else"
+    ([("ab", "abxy"), ("xy", "abxy"), ("bx", "abxy"), ("abxy", "abxy"), ("", "a"), ("ya", "abxy"),
+      ("abxyz", "abxy"), ("yy", "abxy")].map fun (n, h) => Binary.occurs (bytes n) (bytes h))
+    [true, true, true, true, true, false, false, false]
+  checkEq "wasm: a module carrying mimalloc's message prefix keeps the allocator contract"
+    (Binary.allocatorProblems (bytes "\x00data mimalloc: error: %s\x00")) []
+  checkEq "wasm: a module without it (dlmalloc) breaks it"
+    (Binary.allocatorProblems (bytes "\x00data mimalloc: warn\x00"))
+    ["links an allocator other than mimalloc"]
   checkEq "wasm: a module importing what the page provides + exporting what it calls keeps the \
     link contract" (problemsOf (moduleOf goodImports goodExports)).toOption (some [])
   match Binary.parse (moduleOf goodImports goodExports) with
