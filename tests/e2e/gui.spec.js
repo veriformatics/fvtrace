@@ -334,6 +334,27 @@ test.describe("the synthetic study", () => {
     );
   });
 
+  // `clickToOpen`'s guard alone: a click that reaches the container while a selection is active
+  // (a drag's click is the browser's to deliver or not) leaves the selection unchosen.
+  test("a click ending a text selection opens nothing; a plain click opens", async ({ page }) => {
+    await page.goto(web.url);
+    const words = card(page, "C1").locator(".sentence");
+    await expect(words).toBeVisible();
+    const hashes = await words.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      document.getSelection()?.removeAllRanges();
+      document.getSelection()?.addRange(range);
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const selecting = location.hash;
+      document.getSelection()?.removeAllRanges();
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      return [selecting, location.hash];
+    });
+    expect(hashes[0]).not.toContain("select=");
+    expect(hashes[1]).toContain("select=claim%3AC1");
+  });
+
   test("reduced motion: no transition or animation runs", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
