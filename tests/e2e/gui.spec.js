@@ -91,6 +91,35 @@ async function expectTourClear(
   return expectTourClear(page, url, rest, found);
 }
 
+/** Tabs `n` times; names each focused control that shows no focus ring (an outline ≥ 2px or a
+ * shadow under `:focus-visible`). @param {import("@playwright/test").Page} page @param {number} n
+ * @param {{ bare: string[], seen: Set<string> }} [acc] */
+async function focusRings(page, n, acc = { bare: [], seen: new Set() }) {
+  if (n === 0) return acc;
+  await page.keyboard.press("Tab");
+  const ring = await page.evaluate(() => {
+    const el = document.activeElement;
+    if (!el || el === document.body) return null;
+    const s = getComputedStyle(el);
+    const shown =
+      el.matches(":focus-visible") &&
+      ((s.outlineStyle !== "none" && Number.parseFloat(s.outlineWidth) >= 2) ||
+        s.boxShadow !== "none");
+    const label = el.getAttribute("aria-label") ?? el.textContent ?? "";
+    return { name: `${el.tagName.toLowerCase()} "${label.trim().slice(0, 30)}"`, shown };
+  });
+  if (ring) {
+    acc.seen.add(ring.name);
+    if (!ring.shown) acc.bare.push(ring.name);
+  }
+  return focusRings(page, n - 1, acc);
+}
+
+/** How far the page reaches past the viewport's right edge (CSS px; ≤ 0 = it fits).
+ * @param {import("@playwright/test").Page} page */
+const sideways = (page) =>
+  page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+
 const c2Exact =
   "If the treatment did nothing, a difference this large would arise by chance in fewer than 1 " +
   "in 20 random assignments.";
@@ -332,6 +361,34 @@ test.describe("the synthetic study", () => {
     await expect(inspector.getByRole("heading", { level: 2 })).toHaveText(
       "The difference between treated and control samples measures the average effect of the treatment.",
     );
+  });
+
+  // UI floor (CLAUDE.md): visible keyboard focus on every control the Tab key reaches.
+  test("every control the Tab key reaches shows a focus ring", async ({ page }) => {
+    await page.goto(web.url);
+    await card(page, "C1").waitFor();
+    const { bare, seen } = await focusRings(page, 30);
+    expect(seen.size, [...seen].join(", ")).toBeGreaterThanOrEqual(10);
+    expect(bare).toEqual([]);
+  });
+
+  // UI floor (CLAUDE.md): responsive to mobile = no sideways scrolling on a phone, in each view.
+  test("a phone shows every view without sideways scrolling", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(web.url);
+    await card(page, "C1").waitFor();
+    const views = [["diagrams", await sideways(page)]];
+    await page.getByRole("button", { name: "Suppose O2 checked" }).first().click();
+    await expect(page.locator("#scenario-text")).toContainText("Showing a what-if");
+    views.push(["what-if", await sideways(page)]);
+    await card(page, "C1").getByRole("button", { name: "C1", exact: true }).click();
+    await expect(page.locator("#inspector").getByRole("heading", { level: 2 })).not.toHaveText(
+      "Select a claim, a fact or an experiment",
+    );
+    views.push(["details", await sideways(page)]);
+    await page.getByRole("button", { name: "Text", exact: true }).click();
+    views.push(["text", await sideways(page)]);
+    expect(views.filter(([, px]) => Number(px) > 0)).toEqual([]);
   });
 
   // web.md fonts: a verdict chip's symbol centers on its words' capitals (text-box), not on the
