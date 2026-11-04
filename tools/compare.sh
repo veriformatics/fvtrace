@@ -130,8 +130,8 @@ inputs=("self|$root|$root/examples/fvtrace/trace.json|C1|P1=open,E2=proved"
     "synthetic|$root/examples/synthetic/project|$root/examples/synthetic/trace.json|C2|O2=checked,EN2=proved"
     "fixture|$root/examples/synthetic/project|$root/tests/fixtures/synthetic.trace.json|C2|O1=violated"
     "restates|$root/examples/synthetic/project|$root/tests/fixtures/restates.trace.json|C1|")
-for shape in wide deep experiments exclusions hub questions waivers receipts outcomes prereqs whatif \
-    invalid; do
+mapfile -t generated < <(node "$root/tools/scale.mjs" shapes)
+for shape in "${generated[@]}"; do
     for n in 3 40 150; do
         dir="$work/$shape-$n"
         node "$root/tools/scale.mjs" "$shape" "$n" "$dir" || exit 2

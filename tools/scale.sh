@@ -48,8 +48,8 @@ while [[ $# -gt 0 ]]; do
 done
 graded=" wide deep experiments exclusions outcomes prereqs whatif "
 f5=" wide deep experiments exclusions "
-[[ ${#shapes[@]} -gt 0 ]] ||
-    shapes=(wide deep experiments exclusions hub questions waivers receipts outcomes prereqs whatif invalid)
+# Default: every shape the generator registers (`tools/scale.mjs shapes`), in its order.
+[[ ${#shapes[@]} -gt 0 ]] || mapfile -t shapes < <(node "$root/tools/scale.mjs" shapes)
 
 work="$(mktemp -d)"
 srv=""
