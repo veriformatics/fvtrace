@@ -6,6 +6,8 @@ dist/
 test-results/
 playwright-report/
 blob-report/
+# gate step ledger (tools/gate-ledger.sh)
+.gate/
 # agent-local
 .scratch/
 .claude/settings.local.json

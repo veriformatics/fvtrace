@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # CI gate (.claude/rules/ops.md): the full gate on GitHub for the committed HEAD. Pushes it to
 # ci/<unit>, waits for that commit's gate run (every shard + portability), prints the run, the
-# tree it tested and each job's wall-clock, then deletes the branch when green.
+# tree it tested and each job's wall-clock, appends each job to the step ledger
+# (tools/gate-ledger.sh), then deletes the branch when green.
 # Usage: tools/ci-gate.sh <unit>. rc 0 = green, 1 = red (branch kept), 2 = no run to judge.
 set -uo pipefail
 
@@ -30,17 +31,31 @@ if [[ -z "$id" ]]; then
     printf 'ci-gate: no gate run for %s on %s within 5 min\n' "${sha:0:7}" "$branch" >&2
     exit 2
 fi
-printf 'ci-gate: run %s · commit %s · tree %s\n' "$id" "${sha:0:7}" "$(git rev-parse 'HEAD^{tree}')"
+# The pushed commit's tree: HEAD may move while the run is watched in the background.
+tree="$(git rev-parse "$sha^{tree}")"
+printf 'ci-gate: run %s · commit %s · tree %s\n' "$id" "${sha:0:7}" "$tree"
 
 gh run watch "$id" --exit-status --interval 15 >/dev/null
 rc=$?
-gh run view "$id" --json jobs --jq '
+run="$(gh run view "$id" --json createdAt,jobs)" || run='{}'
+jq -r '
     def secs: (.completedAt | fromdate) - (.startedAt | fromdate);
     (.jobs[] | "\(.name) \(.conclusion) \(secs)s"),
     ([.jobs[] | select(.name | startswith("gate"))] |
-        "gate fan-out \((map(.completedAt | fromdate) | max) - (map(.startedAt | fromdate) | min))s")'
+        "gate fan-out \((map(.completedAt | fromdate) | max) - (map(.startedAt | fromdate) | min))s")' \
+    <<<"$run"
+# One ledger row per job, so a CI red has a row to classify; its stages stay in the CI history.
+jq -r --arg tree "$tree" --arg run "ci:$id" '
+    .createdAt as $date | .jobs[] |
+    [$date, $tree, $run, .name,
+        (if .startedAt and .completedAt then (.completedAt | fromdate) - (.startedAt | fromdate)
+         else "-" end),
+        (if .conclusion == "success" then "green" elif .conclusion == "skipped" then "skipped"
+         else "red" end)] | @tsv' <<<"$run" | bash tools/gate-ledger.sh append ||
+    printf 'ci-gate: the ledger lacks run %s\n' "$id" >&2
 if [[ $rc -ne 0 ]]; then
-    printf 'ci-gate: run %s red; %s kept (gh run view %s --log-failed)\n' "$id" "$branch" "$id" >&2
+    printf 'ci-gate: run %s red; %s kept (gh run view %s --log-failed); classify each red job: bash tools/gate-ledger.sh classify JOB product|gate|flake|planted ci:%s\n' \
+        "$id" "$branch" "$id" "$id" >&2
     exit 1
 fi
 if git push -q origin --delete "$branch"; then
