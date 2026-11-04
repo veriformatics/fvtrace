@@ -386,7 +386,8 @@ def referenceTests : TestM Unit := do
     let (rc, _, err) ← capture (Cli.runIn repo (["eval", "--details", "E9"] ++ ex))
     checkEq "cli: a malformed item rc" rc 2
     check "cli: a malformed item named first"
-      (err.startsWith "fvtrace: \"E9\" is not of the form KIND:ID\nusage: fvtrace") err
+      (err == "fvtrace: \"E9\" is not of the form KIND:ID\n" ++
+        "To see the options, run fvtrace eval --help.\n") err
     let (rc, _, err) ← capture (Cli.runIn repo (["claims", "--action", "plan:C9"] ++ ex))
     checkEq "cli: an action not suggested rc" rc 2
     check "cli: an action not suggested named first"

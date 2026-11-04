@@ -16,7 +16,13 @@ def tests : TestM Unit := do
   check "cli: no command prints usage on stderr" (out.isEmpty && err.startsWith "usage: fvtrace")
   let (rc, _, err) ← capture (Fvtrace.Cli.run ["bogus"])
   checkEq "cli: unknown command rc" rc 2
-  check "cli: unknown command named" (err.startsWith "fvtrace: unknown command 'bogus'") err
+  -- A usage error = its message + where the options are, no usage text (user ruling).
+  checkEq "cli: unknown command named, then where the commands are" err
+    "fvtrace: unknown command 'bogus'\nTo see the commands, run fvtrace --help.\n"
+  let (rc, out, err) ← capture (Fvtrace.Cli.run ["claims", "--frob"])
+  check "cli: an unknown option = its message + the command's help, rc 2"
+    (rc == 2 && out.isEmpty &&
+      err == "fvtrace: unknown option --frob\nTo see the options, run fvtrace claims --help.\n") err
   let (rc, out, err) ← capture (Fvtrace.Cli.run ["schema", "unexpected"])
   check "cli: schema names its unexpected argument, not an unknown command"
     (rc == 2 && out.isEmpty && count err "unexpected argument \"unexpected\"" == 1) err
