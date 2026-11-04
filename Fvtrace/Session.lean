@@ -53,6 +53,16 @@ def readPrefix (path : System.FilePath) (n : Nat) : IO ByteArray := do
     out := out ++ chunk
   return out
 
+/-- The text a trace file holds (pretty), or why it cannot be written: a body past the decoder's
+limit (D-json) would be a file no command reads back, and escapes can make the pretty text larger
+than the file the trace was read from. -/
+def traceText (t : Trace) : Except String String :=
+  let body := (Encode.trace t).pretty
+  if body.utf8ByteSize > maxTraceBytes then
+    .error s!"the trace would have {body.utf8ByteSize} bytes, over the limit of \
+      {maxTraceBytes} bytes"
+  else .ok body
+
 /-- Reads the target's trace, at most `limit` bytes; `explicit` = the user named the file
 (`--trace`). A trace can come from someone else (a bundle), so only a regular file is opened (a
 FIFO blocks on open, a device such as `/dev/zero` never ends), its size decides before any byte is
