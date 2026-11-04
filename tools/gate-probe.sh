@@ -298,6 +298,17 @@ probe_palette() {
     expect palette-contrast 'conductor on --paper' env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
 }
 
+# Renovate's config (js-test): a lookbehind (JS accepts it, the hosted app's RE2 refuses it) + a
+# release-age floor under 7 days, each planted in a copy the test reads through its override.
+probe_renovate() {
+    local cfg="$backup/renovate.json"
+    jq '.customManagers[0].matchStrings[0] |= "(?<!PLANTED)" + .' renovate.json >"$cfg"
+    expect renovate-re2 'RE2 refuses "\(\?<!" in "\(\?<!PLANTED' env FVTRACE_RENOVATE_JSON="$cfg" node --test tests/renovate/
+    jq '.minimumReleaseAge = "0 days"' renovate.json >"$cfg"
+    expect renovate-age 'minimumReleaseAge "0 days" is under 7 days' \
+        env FVTRACE_RENOVATE_JSON="$cfg" node --test tests/renovate/
+}
+
 # The GUI's verdict words held equal to the engine's (Tests/Assets) + the skill's example trace held
 # well-formed (Tests/Check): both run in the native suite, rebuilt after each plant.
 assets_test() { lake build «fvtrace-tests» >/dev/null 2>&1; .lake/build/bin/fvtrace-tests; }
@@ -661,7 +672,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
