@@ -421,6 +421,11 @@ const trace = (shape, n) => {
 };
 
 const [shape, arg, dir] = process.argv.slice(2);
+// `shapes`: the registry's names, in order (scale.sh + compare.sh read them).
+if (shape === "shapes" && !arg) {
+  process.stdout.write(`${Object.keys(shapes).join("\n")}\n`);
+  process.exit(0);
+}
 if (!shape || !arg) {
   process.stderr.write("usage: node tools/scale.mjs <shape> <n> <dir> | <shape> cap\n");
   process.exit(2);
