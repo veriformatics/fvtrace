@@ -363,6 +363,35 @@ probe_ci_gate() {
     rm -f "$ghstate"
 }
 
+# tools/meta-lint.mjs (gate `spec`): one plant per shape it holds.
+probe_meta_lint() {
+    keep .claude/rules/web.md
+    sed -i '0,/^paths:$/s//paths:\n  - [broken/' .claude/rules/web.md
+    expect meta-lint-frontmatter 'web.md:3: not a quoted glob:   - \[broken' spec
+    keep .claude/rules/web.md
+    sed -i '0,/^paths:$/s//paths:\n  - "missing-planted\/**"/' .claude/rules/web.md
+    expect meta-lint-glob '"missing-planted/\*\*" matches no tracked file' spec
+    keep .agent/spec.md
+    # shellcheck disable=SC2016 # backticks = the spec's literal text
+    sed -i '0,/^- `lakefile.lean` = /s//- `tools\/missing-planted.sh` + `lakefile.lean` = /' .agent/spec.md
+    expect meta-lint-artifact 'Artifacts: tools/missing-planted.sh matches no tracked file' spec
+    keep .agent/spec.md
+    # shellcheck disable=SC2016 # backticks = the spec's literal text
+    sed -i 's/tag `prototype-lint`/tag `prototype-planted`/' .agent/spec.md
+    expect meta-lint-tag 'tag prototype-planted does not exist' spec
+    keep .agent/deferred.md
+    printf -- '- A planted entry with no check.\n' >>.agent/deferred.md
+    expect meta-lint-deferred 'no "Acceptance:" in "A planted entry' spec
+    keep prototype/planted.txt
+    mkdir -p prototype && printf 'planted\n' >prototype/planted.txt
+    cp .git/index "$backup/index"
+    GIT_INDEX_FILE="$backup/index" git add -f prototype/planted.txt
+    expect meta-lint-prototype 'prototype/planted.txt: a retired prototype tree stays tracked' \
+        env GIT_INDEX_FILE="$backup/index" bash -c 'source tools/gate.sh; spec'
+    rm -f "$backup/index"
+    rmdir prototype 2>/dev/null || true
+}
+
 # A gate run leaves no untracked, unignored file (gate.sh `leftovers`, closing every run).
 probe_leftovers() {
     local before
@@ -760,7 +789,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler ci_gate)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler ci_gate meta_lint)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
