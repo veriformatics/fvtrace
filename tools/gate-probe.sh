@@ -575,7 +575,21 @@ probe_c_headers() {
 }
 
 probe_mutate() { allow mutation-scanner node --test tools/probes/mutate.test.mjs; }
+probe_install() { allow install-attempt-bound bash tests/tools/install-bound.sh; }
+probe_load() {
+    allow load-fractional-floor bash tests/tools/load-floor.sh
+    allow load-interrupt-cleanup python3 -I tests/tools/load-cleanup.py
+}
 probe_release_guard() { allow release-archive-set node --test tools/probes/release-guard.test.mjs; }
+probe_release_tmpdir() {
+    local dist="$backup/dist" tmp="$backup/tmp'quoted" version
+    version="$(sed -n 's/^def version : String := "\(.*\)"$/\1/p' Fvtrace/Version.lean)"
+    mkdir -p "$tmp"
+    allow release-tmpdir-package env DIST="$dist" bash tools/release.sh package linux-x86_64
+    allow release-tmpdir-quoted env TMPDIR="$tmp" bash tools/release.sh check "$dist" linux-x86_64 "$version"
+    allow release-tmpdir-clean test -z "$(ls -A "$tmp")"
+}
+
 probe_dispatch() {
     expect dispatch-unknown 'unknown probe: __missing__' bash tools/gate-probe.sh __missing__
     local envfile="$backup/probe-env"
@@ -586,7 +600,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate release_guard c_headers ledger)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2

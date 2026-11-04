@@ -128,7 +128,7 @@ floor_windows() {
     printf 'release: system DLLs alone: %s\n' "$(objdump -p "$bin" | sed -n 's/^[[:space:]]*DLL Name: //p' | tr -d '\r' | paste -sd' ' -)"
 }
 
-check() {
+check() (
     local dir="$1" target="$2" version="$3" archive name want file tmp out home f
     local run=()
     archive="$(archive_of "$target" "$version")"
@@ -140,8 +140,7 @@ check() {
     [[ "$file" == "$archive" ]] || die "$archive.sha256 names $file"
     [[ "$(sha256 "$dir/$archive")" == "$want" ]] || die "$archive: sha256 differs from $archive.sha256"
     tmp="$(mktemp -d)"
-    # shellcheck disable=SC2064 # the path is fixed now
-    trap "rm -rf '$tmp'" EXIT
+    trap 'rm -rf -- "$tmp"' EXIT
     if [[ "$archive" == *.zip ]]; then
         python -m zipfile -e "$dir/$archive" "$tmp"
     else
@@ -172,7 +171,7 @@ check() {
         FVTRACE_HOME="$home" ${run[@]+"${run[@]}"} "$bin" check --strict --trace ../trace.json) ||
         die "fvtrace check --strict failed on examples/synthetic"
     printf 'release: %s passed\n' "$archive"
-}
+)
 
 if [[ "${1:-}" == package && $# -eq 2 ]]; then
     package "$2"
