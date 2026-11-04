@@ -40,7 +40,6 @@ button {
   cursor: pointer;
 }
 
-button:disabled,
 button[aria-disabled="true"] {
   cursor: default;
 }
@@ -300,10 +299,6 @@ main {
   background: var(--panel);
   border-radius: 3px;
   padding: 7px 13px;
-}
-
-.reset:disabled {
-  opacity: 0.6;
 }
 
 .error-box {
@@ -590,22 +585,27 @@ main {
   font-weight: 550;
 }
 
-/* A circuit: the wire runs through every contact into the lamp. */
+/* A circuit: the wire runs through every contact into the lamp, down the card (switch under
+   switch, so any number of facts stays one connected wire); on wide screens a short circuit runs
+   across it instead (the block after these rules). */
 .contacts {
   display: flex;
-  flex-wrap: wrap;
+  flex-flow: column nowrap;
   align-items: flex-start;
   margin: 0;
-  padding: 8px 18px 18px 23px;
+  padding: 4px 16px 16px;
   list-style: none;
 }
 
 .contact {
   position: relative;
-  flex: 1;
-  min-width: 76px;
-  max-width: 110px;
-  text-align: center;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: none;
+  text-align: left;
 }
 
 .contact::before,
@@ -619,15 +619,20 @@ main {
 }
 
 .contact::before {
-  right: 0;
+  inset: 0 0 0 20px;
+  width: 2px;
+  height: auto;
 }
 
 .switch {
   position: relative;
-  display: block;
-  width: 60px;
-  height: 42px;
-  margin: 0 auto;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 60px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: var(--panel);
@@ -636,8 +641,10 @@ main {
 
 .switch svg {
   display: block;
+  flex-shrink: 0;
   width: 60px;
   height: 42px;
+  transform: rotate(90deg);
   fill: var(--panel);
   stroke: currentcolor;
   stroke-width: 2.4;
@@ -662,12 +669,13 @@ main {
 
 .contact-label {
   display: block;
-  width: 100%;
+  width: auto;
   padding: 1px 3px 0;
   border: 0;
   background: transparent;
   font-size: 12px;
   line-height: 1.4;
+  text-align: left;
 }
 
 .contact-label strong {
@@ -689,16 +697,19 @@ main {
 .terminal {
   position: relative;
   display: flex;
-  flex: 0 0 auto;
+  flex: none;
   min-width: 64px;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 9px;
-  padding-top: 9px;
+  gap: 10px;
+  padding: 12px 0 0 9px;
 }
 
 .terminal::before {
-  width: 18px;
+  top: 0;
+  left: 20px;
+  width: 2px;
+  height: 12px;
 }
 
 .terminal .lamp {
@@ -708,6 +719,68 @@ main {
 /* The claim's level stays one line ("Measurement", "Description"): the end column grows to fit. */
 .terminal .contact-kind {
   white-space: nowrap;
+}
+
+/* Wide screens: a short circuit (not `.tall`, more than six facts) runs across the card. Each rule
+   restores the across value of what the base rules above set for down; `:where` keeps the base
+   specificity, so the key's + the condition lines' own switch sizes still win. */
+@media (width > 760px) {
+  .contacts:where(:not(.tall *)) {
+    flex-flow: row wrap;
+    padding: 8px 18px 18px 23px;
+  }
+
+  .contact:where(:not(.tall *)) {
+    display: revert;
+    flex: 1;
+    align-items: revert;
+    gap: revert;
+    min-width: 76px;
+    max-width: 110px;
+    text-align: center;
+  }
+
+  .contact:where(:not(.tall *))::before {
+    top: 21px;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 2px;
+  }
+
+  .switch:where(:not(.tall *)) {
+    display: block;
+    flex-shrink: revert;
+    align-items: revert;
+    justify-content: revert;
+    width: 60px;
+    height: 42px;
+    margin: 0 auto;
+  }
+
+  .switch:where(:not(.tall *)) svg {
+    flex-shrink: revert;
+    transform: revert;
+  }
+
+  .contact-label:where(:not(.tall *)) {
+    width: 100%;
+    text-align: revert;
+  }
+
+  .terminal:where(:not(.tall *)) {
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 9px;
+    padding: 9px 0 0;
+  }
+
+  .terminal:where(:not(.tall *))::before {
+    top: 21px;
+    left: 0;
+    width: 18px;
+    height: 2px;
+  }
 }
 
 .inspector {
@@ -971,13 +1044,6 @@ main {
   visibility: hidden;
 }
 
-.work-meta,
-.list-meta {
-  display: block;
-  margin-top: 5px;
-  color: var(--conductor);
-}
-
 .plain-list {
   margin: 0;
   padding: 0;
@@ -1062,77 +1128,20 @@ footer {
   overflow-wrap: anywhere;
 }
 
-/* Long circuits (more than six facts) run down the card at any width, like narrow screens. */
-.tall .contacts {
-  flex-flow: column nowrap;
-  padding: 4px 16px 16px;
-}
-
-.tall .contact {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  max-width: none;
-  text-align: left;
-}
-
-.tall .contact::before {
-  top: 0;
-  bottom: 0;
-  left: 20px;
-  width: 2px;
-  height: auto;
-}
-
-.tall .switch {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 60px;
-  margin: 0;
-}
-
-.tall .switch svg {
-  flex-shrink: 0;
-  transform: rotate(90deg);
-}
-
-.tall .contact-label {
-  width: auto;
-  text-align: left;
-}
-
-.tall .terminal {
-  flex-direction: row;
-  flex: none;
-  gap: 10px;
-  padding: 12px 0 0 9px;
-}
-
-/* A tall card's end line keeps the wire running, dashed: more facts lie past it. */
-.tall .wire-end {
+/* A tall card's end line keeps the wire running, dashed: more facts lie past it (the contact
+   list's own end markers; `:where` keeps the old 0,2,0 specificity). */
+.tall :where(.contacts) > .lazy-end {
   position: relative;
   padding-left: 52px;
 }
 
-.tall .wire-end::before {
+.tall :where(.contacts) > .lazy-end::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: 20px;
   border-left: 2px dashed var(--conductor);
-}
-
-.tall .terminal::before {
-  top: 0;
-  left: 20px;
-  width: 2px;
-  height: 12px;
 }
 
 .tour-start {
@@ -1455,10 +1464,6 @@ footer {
     margin-top: 20px;
   }
 
-  .how-key {
-    grid-template-columns: 1fr;
-  }
-
   /* Every card docks at the bottom on phones, the untargeted welcome + end included. */
   .tour-card,
   .tour-card.centered {
@@ -1515,65 +1520,6 @@ footer {
   .inspector {
     position: static;
     width: 100%;
-  }
-
-  /* Narrow screens: the circuit runs down the card, switch under switch into the lamp, so
-     any number of facts stays one connected wire. */
-  .contacts {
-    flex-flow: column nowrap;
-    padding: 4px 16px 16px;
-  }
-
-  .contact {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    max-width: none;
-    text-align: left;
-  }
-
-  .contact::before {
-    top: 0;
-    bottom: 0;
-    left: 20px;
-    width: 2px;
-    height: auto;
-  }
-
-  .switch {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 60px;
-    margin: 0;
-  }
-
-  .switch svg {
-    flex-shrink: 0;
-    transform: rotate(90deg);
-  }
-
-  .contact-label {
-    width: auto;
-    text-align: left;
-  }
-
-  .terminal {
-    flex-direction: row;
-    flex: none;
-    gap: 10px;
-    padding: 12px 0 0 9px;
-  }
-
-  .terminal::before {
-    top: 0;
-    left: 20px;
-    width: 2px;
-    height: 12px;
   }
 
   .experiments,

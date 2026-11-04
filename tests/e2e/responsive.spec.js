@@ -6,18 +6,13 @@
 import { test, expect } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { fvtrace, isRecord, serveFvtrace, serveScale } from "./fvtrace-server.js";
+import { card } from "./selectors.js";
 
 /** @type {{ url: string, close: () => Promise<void> }} */
 let web;
 test.afterEach(async () => {
   await web.close();
 });
-
-/** @param {import("@playwright/test").Page} page @param {string} id */
-const card = (page, id) =>
-  page
-    .locator("article.circuit")
-    .filter({ has: page.locator(".claim-head .tag-id").getByText(id, { exact: true }) });
 
 /** Tags every card element now on the board (a property, not an attribute: a new element lacks
  * it). @param {import("@playwright/test").Page} page */

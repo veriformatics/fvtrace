@@ -24,11 +24,11 @@ export class LazyList {
   /**
    * @param {HTMLElement} root the list element (its children = the mounted rows)
    * @param {{ posinset?: boolean, sentinel?: "li" | "div" | "span", noun?: [string, string],
-   *   tail?: HTMLElement, itemRole?: string, endClass?: string, first?: number }} [opts]
+   *   tail?: HTMLElement, itemRole?: string, first?: number }} [opts]
    *   `posinset`: rows carry `aria-posinset` + `aria-setsize`; `sentinel`: the element type of the
    *   end markers; `noun`: what a row is (singular, plural), for the end markers' words; `tail`: an
    *   element that stays after the rows (a circuit's lamp); `itemRole`: each row's role;
-   *   `endClass`: a class the end markers add; `first`: the rows an empty window mounts at once
+   *   `first`: the rows an empty window mounts at once
    *   (default: one time step's worth)
    */
   constructor(root, opts = {}) {
@@ -58,7 +58,7 @@ export class LazyList {
     this.top = document.createElement(tag);
     this.bottom = document.createElement(tag);
     for (const s of [this.top, this.bottom]) {
-      s.className = opts.endClass ? `lazy-end ${opts.endClass}` : "lazy-end";
+      s.className = "lazy-end";
       s.setAttribute("aria-hidden", "true");
     }
     // Each end looks one way: the bottom one below the viewport, the top one above it. An end
@@ -79,11 +79,6 @@ export class LazyList {
       if (i >= this.hi - 3) this.grow(this.hi + around);
       if (i <= this.lo + 2) this.grow(this.hi, Math.max(0, this.lo - around));
     });
-  }
-
-  /** The rows' count. */
-  get size() {
-    return this.count;
   }
 
   /**
@@ -311,10 +306,9 @@ function place(root, nodes) {
  * (`LazyList`, rows naming their position + the list's size: an inline list takes the list roles).
  * @template T @param {HTMLElement} el the empty list element
  * @param {T[]} items @param {(item: T, i: number) => HTMLElement} make
- * @param {{ noun?: [string, string], tail?: HTMLElement, keyOf?: (item: T) => string,
- *   endClass?: string }} [opts] `noun`: what an item is (singular, plural); `tail`: an element
- *   after the items; `keyOf`: an item's key (default its position), so a re-render can mount a
- *   focused one (`showIn`); `endClass`: a class for the end markers
+ * @param {{ noun?: [string, string], tail?: HTMLElement, keyOf?: (item: T) => string }} [opts]
+ *   `noun`: what an item is (singular, plural); `tail`: an element after the items; `keyOf`: an
+ *   item's key (default its position), so a re-render can mount a focused one (`showIn`)
  * @returns {HTMLElement}
  */
 export function listOf(el, items, make, opts = {}) {
@@ -330,7 +324,6 @@ export function listOf(el, items, make, opts = {}) {
     ...(inline ? { itemRole: "listitem" } : {}),
     ...(opts.noun ? { noun: opts.noun } : {}),
     ...(opts.tail ? { tail: opts.tail } : {}),
-    ...(opts.endClass ? { endClass: opts.endClass } : {}),
     first: short,
   });
   const keyOf = opts.keyOf;
