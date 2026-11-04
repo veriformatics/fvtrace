@@ -124,6 +124,9 @@ function changeList(os, ix, on) {
 /** The line in place of a detail section the page's engine cannot answer (user ruling). */
 const detailsOff =
   "This browser cannot run the what-ifs on this page, so it cannot show these details.";
+/** The same line once the reader stopped the engine (Stop). */
+const detailsStopped =
+  "You pressed Stop, so this page cannot show these details. To see them, reload the page.";
 
 /**
  * A detail section from the selection's details (kernel.md V-details): its content once ready,
@@ -134,6 +137,7 @@ const detailsOff =
 function detailed(d, show) {
   if (d?.state === "ready" && d.value) return show(d.value);
   if (d?.state === "off") return h("p", { class: "note" }, detailsOff);
+  if (d?.state === "stopped") return h("p", { class: "note" }, detailsStopped);
   if (d?.state === "problem") return h("p", { class: "note" }, d.message ?? "");
   return null;
 }
