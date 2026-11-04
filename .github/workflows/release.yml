@@ -64,10 +64,20 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           version="${TAG#v}"
+          expected=()
           for a in linux-x86_64.tar.gz linux-arm64.tar.gz macos-arm64.tar.gz windows-x86_64.zip; do
             for f in "dist/fvtrace-$version-$a" "dist/fvtrace-$version-$a.sha256"; do
-              [[ -f "$f" ]] || { echo "release: no $f (tag $TAG)" >&2; exit 1; }
+              [[ -f "$f" && ! -L "$f" ]] || { echo "release: no $f (regular file required; tag $TAG)" >&2; exit 1; }
+              expected+=("$f")
             done
+          done
+          shopt -s nullglob dotglob
+          for f in dist/*; do
+            allowed=0
+            for want in "${expected[@]}"; do
+              [[ "$f" == "$want" ]] && allowed=1
+            done
+            [[ "$allowed" -eq 1 ]] || { echo "release: unexpected archive file $f (tag $TAG)" >&2; exit 1; }
           done
 
       # Signed SLSA provenance per archive (user ruling 2026-10-31): `gh attestation verify

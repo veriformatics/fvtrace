@@ -30,21 +30,32 @@ run_one() { # old|new, label, project, trace, args...
     if [[ "$(<"$work/$b.rc")" == rc=124 ]]; then
         timeouts=$((timeouts + 1)); printf 'TIMEOUT %s %s %s (%s s)\n' "$b" "$label" "$*" "$limit"
     fi
+    # A refusal's usage names the options each binary has: checked apart (V-cli).
+    sed -i '/^usage: fvtrace/,$d' "$work/$b.err"
 }
-cmp_run() { # label, project, trace, args...
-    local label="$1" project="$2" trace="$3"; shift 3
-    local out
-    run_one old "$label" "$project" "$trace" "$@"
-    run_one new "$label" "$project" "$trace" "$@"
-    runs=$((runs + 1))
-    # A refusal's usage text names the options each binary has: compared apart (kernel.md V-cli).
-    for b in old new; do sed -i '/^usage: fvtrace/,$d' "$work/$b.err"; done
-    for out in out err rc; do
+compare_outputs() { # label, payload extension, args...
+    local label="$1" payload="$2" out; shift 2
+    for out in "$payload" err rc; do
         if ! cmp -s "$work/old.$out" "$work/new.$out"; then
             diffs=$((diffs + 1)); printf 'DIFF %s %s (%s)\n' "$label" "$*" "$out"
             diff <(head -c 2000 "$work/old.$out") <(head -c 2000 "$work/new.$out") | head -8
         fi
     done
+}
+json_failure() {
+    diffs=$((diffs + 1))
+    printf 'DIFF %s (invalid JSON or transform)\n' "$*"
+}
+normalize() { # old|new, jq expression, label
+    jq -e -s -S "if length == 1 then .[0] | ($2) else error(\"expected one JSON document\") end" \
+        "$work/$1.out" >"$work/$1.json" 2>"$work/jq.err" || json_failure "$3 $1"
+}
+cmp_run() { # label, project, trace, args...
+    local label="$1" project="$2" trace="$3"; shift 3
+    run_one old "$label" "$project" "$trace" "$@"
+    run_one new "$label" "$project" "$trace" "$@"
+    runs=$((runs + 1))
+    compare_outputs "$label" out "$@"
 }
 # v1 envelope → v2 (kernel.md V-env + V-cli): the moved lists dropped, actions as references, a
 # fact's ceiling from its route + kind, the creator's title as the token + its id.
@@ -74,23 +85,15 @@ if has("claim") then .claim |= plain else . end
 cmp_json() { # label, project, trace, args...
     local label="$1" project="$2" trace="$3"; shift 3
     local b
-    for b in old new; do
-        run_one "$b" "$label" "$project" "$trace" "$@"
-        sed -i '/^usage: fvtrace/,$d' "$work/$b.err"
-    done
+    for b in old new; do run_one "$b" "$label" "$project" "$trace" "$@"; done
     runs=$((runs + 1))
     if [[ "$(<"$work/old.rc")" == rc=0 ]]; then
-        jq -S "$v1_to_v2 | $creatorless" "$work/old.out" >"$work/old.json" 2>/dev/null
-        jq -S "$creatorless" "$work/new.out" >"$work/new.json" 2>/dev/null
+        normalize old "$v1_to_v2 | $creatorless" "$label $*"
+        normalize new "$creatorless" "$label $*"
     else
         cp "$work/old.out" "$work/old.json"; cp "$work/new.out" "$work/new.json"
     fi
-    for out in json err rc; do
-        if ! cmp -s "$work/old.$out" "$work/new.$out"; then
-            diffs=$((diffs + 1)); printf 'DIFF %s %s (%s)\n' "$label" "$*" "$out"
-            diff <(head -c 2000 "$work/old.$out") <(head -c 2000 "$work/new.$out") | head -8
-        fi
-    done
+    compare_outputs "$label" json "$@"
 }
 # Oracles (small inputs): every v1 action = its v2 expansion; every v1 list = the v2 details.
 oracles() { # label, project, trace
@@ -98,23 +101,30 @@ oracles() { # label, project, trace
     run_one old "$label" "$project" "$trace" eval
     [[ "$(<"$work/old.rc")" == rc=0 ]] || return 0
     envelope="$(<"$work/old.out")"
-    local id spec item want got
+    cp "$work/old.err" "$work/envelope.err"; cp "$work/old.rc" "$work/envelope.rc"
+    local id spec item want
+    jq -r '.actions[] | [.id, (.overrides | sort_by(.fact) | map("\(.fact)=\(.status)") | join(","))] | @tsv' \
+        <<<"$envelope" >"$work/actions" 2>/dev/null || json_failure "$label actions"
     while IFS=$'\t' read -r id spec; do
         runs=$((runs + 1))
         run_one old "$label" "$project" "$trace" eval ${spec:+--whatif "$spec"}
         run_one new "$label" "$project" "$trace" eval --action "$id"
-        want="$(jq -S "$v1_to_v2" "$work/old.out" 2>/dev/null)"
-        got="$(jq -S . "$work/new.out" 2>/dev/null)"
-        [[ -n "$want" && "$want" == "$got" ]] || { diffs=$((diffs + 1)); printf 'DIFF %s expansion %s\n' "$label" "$id"; }
-    done < <(jq -r '.actions[] | [.id, (.overrides | sort_by(.fact) | map("\(.fact)=\(.status)") | join(","))] | @tsv' <<<"$envelope")
+        normalize old "$v1_to_v2" "$label expansion $id"
+        normalize new . "$label expansion $id"
+        compare_outputs "$label expansion $id" json
+    done <"$work/actions"
+    jq -r '(.experiments[] | ["experiment:\(.id)", ({closure, raises, wins, losses} | tojson)]),
+        (.claims[] | ["claim:\(.id)", ({plan, sentence, incompatible} | tojson)]),
+        (. as $e | .facts[] | .id as $f | ["fact:\($f)", ({raisedBy: [$e.experiments[] | select(any(.raises[]; .fact == $f)) | .id]} | tojson)]) | @tsv' \
+        <<<"$envelope" >"$work/items" 2>/dev/null || json_failure "$label items"
     while IFS=$'\t' read -r item want; do
         runs=$((runs + 1))
         run_one new "$label" "$project" "$trace" eval --details "$item"
-        got="$(jq -cS 'del(.schema, .mode, .overrides, .trace, .item)' "$work/new.out" 2>/dev/null)"
-        [[ -n "$got" && "$(jq -cS . <<<"$want")" == "$got" ]] || { diffs=$((diffs + 1)); printf 'DIFF %s details %s\n' "$label" "$item"; }
-    done < <(jq -r '(.experiments[] | ["experiment:\(.id)", ({closure, raises, wins, losses} | tojson)]),
-        (.claims[] | ["claim:\(.id)", ({plan, sentence, incompatible} | tojson)]),
-        (. as $e | .facts[] | .id as $f | ["fact:\($f)", ({raisedBy: [$e.experiments[] | select(any(.raises[]; .fact == $f)) | .id]} | tojson)]) | @tsv' <<<"$envelope")
+        jq -e -S . <<<"$want" >"$work/old.json" 2>/dev/null || json_failure "$label details $item old"
+        cp "$work/envelope.err" "$work/old.err"; cp "$work/envelope.rc" "$work/old.rc"
+        normalize new 'del(.schema, .mode, .overrides, .trace, .item)' "$label details $item"
+        compare_outputs "$label details $item" json
+    done <"$work/items"
 }
 inputs=("self|$root|$root/examples/fvtrace/trace.json|C1|P1=open,E2=proved"
     "synthetic|$root/examples/synthetic/project|$root/examples/synthetic/trace.json|C2|O2=checked,EN2=proved"
@@ -136,17 +146,21 @@ same_oracles() { # label, project, trace
     run_one old "$label" "$project" "$trace" eval
     [[ "$(<"$work/old.rc")" == rc=0 ]] || return 0
     envelope="$(<"$work/old.out")"
+    jq -r '.actions[].id' <<<"$envelope" >"$work/actions" 2>/dev/null || json_failure "$label actions"
     while read -r id; do
         cmp_run "$label" "$project" "$trace" eval --action "$id"
-    done < <(jq -r '.actions[].id' <<<"$envelope")
+    done <"$work/actions"
+    jq -r '(.experiments[] | "experiment:\(.id)"), (.claims[] | "claim:\(.id)"),
+        (.facts[] | "fact:\(.id)")' <<<"$envelope" >"$work/items" 2>/dev/null || json_failure "$label items"
     while read -r id; do
         cmp_run "$label" "$project" "$trace" eval --details "$id"
-    done < <(jq -r '(.experiments[] | "experiment:\(.id)"), (.claims[] | "claim:\(.id)"),
-        (.facts[] | "fact:\(.id)")' <<<"$envelope")
+    done <"$work/items"
 }
 # OLD's form: a run like any other (bounded, its timeout counted).
 run_one old form "$root/examples/synthetic/project" "$root/examples/synthetic/trace.json" eval
-form="$(jq -r '.schema? // empty' "$work/old.out" 2>/dev/null)"
+form="$(jq -ers 'select(length == 1) | .[0].schema | select(. == "fvtrace.evaluation/1" or . == "fvtrace.evaluation/2")' \
+    "$work/old.out" 2>/dev/null)" || json_failure 'old form eval'
+[[ "$(<"$work/old.rc")" == rc=0 ]] || json_failure 'old form eval did not succeed'
 if [[ "$form" == fvtrace.evaluation/2 ]]; then
     cmp_json() { cmp_run "$@"; }
     oracles() { same_oracles "$@"; }

@@ -369,6 +369,9 @@ probe_examples() {
 # time + per-doubling ratio. A stub stands in for fvtrace: it sleeps STUB_K × n² s (n from its
 # trace folder's name) and exits STUB_RC.
 probe_scale() {
+    allow scale-session-exits bash tests/tools/scale-session.sh
+    allow scale-details-transition node --test tools/probes/scale-gui.test.mjs
+    allow scale-spawn-cleanup node --test tools/probes/scale-spawn.test.mjs
     local stub="$backup/fvtrace-stub"
     cat >"$stub" <<'STUB'
 #!/usr/bin/env bash
@@ -438,6 +441,13 @@ for (const s of [...steps, "page:startup"])
 STUB
     expect scale-gui-bound 'FAIL wide gui:served:select n=2: wall 0.500 s > 0.1 s' \
         "${run[@]}" --gui "$gui"
+    local gexit="$backup/scale-gui-exit.mjs"
+    sed 's/s === "served:select" ? "0.500" : "0.010"/"0.010"/' "$gui" >"$gexit"
+    printf 'process.exit(Number(process.env.GUI_RC));\n' >>"$gexit"
+    GUI_RC=3 expect scale-gui-session-rc 'FAIL wide gui:served:select n=2: rc 3' \
+        bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gexit" wide
+    GUI_RC=124 expect scale-gui-session-timeout 'FAIL wide gui:served:select n=2: timeout after' \
+        bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gexit" wide
     # A shape with experiments adds the experiment step: its row is graded at its own 1 s bound.
     local gexp="$backup/scale-gui-experiment.mjs"
     cat >"$gexp" <<'STUB'
@@ -454,8 +464,15 @@ STUB
 # that exit differently differ on every run, one compared with itself on none; a run past the
 # time limit fails too.
 probe_compare() {
+    allow compare-oracle-integrity node --test tools/probes/compare.test.mjs
     expect compare-differ 'DIFF self check \(rc\)' bash tools/compare.sh /bin/true /bin/false
-    allow compare-same bash tools/compare.sh /bin/true /bin/true
+    local same="$backup/same-json"
+    cat >"$same" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' '{"schema":"fvtrace.evaluation/2","actions":[],"experiments":[],"claims":[],"facts":[]}'
+STUB
+    chmod +x "$same"
+    allow compare-same bash tools/compare.sh "$same" "$same"
     # Equal partial output proves nothing: a stand-in whose first run outlasts the limit.
     local slow="$backup/slow-once"
     # shellcheck disable=SC2016 # the stand-in's own script text
@@ -541,10 +558,48 @@ probe_ledger() {
     rm -f -- "$log"
 }
 
+probe_c_headers() {
+    local cc="$backup/cc" log="$backup/cc.log" count
+    printf '#!/usr/bin/env bash\nprintf "compile\\n" >>%q\nexec cc "$@"\n' "$log" >"$cc"
+    chmod +x "$cc"
+    : >"$log"
+    allow c-header-baseline env CC="$cc" lake build fvtracec
+    keep c/hacl/Hacl_Hash_SHA2.h
+    printf '\n#error PROBE_C_HEADER_MUST_REBUILD\n' >>c/hacl/Hacl_Hash_SHA2.h
+    expect c-header-change 'PROBE_C_HEADER_MUST_REBUILD' env CC="$cc" lake build fvtracec
+    allow c-header-restored env CC="$cc" lake build fvtracec
+    count="$(wc -l <"$log")"
+    allow c-header-compiled test "$count" -gt 0
+    allow c-header-unchanged env CC="$cc" lake build fvtracec
+    allow c-header-cached test "$(wc -l <"$log")" -eq "$count"
+}
+
+probe_mutate() { allow mutation-scanner node --test tools/probes/mutate.test.mjs; }
+probe_release_guard() { allow release-archive-set node --test tools/probes/release-guard.test.mjs; }
+probe_dispatch() {
+    expect dispatch-unknown 'unknown probe: __missing__' bash tools/gate-probe.sh __missing__
+    local envfile="$backup/probe-env"
+    printf 'probe_planted() { printf "planted failure\\n"; return 7; }\n' >"$envfile"
+    expect dispatch-function-failure 'probe planted failed \(rc=7\)' \
+        env BASH_ENV="$envfile" bash tools/gate-probe.sh planted
+}
+
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks ledger)
-for p in "${probes[@]}"; do "probe_$p"; done
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate release_guard c_headers ledger)
+for p in "${probes[@]}"; do
+    if ! declare -F "probe_$p" >/dev/null; then
+        printf 'unknown probe: %s\n' "$p" >&2
+        failures+=("$p")
+        continue
+    fi
+    "probe_$p"
+    rc=$?
+    if [[ $rc -ne 0 ]]; then
+        printf 'probe %s failed (rc=%d)\n' "$p" "$rc" >&2
+        failures+=("$p")
+    fi
+done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
 [[ ${#failures[@]} -eq 0 ]] || {

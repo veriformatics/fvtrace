@@ -145,10 +145,15 @@ gui_rows() {
 # A session step's measurement (rc wall user rss bytes [bound]); a step without a row = the
 # session ended before it (rc 124 = it timed out).
 session_row() {
-    local row src="${2%%:*}"
+    local row rc=0 src="${2%%:*}"
+    if [[ $src != serve ]]; then
+        rc="$(cat "$1/$src.rc" 2>/dev/null)"
+        [[ $rc =~ ^[0-9]+$ ]] || rc=1
+    fi
+    if [[ $rc -eq 124 ]]; then printf '124 timeout - 0 0\n'; return
+    elif [[ $rc -ne 0 ]]; then printf '%s - - 0 0\n' "$rc"; return; fi
     row="$(awk -v s="$2" '$1 == s { print $2, $3, $4, $5, $6, $7; exit }' "$1/$src.rows" 2>/dev/null)"
     if [[ -n "$row" ]]; then printf '%s\n' "$row"
-    elif [[ "$(cat "$1/$src.rc" 2>/dev/null)" == 124 ]]; then printf '124 timeout - 0 0\n'
     else printf '1 - - 0 0\n'; fi
 }
 
