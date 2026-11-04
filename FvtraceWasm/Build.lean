@@ -64,7 +64,12 @@ def python : IO String := do
     if ok then return cand
   fail "the page engine build needs Python 3.10 or later on PATH (python3 or python)"
 
-/-- Runs `tasks` on Lean's thread pool (one worker per processor); every failure is reported. -/
+/-- Runs `tasks` on Lean's thread pool (one worker per processor); every failure is counted, the
+first five shown. -/
+def errorOf {α : Type} : Except IO.Error α → Option String
+  | .error e => some (toString e)
+  | .ok _ => none
+
 def parallel {α : Type} (tasks : Array (IO α)) : IO (Array α) := do
   let running ← tasks.mapM (IO.asTask ·)
   let mut out := #[]
@@ -284,10 +289,7 @@ def compile (cfg : Config) (t : Tools) (toolchain : String) (flags : Array Strin
   return (obj, true)
 
 /-- What the page's loader names (`FvtraceWasm.Binary.requiredExports`, Emscripten spelling). -/
-def exportedFunctions : String :=
-  ",".intercalate (["fvtrace_init", "fvtrace_alloc", "fvtrace_free", "fvtrace_load",
-    "fvtrace_answer"].map
-    ("_" ++ ·))
+def exportedFunctions : String := ",".intercalate (Binary.bridgeFunctions.map ("_" ++ ·))
 
 /-- Linker warnings the build accepts: `Init` declares the temporary-file primitives without the
 world token the runtime takes; the page never reaches them. -/
@@ -381,17 +383,26 @@ def build (input : Config) : IO Unit := do
       {cfg.githash}; re-pin with `bash tools/pin-wasm.sh lean <version>`"
   IO.FS.createDirAll (cfg.cache / "obj")
   let py ← python
-  let install ← emsdk cfg sdkPin
-  let rt ← gitTree cfg rtPin ["src/runtime/", "src/include/", "src/util/", "src/CMakeLists.txt"]
+  -- Independent inputs, each in its own cache folder: fetched + generated together, every failure
+  -- reported.
+  let install ← IO.asTask (prio := .dedicated) (emsdk cfg sdkPin)
+  let rt ← IO.asTask (prio := .dedicated) <| gitTree cfg rtPin
+    ["src/runtime/", "src/include/", "src/util/", "src/CMakeLists.txt"]
     (some (cfg.root / "tools" / "wasm" / "lean-runtime.patch"))
-  let uv ← gitTree cfg uvPin ["include/"]
+  let uv ← IO.asTask (prio := .dedicated) (gitTree cfg uvPin ["include/"])
+  let initFiles ← IO.asTask (prio := .dedicated) (initC cfg)
+  let (install, rt, uv, initFiles) ←
+    match ← IO.wait install, ← IO.wait rt, ← IO.wait uv, ← IO.wait initFiles with
+    | .ok a, .ok b, .ok c, .ok d => pure (a, b, c, d)
+    | a, b, c, d =>
+      let errors := [errorOf a, errorOf b, errorOf c, errorOf d].filterMap id
+      fail s!"{errors.length} step(s) failed:\n{"\n".intercalate errors}"
   match libuvTag (← IO.FS.readFile (rt / "src" / "CMakeLists.txt")) with
   | some tag => unless tag == uvPin.version do
       fail s!"Lean {rtPin.version} builds libuv {tag} for Emscripten, but tools/wasm.lock pins \
         {uvPin.version}; re-pin with `bash tools/pin-wasm.sh lean {rtPin.version}`"
   | none => fail "cannot find the libuv tag in Lean's src/CMakeLists.txt"
   let gen ← headers cfg rtPin.version
-  let initFiles ← initC cfg
   let rtFiles := runtimeSources (← IO.FS.readFile (rt / "src" / "runtime" / "CMakeLists.txt"))
   if rtFiles.isEmpty then fail "cannot find RUNTIME_OBJS in the runtime's CMakeLists.txt"
   let t : Tools :=

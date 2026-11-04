@@ -128,7 +128,8 @@ void test("the engine answers every request sequence as the native engine does",
         )
           assert.match(native[i] ?? "", /"schema": "fvtrace\.details\/1"/, `${c.name}: ${item}`);
       });
-      // V-action: each one-click action's envelope = the envelope at the what-if it expands to.
+      // V-action: the first four one-click actions' envelopes = the envelope at the what-if each
+      // expands to.
       /** @type {unknown} */
       const recorded = JSON.parse(native[0] ?? "null");
       /** @type {unknown} */

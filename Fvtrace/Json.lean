@@ -41,7 +41,6 @@ instance : BEq Value := ⟨Value.beq⟩
 def maxDepth : Nat := 64
 
 structure ParseError where
-  /-- Byte offset into the input. -/
   offset : Nat
   message : String
   deriving Repr, BEq
@@ -295,11 +294,9 @@ def parse (input : ByteArray) : Except ParseError Value :=
 
 /-! ## Printers -/
 
-def hexDigit (n : Nat) : Char := "0123456789abcdef".toList[n % 16]!
-
 /-- `\uxxxx` (lowercase) for a code point below U+10000. -/
 def uEscape (n : Nat) : String :=
-  "\\u" ++ String.ofList ([12, 8, 4, 0].map fun k => hexDigit (n >>> k))
+  "\\u" ++ String.ofList ([12, 8, 4, 0].map fun k => Render.hexDigit (n >>> k))
 
 /-- A character outside the short escapes that `escapeInto` writes as `\uxxxx`. -/
 def needsEscape (shown : Bool) (c : Char) : Bool :=

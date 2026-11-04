@@ -51,7 +51,6 @@ structure Ctx where
   claimSubject : Index String
   /-- Success entries (experiment position, status), in experiment then entry order. -/
   entries : Array (Nat × Status)
-  /-- Success entry numbers by the fact they name. -/
   touches : Index String
   experimentIx : Index String
   claimIx : Index String
@@ -115,8 +114,9 @@ variable (cx : Ctx)
 /-- Claims needing `id`, by position, each once. -/
 def gatePositions (id : String) : List Nat := gateList cx.gates id
 
-/-- The trace's own claim at its position, when `c` is it (a claim outside the trace, or one
-sharing an id with an earlier one, has none). -/
+/-- The position of the first claim with `c`'s id, when that claim equals `c` (a claim outside the
+trace, or one unequal to the first with its id, has none; an identical later copy gets the first
+position). -/
 def positionOf (c : Claim) : Option Nat :=
   (cx.claimIx.first? (cmp := compare) c.id).bind fun p =>
     if cx.claims[p]? == some c then some p else none
@@ -137,7 +137,6 @@ structure Core where
   eff : String → EStatus
   active : Exclusion → Bool
   conflicts : String → List String
-  /-- Active exclusions on a subject. -/
   activeCount : String → Nat
 
 /-- The S-exclude witnesses of `id`, read on `eff1` (the body of `Scenario.derivations`), over the
@@ -226,7 +225,6 @@ def Counts.of (eff : String → EStatus) (rests : String → Bool) (needs : List
     unverified := needs.countP fun n => !(eff n).verified
     unrested := needs.countP (!rests ·) }
 
-/-- The state the three counts + the incompatibility test give. -/
 def Counts.state (k : Counts) (incompatible : Bool) : State :=
   if k.violated > 0 || incompatible then .cannot
   else if k.unverified == 0 then .can

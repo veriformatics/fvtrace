@@ -64,12 +64,10 @@ def fixedHeaders : List (String × String) :=
    ("Cross-Origin-Opener-Policy", "same-origin"),
    ("Cross-Origin-Resource-Policy", "same-origin"), ("Cache-Control", "no-store")]
 
-/-- The request facts a decision reads. -/
 structure Req where
   method : Method
   /-- Percent-encoded path. -/
   path : String
-  query : String → Option String
   host : Option String
   authorization : Option String
   /-- `X-Fvtrace-View`: the view the page shows (`kernel.md` V-serve). -/
@@ -137,7 +135,6 @@ def recordErrors : String :=
   "The claims and facts on record have errors. " ++
     "To see them, run fvtrace check in the project folder."
 
-/-- A problem in the GUI's words. -/
 def problemReply : Session.Problem → Reply
   | .noTrace _ => problemJson .conflict "no-trace" <|
     "This project has no claims and facts on record yet. " ++
@@ -229,7 +226,7 @@ def answerBody (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex K
 def reqOf (r : Std.Http.Request Body.Stream) : Req :=
   let header := fun (n : String) => (r.line.headers.get? (Header.Name.ofString! n)).map toString
   { method := r.line.method, path := toString r.line.uri.path,
-    query := fun k => r.line.uri.query.get k, host := header "host",
+    host := header "host",
     authorization := header "authorization", view := header "x-fvtrace-view",
     contentType := header "content-type" }
 

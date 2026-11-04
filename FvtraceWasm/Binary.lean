@@ -35,7 +35,8 @@ def byte : P Nat := do
     return b[p].toNat
   throw s!"truncated at byte {p}"
 
-/-- Unsigned LEB128 (at most 10 bytes: a u64). -/
+/-- Unsigned LEB128, at most 10 bytes (a byte cap, not a u64 range check: this scanner reads the
+link's sections, it validates no module). -/
 def leb : P Nat := go 10 0 0
 where
   go : Nat → Nat → Nat → P Nat
@@ -133,10 +134,13 @@ def allowedImports : List (String × String) :=
     "environ_sizes_get", "environ_get", "clock_time_get", "random_get"].map
     ("wasi_snapshot_preview1", ·))
 
+/-- The bridge's functions (`c/page_engine.c`): the link exports them, the loader calls them. -/
+def bridgeFunctions : List String :=
+  ["fvtrace_init", "fvtrace_alloc", "fvtrace_free", "fvtrace_load", "fvtrace_answer"]
+
 /-- What the page's loader uses, with its kind: the memory + six functions. -/
 def requiredExports : List (String × Nat) :=
-  [("memory", 2)] ++ (["_initialize", "fvtrace_init", "fvtrace_alloc", "fvtrace_free",
-    "fvtrace_load", "fvtrace_answer"].map (·, 0))
+  [("memory", 2)] ++ (("_initialize" :: bridgeFunctions).map (·, 0))
 
 /-- Why the module breaks the link contract (empty = it keeps it). -/
 def problems (m : Module) : List String :=

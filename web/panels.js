@@ -50,7 +50,6 @@ function ref(/** @type {"fact" | "claim" | "experiment"} */ kind, /** @type {str
   );
 }
 
-/** Each kind's word, singular + plural. */
 const nouns = {
   fact: /** @type {[string, string]} */ (["fact", "facts"]),
   claim: /** @type {[string, string]} */ (["claim", "claims"]),
@@ -562,16 +561,14 @@ export function experimentRow(e, on) {
   );
 }
 
-/** Draws an experiment card selected or not. @param {HTMLElement} row @param {boolean} selected */
+/** @param {HTMLElement} row @param {boolean} selected */
 export function markRow(row, selected) {
   row.classList.toggle("selected", selected);
   row.querySelector(".experiment-meta .ref")?.setAttribute("aria-pressed", String(selected));
 }
 
-/** The line in place of an empty experiments list. */
 export const noExperiments = () => h("li", {}, "No suggested experiment of this kind.");
 
-/** The line in place of an empty work list. */
 export const noWork = () =>
   h(
     "li",
@@ -748,7 +745,7 @@ export function openFactRow(id, ix, on) {
   );
 }
 
-/** What an open fact's row shows. @param {string} id @param {Lookups} ix */
+/** @param {string} id @param {Lookups} ix */
 export function openFactSig(id, ix) {
   const f = ix.facts.get(id);
   return JSON.stringify([id, f?.text, f?.effective, f?.route, ix.raiserCount.get(id) ?? 0]);

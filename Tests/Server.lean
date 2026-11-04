@@ -10,30 +10,34 @@ def cfgAt (dir : System.FilePath) : Config :=
   { target := { trace := dir / "trace.json", project := dir, entry := dir / "entry" },
     explicit := false, token, hosts := Cli.loopbackHosts 8718 }
 
-def req (path : String) (query : List (String × String) := [])
-    (authorization : Option String := none) (host : Option String := some "fvtrace.localhost:8718")
-    (method : Std.Http.Method := .get) : Req :=
-  { method, path, query := fun k => query.lookup k, host, authorization }
+def req (path : String) (authorization : Option String := none)
+    (host : Option String := some "fvtrace.localhost:8718") (method : Std.Http.Method := .get) :
+    Req :=
+  { method, path, host, authorization }
 
 def bearerOk : Option String := some s!"Bearer {token}"
 
 /-- A reply's body as text (bodies are UTF-8 bytes). -/
 def bodyText (r : Reply) : String := (String.fromUTF8? r.body).getD ""
 
-/-- (status code, a header's value, body) of a decided reply; `evaluate w` as status 0. -/
+/-- (status code, a header's value, body) of a decided reply; `answer v` as status 1 (a sentinel:
+no HTTP status). -/
 def outcome (a : Action) (header : String := "") : Nat × Option String × String :=
   match a with
   | .reply r => (r.status.toCode.toNat, r.headers.lookup header, bodyText r)
   | .answer v => (1, v, "")
 
-/-- A decided reply's JSON problem kind. -/
-def decidedKind (a : Action) : Option String :=
-  match a with
-  | .reply r => match (Json.parse r.body).toOption with
-    | some (.obj [("problem", .obj ps)]) => match ps.lookup "kind" with
-      | some (.str k) => some k
-      | _ => none
+def body (r : Reply) : Option Json.Value := (Json.parse r.body).toOption
+
+def problemKind (r : Reply) : Option String :=
+  match body r with
+  | some (.obj [("problem", .obj ps)]) => match ps.lookup "kind" with
+    | some (.str k) => some k
     | _ => none
+  | _ => none
+
+def decidedKind : Action → Option String
+  | .reply r => problemKind r
   | _ => none
 
 /-- Access, host + routing decisions (no I/O). -/
@@ -91,8 +95,6 @@ def pureTests : TestM Unit := do
   let refused := fun (name : String) (a : Action) =>
     checkEq name ((outcome a).1, decidedKind a) (403, some "access")
   refused "server: no credential, no claims" (decide c (req "/api/answer" (method := .post)))
-  refused "server: the token in the query opens nothing (old links)"
-    (decide c (req "/api/answer" [("token", token)] (method := .post)))
   refused "server: a wrong token is refused"
     (decide c (req "/api/answer" (authorization := some "Bearer x") (method := .post)))
   let near := String.ofList (token.toList.take 31) ++ "0"
@@ -104,20 +106,11 @@ def pureTests : TestM Unit := do
   refused "server: the token without its scheme is refused"
     (decide c (req "/api/answer" (authorization := some token) (method := .post)))
   checkEq "server: the GET evaluation route is gone (v2: POST /api/answer)"
-    (outcome (decide c (req "/api/evaluation" [("whatif", "O2=checked")] bearerOk))).1 404
+    (outcome (decide c (req "/api/evaluation" bearerOk))).1 404
   checkEq "server: bearer parsing" (bearer "Bearer abc", bearer "Basic abc", bearer "bearer abc")
     (some "abc", none, none)
   check "server: equal secrets match" (sameSecret token token)
   check "server: unequal secrets differ" (!sameSecret token near && !sameSecret token "")
-
-def body (r : Reply) : Option Json.Value := (Json.parse r.body).toOption
-
-def problemKind (r : Reply) : Option String :=
-  match body r with
-  | some (.obj [("problem", .obj ps)]) => match ps.lookup "kind" with
-    | some (.str k) => some k
-    | _ => none
-  | _ => none
 
 /-- `facts[id].receipt.current` of an envelope reply. -/
 def receiptCurrent (r : Reply) (id : String) : Option Bool := do

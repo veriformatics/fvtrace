@@ -18,16 +18,6 @@ local macro "ref_simp" : tactic => `(tactic| try simp only [ref_fact?, ref_subje
 theorem ensure_eq_nil {ok : Bool} {p m : String} : ensure ok p m = [] ↔ ok = true := by
   unfold ensure; cases ok <;> simp
 
-theorem forall_zipIdx {α : Type} {l : List α} {P : α → Prop} :
-    (∀ q ∈ l.zipIdx, P q.1) ↔ ∀ x ∈ l, P x := by
-  constructor
-  · intro h x hx
-    have : x ∈ l.zipIdx.map Prod.fst := by rw [List.zipIdx_map_fst]; exact hx
-    obtain ⟨q, hq, rfl⟩ := List.mem_map.mp this
-    exact h q hq
-  · intro h q hq
-    exact h q.1 (List.fst_mem_of_mem_zipIdx hq)
-
 /-- A per-element finding list over `zipIdx` is empty iff every element passes. -/
 theorem flatMap_zipIdx_eq_nil {α β : Type} {l : List α} {g : α × Nat → List β} {P : α → Prop}
     (h : ∀ x i, g (x, i) = [] ↔ P x) : l.zipIdx.flatMap g = [] ↔ ∀ x ∈ l, P x := by

@@ -137,11 +137,6 @@ def writeTrace (file : System.FilePath) (t : Trace) : IO Unit := do
 def diagJson (code path message : String) : Value :=
   .obj [("code", .str code), ("path", .str path), ("message", .str message)]
 
-def warningJson (w : Lint.Warning) : Value :=
-  .obj ([("rule", .str w.rule), ("claim", .str w.claim), ("path", .str w.path),
-    ("message", .str w.message)] ++
-    (match w.waived with | some r => [("waived", .str r)] | none => []))
-
 /-- Writes `t` over the trace that `cmd` read as `read`, unless the file's content changed since
 (an edit while the replays ran wins: the file stays, rc 2). -/
 def writeOver (cmd : String) (tg : Store.Target) (explicit : Bool) (read t : Trace) : IO Unit := do
@@ -152,9 +147,6 @@ def writeOver (cmd : String) (tg : Store.Target) (explicit : Bool) (read t : Tra
     throw (IO.userError s!"{tg.trace} changed while fvtrace {cmd} ran; it stays as it was, so \
       run the command again")
   writeTrace tg.trace t
-
-def noticeJson (id : String) (x : ReplayFailure) : Value :=
-  .obj [("id", .str id), ("date", .str x.date), ("reason", .str x.reason)]
 
 /-- `; last run failed on DATE: REASON`, or nothing (the `verify` listing's suffix). -/
 def noticeSuffix (x? : Option ReplayFailure) : String :=
@@ -199,9 +191,6 @@ def appendLog (tg : Store.Target) (entry : Value) : IO (Option String) := do
     return none
   catch e => return some (toString e)
 
-def bindingJson (b : Receipt.Binding) : Value :=
-  .obj [("id", .str b.id), ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))]
-
 /-- Flags every command that works on a trace accepts. -/
 def located : List String := ["--project", "--trace"]
 
@@ -210,7 +199,6 @@ def parseArgs (spec : Args.Spec) (args : List String) : IO (Except UInt32 Args.P
   | .ok p => return .ok p
   | .error m => return .error (← usageError m)
 
-/-- The trace + project a command works on. -/
 def target (env : Store.Env) (p : Args.Parsed) : IO (Except UInt32 Store.Target) := do
   match ← Store.resolve env (p.value? "--project") (p.value? "--trace") with
   | .ok t => return .ok t
@@ -243,6 +231,14 @@ def initCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs { valued := ["--project"] } args with
     | .ok p => pure p
     | .error rc => return rc
+/-- The target's decoded trace, or the exit code once the reason is reported. -/
+def decodedTarget (p : Args.Parsed) (tg : Store.Target) : IO (Except UInt32 Trace) := do
+  match ← readTarget p tg with
+  | .ok (.ok t) => return .ok t
+  | .ok (.error _) =>
+    complain s!"fvtrace: {tg.trace} does not decode; run fvtrace check"; return .error 1
+  | .error rc => return .error rc
+
   let t ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
@@ -330,10 +326,10 @@ def check (env : Store.Env) (args : List String) : IO UInt32 := do
     IO.print (Value.obj ([("trace", .str tg.trace.toString),
       ("project", .str tg.project.toString), ("valid", .bool errors.isEmpty),
       ("errors", .arr (errors.map fun (c, path, m) => diagJson c path m)),
-      ("warnings", .arr (warnings.map warningJson))] ++
-      (if errors.isEmpty then [("receipts", .arr (receipts.map bindingJson))] else []) ++
+      ("warnings", .arr (warnings.map Evaluate.warningJson))] ++
+      (if errors.isEmpty then [("receipts", .arr (receipts.map Evaluate.bindingJson))] else []) ++
       (if notices.isEmpty then []
-       else [("notices", .arr (notices.map fun (id, x) => noticeJson id x))]) ++
+       else [("notices", .arr (notices.map fun (id, x) => Evaluate.noticeJson id x))]) ++
       (match review with
        | some (st, r) => [("review", .obj ([("state", .str st.name)] ++
            (match r with
@@ -422,7 +418,9 @@ def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
   let h? ← try pure (some (← IO.FS.Handle.mk file .read)) catch e =>
     if e matches .noFileOrDirectory .. then pure none else throw e
   repeat
+  -- `runs` serves --json alone; text output keeps a count.
     let some h := h? | break
+  let mut entries := 0
     let raw ← h.getLine
     if raw.isEmpty then break
     match Json.parse raw.trimAsciiEnd.toString.toUTF8 with
@@ -433,8 +431,9 @@ def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
         some (.arr reasons), some (.str trace) =>
         let why := reasons.filterMap fun | .str r => some r | _ => none
         if why.length != reasons.length then bad := bad + 1; continue
-        runs := runs.push v
-        unless json do
+        entries := entries + 1
+        if json then runs := runs.push v
+        else
           let result := if passed then "passed" else s!"failed ({", ".intercalate why})"
           let other := if trace == own then "" else s!" in {trace}"
           say s!"{at_} {run} {id}: {result}{other}"
@@ -446,7 +445,7 @@ def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
     let shown ← try pure ((← IO.FS.realPath tg.entry) / "replays.log") catch _ => pure file
     IO.print (Value.obj [("schema", .str "fvtrace.replays/1"), ("log", .str shown.toString),
       ("runs", .arr runs.toList)]).pretty
-  else if runs.isEmpty && bad == 0 then say "No replay has run for this project yet."
+  else if entries == 0 && bad == 0 then say "No replay has run for this project yet."
   if bad > 0 then
     complain s!"fvtrace: {bad} line(s) of {file} are not replay log entries; they were skipped"
   return if bad == 0 then 0 else 1
@@ -466,10 +465,8 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
     | .error rc => return rc
   let json := p.has "--json"
   if p.has "--log" then return ← showLog tg json
-  let t ← match ← readTarget p tg with
-    | .ok (.ok t) => pure t
-    | .ok (.error _) =>
-      complain s!"fvtrace: {tg.trace} does not decode; run fvtrace check"; return 1
+  let t ← match ← decodedTarget p tg with
+    | .ok t => pure t
     | .error rc => return rc
   unless (Check.violations t).isEmpty do
     complain s!"fvtrace: {tg.trace} is not well-formed; run fvtrace check"
@@ -505,7 +502,7 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
           complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}"
       fields := fields ++ [("passed", .bool why.isEmpty), ("reasons", .arr (why.map .str))]
     else fields := fields ++ [("reasons", .arr [])]
-    rows := rows.push (id, fields)
+    if json then rows := rows.push (id, fields)
   -- The notices are written once, after every run, and only when one changed.
   let after := Replay.withResults t results
   if after != t then writeOver "verify" tg (p.value? "--trace").isSome t after
@@ -531,10 +528,8 @@ def review (env : Store.Env) (args : List String) : IO UInt32 := do
   let tg ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
-  let t ← match ← readTarget p tg with
-    | .ok (.ok t) => pure t
-    | .ok (.error _) =>
-      complain s!"fvtrace: {tg.trace} does not decode; run fvtrace check"; return 1
+  let t ← match ← decodedTarget p tg with
+    | .ok t => pure t
     | .error rc => return rc
   unless (Check.violations t).isEmpty do
     complain s!"fvtrace: {tg.trace} is not well-formed; run fvtrace check before reviewing"
@@ -727,8 +722,8 @@ def gapsCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     footer l
     return 0
 
-/-- One line per claim whose state changes: `C2 changes from Pending verification to
-Conditional`. -/
+/-- One sentence for the claims whose state changes, each part like `C2 changes from Pending
+verification to Conditional`, joined by `; `. -/
 def movesText (ms : List Scenario.Move) : String :=
   if ms.isEmpty then "no claim changes."
   else "; ".intercalate (ms.map fun m =>
@@ -766,7 +761,7 @@ def planCmd (env : Store.Env) (args : List String) : IO UInt32 :=
     let id := p.positional[0]!
     let some c := A.lookups.claim? id | return ← usageError s!"no claim \"{id}\""
     if p.has "--json" then
-      let env := envelopeOf l
+      let env := Evaluate.envelopeWith sc A l.bindings l.digest l.review
       let claim := match env with
         | .obj kvs => match kvs.lookup "claims" with
           | some (.arr cs) => cs.find? fun (v : Value) => match v with

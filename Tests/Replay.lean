@@ -38,8 +38,6 @@ def fixture (steps : List String) : IO UInt32 := do
   out.flush
   return 0
 
-def count (s sub : String) : Nat := (s.splitOn sub).length - 1
-
 /-- Display quoting (no I/O). -/
 def pureTests : TestM Unit := do
   checkEq "replay: a displayed command quotes arguments with a space or a quote"

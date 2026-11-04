@@ -116,7 +116,6 @@ def base64 (bytes : ByteArray) : String := Id.run do
     out := out ++ String.ofList (kept.map (table[·]!)) ++ "".pushn '=' (3 - chunk.length)
   return out
 
-/-- Bytes of a lowercase hex string. -/
 def hexBytes (hex : String) : ByteArray :=
   let v := fun (c : Char) => if c.isDigit then c.toNat - 48 else c.toNat - 87
   let rec go : List Char → ByteArray → ByteArray

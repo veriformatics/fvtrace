@@ -501,13 +501,12 @@ main {
   padding: 20px 22px 12px;
 }
 
-/* The words column fills the row, so the label row (and the claim id at its end) spans it. */
+/* The words column fills the row, so the label row spans it. */
 .claim-words {
   flex: 1;
   min-width: 0;
 }
 
-/* The label row over every claim's words: id badge, then the kind + verdict chips. */
 .claim-tag {
   display: flex;
   flex-wrap: wrap;
@@ -568,7 +567,6 @@ main {
   font-size: 0.72em;
 }
 
-/* The verdict chip: outlined in its verdict's color on that verdict's wash. */
 .tag-soft.can {
   background: var(--verified-wash);
 }
@@ -827,7 +825,6 @@ main {
   text-decoration: none;
 }
 
-/* The claim id leads its label row, larger than the tag beside it. */
 .moves,
 .changes {
   margin: 8px 0 0;

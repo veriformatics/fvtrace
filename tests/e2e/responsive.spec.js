@@ -27,8 +27,7 @@ const tagCards = (page) =>
       Reflect.set(el, "fvtraceTag", el.querySelector(".claim-head .tag-id")?.textContent);
   });
 
-/** The ids of the cards still carrying their tag, and of those that do not.
- * @param {import("@playwright/test").Page} page */
+/** @param {import("@playwright/test").Page} page */
 const tagged = (page) =>
   page.evaluate(() => {
     /** @type {{ kept: string[], fresh: string[] }} */
@@ -223,7 +222,7 @@ test("the find route reaches a claim that is not mounted, selects it and focuses
   await expect(card(page, "C290").locator(".claim-head .tag-id .ref")).toBeFocused();
   await expect(page.locator("#inspector .claim-tag .tag-id")).toHaveText("C290");
   await expect(card(page, "C290")).toHaveAttribute("aria-posinset", "291");
-  // Words find too; Escape clears the field and its matches.
+  // A search without a match says so; Escape clears the field and its count.
   await page.locator("#find").fill("no such words anywhere");
   await expect(page.locator("#find-count")).toHaveText(
     "No claim, fact or experiment matches “no such words anywhere”.",

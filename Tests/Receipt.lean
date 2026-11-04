@@ -4,14 +4,6 @@ import Tests.Harness
 namespace Tests.Receipt
 open Tests Fvtrace
 
-def fixture : IO Trace := do
-  match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
-  | .ok t => pure t
-  | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
-
-def mapFact (t : Trace) (id : String) (f : Fact → Fact) : Trace :=
-  { t with facts := t.facts.map fun x => if x.id == id then f x else x }
-
 def bindingOf (t : Trace) (root : System.FilePath) (id : String) : IO (Option Receipt.Binding) := do
   let cache ← IO.mkRef ({} : Receipt.Cache)
   return (← Receipt.bindings t root cache (rehash := true)).find? (·.id == id)

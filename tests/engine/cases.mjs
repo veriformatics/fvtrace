@@ -35,10 +35,10 @@ export function exportedPage() {
 /** @typedef {Record<string, unknown>} Json */
 /** @typedef {{ name: string, snapshot: string, specs: string[] }} Case */
 
-export const statuses = ["proved", "checked", "assumed", "tested", "open", "violated"];
+const statuses = ["proved", "checked", "assumed", "tested", "open", "violated"];
 
 /** mulberry32: the same seed gives the same cases. @param {number} seed */
-export function random(seed) {
+function random(seed) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -53,7 +53,7 @@ export function random(seed) {
 const isJson = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** A fresh parse of a trace file (cases edit it freely). @param {string} path @returns {Json} */
-export function traceAt(path) {
+function traceAt(path) {
   /** @type {unknown} */
   const v = JSON.parse(readFileSync(new URL(path, root), "utf8"));
   if (!isJson(v)) throw new Error(`${path}: no object`);
@@ -64,14 +64,14 @@ export function traceAt(path) {
 const records = (v) => (Array.isArray(v) ? v.filter(isJson) : []);
 
 /** @param {Json} trace @returns {string[]} */
-export const factIds = (trace) =>
+const factIds = (trace) =>
   records(trace["facts"]).flatMap((f) => (typeof f["id"] === "string" ? [f["id"]] : []));
 
 /**
  * A snapshot of `trace`: a binding per verified fact + exclusion (`stale` ids read changed).
  * @param {Json} trace @param {{ stale?: string[], review?: string }} [opts]
  */
-export function snapshotOf(trace, { stale = [], review = "draft" } = {}) {
+function snapshotOf(trace, { stale = [], review = "draft" } = {}) {
   const verified = [...records(trace["facts"]), ...records(trace["exclusions"])].filter(
     (x) => x["status"] === "proved" || x["status"] === "checked",
   );
@@ -89,7 +89,7 @@ export function snapshotOf(trace, { stale = [], review = "draft" } = {}) {
   });
 }
 
-/** A page's snapshot block: the text the page hands to its engine. @param {string} html */
+/** @param {string} html */
 export function snapshotOfPage(html) {
   return html.split('id="fvtrace-snapshot">')[1]?.split("</script>")[0] ?? "";
 }
@@ -129,7 +129,7 @@ export function nativeRequests(snapshot, requests) {
   }
 }
 
-/** One request's JSON text. @param {Record<string, string>} r */
+/** @param {Record<string, string>} r */
 const req = (r) => JSON.stringify(r);
 
 /** An answer that is a problem (`kernel.md` E-request). @param {string | undefined} text */
@@ -140,8 +140,9 @@ const isProblem = (text) => {
 };
 
 /** A request sequence for one case (`kernel.md` E-wasm): what-ifs, every one-click action, the
- * details of every item (a few on the large cases) at the recorded view + at a what-if the engine
- * accepts, refusals of each kind, and state carried across (back to recorded, repeats).
+ * details of the items (experiments + claims at the recorded view, facts at a what-if the engine
+ * accepts; a few of each on the large cases), refusals of each kind, and state carried across
+ * (back to recorded, repeats).
  * @param {Case} c @returns {string[]} */
 export function requestsFor(c) {
   /** @type {unknown} */
@@ -186,7 +187,7 @@ export const specOf = (env) =>
 /** The recorded envelope's one-click actions, each as the what-if its expansion shows (actions
  * carry references alone, kernel.md V-env: the native engine expands them).
  * @param {string} snapshot */
-export function actionSpecs(snapshot) {
+function actionSpecs(snapshot) {
   /** @type {unknown} */
   const env = JSON.parse(nativeAnswers(snapshot, [""])[0] ?? "null");
   const actions = isJson(env) ? records(env["actions"]).map((a) => String(a["id"])) : [];
@@ -240,8 +241,6 @@ function randomSpecs(facts, next, count) {
   });
 }
 
-/** The fixture with its exclusion verified (a receipt), so derived violations + exclusion
- * bindings reach the envelope. */
 /**
  * `trace` with a replay notice on each of `ids` (kernel.md § Replay, Notice): the envelope's
  * `notices` + the fact's `evidence.replay.failed`. @param {Json} trace @param {string[]} ids
@@ -257,6 +256,8 @@ function withNotices(trace, ids) {
   return t;
 }
 
+/** The fixture with its exclusion verified (a receipt), so derived violations + exclusion
+ * bindings reach the envelope. */
 function verifiedExclusion() {
   const t = traceAt("tests/fixtures/synthetic.trace.json");
   for (const x of records(t["exclusions"]))

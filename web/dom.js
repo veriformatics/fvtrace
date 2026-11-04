@@ -70,7 +70,7 @@ export function byIdAs(id, cls) {
   return el;
 }
 
-/** Replaces the children of `el`. @param {Element} el @param {...Children} children */
+/** @param {Element} el @param {...Children} children */
 export function fill(el, ...children) {
   el.replaceChildren(...flatten(children));
 }

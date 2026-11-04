@@ -24,14 +24,11 @@ structure Snapshot where
 
 def schema : String := "fvtrace.snapshot/1"
 
-def bindingJson (b : Receipt.Binding) : Value :=
-  .obj [("id", .str b.id), ("current", .bool b.current), ("reasons", .arr (b.reasons.map .str))]
-
 /-- The trace travels as its canonical text, so the page decodes it as the command line decodes a
 trace file (`decodeTrace`: same size, depth + shape rules). -/
 def encode (s : Snapshot) : Value :=
   .obj [("schema", .str schema), ("trace", .str (Encode.trace s.trace).canonical),
-    ("bindings", .arr (s.bindings.map bindingJson)), ("digest", .str s.digest),
+    ("bindings", .arr (s.bindings.map Evaluate.bindingJson)), ("digest", .str s.digest),
     ("review", .str s.review.name)]
 
 /-- The members of an object with exactly the keys `keys` (any order), or why not. -/
@@ -74,12 +71,14 @@ def problem (kind message : String) : Value :=
 what-if with its answers, so details + expansions at the shown view reuse their memos. -/
 structure Engine where
   snap : Snapshot
+  /-- The snapshot's bindings by id, built once (they never change within an instance). -/
+  byId : Receipt.BindingIndex
   last : Option (Overrides × Answers) := none
 
 /-- Decodes the snapshot once; the refusal = the `invalid` problem's text. -/
 def Engine.load (text : String) : Except String Engine :=
   match decode text with
-  | .ok s => .ok { snap := s }
+  | .ok s => .ok { snap := s, byId := Receipt.BindingIndex.of s.bindings }
   | .error m => .error (problem "invalid" m).pretty
 
 /-- One request's answer (`kernel.md` V-request, E-request): the envelope at the action's what-if,
@@ -87,8 +86,7 @@ or the details of an item there, or a problem; checked in that order: the reques
 the action, the item. The same text `fvtrace eval` prints or the server answers. -/
 def Engine.answer (e : Engine) (request : String) : Engine × String :=
   let s := e.snap
-  let byId := Receipt.BindingIndex.of s.bindings
-  let current := fun id => (byId.find id).any (·.current)
+  let current := fun id => (e.byId.find id).any (·.current)
   let scenario := fun (o : Overrides) => ({ trace := s.trace, current, overrides := o } : Scenario)
   -- The answers of a what-if: the kept ones when it is the last answer's (the same values).
   let answersAt := fun (o : Overrides) => match e.last with

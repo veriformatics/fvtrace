@@ -70,37 +70,26 @@ def string : Field String := fun path v =>
   | .str s => pure (some s)
   | _ => do report "type" path "expected a string"; pure none
 
-def text : Field String := fun path v => do
-  match ← string path v with
-  | some s =>
-    if validText s then pure (some s)
-    else do
-      report "invalid-text" path "text must be non-empty and free of control characters"
-      pure none
-  | none => pure none
+/-- A string `valid` accepts; otherwise `code` + `message s` reported. -/
+def checked (valid : String → Bool) (code : String) (message : String → String) : Field String :=
+  fun path v => do
+    match ← string path v with
+    | some s =>
+      if valid s then pure (some s)
+      else do report code path (message s); pure none
+    | none => pure none
 
-def ident : Field String := fun path v => do
-  match ← string path v with
-  | some s =>
-    if validId s then pure (some s)
-    else do
-      report "invalid-id" path s!"\"{s}\" is not an id (letter, then letters, digits, _ . -; ≤ 64)"
-      pure none
-  | none => pure none
+def text : Field String :=
+  checked validText "invalid-text" fun _ => "text must be non-empty and free of control characters"
 
-def sha : Field String := fun path v => do
-  match ← string path v with
-  | some s =>
-    if validSha s then pure (some s)
-    else do report "invalid-sha256" path "expected 64 lowercase hex digits"; pure none
-  | none => pure none
+def ident : Field String :=
+  checked validId "invalid-id" fun s =>
+    s!"\"{s}\" is not an id (letter, then letters, digits, _ . -; ≤ 64)"
 
-def date : Field String := fun path v => do
-  match ← string path v with
-  | some s =>
-    if validDate s then pure (some s)
-    else do report "invalid-date" path "expected a date YYYY-MM-DD"; pure none
-  | none => pure none
+def sha : Field String :=
+  checked validSha "invalid-sha256" fun _ => "expected 64 lowercase hex digits"
+
+def date : Field String := checked validDate "invalid-date" fun _ => "expected a date YYYY-MM-DD"
 
 def bool : Field Bool := fun path v =>
   match v with
@@ -205,22 +194,13 @@ def question : Field Question := fun path v => do
   pure do pure { id := ← id, title := ← title, text := ← t }
 
 /-- A command-line argument: any non-empty string without NUL (it reaches `execvp` as is). -/
-def arg : Field String := fun path v => do
-  match ← string path v with
-  | some s =>
-    if !s.isEmpty && !s.contains '\x00' then pure (some s)
-    else do report "invalid-arg" path "an argument must be non-empty and free of NUL"; pure none
-  | none => pure none
+def arg : Field String :=
+  checked (fun s => !s.isEmpty && !s.contains '\x00') "invalid-arg" fun _ =>
+    "an argument must be non-empty and free of NUL"
 
-def failReason : Field String := fun path v => do
-  match ← string path v with
-  | some s =>
-    if validFailReason s then pure (some s)
-    else do
-      report "invalid-replay" path
-        "expected timeout, cannot start, output changed or exit N (a nonzero exit code)"
-      pure none
-  | none => pure none
+def failReason : Field String :=
+  checked validFailReason "invalid-replay" fun _ =>
+    "expected timeout, cannot start, output changed or exit N (a nonzero exit code)"
 
 def replayFailure : Field ReplayFailure := fun path v => do
   let some kvs ← members path v ["date", "reason"] | pure none

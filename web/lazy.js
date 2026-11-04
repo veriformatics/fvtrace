@@ -48,7 +48,7 @@ export class LazyList {
     /** Positions by key, built on the first lookup after each `set`.
      * @type {Map<string, number> | undefined} */
     this.keys = undefined;
-    /** Each mounted node's position. @type {WeakMap<Node, number>} */
+    /** @type {WeakMap<Node, number>} */
     this.positions = new WeakMap();
     /** Mounted window `[lo, hi)`: nodes by key, with the signature each was made from.
      * @type {Map<string, { node: HTMLElement, sig: string }>} */
@@ -135,7 +135,7 @@ export class LazyList {
     }
   }
 
-  /** The position of the row `key`. @param {string} key */
+  /** @param {string} key */
   indexOf(key) {
     if (!this.keys) {
       this.keys = new Map();
@@ -147,7 +147,7 @@ export class LazyList {
     return this.keys.get(key);
   }
 
-  /** The mounted node of a row, when it is mounted. @param {string} key */
+  /** @param {string} key */
   node(key) {
     return this.mounted.get(key)?.node;
   }
@@ -280,7 +280,7 @@ export function showIn(root, key) {
   return root instanceof HTMLElement ? owners.get(root)?.show(key) : undefined;
 }
 
-/** The mounted row holding `target`. @param {EventTarget | null} target @param {HTMLElement} root */
+/** @param {EventTarget | null} target @param {HTMLElement} root */
 function rowNode(target, root) {
   let el = target instanceof Element ? target : null;
   while (el && el.parentElement !== root) el = el.parentElement;

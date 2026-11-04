@@ -11,7 +11,8 @@ async function axeIds(page) {
 }
 
 test("the GUI loads through fvtrace serve without errors and passes axe", async ({ page }) => {
-  // Six axe passes over the full page outrun the default on a loaded host (97 s at load ≈ 2.6×).
+  // The full-page axe passes outrun the default on a loaded host (97 s at load ≈ 2.6×, measured
+  // with six passes; five run now).
   test.setTimeout(300_000);
   const web = await serveFvtrace();
   /** @type {string[]} */

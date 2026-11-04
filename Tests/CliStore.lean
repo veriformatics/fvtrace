@@ -4,14 +4,7 @@ import Tests.Harness
 namespace Tests.CliStore
 open Tests Fvtrace
 
-def count (s sub : String) : Nat := (s.splitOn sub).length - 1
-
 def line (s : String) : String := s.trimAscii.toString
-
-def decoded : IO Trace := do
-  match decodeTrace (← IO.FS.readBinFile "tests/fixtures/synthetic.trace.json") with
-  | .ok t => pure t
-  | .error ds => throw (IO.userError s!"fixture does not decode: {repr ds}")
 
 def releaseWaiver : Waiver :=
   { rule := "L-release", claim := "C2",
@@ -49,7 +42,7 @@ def filesystemTests : TestM Unit := do
 
 /-- Engine labels + question lookup through each CLI output form. -/
 def labelTests : TestM Unit := do
-  let fixture ← decoded
+  let fixture ← fixture
   IO.FS.withTempDir fun dir => do
     let file := dir / "trace.json"
     Cli.writeTrace file fixture
@@ -74,7 +67,7 @@ def labelTests : TestM Unit := do
 
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do
-  let fixture ← decoded
+  let fixture ← fixture
   IO.FS.withTempDir fun dir => do
     let home := dir / "home"
     let proj := dir / "proj"
@@ -100,7 +93,6 @@ def tests : TestM Unit := do
     let (rc, _, err) ← run ["init"]
     checkEq "store: init never overwrites rc" rc 2
     check "store: init names the existing trace" (count err "already exists" == 1) err
-    -- The synthetic study as the project's trace.
     Cli.writeTrace trace fixture
     let (rc, _, _) ← run ["pin"]
     checkEq "cli: pin rc" rc 0
@@ -402,7 +394,7 @@ def referenceTests : TestM Unit := do
 /-- A data folder entry that cannot take the digest cache (another user's, read-only) answers as
 before. -/
 def cacheTests : TestM Unit := do
-  let fixture ← decoded
+  let fixture ← fixture
   IO.FS.withTempDir fun dir => do
     let proj := dir / "proj"
     IO.FS.createDirAll proj
