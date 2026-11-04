@@ -162,11 +162,17 @@ def commandUsage (name : String) : Option String :=
 def say (line : String) : IO Unit := IO.println (Render.safe line)
 def complain (line : String) : IO Unit := IO.eprintln (Render.safe line)
 
-/-- Usage error: message + usage on stderr, exit 2. -/
-def usageError (message : String) : IO UInt32 := do
-  complain s!"fvtrace: {message}"
-  IO.eprint usage
-  return 2
+/-- Marks a usage error's message on its way to `dispatch`. -/
+def usageMark : String := "fvtrace usage error: "
+
+/-- Usage error: thrown to `dispatch`, which prints the message + a pointer to the command's help
+(user ruling: the usage text would bury the message) and exits 2. -/
+def usageError (message : String) : IO UInt32 := throw (IO.userError (usageMark ++ message))
+
+/-- The line after a usage error: where the options of `cmd` are. -/
+def helpPointer (cmd : String) : String :=
+  if (commandUsage cmd).isSome then s!"To see the options, run fvtrace {cmd} --help."
+  else "To see the commands, run fvtrace --help."
 
 /-- Writes `body` to `file` through a sibling temporary file, so a reader never sees half a file.
 The temporary file is created new (`O_EXCL`): an entry already at that path, a planted link
@@ -1177,16 +1183,8 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   repeat IO.sleep 3600000
   return 0
 
-/-- `fvtrace <command> … --help` (or `-h`): that command's usage, when it names one. -/
-def helpOf : List String → Option String
-  | cmd :: rest => if rest.any (fun a => a == "--help" || a == "-h") then commandUsage cmd else none
-  | [] => none
-
-/-- Exit codes: 0 = success, 1 = an invalid or failing trace, 2 = usage or read error. -/
-def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
-  if let some text := helpOf args then
-    IO.print text
-    return 0
+/-- The command `args` name; a usage error throws (`usageError`). -/
+def command (env : Store.Env) (args : List String) : IO UInt32 := do
   match args with
   | ["--version"] => IO.println s!"fvtrace {version}"; pure 0
   | ["--help"] | ["-h"] => IO.print usage; pure 0
@@ -1210,6 +1208,24 @@ def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
   | "skills" :: rest => skillsCmd rest
   | [] => IO.eprint usage; pure 2
   | cmd :: _ => usageError s!"unknown command '{cmd}'"
+
+/-- `fvtrace <command> … --help` (or `-h`): that command's usage, when it names one. -/
+def helpOf : List String → Option String
+  | cmd :: rest => if rest.any (fun a => a == "--help" || a == "-h") then commandUsage cmd else none
+  | [] => none
+
+/-- Exit codes: 0 = success, 1 = an invalid or failing trace, 2 = usage or read error. -/
+def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
+  if let some text := helpOf args then
+    IO.print text
+    return 0
+  try command env args
+  catch e =>
+    let msg := toString e
+    unless msg.startsWith usageMark do throw e
+    complain s!"fvtrace: {(msg.drop usageMark.length).toString}"
+    complain (helpPointer (args.headD ""))
+    return 2
 
 /-- An unanticipated I/O failure, including environment detection, uses the CLI's exit-2
 boundary. -/
