@@ -297,12 +297,18 @@ test("the page's engine works in a Worker: a selection shows while it answers", 
   await plantWorker(page, { hold: 4000 });
   await page.goto(url);
   await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceReady") === true);
+  const heading = page.locator("#inspector").getByRole("heading", { level: 2 });
+  await expect(heading).toHaveText("Select a claim, a fact or an experiment");
   await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
-  // The answer is held for 4 s; the page answers a selection meanwhile (user ruling: Worker).
+  // The answer is held for 4 s; the page answers a selection meanwhile (user ruling: Worker):
+  // C1's headline fills the inspector + its card is drawn selected, within the 0.1 s class bound's
+  // 1 s test allowance.
   await card(page, "C1").locator(".tag-id").getByRole("button").click();
-  await expect(page.locator("#inspector").getByRole("heading", { level: 2 })).toBeVisible({
-    timeout: 1000,
-  });
+  await expect(heading).toHaveText(
+    "The difference between treated and control samples measures the average effect of the treatment.",
+    { timeout: 1000 },
+  );
+  await expect(card(page, "C1")).toHaveClass(/\bselected\b/, { timeout: 1000 });
   const workers = await page.evaluate(() => {
     /** @type {unknown} */
     const count = Reflect.get(globalThis, "fvtraceWorkers");

@@ -97,6 +97,8 @@ def tests : TestM Unit := do
   expectErrors "decode: sha256 accepted" (doc (withEvidence sha) claimOk "") []
   expectErrors "decode: short sha256" (doc (withEvidence (sha.drop 1).toString) claimOk "")
     [("invalid-sha256", "/facts/0/evidence/artifacts/0/sha256")]
+  expectErrors "decode: long sha256 (65 hex digits)" (doc (withEvidence (sha ++ "0")) claimOk "")
+    [("invalid-sha256", "/facts/0/evidence/artifacts/0/sha256")]
   expectErrors "decode: uppercase sha256" (doc (withEvidence ("".pushn 'A' 64)) claimOk "")
     [("invalid-sha256", "/facts/0/evidence/artifacts/0/sha256")]
   expectErrors "decode: sha256 digits + a-f accepted"

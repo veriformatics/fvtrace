@@ -29,6 +29,15 @@ def tests : TestM Unit := do
     IO.FS.writeBinFile (dir / "sample.bin") sample
     checkEq "digest: file equals bytes" (← Digest.ofFile (dir / "sample.bin"))
       (← Digest.ofBytes sample)
+    -- The file reader takes 1 MiB per read: a full chunk, then one past it (digests: Python
+    -- hashlib over the same bytes).
+    let long := ByteArray.mk ((Array.range 1048681).map fun i => (i % 251).toUInt8)
+    IO.FS.writeBinFile (dir / "chunk.bin") (long.extract 0 1048576)
+    checkEq "digest: a file of one full read chunk" (← Digest.ofFile (dir / "chunk.bin"))
+      "631b84027d6b9e52b539c4e8373622d23032dfadc64d60af87339c9037e4f769"
+    IO.FS.writeBinFile (dir / "past.bin") long
+    checkEq "digest: a file past one read chunk" (← Digest.ofFile (dir / "past.bin"))
+      "3c6ecba61e1fb08ecfc0f25e1b0b5d3b0a5a3d0d58634f7630317762a71e6ba3"
     IO.FS.writeBinFile (dir / "empty.bin") ByteArray.empty
     checkEq "digest: empty file" (← Digest.ofFile (dir / "empty.bin"))
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

@@ -60,6 +60,15 @@ def tests : TestM Unit := do
   oracles "synthetic" (base synthetic)
   oracles "self-trace" (base self)
   oracles "synthetic, a what-if" ((base synthetic).withOverrides [("O2", .checked)])
+  -- kernel.md V-details read off the fixture by hand, not through the serializer the oracles share:
+  -- E1 succeeds with O2 checked (O2 open on record); E2 needs E1 first and assumes O4 (open).
+  let fact := fun (f st : String) => Value.obj [("fact", .str f), ("status", .str st)]
+  for (id, closure, raises) in [("E1", ["E1"], [fact "O2" "checked"]),
+      ("E2", ["E1", "E2"], [fact "O2" "checked", fact "O4" "assumed"])] do
+    checkEq s!"details (fixture): experiment:{id} closure + raises, by hand"
+      ((detailsOf (base fixture) s!"experiment:{id}").toOption.map fun d =>
+        (field d "closure", field d "raises"))
+      (some (some (.arr (closure.map .str)), some (.arr raises)))
   -- A success that raises nothing leaves the recorded view recorded (mode from ω').
   let sc := base synthetic
   match synthetic.facts.find? (·.status == .assumed), synthetic.experiments.head? with
