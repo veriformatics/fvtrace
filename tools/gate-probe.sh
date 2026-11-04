@@ -93,6 +93,31 @@ probe_lean_style() {
 
 # CI runs one job per gate.yml matrix shard: a stage without a shard, a shard the matrix lacks, or
 # a job that never runs its shard would leave stages unrun in CI.
+# The cross-workflow relations (gate.sh `provision`, run by fanout): one plant per relation.
+probe_provision() {
+    keep .github/workflows/build.yml
+    sed -i '/^          - os: windows-2025$/,/^            target: windows-x86_64$/d' .github/workflows/build.yml
+    expect provision-targets 'build.yml targets \[linux-arm64,linux-x86_64,macos-arm64\] != release targets' fanout
+    keep .github/workflows/release.yml
+    sed -i 's/^          - os: macos-15$/          - os: macos-26/' .github/workflows/release.yml
+    expect provision-macos 'runs macos-arm64 on macos-26, not macos-15' fanout
+    keep .github/actions/page-engine/action.yml
+    sed -i '/uses: actions\/setup-python@/d' .github/actions/page-engine/action.yml
+    expect provision-python 'action.yml installs no Python' fanout
+    keep .github/actions/page-engine/action.yml
+    sed -i "s/, 'FvtraceWasm\/\*\*'//" .github/actions/page-engine/action.yml
+    expect provision-cache-key 'engine cache key lacks FvtraceWasm/\*\*' fanout
+    keep .github/workflows/gate.yml
+    sed -i "s/^        if: matrix.shard != 'checks'$/        if: matrix.shard != 'lean'/" .github/workflows/gate.yml
+    expect provision-skip 'skips Python \+ the engine cache on shard lean, which builds' fanout
+    keep .github/workflows/build.yml
+    sed -i 's/cache: ${{ !inputs.release \&\& /cache: ${{ /' .github/workflows/build.yml
+    expect provision-release-cache 'build.yml caches the engine on a release' fanout
+    keep .github/workflows/build.yml
+    sed -i '/uses: \$\/.github\/actions\/page-engine$/d' .github/workflows/build.yml
+    expect provision-order 'build.yml builds without the page-engine step before it' fanout
+}
+
 probe_fanout() {
     local table="$STAGES"
     STAGES+=$'planted\n'
@@ -684,7 +709,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
