@@ -48,10 +48,16 @@ for (const [, token = ""] of artifacts.matchAll(/`([^`\s]+)`/g)) {
     problems.push(`.agent/spec.md Artifacts: ${token} matches no tracked file`);
 }
 
-// Retired prototypes live in their tags alone.
-for (const [, tag = ""] of spec.matchAll(/tag `(prototype-[a-z0-9-]+)`/g))
-  if (git(["tag", "--list", tag]).length === 0)
-    problems.push(`.agent/spec.md: tag ${tag} does not exist`);
+// Retired prototypes live in their tags alone. The tags are local until pushed: a clone holding
+// none of them (CI, a fresh clone) skips the check; one holding any must hold every named tag.
+const held = git(["tag", "--list", "prototype-*"]);
+if (held.length === 0)
+  console.log("meta-lint: no prototype-* tags in this clone; tag check skipped");
+else
+  for (const tag of new Set(
+    [...spec.matchAll(/tag `(prototype-[a-z0-9-]+)`/g)].map((m) => m[1] ?? ""),
+  ))
+    if (!held.includes(tag)) problems.push(`.agent/spec.md: tag ${tag} does not exist`);
 for (const f of files.filter((p) => p.startsWith("prototype/")).slice(0, 1))
   problems.push(`${f}: a retired prototype tree stays tracked (its tag holds it)`);
 
