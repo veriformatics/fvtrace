@@ -13,21 +13,26 @@ cd -- "$root"
 attempt_secs=180
 attempts=3
 
-# Runs "$@" until it exits or `attempt_secs` pass (then kills it: rc 124); portable (macOS has no
-# `timeout`), polled once a second so no watchdog outlives it.
+# Runs "$@" until it exits or `attempt_secs` pass: TERM one second before the bound, KILL once it
+# passes (a download that ignores TERM still ends; rc 124 either way). Portable (macOS has
+# no `timeout`); polled every 0.2 s (SECONDS counts whole seconds), so no watchdog outlives it.
 bounded() {
-    local start=$SECONDS pid rc=0
+    local start=$SECONDS pid rc=0 termed=0
     "$@" &
     pid=$!
     while kill -0 "$pid" 2>/dev/null; do
         if ((SECONDS - start >= attempt_secs)); then
-            kill "$pid" 2>/dev/null
+            kill -KILL "$pid" 2>/dev/null || true
             wait "$pid" 2>/dev/null || true
             return 124
+        elif ((!termed && SECONDS - start >= attempt_secs - 1)); then
+            kill "$pid" 2>/dev/null || true
+            termed=1
         fi
-        sleep 1
+        sleep 0.2
     done
     wait "$pid" || rc=$?
+    ((termed)) && return 124
     return "$rc"
 }
 
