@@ -595,6 +595,18 @@ probe_fast_engine() {
     expect fast-engine-key-change 'engine inputs changed' "${same[@]}" "$key"
 }
 
+# The side-by-side group (tools/gate.sh TOGETHER): a red stage in it reaches `failed`, its log + rc
+# print, a green one stays green.
+probe_together() {
+    # shellcheck disable=SC2016 # the inner script's own expansions
+    local run=(bash -c 'source tools/gate.sh; GATE_LEDGER=; ledger_begin probe
+        code="$1"; meta() { echo "planted meta failure"; return "$code"; }
+        together_start meta spec; together_finish
+        [[ ${#failed[@]} -eq 0 ]] || { echo "failed: ${failed[*]}"; exit 1; }' _)
+    allow together-green "${run[@]}" 0
+    expect together-red '^failed: meta$' "${run[@]}" 3
+}
+
 probe_mutate() { allow mutation-scanner node --test tools/probes/mutate.test.mjs; }
 probe_install() { allow install-attempt-bound bash tests/tools/install-bound.sh; }
 probe_load() {
@@ -621,7 +633,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2

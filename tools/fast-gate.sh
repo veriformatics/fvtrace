@@ -10,22 +10,8 @@ cd -- "$root" || exit 1
 source tools/gate.sh
 ledger_begin fast
 
-log="$(mktemp -d)"
-trap 'rm -rf "$log"' EXIT
-pids=()
-names=(lean-style js-format js-lint js-types js-test fanout spec shell meta)
-fns=(lean_style js_format js_lint js_types js_test fanout spec shell meta)
-for i in "${!names[@]}"; do
-    (
-        t0="$(stamp)"
-        "${fns[$i]}" >"$log/${names[$i]}" 2>&1
-        rc=$?
-        elapsed "$t0" >"$log/${names[$i]}.time"
-        exit $rc
-    ) &
-    pids+=($!)
-done
-
+# shellcheck disable=SC2086 # TOGETHER = a word list
+together_start $TOGETHER
 start="$(stamp)"
 stage lean-build lean_build
 stage lean-test lean_test
@@ -45,22 +31,16 @@ else
 fi
 if [[ " $* " == *" --e2e "* ]]; then stage e2e e2e; fi
 
-# Their ledger rows come from here, one writer: rows from parallel subshells could interleave.
-for i in "${!names[@]}"; do
-    wait "${pids[$i]}"
-    rc=$?
-    secs="$(cat "$log/${names[$i]}.time")"
-    printf '\n=== %s ===\n' "${names[$i]}"
-    cat "$log/${names[$i]}"
-    printf '%s rc=%d %ss\n' "${names[$i]}" "$rc" "$secs"
-    ledger_add "${names[$i]}" "$secs" "$rc"
-    [[ $rc -eq 0 ]] || failed+=("${names[$i]}")
-done
+together_finish
 
-skipped="tools trust c-analyze vendor audit secrets workflows"
-[[ " $* " == *" --e2e "* ]] || skipped="$skipped e2e"
-[[ -z ${skip_engine:-} ]] || skipped="$skipped engine (its inputs = its last pass's)"
-printf '\n=== fast gate ===\nskipped: %s\n' "$skipped"
+# The skipped stages = the registry's (tools/gate.sh STAGES) minus the ones this run took.
+ran=" $TOGETHER lean-build lean-test lean-pure cli examples "
+[[ -n ${skip_engine:-} ]] || ran+="engine "
+[[ " $* " != *" --e2e "* ]] || ran+="e2e "
+skipped=""
+for name in $(stage_names); do [[ "$ran" == *" $name "* ]] || skipped+=" $name"; done
+[[ -z ${skip_engine:-} ]] || skipped+=" (engine: its inputs = its last pass's)"
+printf '\n=== fast gate ===\nskipped:%s\n' "$skipped"
 secs="$(elapsed "$start")"
 if [[ ${#failed[@]} -ne 0 ]]; then
     ledger_add fast-gate "$secs" 1

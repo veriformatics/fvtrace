@@ -92,6 +92,49 @@ shell       checks
 meta        checks
 '
 
+# Read-only checks that need neither the build nor the fetched tools: they run side by side (the full
+# gate + the fast gate), each log printed whole, in this order, with its own wall-clock.
+TOGETHER='lean-style js-format js-lint js-types js-test fanout spec shell meta'
+together_log=""
+together_pids=()
+together_names=()
+# Starts the named stages in the background (their rows + verdicts come from `together_finish`).
+together_start() {
+    local i
+    together_log="$(mktemp -d)"
+    together_names=("$@")
+    together_pids=()
+    for i in "${!together_names[@]}"; do
+        (
+            t0="$(stamp)"
+            "${together_names[$i]//-/_}" >"$together_log/$i" 2>&1
+            rc=$?
+            elapsed "$t0" >"$together_log/$i.time"
+            exit $rc
+        ) &
+        together_pids+=($!)
+    done
+}
+# Waits for them; prints each log + `<stage> rc=N <s>s`; one writer adds every ledger row (rows from
+# parallel subshells could interleave).
+together_finish() {
+    local i rc secs
+    for i in "${!together_names[@]}"; do
+        wait "${together_pids[$i]}"
+        rc=$?
+        secs="$(cat "$together_log/$i.time")"
+        printf '\n=== %s ===\n' "${together_names[$i]}"
+        cat "$together_log/$i"
+        printf '%s rc=%d %ss\n' "${together_names[$i]}" "$rc" "$secs"
+        ledger_add "${together_names[$i]}" "$secs" "$rc"
+        [[ $rc -eq 0 ]] || failed+=("${together_names[$i]}")
+    done
+    rm -rf "$together_log"
+}
+
+# Every stage STAGES names, in order.
+stage_names() { awk 'NF { print $1 }' <<<"$STAGES"; }
+
 # Every shard STAGES names, once each, in first-use order.
 shard_names() { awk 'NF { for (i = 2; i <= NF; i++) if (!seen[$i]++) print $i }' <<<"$STAGES"; }
 
@@ -307,12 +350,15 @@ main() {
     ledger_begin "gate${shard:+:$shard}"
     # An array, not a `while read` loop: stages keep the caller's stdin.
     mapfile -t rows <<<"$STAGES"
+    local picked=() together=()
     for row in "${rows[@]}"; do
         read -r name shards <<<"$row"
-        if [[ -n "$name" && ( -z "$shard" || " $shards " == *" $shard "* ) ]]; then
-            stage "$name" "${name//-/_}"
-        fi
+        [[ -n "$name" && ( -z "$shard" || " $shards " == *" $shard "* ) ]] || continue
+        if [[ " $TOGETHER " == *" $name "* ]]; then together+=("$name"); else picked+=("$name"); fi
     done
+    together_start "${together[@]}"
+    for name in "${picked[@]}"; do stage "$name" "${name//-/_}"; done
+    together_finish
     printf '\n=== gate%s ===\n' "${shard:+ (shard $shard)}"
     secs="$(elapsed "$start")"
     if [[ ${#failed[@]} -ne 0 ]]; then
