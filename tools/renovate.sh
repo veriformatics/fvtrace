@@ -53,8 +53,10 @@ lookup)
     v="$(release)"
     printf 'renovate %s\n' "$v" >&2
     # github-releases + github-tags lookups need a token (else "skipReason": "github-token-required").
-    GITHUB_COM_TOKEN="${GITHUB_COM_TOKEN:-$(gh auth token 2>/dev/null || true)}"
-    export GITHUB_COM_TOKEN
+    # Only one given on purpose reaches Renovate (a third-party package): a read-only token, never
+    # the session's own `gh auth token`, whose scopes write to repositories.
+    [[ -n "${GITHUB_COM_TOKEN:-}" ]] ||
+        printf 'renovate.sh: GITHUB_COM_TOKEN unset (a read-only GitHub token): GitHub lookups are skipped\n' >&2
     # pnpm prints plain lines before Renovate's JSON log.
     LOG_LEVEL=debug LOG_FORMAT=json pnpm dlx --allow-build=re2 --package node@24 --package "renovate@$v" \
         renovate --platform=local --dry-run=lookup --enabled-managers="$2" |
