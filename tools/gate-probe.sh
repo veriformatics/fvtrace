@@ -22,7 +22,7 @@ restore() {
         if [[ "${saved[$f]}" == absent ]]; then
             rm -f "$f"
         else
-            cp "$backup/$(printf '%s' "$f" | tr '/' '_')" "$f"
+            cp --preserve=mode "$backup/$(printf '%s' "$f" | tr '/' '_')" "$f"
             [[ "$(sha256sum "$f" | cut -d' ' -f1)" == "${saved[$f]}" ]] || {
                 printf 'probe: %s did not restore\n' "$f" >&2
                 exit 3
@@ -35,7 +35,7 @@ trap 'restore; rm -rf "$backup"' EXIT
 keep() {
     local f="$1"
     if [[ -e "$f" ]]; then
-        cp "$f" "$backup/$(printf '%s' "$f" | tr '/' '_')"
+        cp --preserve=mode "$f" "$backup/$(printf '%s' "$f" | tr '/' '_')"
         saved[$f]="$(sha256sum "$f" | cut -d' ' -f1)"
     else
         saved[$f]=absent
@@ -329,6 +329,31 @@ probe_palette() {
     expect palette-contrast 'conductor on --paper' env FVTRACE_PALETTE_CSS="$css" node --test tests/palette/
 }
 
+# Tools install project-local (gate `tools`): a pinned name missing from .tools/bin (a fetch that
+# wrote elsewhere) resolves to another copy on PATH, or to none.
+probe_install_dir() {
+    keep .tools/bin/actionlint
+    rm .tools/bin/actionlint
+    expect tools-project-local 'tools: actionlint resolves to "[^"]*", not .*/\.tools/bin/actionlint' tools_local
+}
+
+probe_filler() {
+    keep README.md
+    printf '\nThis robust tool helps you simply leverage the results.\n' >>README.md
+    expect filler '^README\.md:[0-9]+:This robust tool' filler
+}
+
+# A gate run leaves no untracked, unignored file (gate.sh `leftovers`, closing every run).
+probe_leftovers() {
+    local before
+    before="$(untracked)"
+    keep planted-leftover.txt
+    printf 'planted\n' >planted-leftover.txt
+    expect leftovers '^planted-leftover\.txt$' \
+        leftovers "$before"
+    allow leftovers-clean leftovers "$before"
+}
+
 # Renovate's config (js-test): a lookbehind (JS accepts it, the hosted app's RE2 refuses it) + a
 # release-age floor under 7 days, each planted in a copy the test reads through its override.
 probe_renovate() {
@@ -377,6 +402,9 @@ probe_wasm() {
     keep lakefile.lean
     sed -i -e 's/ "--githash", lean.githash,//' lakefile.lean
     expect wasm-build-step 'usage: fvtrace-wasm' engine_build
+    keep FvtraceWasm/Build.lean
+    sed -i 's/"-sMALLOC=mimalloc"/"-sMALLOC=dlmalloc"/' FvtraceWasm/Build.lean
+    expect wasm-allocator 'links an allocator other than mimalloc' engine_build
 }
 
 # The page engine's differential (gate stage `engine`) also fails on any engine output to standard
@@ -402,9 +430,6 @@ WebAssembly.instantiate = async (bytes, imports) => {
 PLANT
     expect engine-panic 'fvTrace engine: PANIC planted' node --import "$plant" tests/engine/engine.test.mjs
 }
-    keep FvtraceWasm/Build.lean
-    sed -i 's/"-sMALLOC=mimalloc"/"-sMALLOC=dlmalloc"/' FvtraceWasm/Build.lean
-    expect wasm-allocator 'links an allocator other than mimalloc' engine_build
 
 probe_examples() {
     keep Fvtrace/Proofs/Plan.lean
@@ -615,6 +640,9 @@ probe_ledger() {
     "${lg[@]}" classify same-key product
     expect ledger-same-key $'\tprobe\tsame-key\t' "${lg[@]}" reds
     rm -f -- "$log"
+    # Every stage's closing line names its verdict + wall-clock (CLAUDE.md gate timing).
+    # shellcheck disable=SC2016 # the inner script's own expansions
+    allow stage-line bash -c 'source tools/gate.sh; ledger=""; stage planted true | grep -qxE "planted rc=0 [0-9]+\.[0-9]s"'
 }
 
 probe_c_headers() {
@@ -712,7 +740,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
