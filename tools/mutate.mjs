@@ -10,7 +10,7 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
 const usage =
-  "usage: node tools/mutate.mjs <file.lean> [--lines A-B[,C-D…]] [--test CMD] [--timeout S] [--list] [--help]\n";
+  "usage: node tools/mutate.mjs <file.lean> [--lines A-B[,C-D…]] [--test CMD] [--build CMD] [--timeout S] [--list] [--help]\n";
 const args = () => {
   try {
     return parseArgs({
@@ -20,6 +20,8 @@ const args = () => {
         // The interpreter skips the native compile + link of the test binary (about 10× faster).
         test: { type: "string", default: "lake env lean --run TestPure.lean" },
         timeout: { type: "string", default: "120" },
+        // The rebuild before each suite run; a stand-in lets the classifier be probed cheaply.
+        build: { type: "string", default: "lake build Fvtrace Tests" },
         list: { type: "boolean", default: false },
         help: { type: "boolean", default: false },
       },
@@ -196,7 +198,7 @@ const run = (cmd) =>
   });
 // A failing unmutated suite would count every mutant as killed: check the baseline first.
 if (
-  (await run("lake build Fvtrace Tests >/dev/null 2>&1")) !== 0 ||
+  (await run(`${values.build} >/dev/null 2>&1`)) !== 0 ||
   (await run(`${values.test} >/dev/null 2>&1`)) !== 0
 ) {
   restore();
@@ -212,7 +214,7 @@ try {
     const label = `${file}:${s.line} ${s.from} → ${s.to}`;
     // Mutants share one build tree, so they run strictly in sequence.
     // oxlint-disable-next-line no-await-in-loop
-    if ((await run("lake build Fvtrace Tests >/dev/null 2>&1")) !== 0) {
+    if ((await run(`${values.build} >/dev/null 2>&1`)) !== 0) {
       results.incompetent++;
       process.stdout.write(`[${n + 1}/${sites.length}] incompetent ${label}\n`);
       // oxlint-disable-next-line no-await-in-loop
@@ -227,7 +229,7 @@ try {
   }
 } finally {
   restore();
-  execFileSync("bash", ["-c", "lake build Fvtrace Tests >/dev/null 2>&1 || true"]);
+  execFileSync("bash", ["-c", `${values.build} >/dev/null 2>&1 || true`]);
 }
 process.stdout.write(
   `\nmutants: ${sites.length} · killed ${results.killed} · survived ${results.survived.length}` +

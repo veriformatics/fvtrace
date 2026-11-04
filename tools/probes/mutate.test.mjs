@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -72,6 +80,28 @@ void test("--list reads the source alone: no write, no backup", () => {
     assert.equal(p.status, 0, p.stderr);
     assert.equal(statSync(file).mtimeMs, old.getTime());
     assert.deepEqual(readdirSync(dir), ["Listed.lean"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+void test("a campaign classifies a checked site killed and an unchecked site survived", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mutation-probe-"));
+  try {
+    const file = join(dir, "Classified.lean");
+    const source = "def a : Nat := 1 + 2\ndef b : Nat := 7\n";
+    writeFileSync(file, source);
+    // The suite checks line 1 alone: every line-1 mutant breaks it, line 2's survives.
+    const p = spawnSync(
+      process.execPath,
+      [tool, file, "--build", "true", "--test", `grep -q '1 + 2' ${JSON.stringify(file)}`],
+      { encoding: "utf8" },
+    );
+    assert.equal(p.status, 1, `a survivor exits 1: ${p.stderr}`);
+    assert.match(p.stdout, /SURVIVED \S+Classified\.lean:2 7 → 8/);
+    assert.match(p.stdout, /killed \S+Classified\.lean:1 \+ → -/);
+    assert.match(p.stdout, /mutants: 4 · killed 3 · survived 1 · incompetent 0/);
+    assert.equal(readFileSync(file, "utf8"), source, "the source comes back unchanged");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
