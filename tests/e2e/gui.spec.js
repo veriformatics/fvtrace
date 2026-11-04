@@ -334,6 +334,56 @@ test.describe("the synthetic study", () => {
     );
   });
 
+  // web.md fonts: a verdict chip's symbol centers on its words' capitals (text-box), not on the
+  // line box, under the default font + DejaVu Sans (`system-ui` differs per system). Capitals =
+  // an inline-block "H" trimmed to cap height on the words' baseline: CSS's own cap metric.
+  test("a verdict's symbol centers on its words' capitals in two fonts", async ({ page }) => {
+    await page.goto(web.url);
+    const pair = card(page, "C1").locator(".tag-pair");
+    await expect(pair).toBeVisible();
+    // System fonts lay out at once (no web font to await): each read reflows under the font set.
+    const fonts = await pair.evaluate((el) => {
+      const out = [];
+      for (const font of ["", "DejaVu Sans"]) {
+        document.body.style.fontFamily = font;
+        const [kind, soft] = [...el.children].map((c) => c.getBoundingClientRect());
+        const chip = el.children[1];
+        const words = chip?.querySelector(".cap-trim");
+        const lamp = chip?.firstElementChild?.getBoundingClientRect();
+        if (!kind || !soft || !words || !lamp) throw new Error("no verdict chip");
+        const h = document.createElement("span");
+        h.textContent = "H";
+        h.style.display = "inline-block";
+        h.style.setProperty("text-box", "trim-both cap alphabetic");
+        words.append(h);
+        const caps = h.getBoundingClientRect();
+        h.remove();
+        out.push({
+          font,
+          heights: kind.height - soft.height,
+          offset: (lamp.top + lamp.bottom) / 2 - (caps.top + caps.bottom) / 2,
+        });
+      }
+      document.body.style.fontFamily = "";
+      // DejaVu Sans installed: its fallbacks would differ in width.
+      const probes = ['"DejaVu Sans", monospace', '"DejaVu Sans", serif'].map((f) => {
+        const s = document.createElement("span");
+        s.style.font = `20px ${f}`;
+        s.textContent = "Pending verification";
+        document.body.append(s);
+        return s;
+      });
+      const [mono, serif] = probes.map((s) => s.getBoundingClientRect().width);
+      for (const s of probes) s.remove();
+      return { out, dejavu: mono === serif };
+    });
+    expect(fonts.dejavu, "DejaVu Sans is installed").toBe(true);
+    for (const f of fonts.out) {
+      expect(Math.abs(f.offset), `symbol vs capitals in "${f.font}"`).toBeLessThanOrEqual(0.25);
+      expect(Math.abs(f.heights), `chip heights in "${f.font}"`).toBeLessThanOrEqual(0.25);
+    }
+  });
+
   // `clickToOpen`'s guard alone: a click that reaches the container while a selection is active
   // (a drag's click is the browser's to deliver or not) leaves the selection unchosen.
   test("a click ending a text selection opens nothing; a plain click opens", async ({ page }) => {
