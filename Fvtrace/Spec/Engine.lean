@@ -67,12 +67,12 @@ def AssumedNeedsArePremises : Prop :=
     s.eff n = .assumed → s.mustVerify n = false
 
 /-- G8a: a verified exclusion with a current receipt makes the unasserted side of a verified
-fact violated. -/
+fact violated, whichever side of the exclusion each one is. -/
 def ExclusionDerives : Prop :=
-  ∀ (s : Scenario) (x : Exclusion) (b : String),
+  ∀ (s : Scenario) (x : Exclusion) (a b : String),
     x ∈ s.trace.exclusions → (s.exclusionEff x).verified = true →
-    x.between.2 = b → (s.eff1 x.between.1).verified = true → (s.eff1 b).asserted = false →
-      s.eff b = .violated
+    (x.between = (a, b) ∨ x.between = (b, a)) → (s.eff1 a).verified = true →
+    (s.eff1 b).asserted = false → s.eff b = .violated
 
 /-- G8b: a claim needing both sides of an asserted exclusion cannot be made as written. -/
 def BothSidesCannot : Prop :=
@@ -155,18 +155,18 @@ def Closed (t : Trace) (q : List String) : Prop :=
     (∀ r ∈ e.requires, r ∈ q) ∧
       ∀ sub, t.subject? e.subject = some sub → ∀ x, sub.createdBy = some x → x ∈ q
 
-/-- G4a: a plan holds its prerequisites, keeps the claim's subject consistent and reports the
-state its success reaches. -/
+/-- G4a: in a well-formed trace, a plan holds its prerequisites, keeps the claim's subject
+consistent and reports the state its success reaches. -/
 def PlanSound : Prop :=
   ∀ (s : Scenario) (c : Claim) cov p st prem gaps contingent, WellFormed s.trace →
     s.plan c = .planned cov p st prem gaps contingent →
       Closed s.trace p ∧ (s.applySuccess p).valid c.subject = true ∧
         st = (s.applySuccess p).final c
 
-/-- G4b: no prerequisite-closed set of experiments that keeps the claim's subject consistent
-reaches a higher state than the plan, or the plan's state at a strictly lower cost (effort
-counts, months first); with `noImprovement`, none beats the current state. `tooLarge` and
-`inconsistent` claim no optimality. -/
+/-- G4b: for a claim of a well-formed trace, no prerequisite-closed set of experiments that keeps
+the claim's subject consistent reaches a higher state than the plan, or the plan's state at a
+strictly lower cost (effort counts, months first); with `noImprovement`, none beats the current
+state. `tooLarge` and `inconsistent` claim no optimality. -/
 def PlanOptimal : Prop :=
   ∀ (s : Scenario) (c : Claim) (q : List String), WellFormed s.trace → c ∈ s.trace.claims →
     Closed s.trace q → (s.applySuccess q).valid c.subject = true →

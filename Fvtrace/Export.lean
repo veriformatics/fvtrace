@@ -165,9 +165,11 @@ def licensesHtml (text : String) : String :=
 /-- The page around `engineText` (the build's engine; tests plant others): the GUI's HTML with
 its stylesheet + modules inlined under a hash-pinned CSP. -/
 def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
-  let some (_, _, html) := FvtraceWeb.files.find? (·.1 == "/") | throw (IO.userError "no page")
+  let damaged := fun (what : String) =>
+    IO.userError s!"{what}; this fvtrace build is damaged, so rebuild it"
+  let some (_, _, html) := FvtraceWeb.files.find? (·.1 == "/") | throw (damaged "no page")
   let some (_, _, css) := FvtraceWeb.files.find? (·.1 == "/style.css")
-    | throw (IO.userError "no stylesheet")
+    | throw (damaged "no stylesheet")
   let script ← IO.ofExcept (bundle pageModules)
   let worker ← IO.ofExcept (bundle workerModules)
   unless !engineText.isEmpty && base64Text engineText do
@@ -191,9 +193,9 @@ def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
   let linked := "<link rel=\"stylesheet\" href=\"style.css\" />\n" ++
     "    <script type=\"module\" src=\"app.js\"></script>"
   unless (html.splitOn linked).length == 2 do
-    throw (IO.userError "the page no longer links style.css + app.js as the export expects")
+    throw (damaged "the page no longer links style.css + app.js as the export expects")
   unless (html.splitOn "</footer>").length == 2 do
-    throw (IO.userError "the page no longer has the one footer the export's licenses close")
+    throw (damaged "the page no longer has the one footer the export's licenses close")
   return (html.replace linked head).replace "</footer>"
     (licensesHtml FvtraceEngine.licenses ++ "      </footer>")
 

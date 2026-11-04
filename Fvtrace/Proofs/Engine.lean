@@ -286,18 +286,20 @@ theorem assumedNeedsArePremises : Spec.AssumedNeedsArePremises := by
       simpa using hallow.2
 
 theorem exclusionDerives : Spec.ExclusionDerives := by
-  intro s x b hx hxv hb ha hnb
+  intro s x a b hx hxv hab ha hnb
   unfold Scenario.eff
+  -- `a = b` is impossible: a verified fact is asserted.
+  have hab' : a ≠ b := by
+    rintro rfl
+    simp [EStatus.verified, EStatus.asserted] at ha hnb
+    omega
   have hne : s.derivations b ≠ [] := by
     unfold Scenario.derivations
     intro hnil
     have := List.filterMap_eq_nil_iff.mp hnil x hx
-    by_cases h1 : x.between.1 = b
-    · -- both sides would be `b`: a verified side cannot also be unasserted
-      rw [h1] at ha
-      simp [EStatus.verified, EStatus.asserted] at ha hnb
-      omega
-    · simp [hxv, hnb, h1, hb, ha] at this
+    rcases hab with h | h <;> rw [h] at this
+    · simp [hxv, hnb, ha, hab'] at this
+    · simp [hxv, hnb, ha] at this
   simp [List.isEmpty_iff, hne]
 
 theorem bothSidesCannot : Spec.BothSidesCannot := by
