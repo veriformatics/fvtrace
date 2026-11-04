@@ -1,0 +1,307 @@
+{
+  "createdAt": "2026-11-04T17:56:18Z",
+  "conclusion": "failure",
+  "jobs": [
+    {
+      "name": "portability / build (macos-arm64)",
+      "conclusion": "cancelled",
+      "startedAt": "2026-11-04T18:11:45Z",
+      "completedAt": "2026-11-04T18:26:46Z",
+      "steps": []
+    },
+    {
+      "name": "portability / build (linux-x86_64)",
+      "conclusion": "success",
+      "startedAt": "2026-11-04T17:56:21Z",
+      "completedAt": "2026-11-04T18:03:25Z",
+      "steps": [
+        {
+          "name": "Set up job"
+        },
+        {
+          "name": "Check out the repository"
+        },
+        {
+          "name": "Prepare the page engine build"
+        },
+        {
+          "name": "Set the macOS floor"
+        },
+        {
+          "name": "Select the C compiler"
+        },
+        {
+          "name": "Install the Lean toolchain named in lean-toolchain"
+        },
+        {
+          "name": "Build"
+        },
+        {
+          "name": "Test"
+        },
+        {
+          "name": "Package + check the release archive"
+        },
+        {
+          "name": "Keep the archive for the release"
+        },
+        {
+          "name": "Post Prepare the page engine build"
+        },
+        {
+          "name": "Post Check out the repository"
+        },
+        {
+          "name": "Complete job"
+        }
+      ]
+    },
+    {
+      "name": "portability / build (linux-arm64)",
+      "conclusion": "success",
+      "startedAt": "2026-11-04T17:56:23Z",
+      "completedAt": "2026-11-04T18:01:20Z",
+      "steps": [
+        {
+          "name": "Set up job"
+        },
+        {
+          "name": "Check out the repository"
+        },
+        {
+          "name": "Prepare the page engine build"
+        },
+        {
+          "name": "Set the macOS floor"
+        },
+        {
+          "name": "Select the C compiler"
+        },
+        {
+          "name": "Install the Lean toolchain named in lean-toolchain"
+        },
+        {
+          "name": "Build"
+        },
+        {
+          "name": "Test"
+        },
+        {
+          "name": "Package + check the release archive"
+        },
+        {
+          "name": "Keep the archive for the release"
+        },
+        {
+          "name": "Post Prepare the page engine build"
+        },
+        {
+          "name": "Post Check out the repository"
+        },
+        {
+          "name": "Complete job"
+        }
+      ]
+    },
+    {
+      "name": "portability / build (windows-x86_64)",
+      "conclusion": "success",
+      "startedAt": "2026-11-04T17:56:20Z",
+      "completedAt": "2026-11-04T18:07:57Z",
+      "steps": [
+        {
+          "name": "Set up job"
+        },
+        {
+          "name": "Check out the repository"
+        },
+        {
+          "name": "Prepare the page engine build"
+        },
+        {
+          "name": "Set the macOS floor"
+        },
+        {
+          "name": "Select the C compiler"
+        },
+        {
+          "name": "Install the Lean toolchain named in lean-toolchain"
+        },
+        {
+          "name": "Build"
+        },
+        {
+          "name": "Test"
+        },
+        {
+          "name": "Package + check the release archive"
+        },
+        {
+          "name": "Keep the archive for the release"
+        },
+        {
+          "name": "Post Prepare the page engine build"
+        },
+        {
+          "name": "Post Check out the repository"
+        },
+        {
+          "name": "Complete job"
+        }
+      ]
+    },
+    {
+      "name": "gate (e2e)",
+      "conclusion": "success",
+      "startedAt": "2026-11-04T17:56:20Z",
+      "completedAt": "2026-11-04T18:02:35Z",
+      "steps": [
+        {
+          "name": "Set up job"
+        },
+        {
+          "name": "Check out the repository"
+        },
+        {
+          "name": "Install the Lean toolchain named in lean-toolchain"
+        },
+        {
+          "name": "Prepare the page engine build"
+        },
+        {
+          "name": "Install pnpm"
+        },
+        {
+          "name": "Install Node.js"
+        },
+        {
+          "name": "Install the dev toolchain"
+        },
+        {
+          "name": "Install the browser"
+        },
+        {
+          "name": "Install system tools"
+        },
+        {
+          "name": "Run the gate shard"
+        },
+        {
+          "name": "Post Install Node.js"
+        },
+        {
+          "name": "Post Install pnpm"
+        },
+        {
+          "name": "Post Prepare the page engine build"
+        },
+        {
+          "name": "Post Check out the repository"
+        },
+        {
+          "name": "Complete job"
+        }
+      ]
+    },
+    {
+      "name": "gate (lean)",
+      "conclusion": "success",
+      "startedAt": "2026-11-04T17:56:21Z",
+      "completedAt": "2026-11-04T18:05:55Z",
+      "steps": [
+        {
+          "name": "Set up job"
+        },
+        {
+          "name": "Check out the repository"
+        },
+        {
+          "name": "Install the Lean toolchain named in lean-toolchain"
+        },
+        {
+          "name": "Prepare the page engine build"
+        },
+        {
+          "name": "Install pnpm"
+        },
+        {
+          "name": "Install Node.js"
+        },
+        {
+          "name": "Install the dev toolchain"
+        },
+        {
+          "name": "Install the browser"
+        },
+        {
+          "name": "Install system tools"
+        },
+        {
+          "name": "Run the gate shard"
+        },
+        {
+          "name": "Post Install Node.js"
+        },
+        {
+          "name": "Post Prepare the page engine build"
+        },
+        {
+          "name": "Post Check out the repository"
+        },
+        {
+          "name": "Complete job"
+        }
+      ]
+    },
+    {
+      "name": "gate (checks)",
+      "conclusion": "success",
+      "startedAt": "2026-11-04T17:56:20Z",
+      "completedAt": "2026-11-04T17:57:14Z",
+      "steps": [
+        {
+          "name": "Set up job"
+        },
+        {
+          "name": "Check out the repository"
+        },
+        {
+          "name": "Install the Lean toolchain named in lean-toolchain"
+        },
+        {
+          "name": "Prepare the page engine build"
+        },
+        {
+          "name": "Install pnpm"
+        },
+        {
+          "name": "Install Node.js"
+        },
+        {
+          "name": "Install the dev toolchain"
+        },
+        {
+          "name": "Install the browser"
+        },
+        {
+          "name": "Install system tools"
+        },
+        {
+          "name": "Run the gate shard"
+        },
+        {
+          "name": "Post Install Node.js"
+        },
+        {
+          "name": "Post Install pnpm"
+        },
+        {
+          "name": "Post Check out the repository"
+        },
+        {
+          "name": "Complete job"
+        }
+      ]
+    }
+  ]
+}
