@@ -129,7 +129,7 @@ def decide (cfg : Config) (req : Req) : Action :=
     | some (_, contentType, body) => .reply { status := .ok, contentType, body := body.toUTF8 }
     | none => text .notFound "Not found."
 
-/-- Claims and facts that `fvtrace check` refuses, in the GUI's words (user ruling 2026-11-01; the
+/-- Claims and facts that `fvtrace check` refuses, in the GUI's words (user ruling; the
 other record problems below likewise name the command to run, never a file). -/
 def recordErrors : String :=
   "The claims and facts on record have errors. " ++
