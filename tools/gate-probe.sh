@@ -44,36 +44,31 @@ keep() {
 
 passed=0
 failures=()
-# expect <probe> <regex> <command...>: the command must fail with output matching regex.
-expect() {
+# One probe: runs the command, checks its result against the wanted one, counts it, restores every
+# planted target. `pattern` empty = a negative control (the command must pass).
+probe() {
     local name="$1" pattern="$2" out rc
     shift 2
     out="$("$@" 2>&1)"
     rc=$?
-    if [[ $rc -ne 0 ]] && grep -q -E -- "$pattern" <<<"$out"; then
+    if [[ -z $pattern && $rc -eq 0 ]]; then
+        printf 'probe %s: passed as expected\n' "$name"
+        passed=$((passed + 1))
+    elif [[ -n $pattern && $rc -ne 0 ]] && grep -q -E -- "$pattern" <<<"$out"; then
         printf 'probe %s: fired (rc=%d)\n' "$name" "$rc"
         passed=$((passed + 1))
     else
-        printf 'probe %s: DID NOT FIRE (rc=%d)\n%s\n' "$name" "$rc" "$(tail -5 <<<"$out")" >&2
+        printf 'probe %s: %s (rc=%d)\n%s\n' "$name" \
+            "$([[ -z $pattern ]] && echo 'FAILED a valid input' || echo 'DID NOT FIRE')" "$rc" \
+            "$(tail -5 <<<"$out")" >&2
         failures+=("$name")
     fi
     restore
 }
+# expect <probe> <regex> <command...>: the command must fail with output matching regex.
+expect() { probe "$@"; }
 # allow <probe> <command...>: a negative control; the command must pass.
-allow() {
-    local name="$1" out rc
-    shift
-    out="$("$@" 2>&1)"
-    rc=$?
-    if [[ $rc -eq 0 ]]; then
-        printf 'probe %s: passed as expected\n' "$name"
-        passed=$((passed + 1))
-    else
-        printf 'probe %s: FAILED a valid input (rc=%d)\n%s\n' "$name" "$rc" "$(tail -5 <<<"$out")" >&2
-        failures+=("$name")
-    fi
-    restore
-}
+allow() { probe "$1" "" "${@:2}"; }
 
 # A build failure prints its errors, so a plant that no longer compiles reads as such.
 trust_build() { lake build Fvtrace «fvtrace-trust» 2>&1 | grep -E '^error' ; lake exe fvtrace-trust; }
@@ -582,6 +577,11 @@ probe_c_headers() {
     expect c-header-change 'PROBE_C_HEADER_MUST_REBUILD' env CC="$cc" lake build fvtracec
     allow c-header-restored env CC="$cc" lake build fvtracec
     count="$(wc -l <"$log")"
+    allow c-header-compiled test "$count" -gt 0
+    allow c-header-unchanged env CC="$cc" lake build fvtracec
+    allow c-header-cached test "$(wc -l <"$log")" -eq "$count"
+}
+
 # The fast gate skips the engine stage while `engine_key` holds: a changed engine input must change
 # the key, an untouched tree must keep it.
 probe_fast_engine() {
@@ -593,11 +593,6 @@ probe_fast_engine() {
     keep tests/engine/loader.test.mjs
     printf '// planted\n' >>tests/engine/loader.test.mjs
     expect fast-engine-key-change 'engine inputs changed' "${same[@]}" "$key"
-}
-
-    allow c-header-compiled test "$count" -gt 0
-    allow c-header-unchanged env CC="$cc" lake build fvtracec
-    allow c-header-cached test "$(wc -l <"$log")" -eq "$count"
 }
 
 probe_mutate() { allow mutation-scanner node --test tools/probes/mutate.test.mjs; }

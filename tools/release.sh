@@ -22,10 +22,8 @@ die() {
     exit 1
 }
 
-sha256() {
-    if command -v sha256sum >/dev/null; then sha256sum -- "$1"; else shasum -a 256 -- "$1"; fi |
-        cut -d' ' -f1
-}
+# shellcheck source=tools/sha256.sh
+source "$root/tools/sha256.sh"
 
 # `a` ≤ `b` for dotted versions.
 version_le() { [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" == "$1" ]]; }

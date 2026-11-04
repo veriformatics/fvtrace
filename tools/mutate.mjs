@@ -48,9 +48,7 @@ const inRanges = (/** @type {number} */ line) =>
   ranges.some(([a = 1, b = a]) => a <= line && line <= b);
 const timeoutMs = Number(values.timeout) * 1000;
 const original = readFileSync(file, "utf8");
-// A copy on disk + signal handlers restore the target even when the run is interrupted.
 const backup = `${file}.mutate-backup`;
-writeFileSync(backup, original);
 const restore = () => {
   writeFileSync(file, original);
   rmSync(backup, { force: true });
@@ -66,14 +64,6 @@ const killCurrent = () => {
     }
   }
 };
-// The loop awaits each child, so these handlers run mid-campaign.
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
-  process.on(signal, () => {
-    killCurrent();
-    restore();
-    process.exit(130);
-  });
-}
 
 /**
  * Byte ranges of comments, strings + chars, which are never mutated.
@@ -173,10 +163,19 @@ for (const op of operators) {
 }
 sites.sort((a, b) => a.pos - b.pos);
 if (values.list) {
-  restore();
   for (const s of sites) process.stdout.write(`${file}:${s.line} ${s.from} → ${s.to}\n`);
   process.stdout.write(`mutants: ${sites.length}\n`);
   process.exit(0);
+}
+// A campaign: a copy on disk + signal handlers restore the target even when it is interrupted.
+writeFileSync(backup, original);
+// The loop awaits each child, so these handlers run mid-campaign.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(signal, () => {
+    killCurrent();
+    restore();
+    process.exit(130);
+  });
 }
 
 /**

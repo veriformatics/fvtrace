@@ -14,7 +14,8 @@ version="${2:?usage: pin-wasm.sh emsdk|lean VERSION}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-if command -v sha256sum >/dev/null 2>&1; then sha256=(sha256sum); else sha256=(shasum -a 256); fi
+# shellcheck source=tools/sha256.sh
+source "$root/tools/sha256.sh"
 
 # Commit of a tag (peeled when annotated).
 commit_of() {
@@ -30,7 +31,7 @@ manifest() {
     git -C "$dir" -c core.autocrlf=false fetch -q --depth 1 --filter=blob:none "$url" "$commit"
     git -C "$dir" sparse-checkout set --no-cone "${@/#//}"
     git -C "$dir" -c core.autocrlf=false -c advice.detachedHead=false checkout -q FETCH_HEAD
-    (cd "$dir" && find "${@%/}" -type f | LC_ALL=C sort | xargs -r "${sha256[@]}" | "${sha256[@]}" |
+    (cd "$dir" && find "${@%/}" -type f | LC_ALL=C sort | xargs -r "${sha256_cmd[@]}" | "${sha256_cmd[@]}" |
         cut -d' ' -f1)
 }
 
@@ -58,7 +59,7 @@ emsdk)
     while read -r platform path; do
         url="$base/$path"
         curl -fsSL --retry 3 -o "$work/archive" "$url"
-        digest="$("${sha256[@]}" "$work/archive" | cut -d' ' -f1)"
+        digest="$("${sha256_cmd[@]}" "$work/archive" | cut -d' ' -f1)"
         lines+="emsdk $version $platform $digest $url"$'\n'
     done <<EOF
 darwin-aarch64 mac/$rev/wasm-binaries-arm64.tar.xz
