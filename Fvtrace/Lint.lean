@@ -31,8 +31,8 @@ def rules : List (String × List Level × Kind × String) :=
      "draws an inference but needs no statistical fact"),
    ("L-interpretation", [.causal], .interpretation,
      "asserts a cause but needs no interpretation fact naming the identification assumptions"),
-   ("L-release", [.release], .release, "concerns publication but needs no release fact"),
-   ("L-estimand", [.estimand], .estimand, "defines an estimand but needs no estimand fact")]
+   ("L-release", [.release], .release, "concerns publication but needs no publication fact"),
+   ("L-estimand", [.estimand], .estimand, "defines a measurement but needs no measurement fact")]
 
 /-- Every role warning, in claim order then rule order, read through `L`. -/
 def warningsWith (L : Lookups) (t : Trace) : List Warning :=

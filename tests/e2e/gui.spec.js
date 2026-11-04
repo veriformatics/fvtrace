@@ -455,7 +455,7 @@ test.describe("the feature fixture", () => {
     await expect(page.locator("#checks")).toBeVisible();
     // The engine's message opens with the claim's id; the row shows that id once, as its link.
     await expect(page.locator("#check-list .plain-row").first()).toHaveText(
-      /^C1 concerns publication but needs no release fact/,
+      /^C1 concerns publication but needs no publication fact/,
     );
   });
 });
