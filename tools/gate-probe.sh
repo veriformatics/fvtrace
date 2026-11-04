@@ -619,6 +619,22 @@ probe_empty_inputs() {
     expect empty-lean-style 'no Lean file selected' bash "$repo/tools/lean-style.sh"
 }
 
+# lean.md layout: a Spec file importing Proofs or holding a theorem + a shipped module importing
+# Lean each fail lean-style.
+probe_layout() {
+    keep Fvtrace/Spec/Fast.lean
+    printf 'import Fvtrace.Proofs.Answers\n' | cat - Fvtrace/Spec/Fast.lean >"$backup/spec" &&
+        cp "$backup/spec" Fvtrace/Spec/Fast.lean
+    expect layout-spec-imports-proofs 'Spec imports Proofs' bash tools/lean-style.sh
+    keep Fvtrace/Spec/Fast.lean
+    printf '\ntheorem planted : True := trivial\n' >>Fvtrace/Spec/Fast.lean
+    expect layout-spec-theorem 'Spec holds a theorem' bash tools/lean-style.sh
+    keep Fvtrace/Render.lean
+    printf 'import Lean\n' | cat - Fvtrace/Render.lean >"$backup/render" &&
+        cp "$backup/render" Fvtrace/Render.lean
+    expect layout-shipped-lean 'shipped module imports Lean' bash tools/lean-style.sh
+}
+
 probe_mutate() { allow mutation-scanner node --test tools/probes/mutate.test.mjs; }
 probe_install() { allow install-attempt-bound bash tests/tools/install-bound.sh; }
 probe_load() {
@@ -645,7 +661,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
