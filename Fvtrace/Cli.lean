@@ -20,87 +20,144 @@ import Fvtrace.Version
 namespace Fvtrace.Cli
 open Fvtrace.Json
 
-def usage : String :=
-  "usage: fvtrace <command> [options]\n\n" ++
+/-- One entry of the command list: the `fvtrace` word it starts with, its block in `usage`
+(synopsis line, then description lines), and the shared paragraphs that apply to it. -/
+structure Command where
+  name : String
+  block : List String
+  /-- Works on a project: `--project` + `--trace`. -/
+  project : Bool := true
+  /-- Reads `--whatif`, `--action`, `--cached` or `--json`. -/
+  evaluates : Bool := false
+
+def commands : List Command := [
+  { name := "init",
+    block := ["  init",
+      "      Create the trace of the project and show where it is. The new trace is",
+      "      valid and claims nothing."] },
+  { name := "path",
+    block := ["  path",
+      "      Print the location of the trace of the project."] },
+  { name := "check",
+    block := ["  check [--strict] [--json]",
+      "      Check the trace, and the receipt of each verified fact against the project",
+      "      folder. With --strict, a warning without a waiver, a stale receipt or a",
+      "      failed replay also fails the check.",
+      "      It reads the evidence files of every verified fact again."],
+    evaluates := true },
+  { name := "pin",
+    block := ["  pin [--replay [--timeout S]]",
+      "      Record the sha256 of each evidence artifact and statement in the trace.",
+      "      With --replay, first run each replay command of the trace in the project",
+      "      folder and record the sha256 of its output. A replay that fails keeps the",
+      "      pin and leaves a notice on its fact until a later replay passes."] },
+  { name := "verify",
+    block := ["  verify [--run [--timeout S] | --log] [--json]",
+      "      List the replay command of each fact. With --run, run each command in the",
+      "      project folder: it passes when it exits with 0 and its output is unchanged",
+      "      since pin --replay. A failed replay leaves a notice on its fact in the",
+      "      trace, and a passing replay removes it. An output that pin --replay did",
+      "      not record fails the replay but leaves no notice. A command runs with",
+      "      your rights: run only the commands of a trace that you trust.",
+      "      With --log, show every replay that ran for this project and how it ended."] },
+  { name := "review",
+    block := ["  review --reviewer NAME [--note TEXT]",
+      "      Record that NAME reviewed the current content of the trace."] },
+  { name := "claims",
+    block := ["  claims [--question Q]",
+      "      Show what the analysis can and cannot claim, by question and verdict."],
+    evaluates := true },
+  { name := "gaps",
+    block := ["  gaps",
+      "      Show the facts whose verification makes the most claims available, and the",
+      "      violated facts."],
+    evaluates := true },
+  { name := "experiments",
+    block := ["  experiments",
+      "      Show the suggested experiments, ranked by the claims that they make",
+      "      available when they succeed."],
+    evaluates := true },
+  { name := "plan",
+    block := ["  plan CLAIM",
+      "      Show the cheapest coherent experiments that raise CLAIM as far as the",
+      "      suggestions allow."],
+    evaluates := true },
+  { name := "eval",
+    block := ["  eval [--details ITEM | --complete]",
+      "      Print the full evaluation as JSON (fvtrace.evaluation/2). --details ITEM",
+      "      prints the details of one item: experiment:ID (its prerequisites, what",
+      "      its success raises and the claims it changes), claim:ID (its sentence,",
+      "      the facts it needs that exclude each other, and its full plan) or fact:ID",
+      "      (the experiments that raise it). --complete prints the evaluation and the",
+      "      details of every item."],
+    evaluates := true },
+  { name := "export",
+    block := ["  export --html FILE | --bundle DIR",
+      "      Share the claims. --html writes one page that opens in any browser and",
+      "      evaluates what-ifs there, offline. --bundle writes the trace and copies of",
+      "      its evidence files for another computer with fvtrace."] },
+  { name := "serve",
+    block := ["  serve [--port N] [--host ADDRESS] [--token-file FILE] [--cached] [--no-browser]",
+      "      Show the claims in your browser: the command opens it. The port is 8718",
+      "      by default (0 = any free port). With --no-browser, or where it cannot open",
+      "      a browser (an SSH session), it prints a link to open instead. With --host,",
+      "      computers on your network can open the page at ADDRESS. The page is not",
+      "      encrypted: share it on a network that you trust. With --token-file, the",
+      "      server takes its secret token from FILE (at least 32 letters, digits, - or",
+      "      _), for a proxy that logs users in and sends the token for them. The",
+      "      command then opens no browser and prints no link."] },
+  { name := "schema",
+    block := ["  schema",
+      "      Print the JSON Schema of the trace format."],
+    project := false },
+  { name := "skills",
+    block := ["  skills install [--agent claude|agents] [--dir DIR]",
+      "      Install the fvtrace skill for coding agents: Claude Code reads it from",
+      "      ~/.claude/skills, other agents from ~/.agents/skills (both by default)."],
+    project := false },
+  { name := "skills",
+    block := ["  skills show",
+      "      Print the skill's instructions."],
+    project := false }]
+
+/-- Where a command finds its project + trace. -/
+def projectText : String :=
   "fvTrace keeps one trace for each project folder in its data folder (FVTRACE_HOME,\n" ++
   "else the data folder of the platform). A command works on the project in the\n" ++
   "current folder.\n" ++
   "  --project DIR   Use the project in the folder DIR.\n" ++
-  "  --trace FILE    Read the trace in FILE (for example, a draft) instead.\n\n" ++
-  "Commands:\n" ++
-  "  init\n" ++
-  "      Create the trace of the project and show where it is. The new trace is\n" ++
-  "      valid and claims nothing.\n" ++
-  "  path\n" ++
-  "      Print the location of the trace of the project.\n" ++
-  "  check [--strict] [--json]\n" ++
-  "      Check the trace, and the receipt of each verified fact against the project\n" ++
-  "      folder. With --strict, a warning without a waiver, a stale receipt or a\n" ++
-  "      failed replay also fails the check.\n" ++
-  "      It reads the evidence files of every verified fact again.\n" ++
-  "  pin [--replay [--timeout S]]\n" ++
-  "      Record the sha256 of each evidence artifact and statement in the trace.\n" ++
-  "      With --replay, first run each replay command of the trace in the project\n" ++
-  "      folder and record the sha256 of its output. A replay that fails keeps the\n" ++
-  "      pin and leaves a notice on its fact until a later replay passes.\n" ++
-  "  verify [--run [--timeout S] | --log] [--json]\n" ++
-  "      List the replay command of each fact. With --run, run each command in the\n" ++
-  "      project folder: it passes when it exits with 0 and its output is unchanged\n" ++
-  "      since pin --replay. A failed replay leaves a notice on its fact in the\n" ++
-  "      trace, and a passing replay removes it. An output that pin --replay did\n" ++
-  "      not record fails the replay but leaves no notice. A command runs with\n" ++
-  "      your rights: run only the commands of a trace that you trust.\n" ++
-  "      With --log, show every replay that ran for this project and how it ended.\n" ++
-  "  review --reviewer NAME [--note TEXT]\n" ++
-  "      Record that NAME reviewed the current content of the trace.\n" ++
-  "  claims [--question Q]\n" ++
-  "      Show what the analysis can and cannot claim, by question and verdict.\n" ++
-  "  gaps\n" ++
-  "      Show the facts whose verification makes the most claims available, and the\n" ++
-  "      violated facts.\n" ++
-  "  experiments\n" ++
-  "      Show the suggested experiments, ranked by the claims that they make\n" ++
-  "      available when they succeed.\n" ++
-  "  plan CLAIM\n" ++
-  "      Show the cheapest coherent experiments that raise CLAIM as far as the\n" ++
-  "      suggestions allow.\n" ++
-  "  eval [--details ITEM | --complete]\n" ++
-  "      Print the full evaluation as JSON (fvtrace.evaluation/2). --details ITEM\n" ++
-  "      prints the details of one item: experiment:ID (its prerequisites, what\n" ++
-  "      its success raises and the claims it changes), claim:ID (its sentence,\n" ++
-  "      the facts it needs that exclude each other, and its full plan) or fact:ID\n" ++
-  "      (the experiments that raise it). --complete prints the evaluation and the\n" ++
-  "      details of every item.\n" ++
-  "  export --html FILE | --bundle DIR\n" ++
-  "      Share the claims. --html writes one page that opens in any browser and\n" ++
-  "      evaluates what-ifs there, offline. --bundle writes the trace and copies of\n" ++
-  "      its evidence files for another computer with fvtrace.\n" ++
-  "  serve [--port N] [--host ADDRESS] [--token-file FILE] [--cached] [--no-browser]\n" ++
-  "      Show the claims in your browser: the command opens it. The port is 8718\n" ++
-  "      by default (0 = any free port). With --no-browser, or where it cannot open\n" ++
-  "      a browser (an SSH session), it prints a link to open instead. With --host,\n" ++
-  "      computers on your network can open the page at ADDRESS. The page is not\n" ++
-  "      encrypted: share it on a network that you trust. With --token-file, the\n" ++
-  "      server takes its secret token from FILE (at least 32 letters, digits, - or\n" ++
-  "      _), for a proxy that logs users in and sends the token for them. The\n" ++
-  "      command then opens no browser and prints no link.\n" ++
-  "  schema\n" ++
-  "      Print the JSON Schema of the trace format.\n" ++
-  "  skills install [--agent claude|agents] [--dir DIR]\n" ++
-  "      Install the fvtrace skill for coding agents: Claude Code reads it from\n" ++
-  "      ~/.claude/skills, other agents from ~/.agents/skills (both by default).\n" ++
-  "  skills show\n" ++
-  "      Print the skill's instructions.\n\n" ++
+  "  --trace FILE    Read the trace in FILE (for example, a draft) instead.\n"
+
+/-- The options the evaluating commands share. -/
+def sharedText : String :=
   "claims, gaps, experiments, plan and eval accept --whatif FACT=STATUS,... to\n" ++
   "suppose statuses, --action ID to apply a suggested what-if from the evaluation\n" ++
   "(such as plan:C2) on top of them, and --cached to reuse the digest of an\n" ++
   "evidence file that kept its size and modification time (faster for large\n" ++
   "files, but it misses an edit that keeps both). check, claims, gaps,\n" ++
-  "experiments and plan accept --json for machine output.\n" ++
-  "  --version   Print the fvTrace version.\n" ++
-  "  --help      Print this help.\n\n" ++
+  "experiments and plan accept --json for machine output.\n"
+
+def exitText : String :=
   "Exit status: 0 = success, 1 = an invalid or failing trace, 2 = a usage or read\n" ++
   "error.\n"
+
+def usage : String :=
+  "usage: fvtrace <command> [options]\n\n" ++ projectText ++ "\nCommands:\n" ++
+  String.join (commands.map fun c => String.join (c.block.map (· ++ "\n"))) ++ "\n" ++
+  sharedText ++ "  --version   Print the fvTrace version.\n" ++
+  "  --help      Print this help.\n\n" ++ exitText
+
+/-- `fvtrace <name> --help`: the command's own block(s), each synopsis as a usage line, then the
+shared paragraphs that apply to it. -/
+def commandUsage (name : String) : Option String :=
+  match commands.filter (·.name == name) with
+  | [] => none
+  | cs@(c :: _) =>
+    let line := fun (l : String) =>
+      if l.startsWith "      " then l else "usage: fvtrace " ++ (l.drop 2).toString
+    some <| String.join (cs.map fun c => String.join (c.block.map (line · ++ "\n"))) ++
+      (if c.project then "\n" ++ projectText else "") ++
+      (if c.evaluates then "\n" ++ sharedText else "") ++ "\n" ++ exitText
 
 def say (line : String) : IO Unit := IO.println (Render.safe line)
 def complain (line : String) : IO Unit := IO.eprintln (Render.safe line)
@@ -1120,8 +1177,16 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   repeat IO.sleep 3600000
   return 0
 
+/-- `fvtrace <command> … --help` (or `-h`): that command's usage, when it names one. -/
+def helpOf : List String → Option String
+  | cmd :: rest => if rest.any (fun a => a == "--help" || a == "-h") then commandUsage cmd else none
+  | [] => none
+
 /-- Exit codes: 0 = success, 1 = an invalid or failing trace, 2 = usage or read error. -/
 def dispatch (env : Store.Env) (args : List String) : IO UInt32 := do
+  if let some text := helpOf args then
+    IO.print text
+    return 0
   match args with
   | ["--version"] => IO.println s!"fvtrace {version}"; pure 0
   | ["--help"] | ["-h"] => IO.print usage; pure 0
@@ -1166,6 +1231,8 @@ def run (args : List String) : IO UInt32 := withIOErrors do
     match args with
     | ["--version"] | ["--help"] | ["-h"] | ["schema"] | [] =>
       dispatch { home := ".", cwd := "." } args
-    | _ => complain s!"fvtrace: {m}"; pure 2
+    | _ =>
+      if (helpOf args).isSome then dispatch { home := ".", cwd := "." } args
+      else complain s!"fvtrace: {m}"; pure 2
 
 end Fvtrace.Cli
