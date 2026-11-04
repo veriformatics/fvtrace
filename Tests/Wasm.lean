@@ -2,7 +2,7 @@ import FvtraceWasm
 import Tests.Harness
 
 namespace Tests.Wasm
-open Tests FvtraceWasm
+open Tests FvtraceWasm System
 
 /-! ## Planted modules, byte by byte -/
 
@@ -43,12 +43,18 @@ def has (s sub : String) : Bool := (s.splitOn sub).length > 1
 
 def pureTests : TestM Unit := do
   let bytes := fun (s : String) => s.toUTF8
+  -- A zero byte ending the needle: a scan past the hay's end reads 0 there (`get!`'s default).
   checkEq "wasm: occurs finds a needle at the start, middle + end, and nowhere else"
     ([("ab", "abxy"), ("xy", "abxy"), ("bx", "abxy"), ("abxy", "abxy"), ("", "a"), ("ya", "abxy"),
-      ("abxyz", "abxy"), ("yy", "abxy")].map fun (n, h) => Binary.occurs (bytes n) (bytes h))
-    [true, true, true, true, true, false, false, false]
+      ("abxyz", "abxy"), ("yy", "abxy"), ("\x00", "ab"), ("b\x00", "ab")].map fun (n, h) =>
+        Binary.occurs (bytes n) (bytes h))
+    [true, true, true, true, true, false, false, false, false, false]
   checkEq "wasm: a module carrying mimalloc's message prefix keeps the allocator contract"
     (Binary.allocatorProblems (bytes "\x00data mimalloc: error: %s\x00")) []
+  let app := fun (ps : Array String) => (Build.appOrder (ps.map (⟨·⟩))).map (·.toString)
+  checkEq "wasm: the app's C links sorted by path, repeats kept"
+    (app #["z.c", "y.c", "a.c", "z.c"], app #["z.c", "a.c", "z.c", "y.c"])
+    (#["a.c", "y.c", "z.c", "z.c"], #["a.c", "y.c", "z.c", "z.c"])
   checkEq "wasm: a module without it (dlmalloc) breaks it"
     (Binary.allocatorProblems (bytes "\x00data mimalloc: warn\x00"))
     ["links an allocator other than mimalloc"]
@@ -186,6 +192,10 @@ def markerTests : TestM Unit := do
     check "wasm: a marker without its folder does not count"
       (!(← Build.verified marker tree "pins"))
     IO.FS.createDirAll tree
+    IO.FS.removeFile marker
+    check "wasm: a folder without its marker does not count"
+      (!(← Build.verified marker tree "pins"))
+    IO.FS.writeFile marker "pins"
     check "wasm: a marker beside its folder counts for its own pins alone"
       ((← Build.verified marker tree "pins") && !(← Build.verified marker tree "other"))
     Build.replaceDir tree marker
@@ -236,8 +246,115 @@ def writeTests : TestM Unit := do
         (match result with | .ok _ => "write succeeded" | .error e => toString e)
       if left then unlink rsp
 
+/-- An executable `sh` script `dir / name` running `body`. -/
+def script (dir : FilePath) (name body : String) : IO FilePath := do
+  let p := dir / name
+  IO.FS.writeFile p s!"#!/bin/sh\n{body}\n"
+  discard <| IO.Process.output { cmd := "chmod", args := #["+x", p.toString] }
+  return p
+
+def sh (cmd : String) (args : Array String) : IO Unit := do
+  let out ← IO.Process.output { cmd, args }
+  unless out.exitCode == 0 do throw (IO.userError s!"{cmd} {args}: {out.stderr}")
+
+/-- sha256("header\n") + the `sha256sum` manifest of `include/a.h` holding it, computed by
+coreutils `sha256sum` (an oracle apart from the shipped digest). -/
+def headerSha : String := "565f129f4727ecb986814e0278dd2d0b21521159ac19a1292403826302d62462"
+def headerManifestSha : String :=
+  "396f445451f6f5166af3b5a19f23cb91623c58299eb34d1442ecc74d82034c84"
+
+def configIn (dir : FilePath) : Build.Config :=
+  { root := dir, cache := dir / "cache", lean := "lean", leanSrc := dir, githash := "g",
+    appC := #[], out := dir / "engine.b64" }
+
+/-- The fetch + generate steps on local stand-ins (POSIX: `sh` scripts, `curl` on a `file://`
+URL, `tar`, `git` from a local repository), observed through their results. -/
+def fetchTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let tree := dir / "tree"
+    IO.FS.createDirAll (tree / "include")
+    IO.FS.writeFile (tree / "include" / "a.h") "header\n"
+    IO.FS.writeFile (tree / "b.txt") "other\n"
+    checkEq "wasm: files lists a folder's files by their path inside the tree"
+      (← Build.files tree ["include/"]) [("include/a.h", headerSha)]
+    if System.Platform.isWindows then return
+    let old ← script dir "py-old" "echo False"
+    let failing ← script dir "py-failing" "echo True; exit 1"
+    let good ← script dir "py-good" "echo True"
+    let missing := (dir / "py-missing").toString
+    -- Output that is not UTF-8 makes the probe throw (a missing command exits 255 instead).
+    let garbled ← script dir "py-garbled" "printf '\\377True\\n'"
+    checkEq "wasm: Python = the first candidate that runs, exits 0 and is 3.10 or later"
+      (← Build.pythonFrom [old.toString, failing.toString, missing, garbled.toString,
+        good.toString]) good.toString
+    let refused ← (Build.pythonFrom [old.toString, missing]).toBaseIO
+    check "wasm: no usable Python names the floor"
+      (match refused with | .error e => has (toString e) "Python 3.10 or later" | .ok _ => false)
+    -- Emscripten: a fresh cache downloads the pinned archive, verifies + extracts it.
+    IO.FS.createDirAll (dir / "sdk" / "install" / "bin")
+    IO.FS.writeFile (dir / "sdk" / "install" / "bin" / "emcc") "stub\n"
+    sh "tar" #["-cf", (dir / "sdk.tar").toString, "-C", (dir / "sdk").toString, "install"]
+    let sdk : Lock.Entry := { name := "emsdk", version := "0.0.1", key := "linux-x86_64",
+                              sha256 := ← Fvtrace.Digest.ofFile (dir / "sdk.tar"),
+                              url := s!"file://{dir / "sdk.tar"}" }
+    match ← (Build.emsdk (configIn dir) sdk).toBaseIO with
+    | .ok install =>
+      check "wasm: a fresh cache fetches, checks + extracts the pinned Emscripten"
+        (← (install / "bin" / "emcc").pathExists)
+    | .error e =>
+      check "wasm: a fresh cache fetches, checks + extracts the pinned Emscripten" false
+        (toString e)
+    -- A pinned tree: fetched at its commit, verified by its manifest digest, marked.
+    let repo := dir / "repo"
+    IO.FS.createDirAll repo
+    IO.FS.rename (tree / "include") (repo / "include")
+    IO.FS.rename (tree / "b.txt") (repo / "b.txt")
+    let git := fun (args : Array String) => sh "git" (#["-C", repo.toString, "-c", "user.name=t",
+      "-c", "user.email=t@t", "-c", "commit.gpgsign=false"] ++ args)
+    git #["init", "-q"]
+    git #["add", "-A"]
+    git #["commit", "-qm", "fixture"]
+    let head := (← IO.Process.output { cmd := "git", args := #["-C", repo.toString, "rev-parse",
+      "HEAD"] }).stdout.trimAscii.toString
+    let pin : Lock.Entry := { name := "fixture", version := "1", key := head,
+                              sha256 := headerManifestSha, url := repo.toString }
+    match ← (Build.gitTree (configIn dir) pin ["include/"]).toBaseIO with
+    | .ok got =>
+      check "wasm: a pinned tree fetches at its commit + verifies by its manifest"
+        ((← (got / "include" / "a.h").pathExists) &&
+          (← (dir / "cache" / s!"fixture-{head}.verified").pathExists))
+    | .error e =>
+      check "wasm: a pinned tree fetches at its commit + verifies by its manifest" false
+        (toString e)
+    let wrong := { pin with name := "wrong", sha256 := String.ofList (List.replicate 64 '0') }
+    let r ← (Build.gitTree (configIn dir) wrong ["include/"]).toBaseIO
+    check "wasm: a tree whose manifest differs from its pin is refused, unmarked"
+      ((match r with | .error e => has (toString e) s!"manifest sha256 {headerManifestSha}"
+                     | .ok _ => false) &&
+        !(← (dir / "cache" / s!"wrong-{head}.verified").pathExists))
+    -- Init's C: one file per module from the installed compiler (a stub writing its -c output),
+    -- a missing one regenerated alone.
+    let src := dir / "leansrc"
+    IO.FS.createDirAll (src / "Init")
+    IO.FS.writeFile (src / "Init.lean") ""
+    IO.FS.writeFile (src / "Init" / "A.lean") ""
+    let calls := dir / "lean-calls"
+    let lean ← script dir "lean-stub" s!"printf x >>'{calls}'
+while [ $# -gt 0 ]; do [ \"$1\" = -c ] && printf '/* C */' >\"$2\"; shift; done"
+    let cfg := { configIn dir with lean, leanSrc := src }
+    let cs ← Build.initC cfg
+    check "wasm: Init's C = one generated file per module" (cs.size == 2 &&
+      (← cs.allM fun c => c.pathExists))
+    IO.FS.removeFile (cs[0]!)
+    IO.FS.removeFile (cfg.cache / "init-c-g.complete")
+    IO.FS.writeFile calls ""
+    let again ← Build.initC cfg
+    check "wasm: a missing module's C is generated again, alone"
+      ((← again.allM fun c => c.pathExists) && (← IO.FS.readFile calls) == "x")
+
 /-- The archive check on a planted file (SHA-256 over FFI: native suite). -/
 def nativeTests : TestM Unit := do
+  fetchTests
   IO.FS.withTempDir fun dir => do
     let f := dir / "archive.tar.xz"
     IO.FS.writeFile f "planted"

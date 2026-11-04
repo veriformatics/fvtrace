@@ -53,9 +53,9 @@ def run (cmd : String) (args : Array String) (cwd : Option FilePath := none)
     (env : Array (String × Option String) := #[]) : IO String :=
   return (← runOut cmd args cwd env).stdout
 
-/-- `python3` or `python`, whichever is Python 3.10 or later (Emscripten's floor). -/
-def python : IO String := do
-  for cand in ["python3", "python"] do
+/-- The first of `cands` that runs as Python 3.10 or later (Emscripten's floor). -/
+def pythonFrom (cands : List String) : IO String := do
+  for cand in cands do
     let ok ← try
         let out ← IO.Process.output
           { cmd := cand, args := #["-c", "import sys; print(sys.version_info >= (3, 10))"] }
@@ -63,6 +63,8 @@ def python : IO String := do
       catch _ => pure false
     if ok then return cand
   fail "the page engine build needs Python 3.10 or later on PATH (python3 or python)"
+
+def python : IO String := pythonFrom ["python3", "python"]
 
 /-- Runs `tasks` on Lean's thread pool (one worker per processor); every failure is counted, the
 first five shown. -/
@@ -269,6 +271,10 @@ def initC (cfg : Config) : IO (Array FilePath) := do
 
 /-! ## Compile + link -/
 
+/-- The app's C in link order: sorted by path, repeats kept, whatever order the caller passes
+(a different order moves functions: different bytes). -/
+def appOrder (cs : Array FilePath) : Array FilePath := cs.qsort fun a b => slashed a < slashed b
+
 structure Tools where
   python : String
   emcc : FilePath
@@ -362,11 +368,10 @@ def build (input : Config) : IO Unit := do
   -- Absolute paths: compiles run inside the cache folder.
   let here ← IO.currentDir
   let abs := fun (p : FilePath) => if p.isAbsolute then p else here / p
-  -- App C sorted: with the sorted Init list + CMake's runtime order it fixes the link order,
-  -- whatever order the caller passes (a different order moves functions: different bytes).
+  -- App C sorted: with the sorted Init list + CMake's runtime order it fixes the link order.
   let cfg := { input with root := abs input.root, cache := abs input.cache,
                           leanSrc := abs input.leanSrc, out := abs input.out,
-                          appC := (input.appC.map abs).qsort fun a b => slashed a < slashed b }
+                          appC := appOrder (input.appC.map abs) }
   let lock ← match Lock.parse (← IO.FS.readFile (cfg.root / "tools" / "wasm.lock")) with
     | .ok es => pure es
     | .error m => fail m
