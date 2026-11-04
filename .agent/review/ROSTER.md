@@ -72,3 +72,7 @@ Background jobs (MAIN):
 - V-mutation C (pending): `.scratch/mut-c` FvtraceWasm/{Build,Binary,Lock}.
 
 Pending: K-* fixes (F46–F52, F54, F55) after correctness merges. Needs user: F13 test expectation; Worker silence deadline (E-abi vs Capability first); per-command --help (register).
+
+Session 2026-11-04 (resume after template refresh):
+- consultant-1 (consultant, sol): rules V-mutation survivors A + B (M1–M37) → `.agent/review/consultant-1.md`, validator `rg -c '^\| M[0-9]+ \|.*\bunknown\b'` → 0, marker `consultant-1-DONE-1`. State: running.
+- Campaign C: local heavy slot, `.scratch/mut-c` (48bc51d copy) `FvtraceWasm/{Build,Binary,Lock}` (43 + 59 + 25 mutants), FULLTEST `lake test` → `.scratch/review/main/mut/c.log`, per-file `.scratch/mut-c/mut-logs/`. State: running (bg shell).

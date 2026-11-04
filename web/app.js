@@ -319,7 +319,8 @@ function readHash() {
   view.filter = f === "dry" || f === "wet" ? f : "all";
 }
 
-function writeHash() {
+/** @param {boolean} [replace] replaces the current entry (a view that never showed) */
+function writeHash(replace = false) {
   const p = new URLSearchParams();
   if (view.spec) p.set("whatif", view.spec);
   if (view.question) p.set("q", view.question);
@@ -327,7 +328,9 @@ function writeHash() {
   if (view.selection) p.set("select", `${view.selection.kind}:${view.selection.id}`);
   if (view.filter !== "all") p.set("filter", view.filter);
   const hash = p.toString();
-  if (hash !== location.hash.slice(1)) history.pushState(null, "", hash ? `#${hash}` : "#");
+  if (hash === location.hash.slice(1)) return;
+  if (replace) history.replaceState(null, "", hash ? `#${hash}` : "#");
+  else history.pushState(null, "", hash ? `#${hash}` : "#");
 }
 
 /** @param {string} message */
@@ -585,7 +588,15 @@ async function load(action, link = false) {
         writeHash();
         await load();
         showError(`${problem.message}. This page shows the facts as recorded instead.`);
-      } else showError(problem.message);
+      } else {
+        // A refused action superseded any pending symbol's what-if: the address returns to the
+        // view on screen (it held the pending one, which never showed).
+        if (action && view.spec !== spec) {
+          view.spec = spec;
+          writeHash(true);
+        }
+        showError(problem.message);
+      }
       return;
     }
     if (answer.kind !== "envelope") throw new DecodeError("expected an envelope");

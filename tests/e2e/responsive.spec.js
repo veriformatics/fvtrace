@@ -444,6 +444,47 @@ test("an action while a symbol answer is pending expands the shown view", async 
   await expect(page.locator("#scenario-text")).not.toContainText("O2 is verified");
 });
 
+test("a refused action leaves the address on the shown view, not a superseded what-if", async ({
+  page,
+}) => {
+  web = await serveFvtrace();
+  await page.goto(web.url);
+  await card(page, "C2").waitFor();
+  await page.locator('[data-key="experiment:E3"]').click();
+  await expect(page.locator("#inspector")).toHaveAttribute("data-details", "ready");
+  /** @type {(() => void) | undefined} */
+  let release;
+  await page.route("**/api/answer", async (route) => {
+    /** @type {unknown} */
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    if (isRecord(body) && body["action"] !== undefined)
+      return route.fulfill({
+        status: 400,
+        json: { problem: { kind: "action", message: "No such action" } },
+      });
+    if (isRecord(body) && body["details"] === undefined && body["whatif"] === "O2=checked")
+      await new Promise((resolve) => {
+        release = () => resolve(undefined);
+      });
+    return route.continue();
+  });
+  await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+  await expect.poll(() => release !== undefined).toBe(true);
+  await page
+    .locator("#inspector")
+    .getByRole("button", { name: "Suppose it succeeds", exact: true })
+    .click();
+  // One evaluation in flight: the action waits for the symbol's answer, which it supersedes.
+  release?.();
+  await expect(page.locator("#error")).toHaveText("No such action");
+  // web.md: the address hash holds the view; the page shows the facts as recorded.
+  await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
+  await expect.poll(() => new URL(page.url()).hash).not.toContain("whatif=");
+  await page.reload();
+  await card(page, "C2").waitFor();
+  await expect(page.locator("#scenario-text")).toContainText("Showing the facts as recorded.");
+});
+
 for (const mismatch of ["overrides", "header"])
   test(`details for another ${mismatch} view stay pending`, async ({ page }) => {
     const served = await serveFvtrace();
