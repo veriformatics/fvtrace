@@ -372,7 +372,7 @@ fanout() {
     return $rc
 }
 
-# Cross-workflow relations no workflow linter reads (ops.md CI, release.md, wasm.md CI cache),
+# Cross-workflow relations no workflow linter reads (ci.md, release.md, wasm.md CI cache),
 # matched by text like fanout's step: the release targets (publish's archive list) = build.yml's
 # matrix = installed's; installed runs macOS on the floor's runner; Python + the engine cache come
 # before every Lean build; the cache key holds what changes every engine object. `${{ … }}` here =
