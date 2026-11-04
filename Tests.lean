@@ -56,7 +56,7 @@ def native : TestM Unit := do
   area "receipt" Tests.Receipt.tests
   area "cli-store" do
     Tests.CliStore.tests; Tests.CliStore.referenceTests; Tests.CliStore.cacheTests
-    Tests.CliStore.filesystemTests; Tests.CliStore.labelTests
+    Tests.CliStore.filesystemTests; Tests.CliStore.labelTests; Tests.Cli.sizeCapTests
   area "server-native" do Tests.Server.nativeTests; Tests.Server.answerTests
   area "export-native" do Tests.Export.nativeTests; Tests.Export.bundleSizeTests
   area "plan-scale" Tests.Engine.scaleTests

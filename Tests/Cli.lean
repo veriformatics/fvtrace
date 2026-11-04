@@ -55,6 +55,15 @@ def bindTests : TestM Unit := do
   checkEq "serve: a token of 31 characters is refused" (Fvtrace.Cli.tokenOf (hex.drop 1).toString)
     none
   checkEq "serve: an empty token file is refused" (Fvtrace.Cli.tokenOf "\n") none
+  -- server.md: a run's token = 16 random bytes, hex.
+  let t1 ← Fvtrace.Cli.newToken
+  let t2 ← Fvtrace.Cli.newToken
+  check "serve: a run's token is 32 lowercase hex digits, new each run"
+    (t1.length == 32 && t1.all (fun c => c.isDigit || ('a' ≤ c && c ≤ 'f')) && t1 != t2) t1
+  -- kernel.md § Replay, Log: `at` = the local date-time, two digits each field.
+  checkEq "replay log: a run's time stamp pads each field to two digits"
+    (Fvtrace.Cli.stampOf "2000-01-02" 10 9 0, Fvtrace.Cli.stampOf "2000-01-02" 23 59 10)
+    (("2000-01-02", "2000-01-02T10:09:00"), ("2000-01-02", "2000-01-02T23:59:10"))
   for bad in [" ", "+", "/", "=", ".", "é", "\x00"] do
     checkEq s!"serve: a token holding {repr bad} is refused" (Fvtrace.Cli.tokenOf s!"{hex}{bad}x")
       none
@@ -181,6 +190,23 @@ def writeTests : TestM Unit := do
       ((result matches .error _) && (← blocked.isDir) && (← blocked.readDir).isEmpty &&
         !(← (dir / "blocked.fvtrace-tmp").pathExists))
       (match result with | .ok _ => "write succeeded" | .error e => toString e)
+
+/-- kernel.md D-json: a trace of exactly 16 MiB is written; one byte more is refused, the file
+left as it was. Native (`cli-store` area): a 16 MiB string costs ~45 s under the interpreter. -/
+def sizeCapTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let t0 ← fixture
+    let sized := fun (n : Nat) =>
+      { t0 with analysis := { t0.analysis with summary := String.ofList (List.replicate n 'x') } }
+    let base := (Fvtrace.Encode.trace (sized 1)).pretty.utf8ByteSize
+    let atCap := sized (1 + Fvtrace.maxTraceBytes - base)
+    let capFile := dir / "cap.json"
+    Fvtrace.Cli.writeTrace capFile atCap
+    checkEq "write: a trace of exactly the size limit is written"
+      (← capFile.metadata).byteSize.toNat Fvtrace.maxTraceBytes
+    let over ← (Fvtrace.Cli.writeTrace capFile (sized (2 + Fvtrace.maxTraceBytes - base))).toBaseIO
+    check "write: one byte past the size limit is refused, the file kept"
+      ((over matches .error _) && (← capFile.metadata).byteSize.toNat == Fvtrace.maxTraceBytes)
 
 /-- A trace is read only from a regular file and only up to one byte past the size limit. -/
 def readTests : TestM Unit := do

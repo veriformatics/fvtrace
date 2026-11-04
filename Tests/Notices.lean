@@ -420,11 +420,11 @@ def logTests : TestM Unit := withFixture fun f => do
   let (rc, out, _) ← f.run ["verify", "--log"]
   check "notices log: text renders failure for the project's own trace"
     (rc == 0 && out == s!"{atText} verify O1: failed (exit 7)\n") out
-  let (rc, out, _) ← f.run ["verify", "--log", "--json"]
-  check "notices log: JSON exposes entries + path"
+  let (rc, out, err) ← f.run ["verify", "--log", "--json"]
+  check "notices log: JSON exposes entries + path, no skipped-line notice"
     (rc == 0 && member (parsed out) "log" ==
         .str ((← IO.FS.realPath f.entry) / "replays.log").toString &&
-      member (parsed out) "runs" == .arr events) out
+      member (parsed out) "runs" == .arr events && err.isEmpty) (out ++ err)
   let before ← readIf logPath
   IO.FS.writeFile f.trace "{"
   let (rc, out, _) ← f.run ["verify", "--log", "--json"]
@@ -442,11 +442,16 @@ def logTests : TestM Unit := withFixture fun f => do
       \"trace\":\"t\",\"passed\":1,\"reasons\":[]}"]
   let invalid := invalid ++ ([.num 1, .bool true, .null, .obj [], .arr []] : List J).map
     fun bad => (put accepted "reasons" (some (.arr [.str "valid", bad]))).canonical
+  IO.FS.writeFile logPath (before ++ "{}\n")
+  let (rc, out, err) ← f.run ["verify", "--log", "--json"]
+  check "notices log: one malformed entry is skipped + named, once"
+    (rc == 1 && same (member (parsed out) "runs") (.arr events) &&
+      err.startsWith "fvtrace: 1 line(s) of ") (out ++ err)
   IO.FS.writeFile logPath (before ++ "\n".intercalate invalid ++ "\n" ++ accepted.canonical ++ "\n")
   let (rc, out, err) ← f.run ["verify", "--log", "--json"]
-  check "notices log: malformed entries skipped + counted, loose valid entry retained"
+  check "notices log: malformed entries skipped + counted once each, loose valid entry retained"
     (rc == 1 && same (member (parsed out) "runs") (.arr (events ++ [accepted])) &&
-      has err s!"{invalid.length}") (out ++ err)
+      err.startsWith s!"fvtrace: {invalid.length} line(s) of ") (out ++ err)
   let (rc, out, _) ← f.run ["verify", "--log"]
   check "notices log: foreign trace is named"
     (rc == 1 && has out "custom time custom run custom id: passed in elsewhere.json") out
@@ -464,6 +469,17 @@ def logTests : TestM Unit := withFixture fun f => do
   check "notices log: append failure rc 2, reported once, remaining verifier runs"
     (rc == 2 && has err "replays.log" &&
       ((err.splitOn "\n").filter (!·.isEmpty)).length == 1 && (← marker.pathExists)) err
+  -- The same under `pin --replay`: both passing replays pin their output; one notice, rc 2.
+  let value := editReplay (editReplay value (put · "output" none)) (put · "output" none)
+    (position := 1)
+  let value := f.setCommand value ["out:output.bin"]
+  write f.trace value
+  let (rc, _, err) ← f.run ["pin", "--replay"]
+  let pinnedNow ← readJson f.trace
+  check "notices log: pin --replay append failure rc 2, reported once, every output pinned"
+    (rc == 2 && count err "cannot write the replay log" == 1 &&
+      member (replayOf pinnedNow) "output" != .null &&
+      member (replayOf pinnedNow (position := 1)) "output" != .null) err
 
 /-- A log is independent of a draft's location + initialization. -/
 def freshTests : TestM Unit := withFixture fun f => do

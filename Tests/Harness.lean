@@ -80,6 +80,9 @@ def unlink (link : System.FilePath) : IO Unit :=
 exception fails the area as one more check and the next areas still run, so one run (a CI job on
 another platform) reports every failure. -/
 def area (name : String) (suite : TestM Unit) : TestM Unit := do
+  -- `FVTRACE_TEST_AREAS=a,b` runs those areas alone (a mutation run's focused suite); unset = all.
+  if let some only ← IO.getEnv "FVTRACE_TEST_AREAS" then
+    unless (only.splitOn ",").contains name do return
   let t0 ← IO.monoMsNow
   try suite catch e => check s!"{name}: the area runs to its end" false (toString e)
   let ms := (← IO.monoMsNow) - t0
