@@ -878,7 +878,7 @@ def skillsCmd (args : List String) : IO UInt32 := do
     for root in roots do
       match ← installSkill root with
       | .ok dir => say s!"Installed the fvtrace skill in {dir}"
-      | .error m => complain s!"fvtrace: {m}"; rc := 1
+      | .error m => complain s!"fvtrace: {m}"; rc := 2
     if rc == 0 then say "Start a new session of your coding agent to load it."
     return rc
   | _ => usageError "skills takes install [--agent claude|agents] [--dir DIR], or show"
