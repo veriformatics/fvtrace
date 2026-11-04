@@ -427,7 +427,15 @@ provision() {
     return $rc
 }
 
-spec() { sh .agent/spec-lint .agent/spec.md; }
+# The spec's shape (spec-lint = the shared template's copy) + the repo's own instruction + state
+# files (tools/meta-lint.mjs: rule frontmatter + globs, Artifacts paths, deferred acceptance,
+# retired prototypes).
+spec() {
+    local rc=0
+    sh .agent/spec-lint .agent/spec.md || rc=1
+    node tools/meta-lint.mjs || rc=1
+    return $rc
+}
 
 # CLAUDE.md Authoring's filler words, cut from the human-facing text outside the GUI: README,
 # SECURITY, the skill, the CLI's help + messages (the Lean sources). GUI copy = review judgment.
