@@ -9,6 +9,8 @@ paths:
   - "tools/vendor-hacl.sh"
   - "renovate.json"
   - "tools/refresh-lock.sh"
+  - "tools/fetch-tools.sh"
+  - "tools/pin-tool.sh"
   - ".github/workflows/**"
 ---
 

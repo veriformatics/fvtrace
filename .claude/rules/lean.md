@@ -5,11 +5,15 @@ paths:
   - "*.lean"
   - "lakefile.lean"
   - "lean-toolchain"
+  - "tools/lean-style.sh"
+  - "tools/trust.sh"
+  - "tools/statement.sh"
 ---
 
 # Lean sources
 
 - Layout: `Fvtrace/Spec*` = the human-read layer: claims as `Prop`-valued `def`s (type aliases reduce before classification; no proofs, no `theorem`); `Fvtrace/Proofs*` = `theorem name : Spec.Claim := …`, never imported by Spec; implementation modules = the shipped code the claims mention. `fvtrace-trust` fails a claim with no proof, a proof axiom beyond `propext` · `Classical.choice` · `Quot.sound`, an escape hatch (`implemented_by` · `extern` · `unsafe` · `partial` (compiles to `opaque`) · `opaque`) in a proof's closure (its statement + transitive definition values + inductive constructors; theorem bodies stay unwalked: `ConstantInfo.value?` returns none for theorems without `allowOpaque`, and a proof body changes no compiled code — its axioms are collected separately), a statement that reaches no non-spec `Fvtrace.*` constant, or a shipped module whose direct OS capabilities (`process`, file `read` + `write`, `network`, `environment`) differ from `capabilityAllowlist` (`TrustMain.lean`; no scanner reads Lean, so a new use is reviewed for its security reach, then listed; an unused entry fails too). Probes `capability` (a file read planted in `Fvtrace/Server.lean`, a handle opened with a mode passed as a value, an unused entry) fire: `bash tools/gate-probe.sh capability`.
+- Style = `tools/lean-style.sh` (gate `lean-style`): tabs, trailing whitespace, lines over 100 columns, no final newline (probe `lean_style`) + the layout law above: `Fvtrace/Spec*` importing `Fvtrace.Proofs*` or holding a `theorem`/`lemma`, a shipped module importing `Lean` (probe `layout`).
 - Trust regressions: `bash tools/gate-probe.sh trust` includes `trust-ctor` (constructor-only opaque dependency) + `trust-alias`, `trust-alias-def`, `trust-alias-irreducible` (unproved claims behind each type-alias reducibility).
 - `native_decide` adds a non-standard axiom ⇒ banned in proofs; `decide` / `simp` / `rfl` stay within the standard three. `decide` reduces `String.length` + `≠ ""` on literals, not `String.splitOn`.
 - Kernel code is total: structural or `termination_by` recursion. `partial` stays out of every proof closure (`fvtrace-trust` fails one there); outside them it is allowed (IO shells, the JSON printers `Value.beq`/`canonical`/`pretty`).

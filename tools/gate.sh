@@ -88,13 +88,14 @@ secrets     checks
 workflows   checks
 fanout      checks
 spec        checks
+filler      checks
 shell       checks
 meta        checks
 '
 
 # Read-only checks that need neither the build nor the fetched tools: they run side by side (the full
 # gate + the fast gate), each log printed whole, in this order, with its own wall-clock.
-TOGETHER='lean-style js-format js-lint js-types js-test fanout spec shell meta'
+TOGETHER='lean-style js-format js-lint js-types js-test fanout spec filler shell meta'
 together_log=""
 together_pids=()
 together_names=()
@@ -138,7 +139,20 @@ stage_names() { awk 'NF { print $1 }' <<<"$STAGES"; }
 # Every shard STAGES names, once each, in first-use order.
 shard_names() { awk 'NF { for (i = 2; i <= NF; i++) if (!seen[$i]++) print $i }' <<<"$STAGES"; }
 
-tools() { bash tools/fetch-tools.sh; }
+tools() { bash tools/fetch-tools.sh && tools_local; }
+
+# Tools install project-local: each name tools/tools.lock pins resolves to .tools/bin first.
+tools_local() {
+    local rc=0 name found
+    while read -r name; do
+        found="$(command -v "$name" || true)"
+        if [[ "$found" != "$root/.tools/bin/$name" ]]; then
+            printf 'tools: %s resolves to "%s", not %s\n' "$name" "$found" "$root/.tools/bin/$name" >&2
+            rc=1
+        fi
+    done < <(awk 'NF && $1 !~ /^#/ { print $1 }' tools/tools.lock | sort -u)
+    return $rc
+}
 
 # Lean has no formatter in the 4.35 toolchain; this holds the mechanical layout rules.
 lean_style() { bash tools/lean-style.sh; }
@@ -415,6 +429,17 @@ provision() {
 
 spec() { sh .agent/spec-lint .agent/spec.md; }
 
+# CLAUDE.md Authoring's filler words, cut from the human-facing text outside the GUI: README,
+# SECURITY, the skill, the CLI's help + messages (the Lean sources). GUI copy = review judgment.
+filler() {
+    local hits
+    hits="$(git grep -n -i -w -E 'simply|robust(ly)?|seamless(ly)?|leverag(e|es|ed|ing)' -- \
+        README.md SECURITY.md skill Fvtrace Main.lean)"
+    [[ -z "$hits" ]] && return 0
+    printf 'filler: words that human-facing text cuts (CLAUDE.md Authoring):\n%s\n' "$hits" >&2
+    return 1
+}
+
 # Every shell script: `*.sh` + each other file whose shebang names sh or bash (`.agent/spec-lint`).
 shell() {
     local files=()
@@ -459,8 +484,21 @@ meta() {
     return $rc
 }
 
+# Untracked files outside .gitignore, sorted.
+untracked() { git ls-files --others --exclude-standard | sort; }
+
+# A gate run leaves no untracked, unignored file: each new one = an output .gitignore lacks, or a
+# stage that no longer cleans up after itself. $1 = `untracked` before the run.
+leftovers() {
+    local new
+    new="$(comm -13 <(printf '%s\n' "$1") <(untracked))"
+    [[ -z "$new" ]] && return 0
+    printf 'leftovers: the run left files that are neither tracked nor ignored:\n%s\n' "$new" >&2
+    return 1
+}
+
 main() {
-    local start shard="" rows row name shards secs
+    local start shard="" rows row name shards secs before
     if [[ $# -gt 0 ]]; then
         if [[ $# -ne 2 || "$1" != --shard ]] || ! shard_names | grep -x -F -- "$2" >/dev/null; then
             printf 'usage: tools/gate.sh [--shard %s]\n' "$(shard_names | paste -sd'|' -)" >&2
@@ -469,6 +507,7 @@ main() {
         shard="$2"
     fi
     start="$(stamp)"
+    before="$(untracked)"
     ledger_begin "gate${shard:+:$shard}"
     # An array, not a `while read` loop: stages keep the caller's stdin.
     mapfile -t rows <<<"$STAGES"
@@ -481,6 +520,7 @@ main() {
     together_start "${together[@]}"
     for name in "${picked[@]}"; do stage "$name" "${name//-/_}"; done
     together_finish
+    stage leftovers leftovers "$before"
     printf '\n=== gate%s ===\n' "${shard:+ (shard $shard)}"
     secs="$(elapsed "$start")"
     if [[ ${#failed[@]} -ne 0 ]]; then
