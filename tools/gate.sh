@@ -178,7 +178,14 @@ node_tests() {
     for d in "$@"; do
         compgen -G "$d*.test.mjs" >/dev/null || { printf 'no test file in %s\n' "$d" >&2; return 1; }
     done
-    node --test "$@"
+    local out rc
+    out="$(node --test "$@" 2>&1)"
+    rc=$?
+    printf '%s\n' "$out"
+    # ops.md: a suite names its three slowest parts (top-level tests, by their reported time).
+    sed -nE 's/^[✔✖] (.+) \(([0-9.]+)ms\)$/\2\t\1/p' <<<"$out" | sort -t$'\t' -k1,1 -rn | head -3 |
+        awk -F'\t' '{ printf "%s%s %.0f ms", (NR > 1 ? ", " : "slowest: "), $2, $1 } END { if (NR) print "" }'
+    return "$rc"
 }
 
 engine() { node_tests tests/engine/; }
