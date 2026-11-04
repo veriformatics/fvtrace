@@ -22,7 +22,12 @@ fv() { (cd "$tmp/proj" && env -i PATH="$PATH" "$@"); }
 
 mkdir -p "$tmp/home" "$tmp/xdg" "$tmp/proj/proofs"
 printf 'theorem contrast_correct : True := trivial\n' >"$tmp/proj/proofs/Contrast.lean"
-before="$(cd "$tmp/proj" && find . -print0 | sort -z | xargs -0 sha256sum 2>/dev/null)"
+# Every entry's type + path (an added empty folder counts), then every file's digest.
+inventory() {
+    (cd "$tmp/proj" && find . -printf '%y %p\n' | sort && find . -type f -print0 | sort -z |
+        xargs -0 sha256sum)
+}
+before="$(inventory)"
 
 fv HOME="$tmp/home" "$bin" --version >/dev/null
 expect "--version rc" 0 $?
@@ -178,7 +183,7 @@ if [[ "$(uname -s)" == Linux ]]; then
 fi
 
 rm -rf "$tmp/proj/rel"
-after="$(cd "$tmp/proj" && find . -print0 | sort -z | xargs -0 sha256sum 2>/dev/null)"
+after="$(inventory)"
 expect "project folder unchanged" "$before" "$after"
 
 [[ $fail -eq 0 ]] && printf 'cli smoke: ok\n'

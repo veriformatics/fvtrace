@@ -282,6 +282,13 @@ probe_cli() {
     chmod +x "$stub"
     expect cli-data-folder 'FAIL FVTRACE_HOME holds the trace' \
         env FVTRACE_SMOKE_BIN="$stub" bash tests/cli/smoke.sh
+    # A binary that adds an empty folder to the project (a file is no harder to see).
+    local mkdir="$backup/fvtrace-adds-folder"
+    printf '#!/usr/bin/env bash\nmkdir -p fvtrace-planted-folder\nexec %q "$@"\n' \
+        "$root/.lake/build/bin/fvtrace" >"$mkdir"
+    chmod +x "$mkdir"
+    expect cli-project-folder 'FAIL project folder unchanged' \
+        env FVTRACE_SMOKE_BIN="$mkdir" bash tests/cli/smoke.sh
 }
 
 probe_lean_pure() {

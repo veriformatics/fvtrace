@@ -65,6 +65,36 @@ def labelTests : TestM Unit := do
       (rc == 2 && out.isEmpty &&
         err.startsWith "fvtrace: give --question or --json, not both\n") err
 
+/-- kernel.md V-cli: each `--json` projection = exactly its spelled members, each the envelope's
+(the expected side never goes through `Cli.project` or `Cli.projectionKeys`). -/
+def projectionTests (run : List String → IO (UInt32 × String × String)) : TestM Unit := do
+  let (rc, evalOut, _) ← run ["eval"]
+  checkEq "cli: eval rc" rc 0
+  let some envelope := (Json.parse evalOut.toUTF8).toOption
+    | check "cli: eval prints JSON" false evalOut
+  -- kernel.md V-cli spells each projection's members; the expected side picks them from the
+  -- envelope itself (never through `Cli.project` or `Cli.projectionKeys`).
+  let header := ["schema", "mode", "overrides", "trace"]
+  let pick := fun (keys : List String) =>
+    Json.Value.obj ((fields envelope).filter fun (k, _) => keys.contains k)
+  let projections := [("claims", header ++ ["subjects", "counts", "claims"]),
+    ("gaps", header ++ ["work", "blockers"]), ("experiments", header ++ ["experiments"])]
+  for (cmd, keys) in projections do
+    let (rc, out, _) ← run [cmd, "--json"]
+    checkEq s!"cli: {cmd} --json rc" rc 0
+    let got := (Json.parse out.toUTF8).toOption
+    check s!"cli: {cmd} --json = exactly V-cli's members, each the envelope's"
+      (got == some (pick keys) && ((got.map fields).getD []).length == keys.length) out
+  let (rc, out, _) ← run ["plan", "C2", "--json"]
+  checkEq "cli: plan --json rc" rc 0
+  let parsed := (Json.parse out.toUTF8).toOption
+  check "cli: plan --json = the envelope's projection + the claim + its full plan"
+    ((parsed.map fun v => (fields v).filter (·.1 != "plan")) ==
+        some (fields (pick header) ++
+          [("claim", (claimOf envelope "C2").getD .null)]) &&
+      (parsed.bind (field · "plan")).any fun p =>
+        (field p "result").isSome && (field p "alternatives").isSome) out
+
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do
   let fixture ← fixture
@@ -171,27 +201,7 @@ def tests : TestM Unit := do
       let (rc, _, err) ← run ["claims", "--whatif", spec]
       check s!"cli: the refused what-if {spec} exits 2, its token first"
         (rc == 2 && count err s!"fvtrace: {message}\n" == 1) err
-    let (rc, evalOut, _) ← run ["eval"]
-    checkEq "cli: eval rc" rc 0
-    let some envelope := (Json.parse evalOut.toUTF8).toOption
-      | check "cli: eval prints JSON" false evalOut
-    let projections := [("claims", ["subjects", "counts", "claims"]),
-      ("gaps", ["work", "blockers"]), ("experiments", ["experiments"])]
-    for (cmd, keys) in projections do
-      let (rc, out, _) ← run [cmd, "--json"]
-      checkEq s!"cli: {cmd} --json rc" rc 0
-      check s!"cli: {cmd} --json = the envelope's projection"
-        ((Json.parse out.toUTF8).toOption == some (Cli.project envelope
-          (Cli.projectionKeys ++ keys))) out
-    let (rc, out, _) ← run ["plan", "C2", "--json"]
-    checkEq "cli: plan --json rc" rc 0
-    let parsed := (Json.parse out.toUTF8).toOption
-    check "cli: plan --json = the envelope's projection + the claim + its full plan"
-      ((parsed.map fun v => (fields v).filter (·.1 != "plan")) ==
-          some (fields (Cli.project envelope Cli.projectionKeys) ++
-            [("claim", (claimOf envelope "C2").getD .null)]) &&
-        (parsed.bind (field · "plan")).any fun p =>
-          (field p "result").isSome && (field p "alternatives").isSome) out
+    projectionTests run
     let (rc, out, _) ← run ["plan", "C2"]
     checkEq "cli: plan rc" rc 0
     check "cli: plan names the claim"
