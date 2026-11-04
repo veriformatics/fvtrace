@@ -272,17 +272,12 @@ def costOf (t : Trace) (ids : List String) : List Nat :=
   let efforts := ids.filterMap fun id => (t.experiment? id).map (·.effort)
   [Effort.months, .weeks, .days, .hours].map fun e => (efforts.filter (· == e)).length
 
-def lexLt : List Nat → List Nat → Bool
+/-- Lexicographic `<` (a proper prefix is smaller): plan costs + plan ids. -/
+def lexLt {α : Type} [LT α] [DecidableLT α] [BEq α] : List α → List α → Bool
   | [], [] => false
   | [], _ :: _ => true
   | _ :: _, [] => false
   | a :: as, b :: bs => a < b || (a == b && lexLt as bs)
-
-def idsLt : List String → List String → Bool
-  | [], [] => false
-  | [], _ :: _ => true
-  | _ :: _, [] => false
-  | a :: as, b :: bs => a < b || (a == b && idsLt as bs)
 
 /-- Plan search stops claiming an optimum above this many relevant experiments. -/
 def maxRelevant : Nat := 20
@@ -336,7 +331,7 @@ def planBetter (c : Claim) (a b : List String) : Bool :=
   let ra := ((s.applySuccess a).final c).rank
   let rb := ((s.applySuccess b).final c).rank
   ra > rb || (ra == rb && (lexLt (costOf s.trace a) (costOf s.trace b) ||
-    (costOf s.trace a == costOf s.trace b && idsLt a b)))
+    (costOf s.trace a == costOf s.trace b && lexLt a b)))
 
 /-- The highest state a success set can give `c` when it applies at most what this scenario
 applies: needs read on `eff1` (a derived violation or a conflict on the subject only lowers a

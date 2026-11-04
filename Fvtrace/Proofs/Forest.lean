@@ -32,12 +32,6 @@ theorem reaches_trans {A : Array (Option Nat)} {p q r : Nat} (h1 : Reaches A p q
   | refl => exact h2
   | step h _ ih => exact .step h (ih h2)
 
-theorem reaches_le {A : Array (Option Nat)} (hdec : Decreasing A) {p q : Nat} (h : Reaches A p q) :
-    q ≤ p := by
-  induction h with
-  | refl => exact Nat.le_refl _
-  | step h _ ih => exact Nat.le_trans ih (Nat.le_of_lt (hdec _ _ h))
-
 theorem reaches_link {A : Array (Option Nat)} {p q r : Nat} (h : A[p]? = some (some r)) :
     Reaches A p q ↔ q = p ∨ Reaches A r q := by
   constructor

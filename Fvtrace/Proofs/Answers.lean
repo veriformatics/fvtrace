@@ -552,6 +552,10 @@ theorem counts_state (eff : String → EStatus) (rests : String → Bool) (needs
   dsimp only
   rw [← h1, ← h2, ← h3]
 
+theorem memo_final_core (cx : Ctx) (sc : Scenario) (core : Core) (c : Claim) :
+    (ClaimMemo.of cx sc core c).final = Core.final cx sc core c := by
+  simp only [ClaimMemo.of, Core.final, Core.intrinsic, counts_state]
+
 /-- Counts after the moved needs change tests = the counts recomputed. -/
 theorem patch_eq (e e' : String → EStatus) (r r' : String → Bool) (needs occ : List String)
     (moved : String → Bool) (hocc : occ.Perm (needs.filter moved))
@@ -770,6 +774,12 @@ theorem shifts_at (xs : List Exclusion) (before after : Exclusion → Bool) (sub
         xs.countP fun x => x.subject == sub && after x) := by
   unfold Shifts.at Shifts.of
   dsimp only
+  have hys : ∀ k, ((Index.ofKeys compare (xs.map (·.subject))).group (cmp := compare) k).filterMap
+      (xs.toArray[·]?) = xs.filter (·.subject == k) := by
+    intro k
+    rw [group_map, read_positions]
+    exact zipIdx_filter_fst xs (·.subject == k)
+  simp only [hys]
   have hcount : ∀ q : Exclusion → Bool,
       ((xs.filter (·.subject == sub)).filter q).length =
         xs.countP fun x => x.subject == sub && q x := by
@@ -897,9 +907,6 @@ structure CoreSpec (s : Scenario) (k : Core) : Prop where
   active : k.active = s.active
   activeCount : ∀ sub, k.activeCount sub = (s.conflicts sub).length
 
-theorem coreSpec : CoreSpec s (coreOf s) :=
-  ⟨eff1_eq s, eff_eq s, active_eq s, activeCount_eq s⟩
-
 theorem delta_core {k : Core} (hk : CoreSpec s k) :
     Delta.build (cxOf s) s k extra = deltaOf s extra := by
   have h1 : k.eff1 = (coreOf s).eff1 := hk.eff1.trans (eff1_eq s).symm
@@ -1015,8 +1022,7 @@ theorem memo_final (extra : Overrides) (p : Nat) (hp : p < s.trace.claims.length
 
 theorem memo_base_final (p : Nat) (hp : p < s.trace.claims.length) :
     (ClaimMemo.of (cxOf s) s (coreOf s) s.trace.claims[p]).final = s.final s.trace.claims[p] := by
-  show Core.final (cxOf s) s (coreOf s) _ = _
-  rw [final_eq]
+  rw [memo_final_core, final_eq]
 
 theorem unlocks_eq (f : Fact) :
     unlocksOf (cxOf s) s (coreOf s)
@@ -1130,7 +1136,7 @@ theorem moves_eq :
     movesUnder (cxOf s) s (coreOf s)
       (Thunk.mk fun _ => (cxOf s).claims.map (ClaimMemo.of (cxOf s) s (coreOf s))) extra =
       s.moves (afterOf s extra) := by
-  unfold movesUnder Scenario.moves
+  unfold movesUnder Scenario.moves touchedSubjects
   dsimp only
   rw [show (Delta.build (cxOf s) s (coreOf s) extra) = deltaOf s extra from rfl, touched_subjects,
     eraseDups_eq]
@@ -1742,7 +1748,7 @@ theorem memoAt_eq {α : Type} {key : List String} {v : α} {f : List String → 
 theorem plan_eq (closure : List String → List String) (hcl : closure = s.closure) (c : Claim) :
     planOf (cxOf s) closure s (coreOf s) c = s.plan c := by
   subst hcl
-  unfold planOf Scenario.plan Scenario.best
+  unfold planOf Scenario.plan Scenario.best relevantPositions
   dsimp only
   rw [memoAt_eq
     (f := fun ids => Delta.build (cxOf s) s (coreOf s) (raisedBy (cxOf s) (coreOf s) ids)) rfl]

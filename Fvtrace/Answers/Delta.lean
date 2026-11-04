@@ -294,9 +294,12 @@ structure Shifts where
 
 def Shifts.of (xs : List Exclusion) (before after : Exclusion → Bool) : Shifts :=
   let subjects := Index.eraseDups compare (xs.map (·.subject))
+  -- One index groups `xs` by subject: a filter per subject cost subjects × exclusions.
+  let bySubject := Index.ofKeys compare (xs.map (·.subject))
+  let arr := xs.toArray
   { ix := Index.ofKeys compare subjects
     counts := (subjects.map fun sub =>
-      let ys := xs.filter (·.subject == sub)
+      let ys := (bySubject.group (cmp := compare) sub).filterMap (arr[·]?)
       ((ys.filter before).length, (ys.filter after).length)).toArray }
 
 /-- A subject's pair of counts ((0, 0) for a subject none of `xs` is on). -/
@@ -361,12 +364,13 @@ structure ClaimMemo where
   incompatible : Bool
   final : State
 
+/-- `final` from the counts + incompatibility it holds (= `Core.final`: `memo_final_core`). -/
 def ClaimMemo.of (cx : Ctx) (s : Scenario) (core : Core) (c : Claim) : ClaimMemo :=
   let needs := c.needsAll
-  { needs, needsCount := needs.length
-    counts := Counts.of core.eff (Core.restsOn cx core) needs
-    incompatible := !(Core.incompatible cx s c).isEmpty
-    final := Core.final cx s core c }
+  let counts := Counts.of core.eff (Core.restsOn cx core) needs
+  let incompatible := !(Core.incompatible cx s c).isEmpty
+  { needs, needsCount := needs.length, counts, incompatible
+    final := if core.valid c.subject then counts.state incompatible else .cannot }
 
 end Fvtrace.Answers
 
@@ -437,14 +441,16 @@ end Ctx
 
 /-! ## The record -/
 
+/-- The subjects of the exclusions at `δ`'s keys, each once. -/
+def touchedSubjects (cx : Ctx) (δ : Delta) : List String :=
+  Index.eraseDups compare (δ.touched.filterMap fun p => (cx.exclusions[p]?).map (·.subject))
+
 /-- The scenario's moves under the what-if `extra` (`Scenario.moves`): only claims needing a
 changed id, or on a subject whose validity may move (an exclusion at a key), can move. -/
 def movesUnder (cx : Ctx) (s : Scenario) (core : Core) (memo : Thunk (Array ClaimMemo))
     (extra : Overrides) : List Scenario.Move :=
   let δ := Delta.build cx s core extra
-  let subjects := Index.eraseDups compare (δ.touched.filterMap fun p =>
-    (cx.exclusions[p]?).map (·.subject))
-  let flipped := subjects.filter fun sub => δ.valid sub != core.valid sub
+  let flipped := (touchedSubjects cx δ).filter fun sub => δ.valid sub != core.valid sub
   let cands := ascending (δ.changed.flatMap (cx.gates.group (cmp := compare) ·) ++
     flipped.flatMap (cx.claimSubject.group (cmp := compare) ·))
   cands.filterMap fun p => (cx.claims[p]?).bind fun c =>
@@ -485,7 +491,7 @@ def searchWith (closure : List String → List String) (validAfter : List String
     let p := closure inc
     if validAfter p && (let ra := finalRank p; let rb := finalRank best
         ra > rb || (ra == rb && (lexLt (cost p) (cost best) ||
-          (cost p == cost best && idsLt p best)))) then p else best
+          (cost p == cost best && lexLt p best)))) then p else best
   | inc, r :: rest, best =>
     let lo := closure inc
     let skip := if !validAfter lo then true
@@ -523,6 +529,12 @@ def raisingPositions (cx : Ctx) (core : Core) (needs : List String) : List Nat :
   ascending (needs.flatMap fun n => (cx.touches.group (cmp := compare) n).filterMap fun i =>
     (cx.entries[i]?).bind fun e => if core.raises n e.2 then some e.1 else none)
 
+/-- `Scenario.relevant c`'s positions: success entries raising a need, on the claim's
+subject. -/
+def relevantPositions (cx : Ctx) (core : Core) (needs : List String) (subject : String) :
+    List Nat :=
+  (raisingPositions cx core needs).filter fun p => (cx.experiments[p]?).any (·.subject == subject)
+
 /-- The first of each run of entries at one position: one left fold carrying the previous
 position (`List.zip` recurses once per entry, past the page engine's WebAssembly stack). -/
 def firstPerRun (l : List (Nat × Status)) : List (Nat × Status) :=
@@ -557,8 +569,7 @@ whose nodes read deltas over the claim's own counts. -/
 def planOf (cx : Ctx) (closure : List String → List String) (s : Scenario) (core : Core)
     (c : Claim) : PlanResult :=
   let needsAll := c.needsAll
-  let relPos := (raisingPositions cx core needsAll).filter fun p =>
-    (cx.experiments[p]?).any (·.subject == c.subject)
+  let relPos := relevantPositions cx core needsAll c.subject
   let rel := relPos.filterMap (cx.experiments[·]?)
   let cov := coverageOf cx core needsAll (Index.ofKeys compare relPos)
   if !core.valid c.subject then .inconsistent cov
