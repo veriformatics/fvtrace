@@ -126,7 +126,7 @@ def skillTests : TestM Unit := do
         (FvtraceSkill.files.lookup "SKILL.md").get!)
     IO.FS.removeFile (dir / "fvtrace" / ".fvtrace-skill")
     let (rc, out, err) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir", dir.toString])
-    checkEq "skills: a folder fvtrace did not write is refused" rc 1
+    checkEq "skills: a folder fvtrace did not write is refused" rc 2
     check "skills: a refused install does not say it loads"
       (count out "Start a new session" == 0) out
     check "skills: the refusal names the folder"
@@ -141,7 +141,7 @@ def skillTests : TestM Unit := do
     check "skills: the linked skill folder exists" linked
     let (rc, _, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--dir",
       (dir / "skills").toString])
-    checkEq "skills: a linked skill folder is refused" rc 1
+    checkEq "skills: a linked skill folder is refused" rc 2
     check "skills: the link's target keeps its files" (← (target / "keep.txt").pathExists)
     check "skills: a link reads as a link, its target as a folder"
       ((← Fvtrace.Store.isLink (dir / "skills" / "fvtrace")) && !(← Fvtrace.Store.isLink target))
