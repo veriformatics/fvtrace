@@ -465,7 +465,13 @@ STUB
 # time limit fails too.
 probe_compare() {
     allow compare-oracle-integrity node --test tools/probes/compare.test.mjs
-    expect compare-differ 'DIFF self check \(rc\)' bash tools/compare.sh /bin/true /bin/false
+    # Own stand-ins: a host's /bin/true + /bin/false can be one multicall binary (NixOS coreutils),
+    # which behaves alike once run by its real path, so the planted rc difference vanishes.
+    local yes="$backup/exit-0" no="$backup/exit-1"
+    printf '#!/usr/bin/env bash\nexit 0\n' >"$yes"
+    printf '#!/usr/bin/env bash\nexit 1\n' >"$no"
+    chmod +x "$yes" "$no"
+    expect compare-differ 'DIFF self check \(rc\)' bash tools/compare.sh "$yes" "$no"
     local same="$backup/same-json"
     cat >"$same" <<'STUB'
 #!/usr/bin/env bash
