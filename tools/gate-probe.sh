@@ -343,6 +343,26 @@ probe_filler() {
     expect filler '^README\.md:[0-9]+:This robust tool' filler
 }
 
+# tools/ci-gate.sh on recorded + stubbed GitHub answers: a job cancelled before any step (no
+# runner) is named so; a job with steps prints its normal line; the wait outlasts a `gh run watch`
+# that returns before the run completes (stub: watch fails, status in_progress once).
+probe_ci_gate() {
+    local stub="$backup/gh-stub" ghstate="$backup/gh-state"
+    mkdir -p "$stub"
+    # shellcheck disable=SC2016 # the stub's own expansions
+    printf '#!/usr/bin/env bash\ncase "$1 $2" in\n"run watch") exit 1 ;;\n"run view") n="$(cat %q 2>/dev/null || echo 0)"; echo $((n + 1)) >%q; if [[ $n -ge 1 ]]; then echo completed; else echo in_progress; fi ;;\nesac\n' \
+        "$ghstate" "$ghstate" >"$stub/gh"
+    chmod +x "$stub/gh"
+    allow ci-no-runner bash -c 'source tools/ci-gate.sh; summary <tests/tools/ci-run.json |
+        grep -qxF "portability / build (macos-arm64) cancelled 901s no runner"'
+    allow ci-runner-line bash -c 'source tools/ci-gate.sh; summary <tests/tools/ci-run.json |
+        grep -qxF "gate (lean) success 574s"'
+    # shellcheck disable=SC2016 # the inner script's own expansions
+    allow ci-wait-early env PATH="$stub:$PATH" bash -c 'source tools/ci-gate.sh; sleep() { :; }
+        wait_run 1 && [[ "$(cat "$1")" == 2 ]]' _ "$ghstate"
+    rm -f "$ghstate"
+}
+
 # A gate run leaves no untracked, unignored file (gate.sh `leftovers`, closing every run).
 probe_leftovers() {
     local before
@@ -740,7 +760,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler ci_gate)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
