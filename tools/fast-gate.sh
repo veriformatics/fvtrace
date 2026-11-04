@@ -8,6 +8,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$root" || exit 1
 # shellcheck source=tools/gate.sh
 source tools/gate.sh
+ledger_begin fast
 
 log="$(mktemp -d)"
 trap 'rm -rf "$log"' EXIT
@@ -35,20 +36,26 @@ stage examples examples
 stage engine engine
 if [[ " $* " == *" --e2e "* ]]; then stage e2e e2e; fi
 
+# Their ledger rows come from here, one writer: rows from parallel subshells could interleave.
 for i in "${!names[@]}"; do
     wait "${pids[$i]}"
     rc=$?
+    secs="$(cat "$log/${names[$i]}.time")"
     printf '\n=== %s ===\n' "${names[$i]}"
     cat "$log/${names[$i]}"
-    printf '%s rc=%d %ss\n' "${names[$i]}" "$rc" "$(cat "$log/${names[$i]}.time")"
+    printf '%s rc=%d %ss\n' "${names[$i]}" "$rc" "$secs"
+    ledger_add "${names[$i]}" "$secs" "$rc"
     [[ $rc -eq 0 ]] || failed+=("${names[$i]}")
 done
 
 skipped="tools trust c-analyze vendor audit secrets workflows"
 [[ " $* " == *" --e2e "* ]] || skipped="$skipped e2e"
 printf '\n=== fast gate ===\nskipped: %s\n' "$skipped"
+secs="$(elapsed "$start")"
 if [[ ${#failed[@]} -ne 0 ]]; then
-    printf 'FAILED: %s\nfast-gate rc=1 %ss\n' "${failed[*]}" "$(elapsed "$start")"
+    ledger_add fast-gate "$secs" 1
+    printf 'FAILED: %s\nfast-gate rc=1 %ss\n' "${failed[*]}" "$secs"
     exit 1
 fi
-printf 'fast-gate rc=0 %ss\n' "$(elapsed "$start")"
+ledger_add fast-gate "$secs" 0
+printf 'fast-gate rc=0 %ss\n' "$secs"

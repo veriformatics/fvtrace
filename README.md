@@ -348,6 +348,11 @@ A reviewer checks that each sentence says what its theorem proves.
   the browser tests, the scanners and the format checks. CI runs the same command in parallel
   jobs, one for each group of checks.
 - `bash tools/fast-gate.sh` runs the quick checks while you work.
+- Both commands record the time and the result of each check in `.gate/ledger.tsv`.
+  `bash tools/gate-ledger.sh` lists the failed checks that have no class yet. Before you run a
+  failed check again, give its failure a class:
+  `bash tools/gate-ledger.sh classify CHECK product|gate|flake|planted`.
+  `bash tools/gate-ledger.sh summary` shows the runs, the time and the failures of each check.
 - `bash tools/gate-probe.sh` shows that each purpose-built check fails on a planted error.
 - `bash tools/scale.sh --assert` times the commands, `fvtrace serve`, the engine of an exported
   page and the browser view on generated traces of up to 16 MiB. It grades seven trace shapes.

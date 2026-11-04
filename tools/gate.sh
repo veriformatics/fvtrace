@@ -18,14 +18,47 @@ elapsed() {
     printf '%d.%d' $((us / 1000000)) $((us / 100000 % 10))
 }
 
+# Step ledger: the record of which stages catch defects for their wall-clock. One TSV row per
+# stage per run + the run's total: date · tree (the working tree's content; = `HEAD^{tree}` when
+# clean) · run (`gate[:<shard>]` | `fast` | `ci:<run id>`) · step · seconds · verdict (`green` |
+# `red`); tools/gate-ledger.sh lists + classifies reds. GATE_LEDGER = another file, empty = none.
+ledger="${GATE_LEDGER-$root/.gate/ledger.tsv}"
+ledger_run=""
+
+# Stages run before a run begins (probes) write no rows.
+ledger_begin() {
+    local idx
+    ledger_run="$1"
+    ledger_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    idx="$(mktemp)"
+    # A copy of the index keeps its stat cache, so only changed files are hashed (≈ 0.05 s).
+    ledger_tree="$({ cp -- "$(git rev-parse --git-path index)" "$idx" &&
+        GIT_INDEX_FILE="$idx" git add -A && GIT_INDEX_FILE="$idx" git write-tree; } 2>/dev/null)" ||
+        ledger_tree=-
+    rm -f -- "$idx"
+}
+
+# ledger_add <step> <seconds> <rc>: a row that cannot be written is reported, never a verdict.
+ledger_add() {
+    [[ -n "$ledger_run" && -n "$ledger" ]] || return 0
+    local verdict=green
+    [[ $3 -eq 0 ]] || verdict=red
+    { mkdir -p -- "$(dirname -- "$ledger")" &&
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$ledger_date" "$ledger_tree" "$ledger_run" "$1" "$2" \
+            "$verdict" >>"$ledger"; } 2>/dev/null ||
+        printf 'ledger: cannot append to %s\n' "$ledger" >&2
+}
+
 stage() {
-    local name="$1" start rc
+    local name="$1" start rc secs
     shift
     start="$(stamp)"
     printf '\n=== %s ===\n' "$name"
     "$@"
     rc=$?
-    printf '%s rc=%d %ss\n' "$name" "$rc" "$(elapsed "$start")"
+    secs="$(elapsed "$start")"
+    printf '%s rc=%d %ss\n' "$name" "$rc" "$secs"
+    ledger_add "$name" "$secs" "$rc"
     [[ $rc -eq 0 ]] || failed+=("$name")
     return 0
 }
@@ -254,7 +287,7 @@ meta() {
 }
 
 main() {
-    local start shard="" rows row name shards
+    local start shard="" rows row name shards secs
     if [[ $# -gt 0 ]]; then
         if [[ $# -ne 2 || "$1" != --shard ]] || ! shard_names | grep -x -F -- "$2" >/dev/null; then
             printf 'usage: tools/gate.sh [--shard %s]\n' "$(shard_names | paste -sd'|' -)" >&2
@@ -263,6 +296,7 @@ main() {
         shard="$2"
     fi
     start="$(stamp)"
+    ledger_begin "gate${shard:+:$shard}"
     # An array, not a `while read` loop: stages keep the caller's stdin.
     mapfile -t rows <<<"$STAGES"
     for row in "${rows[@]}"; do
@@ -272,12 +306,16 @@ main() {
         fi
     done
     printf '\n=== gate%s ===\n' "${shard:+ (shard $shard)}"
+    secs="$(elapsed "$start")"
     if [[ ${#failed[@]} -ne 0 ]]; then
+        ledger_add gate "$secs" 1
         printf 'FAILED: %s\n' "${failed[*]}"
-        printf 'gate rc=1 %ss\n' "$(elapsed "$start")"
+        printf 'each red before a rerun: bash tools/gate-ledger.sh classify STAGE product|gate|flake|planted\n'
+        printf 'gate rc=1 %ss\n' "$secs"
         exit 1
     fi
-    printf 'gate rc=0 %ss\n' "$(elapsed "$start")"
+    ledger_add gate "$secs" 0
+    printf 'gate rc=0 %ss\n' "$secs"
 }
 
 # Sourcing exposes the stage functions without running the gate (tools/fast-gate.sh, probes).

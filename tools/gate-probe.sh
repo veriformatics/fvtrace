@@ -518,9 +518,32 @@ probe_locks() {
     expect lock-tools-half-bump 'fetch-tools: actionlint lines name versions' bash tools/fetch-tools.sh
 }
 
+# The step ledger (tools/gate-ledger.sh): a red stage stays listed until a class rules it, the
+# green beside it never is; a class outside the four is refused; the summary counts both rows,
+# the green one's measured seconds + the red one's class.
+probe_ledger() {
+    local log="$backup/ledger.tsv" lg=(env GATE_LEDGER="$backup/ledger.tsv" bash tools/gate-ledger.sh)
+    (ledger="$log" && ledger_begin probe && stage planted-red false && stage planted-green sleep 0.2) >/dev/null
+    expect ledger-unclassified $'\tprobe\tplanted-red\t' "${lg[@]}" reds
+    expect ledger-class 'class must be product, gate, flake or planted' "${lg[@]}" classify planted-red bogus
+    "${lg[@]}" classify planted-red planted
+    allow ledger-classified "${lg[@]}" reds
+    # Columns after the step: runs seconds reds product gate flake planted unclassified.
+    # shellcheck disable=SC2016 # the inner script's own expansions
+    allow ledger-summary bash -c '
+        s="$("$@" summary)" || exit 1
+        grep -E "^planted-green +1 +(0\.[2-9]|[1-9][0-9]*\.[0-9]) +0 " <<<"$s" &&
+            grep -E "^planted-red +1 +[0-9.]+ +1 +0 +0 +0 +1 +0$" <<<"$s"' _ "${lg[@]}"
+    # Two runs begun in the same second on one tree share a row key: one class rules one of them.
+    printf 'D\tT\tprobe\tsame-key\t0.0\tred\n%.0s' 1 2 | "${lg[@]}" append
+    "${lg[@]}" classify same-key product
+    expect ledger-same-key $'\tprobe\tsame-key\t' "${lg[@]}" reds
+    rm -f -- "$log"
+}
+
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks ledger)
 for p in "${probes[@]}"; do "probe_$p"; done
 
 printf '\nprobes: %d passed, %d failed\n' "$passed" "${#failures[@]}"
