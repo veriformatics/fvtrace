@@ -17,11 +17,31 @@ def tests : TestM Unit := do
   let (rc, _, err) ← capture (Fvtrace.Cli.run ["bogus"])
   checkEq "cli: unknown command rc" rc 2
   check "cli: unknown command named" (err.startsWith "fvtrace: unknown command 'bogus'") err
-  for arg in ["unexpected", "--help"] do
-    let (rc, out, err) ← capture (Fvtrace.Cli.run ["schema", arg])
-    check "cli: schema names its unexpected argument, not an unknown command"
-      (rc == 2 && out.isEmpty && count err s!"unexpected argument \"{arg}\"" == 1)
-      err
+  let (rc, out, err) ← capture (Fvtrace.Cli.run ["schema", "unexpected"])
+  check "cli: schema names its unexpected argument, not an unknown command"
+    (rc == 2 && out.isEmpty && count err "unexpected argument \"unexpected\"" == 1) err
+  -- `<command> --help` (user ruling): that command's usage, rc 0; the full usage lists each.
+  let words := ["init", "path", "check", "pin", "verify", "review", "claims", "gaps",
+    "experiments", "plan", "eval", "export", "serve", "schema", "skills"]
+  checkEq "cli: every command has its own usage"
+    (words.filter fun w => (Fvtrace.Cli.commandUsage w).isNone) []
+  checkEq "cli: the full usage carries every command's block"
+    (Fvtrace.Cli.commands.filter fun c =>
+      count Fvtrace.Cli.usage (String.join (c.block.map (· ++ "\n"))) != 1).length 0
+  let (rc, out, err) ← capture (Fvtrace.Cli.run ["claims", "--question", "Q", "--help"])
+  check "cli: claims --help prints its usage + the shared options, rc 0"
+    (rc == 0 && err.isEmpty && out.startsWith "usage: fvtrace claims [--question Q]\n" &&
+      count out "--project DIR" == 1 && count out "--whatif FACT=STATUS" == 1) out
+  let (rc, out, _) ← capture (Fvtrace.Cli.run ["schema", "-h"])
+  check "cli: schema -h prints its usage alone (no project options), rc 0"
+    (rc == 0 && out.startsWith "usage: fvtrace schema\n" && count out "--project" == 0) out
+  let (rc, out, _) ← capture (Fvtrace.Cli.run ["skills", "install", "--help"])
+  check "cli: skills --help prints both skills usages, rc 0"
+    (rc == 0 && count out "usage: fvtrace skills install" == 1 &&
+      count out "usage: fvtrace skills show" == 1) out
+  let (rc, _, err) ← capture (Fvtrace.Cli.run ["bogus", "--help"])
+  check "cli: an unknown command's --help stays a usage error"
+    (rc == 2 && err.startsWith "fvtrace: unknown command 'bogus'") err
   for cmd in ["gaps", "experiments", "plan", "eval"] do
     let args := [cmd] ++ (if cmd == "plan" then ["C"] else []) ++ ["--question", "Q"]
     let (rc, out, err) ← capture (Fvtrace.Cli.run args)

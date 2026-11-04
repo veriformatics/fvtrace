@@ -142,7 +142,8 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
 | `fvtrace skills install` | Installs the skill for coding agents. |
 | `fvtrace schema` | Prints the JSON Schema of the trace format. |
 
-A command works on the project in the current folder. To use another folder, add
+To see the options of one command, run `fvtrace COMMAND --help`. A command works on the project
+in the current folder. To use another folder, add
 `--project DIR`. To read a trace file directly, for example a draft, add `--trace FILE`. To
 suppose other statuses, add `--whatif FACT=STATUS,...` to `claims`, `gaps`, `experiments` or
 `plan`. A what-if is a supposition, not evidence: fvTrace marks each verdict that depends on it.
