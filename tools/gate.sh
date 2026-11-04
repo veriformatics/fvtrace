@@ -158,11 +158,39 @@ cli() { bash tests/cli/smoke.sh; }
 
 # fvTrace's own trace + the synthetic study: valid, every warning waived, every receipt current.
 # A changed file that the self-trace pins (a proof, a spec) stales its receipt until re-pinned.
+# README's self-trace paragraph states its verdict counts in words (examples.md); the engine's
+# counts decide them, and the paragraph covers every claim.
+readme_verdicts() {
+    local counts="$1" rc=0 n verdict want stated=0 total
+    local -A number=([One]=1 [Two]=2 [Three]=3 [Four]=4 [Five]=5 [Six]=6 [Seven]=7 [Eight]=8
+        [Nine]=9 [Ten]=10 [Eleven]=11 [Twelve]=12)
+    local -A state=(["Fully supported"]=can [Conditional]=conditional
+        ["Pending verification"]=open ["Claim not possible"]=cannot)
+    while IFS='|' read -r n verdict; do
+        want="$(jq -r --arg k "${state[$verdict]}" '.[$k]' <<<"$counts")"
+        if [[ "${number[$n]:-}" != "$want" ]]; then
+            printf 'examples: README says %s claims read %s; the self-trace has %s\n' "$n" "$verdict" "$want" >&2
+            rc=1
+        fi
+        stated=$((stated + want))
+    done < <(awk '/applies fvTrace to itself/ { on = 1 } on && /^$/ { exit } on' README.md | tr '\n' ' ' |
+        grep -oE '[A-Z][a-z]+ (of its )?claims read \*\*(Fully supported|Conditional|Pending verification|Claim not possible)\*\*' |
+        sed -E 's/^([A-Za-z]+) .*\*\*(.*)\*\*$/\1|\2/')
+    total="$(jq '[.[]] | add' <<<"$counts")"
+    if [[ "$stated" != "$total" ]]; then
+        printf 'examples: README states verdicts for %s of the self-trace'"'"'s %s claims\n' "$stated" "$total" >&2
+        rc=1
+    fi
+    return $rc
+}
+
 examples() {
-    local rc=0 home bin="$root/.lake/build/bin/fvtrace"
+    local rc=0 home counts bin="$root/.lake/build/bin/fvtrace"
     home="$(mktemp -d)"
     FVTRACE_HOME="$home" "$bin" check --strict --trace examples/fvtrace/trace.json --project . ||
         rc=1
+    counts="$(FVTRACE_HOME="$home" "$bin" claims --json --trace examples/fvtrace/trace.json --project . |
+        jq -c .counts)" && readme_verdicts "$counts" || rc=1
     (cd examples/synthetic/project &&
         FVTRACE_HOME="$home" "$bin" check --strict --trace ../trace.json) || rc=1
     rm -rf "$home"
@@ -344,14 +372,35 @@ shell() {
 }
 
 # The version lives in two places Lake + the binary each read.
+# One version in Fvtrace/Version.lean + lakefile.lean; README Install's floors = the ones
+# tools/release.sh checks (release.md: moved together).
 meta() {
-    local lean lake
+    local lean lake glibc macos v rc=0
     lean="$(sed -n 's/^def version : String := "\(.*\)"$/\1/p' Fvtrace/Version.lean)"
     lake="$(sed -n 's/^  version := v!"\(.*\)"$/\1/p' lakefile.lean)"
     if [[ -z "$lean" || "$lean" != "$lake" ]]; then
         printf 'meta: Fvtrace/Version.lean version "%s" != lakefile.lean version "%s"\n' "$lean" "$lake" >&2
-        return 1
+        rc=1
     fi
+    glibc="$(sed -n 's/^glibc_max=//p' tools/release.sh)"
+    macos="$(sed -n 's/^macos_min=//p' tools/release.sh)"
+    while read -r v; do
+        [[ "$v" == "$glibc" ]] || {
+            printf 'meta: README promises glibc %s; tools/release.sh checks %s\n' "$v" "$glibc" >&2
+            rc=1
+        }
+    done < <(grep -oE 'with glibc [0-9.]+ or later' README.md | cut -d' ' -f3)
+    while read -r v; do
+        [[ "$v" == "${macos%.0}" ]] || {
+            printf 'meta: README promises macOS %s; tools/release.sh checks %s\n' "$v" "$macos" >&2
+            rc=1
+        }
+    done < <(grep -oE 'macOS [0-9.]+ or later' README.md | cut -d' ' -f2)
+    if [[ "$(grep -cE 'with glibc [0-9.]+ or later|macOS [0-9.]+ or later' README.md)" -ne 3 ]]; then
+        printf 'meta: README Install names 3 floors (2 glibc, 1 macOS)\n' >&2
+        rc=1
+    fi
+    return $rc
 }
 
 main() {
