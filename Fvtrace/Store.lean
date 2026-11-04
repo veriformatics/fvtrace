@@ -115,7 +115,7 @@ def resolve (env : Env) (project trace : Option String) : IO (Except String Targ
   let given ← match project with
     | some dir =>
       let p := absolute env.cwd dir
-      unless ← p.isDir do return .error s!"no folder {dir}"
+      unless ← p.isDir do return .error s!"no folder {dir}; give --project an existing folder"
       pure (some (← IO.FS.realPath p))
     | none => pure none
   let file := trace.map (absolute env.cwd)

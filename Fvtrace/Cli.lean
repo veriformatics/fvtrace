@@ -37,7 +37,7 @@ def usage : String :=
   "      Check the trace, and the receipt of each verified fact against the project\n" ++
   "      folder. With --strict, a warning without a waiver, a stale receipt or a\n" ++
   "      failed replay also fails the check.\n" ++
-  "      It reads every evidence file again.\n" ++
+  "      It reads the evidence files of every verified fact again.\n" ++
   "  pin [--replay [--timeout S]]\n" ++
   "      Record the sha256 of each evidence artifact and statement in the trace.\n" ++
   "      With --replay, first run each replay command of the trace in the project\n" ++
@@ -47,8 +47,9 @@ def usage : String :=
   "      List the replay command of each fact. With --run, run each command in the\n" ++
   "      project folder: it passes when it exits with 0 and its output is unchanged\n" ++
   "      since pin --replay. A failed replay leaves a notice on its fact in the\n" ++
-  "      trace, and a passing replay removes it. A command runs with your rights:\n" ++
-  "      run only the commands of a trace that you trust.\n" ++
+  "      trace, and a passing replay removes it. An output that pin --replay did\n" ++
+  "      not record fails the replay but leaves no notice. A command runs with\n" ++
+  "      your rights: run only the commands of a trace that you trust.\n" ++
   "      With --log, show every replay that ran for this project and how it ended.\n" ++
   "  review --reviewer NAME [--note TEXT]\n" ++
   "      Record that NAME reviewed the current content of the trace.\n" ++
@@ -131,7 +132,8 @@ def writeTrace (file : System.FilePath) (t : Trace) : IO Unit := do
   let body := (Encode.trace t).pretty
   if body.utf8ByteSize > maxTraceBytes then
     throw (IO.userError s!"the trace would have {body.utf8ByteSize} bytes, over the limit of \
-      {maxTraceBytes} bytes; {file} stays as it was")
+      {maxTraceBytes} bytes; {file} stays as it was. Shorten its texts, or split the analysis into \
+      two traces.")
   replaceFile file body
 
 def diagJson (code path message : String) : Value :=
@@ -209,7 +211,9 @@ def report : Session.Problem → IO UInt32
   | .noTrace project => do
     complain s!"fvtrace: no trace for the project {project} yet; run fvtrace init"
     return 2
-  | .unreadable file reason => do complain s!"fvtrace: cannot read {file}: {reason}"; return 2
+  | .unreadable file reason => do
+    complain s!"fvtrace: cannot read {file}: {reason}. Make it readable, or give another --trace."
+    return 2
   | .undecodable file _ => do
     complain s!"fvtrace: {file} does not decode; run fvtrace check"
     return 1
@@ -227,10 +231,6 @@ def readTarget (p : Args.Parsed) (t : Store.Target) :
   | .ok d => return .ok d
   | .error prob => return .error (← report prob)
 
-def initCmd (env : Store.Env) (args : List String) : IO UInt32 := do
-  let p ← match ← parseArgs { valued := ["--project"] } args with
-    | .ok p => pure p
-    | .error rc => return rc
 /-- The target's decoded trace, or the exit code once the reason is reported. -/
 def decodedTarget (p : Args.Parsed) (tg : Store.Target) : IO (Except UInt32 Trace) := do
   match ← readTarget p tg with
@@ -239,11 +239,15 @@ def decodedTarget (p : Args.Parsed) (tg : Store.Target) : IO (Except UInt32 Trac
     complain s!"fvtrace: {tg.trace} does not decode; run fvtrace check"; return .error 1
   | .error rc => return .error rc
 
+def initCmd (env : Store.Env) (args : List String) : IO UInt32 := do
+  let p ← match ← parseArgs { valued := ["--project"] } args with
+    | .ok p => pure p
+    | .error rc => return rc
   let t ← match ← target env p with
     | .ok t => pure t
     | .error rc => return rc
   if ← Store.pathPresent t.trace then
-    complain s!"fvtrace: {t.trace} already exists"
+    complain s!"fvtrace: {t.trace} already exists. To start again, remove it first."
     return 2
   t.ensureEntry
   writeTrace t.trace (Store.starter t.project)
@@ -368,7 +372,7 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
     | .ok (.ok t) => pure t
     | .ok (.error ds) =>
       for d in ds do complain s!"  error {d.code} {d.path}: {d.message}"
-      complain s!"fvtrace: {tg.trace} does not decode; nothing pinned"
+      complain s!"fvtrace: {tg.trace} does not decode, so nothing was pinned; fix the errors above"
       return 1
     | .error rc => return rc
   -- Every replay runs before any receipt is hashed: a verifier may rewrite an artifact.
@@ -393,13 +397,15 @@ def pin (env : Store.Env) (args : List String) : IO UInt32 := do
       unless logFailed do
         if let some e ← appendLog tg (logEntry tg tracePath at_ "pin" id r.command why res) then
           logFailed := true
-          complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}"
+          complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}. Make its folder \
+            writable, or set FVTRACE_HOME to another data folder."
   let cache ← Session.openCache tg
   let (pinned, problems) ←
     Receipt.pin (Replay.withResults t results) tg.project cache
   Session.closeCache tg cache
   if pinned != t then writeOver "pin" tg (p.value? "--trace").isSome t pinned
-  for prob in problems do complain s!"  cannot pin {prob}"
+  for prob in problems do
+    complain s!"  cannot pin {prob}: restore the file, or correct its path in the trace"
   let tail := (if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found") ++
     (if failed == 0 then "" else s!", {failed} replay(s) failed")
   say s!"{tg.trace}: pinned against {tg.project}{tail}"
@@ -412,15 +418,15 @@ def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
   -- Entries name real paths (`logEntry`): the project's own trace, as one.
   let ownTrace := tg.entry / "trace.json"
   let own := (← (try IO.FS.realPath ownTrace catch _ => pure ownTrace)).toString
+  -- `runs` serves --json alone; text output keeps a count.
   let mut runs : Array Value := #[]
+  let mut entries := 0
   let mut bad := 0
   -- Line by line: the log only grows.
   let h? ← try pure (some (← IO.FS.Handle.mk file .read)) catch e =>
     if e matches .noFileOrDirectory .. then pure none else throw e
   repeat
-  -- `runs` serves --json alone; text output keeps a count.
     let some h := h? | break
-  let mut entries := 0
     let raw ← h.getLine
     if raw.isEmpty then break
     match Json.parse raw.trimAsciiEnd.toString.toUTF8 with
@@ -447,7 +453,8 @@ def showLog (tg : Store.Target) (json : Bool) : IO UInt32 := do
       ("runs", .arr runs.toList)]).pretty
   else if entries == 0 && bad == 0 then say "No replay has run for this project yet."
   if bad > 0 then
-    complain s!"fvtrace: {bad} line(s) of {file} are not replay log entries; they were skipped"
+    complain s!"fvtrace: {bad} line(s) of {file} are not replay log entries; they were skipped. \
+      Remove those lines to stop this message."
   return if bad == 0 then 0 else 1
 
 def verify (env : Store.Env) (args : List String) : IO UInt32 := do
@@ -499,7 +506,8 @@ def verify (env : Store.Env) (args : List String) : IO UInt32 := do
       unless logFailed do
         if let some e ← appendLog tg (logEntry tg tracePath at_ "verify" id r.command why res) then
           logFailed := true
-          complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}"
+          complain s!"fvtrace: cannot write the replay log {tg.logFile}: {e}. Make its folder \
+            writable, or set FVTRACE_HOME to another data folder."
       fields := fields ++ [("passed", .bool why.isEmpty), ("reasons", .arr (why.map .str))]
     else fields := fields ++ [("reasons", .arr [])]
     if json then rows := rows.push (id, fields)
@@ -880,8 +888,9 @@ def exportSpec : Args.Spec := { valued := located ++ ["--html", "--bundle"] }
 
 /-- The real path `dest` would have, when its folder exists; refuses the project folder. -/
 def outside (tg : Store.Target) (dest : System.FilePath) : IO (Except String System.FilePath) := do
-  let some parent := dest.parent | return .error s!"{dest} has no folder"
-  unless ← parent.isDir do return .error s!"no folder {parent}"
+  let some parent := dest.parent
+    | return .error s!"{dest} is not inside a folder; give a path below one"
+  unless ← parent.isDir do return .error s!"no folder {parent}; create it first"
   -- An existing destination resolves through its own links too (a link into the project).
   let real ← if ← Store.pathPresent dest then IO.FS.realPath dest
     else pure ((← IO.FS.realPath parent) / (dest.fileName.getD ""))
@@ -915,10 +924,11 @@ def exportCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     return 0
   if ← Store.pathPresent real then
     unless (← real.readDir).isEmpty do
-      complain s!"fvtrace: {real} is not empty"
+      complain s!"fvtrace: {real} is not empty; give a new or empty folder"
       return 2
   let problems ← Export.writeBundle l.scenario.trace tg.project real
-  for prob in problems do complain s!"  cannot copy {prob}"
+  for prob in problems do
+    complain s!"  cannot copy {prob}: restore the file, or correct its path in the trace"
   let tail := if problems.isEmpty then "" else s!", {problems.length} artifact(s) not found"
   say s!"Wrote the bundle {real}{tail}."
   return if problems.isEmpty then 0 else 1

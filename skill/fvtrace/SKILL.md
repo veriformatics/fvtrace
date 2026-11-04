@@ -40,4 +40,4 @@ fvTrace takes one stance: a claim can be made only when every fact it needs is f
 
 ## When the trace changes
 
-Run `fvtrace check` after every edit. A reworded fact or claim, or a changed evidence file, makes its receipt stale; run `fvtrace pin` again only when the new evidence is real. A change to the trace content after a review makes the review stale (a change of formatting alone does not); the user reviews again.
+Run `fvtrace check` after every edit. A reworded fact or claim, or a changed evidence file, makes its receipt stale; run `fvtrace pin` again only when the new evidence is real. A change to the trace content after a review makes the review stale (a change of formatting alone does not, nor does a replay notice that `pin --replay` or `verify --run` writes); the user reviews again.

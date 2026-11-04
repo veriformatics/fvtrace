@@ -135,6 +135,7 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
 | `fvtrace gaps` | Shows the facts whose verification makes the most claims available. |
 | `fvtrace experiments` | Shows the suggested experiments and what each one changes. |
 | `fvtrace plan CLAIM` | Shows the set of suggested experiments that raises the claim as far as they allow, the cheapest among those. |
+| `fvtrace eval [--details ITEM \| --complete]` | Prints the evaluation as JSON, for agents and scripts. With `--details ITEM`, it prints the details of one claim, fact or experiment. With `--complete`, it prints the details of every item too. |
 | `fvtrace serve` | Shows the claims in a browser. |
 | `fvtrace export --html FILE` | Writes one page that opens in any browser, also offline, and computes what-ifs there. |
 | `fvtrace export --bundle DIR` | Writes the trace and copies of its evidence files. |
@@ -183,7 +184,8 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 - **Evidence**: the files behind a verified fact (a proof, a checker log). `fvtrace pin` records
   their digests. If a file or the wording of the fact changes later, the fact is no longer
   verified until you pin again. fvTrace checks that the files are unchanged, not that they prove
-  the fact. Each command reads every evidence file again. For large files, add `--cached` to
+  the fact. `fvtrace check`, `fvtrace export` and each command that shows verdicts read the
+  evidence files of every verified fact again. For large files, add `--cached` to
   `claims`, `gaps`, `experiments`, `plan` or `serve`: it reuses the digest of a file that kept
   its size and modification time, which is faster but misses an edit that keeps both.
 - **Replay**: a fact's evidence can also name a command that checks the fact again, for example
@@ -198,7 +200,9 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
   when you trust them.
 - **Failed replays**: when a replay fails, `pin --replay` still records the digests, and both
   commands write a notice into the trace: the date and the reason (`exit 1`, `timeout`, `cannot
-  start` or `output changed`). The next replay of that fact that passes removes the notice. So
+  start` or `output changed`). If `pin --replay` never recorded the output of a command,
+  `verify --run` fails that replay but writes no notice: an exit code of 0 alone shows neither
+  agreement nor a failure. Run `fvtrace pin --replay` first. The next replay of that fact that passes removes the notice. So
   `verify --run` can also rewrite the trace file. `fvtrace check` shows each notice, and
   `check --strict` fails while one is there. The page shows a line under the review line, and
   the fact's details show the date and the reason. A notice does not change the review. Every
@@ -252,8 +256,9 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
   outside the project folder. On another computer, go to `DIR/project` and run
   `fvtrace serve --trace ../trace.json`.
 - `fvtrace serve` answers on this computer only. Each run makes a new secret token, unless you
-  give it one with `--token-file` (see below). The page keeps it, so no other program on this
-  computer can read the claims. With `--host ADDRESS`,
+  give it one with `--token-file` (see below). Only a request that carries the token can read
+  the claims, so other users of this computer cannot read them. A program that runs as your
+  user can find the token, for example in the storage of your browser. With `--host ADDRESS`,
   computers on your network can open the page with the link that the command prints. The page
   is not encrypted, so use `--host` only on a network that you trust.
 - To let a web server that asks for a password show the page (a proxy, for example Caddy or
@@ -285,8 +290,9 @@ agents that read `~/.agents/skills` (Codex, Gemini CLI, GitHub Copilot, Cursor).
 in another folder, add `--dir DIR`. `fvtrace skills show` prints the instructions.
 
 The skill tells the agent to read the analysis, draft the trace honestly, run `fvtrace check`,
-and show you the verdicts. The agent never marks a fact verified without evidence, and it never
-signs off the trace: the review is yours.
+and show you the verdicts. The skill also tells the agent to mark a fact verified only with its
+evidence and to leave the review to you. `fvtrace check` refuses a verified fact whose evidence
+is not pinned.
 
 ## How fvTrace verifies itself
 
@@ -340,6 +346,8 @@ A reviewer checks that each sentence says what its theorem proves.
 - fvTrace does not run your analysis or prove anything about your data. It records what is
   verified and shows what follows.
 - A plan shows coverage by the suggested experiments, not scientific priority.
+- A plan is searched exactly when at most 20 suggested experiments apply to the claim. When more
+  apply, `fvtrace plan` says so and shows no best plan.
 - A what-if is a supposition. A review covers the recorded trace, never a what-if.
 
 ## Development

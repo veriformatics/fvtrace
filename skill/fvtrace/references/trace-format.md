@@ -1,6 +1,6 @@
 # Trace format (`"fvtrace": 1`)
 
-`fvtrace schema` prints the full JSON Schema. Ids match `^[A-Za-z][A-Za-z0-9_.-]{0,63}$` and are unique across the trace. Texts are non-empty and contain no control characters except newlines. Absent arrays mean empty; never write `null`.
+`fvtrace schema` prints the full JSON Schema. Ids match `^[A-Za-z][A-Za-z0-9_.-]{0,63}$` and are unique across the trace. Texts are non-empty and contain no control characters except newlines. The arrays `experiments`, `exclusions`, `waivers`, `artifacts`, `trusts` and `requires` may be absent (absent = empty); every other array is required. Never write `null`.
 
 ```
 {

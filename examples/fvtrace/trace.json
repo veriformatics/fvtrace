@@ -3,7 +3,7 @@
   "analysis": {
     "id": "fvtrace",
     "title": "fvTrace",
-    "summary": "What fvTrace itself can claim about its checker and engine. Six claims rest on Lean proofs of the code fvTrace runs; two wait on code that is tested, not proved. Like every analysis, it takes its instruments on trust without listing them per claim: here the Lean and C compilers that build that code."
+    "summary": "What fvTrace itself can claim about its checker and engine. Seven claims rest on Lean proofs of the code fvTrace runs; two wait on code that is tested, not proved. Like every analysis, it takes its instruments on trust without listing them per claim: here the Lean and C compilers that build that code."
   },
   "subjects": [
     {
@@ -57,7 +57,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "af7fecfaa5e5e4cb8f1d737f73978f0f4ebbc099e43c76103e21967933ca301c",
+            "sha256": "dacc57f21ff74d1c6d9266a408ddd69a3337997461aaa350f921fc9fe4785d0c",
             "role": "proof"
           }
         ],
@@ -99,7 +99,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "af7fecfaa5e5e4cb8f1d737f73978f0f4ebbc099e43c76103e21967933ca301c",
+            "sha256": "dacc57f21ff74d1c6d9266a408ddd69a3337997461aaa350f921fc9fe4785d0c",
             "role": "proof"
           }
         ],
@@ -136,12 +136,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942",
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
             "role": "proof"
           }
         ],
@@ -178,12 +178,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942",
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
             "role": "proof"
           }
         ],
@@ -220,12 +220,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942",
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
             "role": "proof"
           }
         ],
@@ -262,7 +262,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5",
             "role": "statement"
           },
           {
@@ -304,7 +304,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5",
             "role": "statement"
           },
           {
@@ -346,12 +346,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502",
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942",
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
             "role": "proof"
           }
         ],
@@ -388,11 +388,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942"
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -456,12 +456,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "f557855b59eac0cdaa3edee7f1b08a7d1d497817ea0d87976933c789b3629a43",
+            "sha256": "5505b5de0418d0b46dfedd732140eaa4c8ad4f4365f34c8eabe0a61d1abe209e",
             "role": "code"
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "2b5a57eb02dcb933d29f5ca5213475a91597ed5d661da624f00ec89daf5c89ad",
+            "sha256": "119868e8d8eafbd1dbe3aa261b2ea771d3feca42a92c11b0743c434a0d3852b8",
             "role": "tests"
           }
         ],
@@ -472,7 +472,7 @@
       "id": "T2",
       "subject": "S",
       "kind": "implementation",
-      "text": "Without --cached, fvtrace reads every evidence file again and calls a receipt current only when each file has its pinned SHA-256 digest and the fact's wording is unchanged.",
+      "text": "Without --cached, fvtrace reads the evidence files of every verified fact again and calls a receipt current only when each file has its pinned SHA-256 digest and the fact's wording is unchanged.",
       "status": "tested",
       "route": "lean",
       "evidence": {
@@ -490,11 +490,11 @@
           },
           {
             "path": "Tests/Receipt.lean",
-            "sha256": "af441f8bbd276344ee464c6955843a61f092fcffaac58ddba9d56d886e7f4759",
+            "sha256": "d6ea5acd71ee768ad01e88686832acacf5fd5456fa0cd7d10e40a33d622b0185",
             "role": "tests"
           }
         ],
-        "statementDigest": "f43cd2c3bbbbc4e40c507a7a3c6472cd2410fc79d5179343e0161c69f50af2ad"
+        "statementDigest": "e1178b4646a1feea9d40cab8d84124a78880a02245f77a4305127c82f90c4aaa"
       }
     },
     {
@@ -513,7 +513,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "af7fecfaa5e5e4cb8f1d737f73978f0f4ebbc099e43c76103e21967933ca301c"
+            "sha256": "dacc57f21ff74d1c6d9266a408ddd69a3337997461aaa350f921fc9fe4785d0c"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -549,11 +549,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942"
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -581,11 +581,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942"
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -613,7 +613,7 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5"
           },
           {
             "path": "Fvtrace/Proofs/Plan.lean",
@@ -645,11 +645,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942"
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -690,11 +690,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/Engine.lean",
-            "sha256": "ebce8a1ee2d72b695c26c7bea051114e6692a2e1be60e4ee9e47b21e5addf502"
+            "sha256": "9cb270782256d80f887139012a6041da9ad95d6ea2af20da4b590d593c8901c5"
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "3e7b8da2db424567b933eb8502879dd2079f62710670fb6fe31feea082d3d942"
+            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
