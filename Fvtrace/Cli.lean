@@ -154,13 +154,16 @@ def noticeSuffix (x? : Option ReplayFailure) : String :=
   | some x => s!"; last run failed on {x.date}: {x.reason}"
   | none => ""
 
+/-- `(date, dateTHH:MM:SS)`: two digits each. -/
+def stampOf (date : String) (hour minute second : Nat) : String × String :=
+  let two := fun (n : Nat) => if n < 10 then s!"0{n}" else toString n
+  (date, s!"{date}T{two hour}:{two minute}:{two second}")
+
 /-- The local date + date-time of a run (`kernel.md` § Replay: notice date, log `at`). -/
 def stamp : IO (String × String) := do
   let now ← Std.Time.PlainDateTime.now
-  let two := fun (n : Nat) => if n < 10 then s!"0{n}" else toString n
-  let date := toString now.date
-  return (date, s!"{date}T{two now.time.hour.val.toNat}:{two now.time.minute.val.toNat}:\
-    {two now.time.second.val.toNat}")
+  return stampOf (toString now.date) now.time.hour.val.toNat now.time.minute.val.toNat
+    now.time.second.val.toNat
 
 /-- One replay log line (`kernel.md` § Replay, Log); `trace` = the trace's real path, so a link
 and its target log the same draft. -/
@@ -1033,6 +1036,9 @@ def openBrowser (env : Store.Env) (opener : String) (port : UInt16) (link : Stri
     return true
   catch _ => return false
 
+/-- A run's token (server.md GUI token): 16 random bytes as lowercase hex. -/
+def newToken : IO String := return Digest.hex (← IO.getRandomBytes 16)
+
 def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let p ← match ← parseArgs serveSpec args with
     | .ok p => pure p
@@ -1051,7 +1057,7 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
     | .error rc => return rc
   let tokenFile := p.value? "--token-file"
   let token ← match tokenFile with
-    | none => pure (Digest.hex (← IO.getRandomBytes 16))
+    | none => newToken
     | some f =>
       match tokenOf <$> (← (IO.FS.readFile f).toBaseIO) with
       | .error e =>
