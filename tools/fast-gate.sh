@@ -32,7 +32,17 @@ stage lean-test lean_test
 stage lean-pure lean_pure
 stage cli cli
 stage examples examples
-stage engine engine
+engine_seen=.lake/fast-gate/engine.key
+key="$(engine_key)"
+if [[ -f "$engine_seen" && "$(<"$engine_seen")" == "$key" ]]; then
+    skip_engine=1
+else
+    before=${#failed[@]}
+    stage engine engine
+    if [[ ${#failed[@]} -eq $before ]]; then
+        mkdir -p "${engine_seen%/*}" && printf '%s\n' "$key" >"$engine_seen"
+    fi
+fi
 if [[ " $* " == *" --e2e "* ]]; then stage e2e e2e; fi
 
 # Their ledger rows come from here, one writer: rows from parallel subshells could interleave.
@@ -49,6 +59,7 @@ done
 
 skipped="tools trust c-analyze vendor audit secrets workflows"
 [[ " $* " == *" --e2e "* ]] || skipped="$skipped e2e"
+[[ -z ${skip_engine:-} ]] || skipped="$skipped engine (its inputs = its last pass's)"
 printf '\n=== fast gate ===\nskipped: %s\n' "$skipped"
 secs="$(elapsed "$start")"
 if [[ ${#failed[@]} -ne 0 ]]; then

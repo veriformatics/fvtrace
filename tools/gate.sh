@@ -130,6 +130,15 @@ examples() {
 # case byte for byte as the native engine does (`kernel.md` E-wasm); Chromium = e2e engine.spec.js.
 engine() { node --test tests/engine/; }
 
+# What the engine stage reads: the built engine + its loader + worker, its tests + their traces,
+# the export + snapshot code that frames the page + answers natively, the toolchain. The fast gate
+# skips the stage while this key equals its last pass's; the full gate always runs it.
+engine_key() {
+    cat .lake/build/wasm/engine.wasm web/engine.js web/worker.js tests/engine/*.mjs \
+        examples/*/trace.json tests/fixtures/*.json Fvtrace/Export.lean Fvtrace/Snapshot.lean \
+        Tests/Snapshot.lean TestMain.lean lean-toolchain 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+
 # Claims ↔ proofs ↔ axioms ↔ escape hatches, then every proof's closure replayed through the
 # independent kernels bundled with Lean (`lake check --paranoid`).
 trust() { bash tools/trust.sh; }
