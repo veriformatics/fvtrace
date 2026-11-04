@@ -12,6 +12,7 @@ paths:
   - "tools/pin-wasm.sh"
   - "lakefile.lean"
   - ".github/workflows/gate.yml"
+  - ".github/actions/**"
   - "tests/engine/**"
 ---
 

@@ -6,9 +6,10 @@ self-hosted-runner:
     - ubuntu-26.04
     - ubuntu-26.04-arm
 # actionlint 1.7.12 predates GitHub's self-repository `uses: $/…` form (rhysd/actionlint#711),
-# which zizmor's `self-repository` audit requires; only that form's call error is ignored, so a
-# malformed `owner/repo/…@ref` or `./…` call still fails.
+# which zizmor's `self-repository` audit requires; only that form's call errors (a reusable workflow,
+# a local action) are ignored, so a malformed `owner/repo/…@ref` or `./…` call still fails.
 paths:
   .github/workflows/**/*.yml:
     ignore:
       - 'reusable workflow call "\$/\.github/workflows/[^"]+" at "uses" is not following the format'
+      - 'specifying action "\$/\.github/actions/[^"]+" in invalid format because ref is missing'

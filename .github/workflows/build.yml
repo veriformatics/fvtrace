@@ -40,27 +40,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # `lake build` builds the exported page's engine with Emscripten, which runs on Python.
-      - name: Install Python for the page engine build
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.15.2"
-
       # As in gate.yml's gate job; the weekly run and a release build the page engine from scratch.
-      - name: Cache the page engine build
-        id: engine-cache
-        if: ${{ !inputs.release && github.event_name != 'schedule' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Prepare the page engine build
+        uses: $/.github/actions/page-engine
         with:
-          path: |
-            .lake/build/wasm/*
-            !.lake/build/wasm/download
-          key: engine-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tools/wasm.lock', 'tools/wasm/**', 'FvtraceWasm/**', 'WasmMain.lean') }}
-
-      - name: Remove a partial page engine build
-        if: ${{ !inputs.release && github.event_name != 'schedule' && steps.engine-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: rm -rf .lake/build/wasm
+          cache: ${{ !inputs.release && github.event_name != 'schedule' }}
 
       # leanc links for macOS 99.0 unless MACOSX_DEPLOYMENT_TARGET is set; the release floor
       # (tools/release.sh macos_min) is the one release.yml's `installed` job runs the program on.
