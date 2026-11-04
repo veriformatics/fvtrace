@@ -124,6 +124,12 @@ probe_meta() {
     keep lakefile.lean
     sed -i 's/^  version := v!".*"$/  version := v!"9.9.9"/' lakefile.lean
     expect meta-version 'meta: .* != lakefile.lean version "9.9.9"' meta
+    keep README.md
+    sed -i "s/^| Linux on ARM64, with glibc 2\\.17/| Linux on ARM64, with glibc 2.16/" README.md
+    expect meta-glibc-floor 'meta: README promises glibc 2.16; tools/release.sh checks 2.17' meta
+    keep README.md
+    sed -i 's/^| macOS 15 or later/| macOS 14 or later/' README.md
+    expect meta-macos-floor 'meta: README promises macOS 14; tools/release.sh checks 15.0' meta
 }
 
 probe_trust() {
@@ -376,6 +382,12 @@ probe_examples() {
     keep Fvtrace/Proofs/Plan.lean
     printf '\n-- planted\n' >>Fvtrace/Proofs/Plan.lean
     expect examples-stale-receipt 'receipt P6: stale \(changed Fvtrace/Proofs/Plan.lean' examples
+    keep README.md
+    sed -i 's/to itself\. Seven of its claims read/to itself. Eight of its claims read/' README.md
+    expect examples-readme-count 'README says Eight claims read Fully supported; the self-trace has 7' examples
+    keep README.md
+    sed -i 's/^Two claims read \*\*Pending verification\*\*/Two claims read **Conditional**/' README.md
+    expect examples-readme-verdict 'README says Two claims read Conditional; the self-trace has 0' examples
 }
 
 # tools/scale.sh --assert (the F5 acceptance, run by hand on an idle host) grades rc, timeout, wall
