@@ -28,6 +28,12 @@ const recorded = "Showing the facts as recorded.";
 const engineFailed =
   "This browser cannot run the what-ifs on this page, so it shows the facts as recorded.";
 
+// The page engine's first answer after a load waits on its Worker's start (WebAssembly compile +
+// snapshot decode), which host load stretches past expect's 5 s default: at load ≈ 2.4× on 8 CPUs
+// the linked what-ifs of two tests stayed unshown at 5 s and showed on an unchanged rerun. 60 s =
+// `engineStarted`'s bound; a hang still fails within the 90 s test limit.
+const engineAnswer = { timeout: 60_000 };
+
 /** The page in a context with the network off; every non-file request is refused + counted.
  * @param {import("@playwright/test").Browser} browser @param {string} [hash]
  * @param {string} [file] another exported page */
@@ -79,6 +85,7 @@ test("offline from file://, the page's engine stacks a two-fact what-if as fvtra
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
   await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
+    engineAnswer,
   );
   await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
   await expect(page.locator("#scenario-text")).toHaveText(
@@ -109,6 +116,7 @@ test("a linked what-if goes to the page's engine as written", async ({ browser }
   await page.goto(url);
   await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose O2 is verified by a checker, O3 is verified by a checker. Nothing has been recorded.",
+    engineAnswer,
   );
   await Promise.all(
     [...nativeVerdicts("O3=checked,O2=checked")].map(([id, words]) =>
@@ -143,6 +151,7 @@ test("a reviewed study's page runs a linked what-if", async ({ browser }) => {
     await expect(page.locator("#review")).toContainText("Reviewed by A. Reviewer on ");
     await expect(page.locator("#scenario-text")).toHaveText(
       "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
+      engineAnswer,
     );
     await expect(page.locator("#error")).toBeHidden();
     await Promise.all(
@@ -165,6 +174,7 @@ test("an older export's action link becomes its what-if; an unknown one says so"
   await page.goto(url);
   await expect(page.locator("#scenario-text")).toHaveText(
     "Showing a what-if: suppose O2 is verified by a checker. Nothing has been recorded.",
+    engineAnswer,
   );
   expect(new URL(page.url()).hash).toBe("#whatif=O2%3Dchecked");
   await page.goto(`${pathToFileURL(fixture.page).href}#action=suppose%3AZZ`);
@@ -389,7 +399,10 @@ test("a details request that fails ends the engine: the facts as recorded + the 
   await plantWorker(page, { trapAt: 2 });
   await page.goto(url);
   await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.locator("#scenario-text")).toContainText("suppose O2 is verified by a checker");
+  await expect(page.locator("#scenario-text")).toContainText(
+    "suppose O2 is verified by a checker",
+    engineAnswer,
+  );
   await card(page, "C1").locator(".claim-head .tag-id").getByRole("button").click();
   await expect(page.locator("#error")).toHaveText(engineFailed);
   await expect(page.locator("#scenario-text")).toContainText(recorded);
@@ -406,7 +419,10 @@ test("an engine that fails mid-session is never called again", async ({ browser 
   await page.goto(url);
   const c2 = card(page, "C2");
   await c2.getByRole("button", { name: "Suppose O2 checked" }).click();
-  await expect(page.locator("#scenario-text")).toContainText("suppose O2 is verified by a checker");
+  await expect(page.locator("#scenario-text")).toContainText(
+    "suppose O2 is verified by a checker",
+    engineAnswer,
+  );
   await c2.getByRole("button", { name: "Suppose EN2 proved" }).click();
   await expect(page.locator("#error")).toHaveText(engineFailed);
   await expect(page.locator("#scenario-text")).toContainText(recorded);

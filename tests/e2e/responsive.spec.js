@@ -93,6 +93,8 @@ test("a what-if replaces only the cards whose content changed", async ({ page })
 test("a long board mounts as it comes near, names each position and stays reachable", async ({
   page,
 }) => {
+  // Mounting 300 cards by scrolling: at load ≈ 2.4× on 8 CPUs, 282 were mounted at 60 s.
+  test.setTimeout(180_000);
   web = await serveScale("wide", 300);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(web.url);
@@ -114,7 +116,7 @@ test("a long board mounts as it comes near, names each position and stays reacha
         await cards.last().scrollIntoViewIfNeeded();
         return cards.count();
       },
-      { timeout: 60_000 },
+      { timeout: 120_000 },
     )
     .toBe(300);
   await expect(cards.last()).toHaveAttribute("aria-posinset", "300");
