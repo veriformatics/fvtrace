@@ -48,8 +48,8 @@ for (const [, token = ""] of artifacts.matchAll(/`([^`\s]+)`/g)) {
     problems.push(`.agent/spec.md Artifacts: ${token} matches no tracked file`);
 }
 
-// Retired prototypes live in their tags alone. The tags are local until pushed: a clone holding
-// none of them (CI, a fresh clone) skips the check; one holding any must hold every named tag.
+// Retired prototypes live in their tags alone (on origin). A clone holding none of them (a fetch
+// without tags) skips the check; one holding any must hold every named tag.
 const held = git(["tag", "--list", "prototype-*"]);
 if (held.length === 0)
   console.log("meta-lint: no prototype-* tags in this clone; tag check skipped");
