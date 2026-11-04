@@ -210,7 +210,7 @@ test("without WebAssembly the page keeps the recorded view and says why", async 
  * so the page's own `WebAssembly` never sees it): `delay` holds the start message back (and the
  * messages posted after it, which a worker takes in order), `trapAt`
  * answers that request with a failure instead of forwarding it, `corrupt` garbles the first
- * request's answer, `hold` delays every answer; the page reads the request count
+ * request's answer, `hold` delays every request's answer (not the start's or the load's); the page reads the request count
  * (`fvtraceCalls`), the workers made (`fvtraceWorkers`) + a ready flag.
  * @param {import("@playwright/test").Page} page
  * @param {{ delay?: number, trapAt?: number, corrupt?: boolean, hold?: number }} opts
@@ -231,6 +231,9 @@ async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold 
         this.handler = null;
         /** @type {unknown} */
         this.startId = undefined;
+        /** Ids of the posted requests (evaluations + details), whose answers `hold` delays.
+         * @type {Set<unknown>} */
+        this.requests = new Set();
         /** Messages posted while the start is held back, forwarded after it in order.
          * @type {unknown[] | undefined} */
         this.behind = undefined;
@@ -251,7 +254,7 @@ async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold 
             );
             return;
           }
-          if (held && id !== this.startId) setTimeout(() => this.handler?.(event), held);
+          if (held && this.requests.has(id)) setTimeout(() => this.handler?.(event), held);
           else this.handler?.(event);
         });
       }
@@ -281,6 +284,7 @@ async function plantWorker(page, { delay = 0, trapAt = 0, corrupt = false, hold 
         }
         if (op === "request") {
           calls++;
+          this.requests.add(id);
           if (trap && calls >= trap) {
             setTimeout(
               () =>
@@ -327,6 +331,42 @@ test("the page's engine works in a Worker: a selection shows while it answers", 
     return typeof n === "number" ? n : -1;
   });
   expect(workers).toBe(1);
+  await context.close();
+});
+
+// Decisions (Stop): past 10 s of engine work the Working line offers Stop (Nielsen: past 10 s, a
+// way to interrupt); Stop ends the engine for the session, as a failure does, with its own notice.
+test("past 10 s the Working line offers Stop; Stop shows the facts as recorded", async ({
+  browser,
+}) => {
+  const { context, page, url } = await openOffline(browser);
+  await plantWorker(page, { hold: 60_000 });
+  await page.goto(url);
+  await page.waitForFunction(() => Reflect.get(globalThis, "fvtraceReady") === true, null, {
+    timeout: 60_000,
+  });
+  await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+  const clicked = Date.now();
+  await expect(page.locator("#working")).toBeVisible();
+  const stop = page.getByRole("button", { name: "Stop", exact: true });
+  await expect(stop).toBeHidden();
+  await expect(stop).toBeVisible({ timeout: 20_000 });
+  expect(Date.now() - clicked).toBeGreaterThanOrEqual(9_500);
+  await stop.click();
+  await expect(page.locator("#error")).toHaveText(
+    "You pressed Stop, so this page shows the facts as recorded. To run what-ifs again, reload the page.",
+  );
+  await expect(page.locator("#scenario-text")).toContainText(recorded);
+  await expect(page.locator("#working")).toBeHidden();
+  await expect(page.locator("body")).not.toHaveAttribute("aria-busy");
+  await card(page, "C1").locator(".claim-head .tag-id").getByRole("button").click();
+  await expect(page.locator("#inspector")).toContainText(
+    "You pressed Stop, so this page cannot show these details. To see them, reload the page.",
+  );
+  // The what-if entered the engine (its answer held); none enters after Stop.
+  await card(page, "C2").getByRole("button", { name: "Suppose O2 checked" }).click();
+  await expect(page.locator("#error")).toContainText("You pressed Stop");
+  expect(await evaluations(page)).toBe(1);
   await context.close();
 });
 

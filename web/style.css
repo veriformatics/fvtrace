@@ -115,6 +115,21 @@ code {
   display: none;
 }
 
+/* Stop, past 10 s of an exported page's engine work: the pill is ink, so its ring is panel. */
+.working button {
+  padding: 2px 10px;
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.working button:focus-visible {
+  outline-color: var(--panel);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

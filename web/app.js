@@ -48,7 +48,7 @@ import { count, statuses, supposedAs, verdictMeanings, verdicts, word } from "./
  * { kind: "problem", value: { kind: string, message: string } }} Answer */
 /** The selection's details for the shown view (kernel.md V-details): pending, ready, refused, or
  * unavailable (the page's engine cannot run).
- * @typedef {{ item: string, spec: string, state: "pending" | "ready" | "problem" | "off",
+ * @typedef {{ item: string, spec: string, state: "pending" | "ready" | "problem" | "off" | "stopped",
  *   value?: import("./envelope.js").Details, message?: string }} DetailsView */
 
 /** The view: what-if (the spec sent to the engine + the overrides it accepted), question,
@@ -96,6 +96,10 @@ const island = document.getElementById("fvtrace-data");
 
 const engineFailed =
   "This browser cannot run the what-ifs on this page, so it shows the facts as recorded.";
+const engineStopped =
+  "You pressed Stop, so this page shows the facts as recorded. To run what-ifs again, reload the page.";
+/** The notice once the page's engine has ended: failed, or stopped by the reader (Stop). */
+let engineNotice = engineFailed;
 
 // Served: the run's token, offered once in the address (`#token=…`), then kept in this origin's
 // storage. An origin includes the port, so no other server on this computer reads it (a cookie
@@ -155,6 +159,8 @@ let engineStart;
 let engineQueue = Promise.resolve();
 let engineDead = false;
 let stopEngine = () => {};
+/** Ends the page's engine as a failure would (Stop); set once its Worker exists. */
+let haltEngine = () => {};
 /** An older export's `#action=…` link, translated once the recorded envelope is known. */
 /** @type {string | undefined} */
 let legacyAction;
@@ -238,6 +244,7 @@ function engine() {
       else if (typeof value === "string" || value === null) w.resolve(value);
       else w.reject(new EngineError("the engine answered no text"));
     });
+    haltEngine = () => failAll(new EngineError("the reader stopped the engine"));
     worker.addEventListener("error", () => failAll(new EngineError("the engine's worker failed")));
     worker.addEventListener("messageerror", () =>
       failAll(new EngineError("the engine's worker failed")),
@@ -372,16 +379,19 @@ function engineFailure(/** @type {NonNullable<typeof exported>} */ ex) {
   view.spec = "";
   writeHash();
   showRecorded(ex);
-  showError(engineFailed);
+  showError(engineNotice);
   // The selection's detail sections say that the engine cannot answer.
   void loadDetails();
 }
 
-/** Requests still running (U-busy): the page reads as busy from a request's start, and shows that
- * it is working once a request runs past 1 s (Nielsen: past 1 s, flow of thought needs a sign). */
+/** Requests still running (U-busy): the page reads as busy from a request's start, shows that it
+ * is working once a request runs past 1 s, and in an exported page offers Stop past 10 s (Nielsen:
+ * past 1 s a sign, past 10 s a way to interrupt; the engine reports no progress to show). */
 let running = 0;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let workingTimer;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let stopTimer;
 /** @param {1 | -1} delta */
 function busy(delta) {
   running += delta;
@@ -391,10 +401,17 @@ function busy(delta) {
     workingTimer = setTimeout(() => {
       byId("working").hidden = false;
     }, 1000);
+  if (running > 0 && exported && !engineDead && stopTimer === undefined)
+    stopTimer = setTimeout(() => {
+      byId("stop").hidden = engineDead;
+    }, 10_000);
   if (running === 0) {
     clearTimeout(workingTimer);
+    clearTimeout(stopTimer);
     workingTimer = undefined;
+    stopTimer = undefined;
     byId("working").hidden = true;
+    byId("stop").hidden = true;
   }
 }
 
@@ -632,7 +649,7 @@ async function load(action, record = () => writeHash()) {
  * over the recorded view when it suggests no such what-if. */
 async function legacy(/** @type {string} */ id) {
   if (engineDead) {
-    showError(engineFailed);
+    showError(engineNotice);
     return;
   }
   view.spec = "";
@@ -698,7 +715,7 @@ async function loadDetails() {
   const readView = shownView;
   const asked = generation;
   if (exported && engineDead) {
-    details = { item, spec, state: "off" };
+    details = { item, spec, state: engineNotice === engineStopped ? "stopped" : "off" };
     renderInspector();
     return;
   }
@@ -740,7 +757,7 @@ async function loadDetails() {
 /** @param {Map<string, string>} w */
 function setWhatif(w) {
   if (exported && engineDead && w.size > 0) {
-    showError(engineFailed);
+    showError(engineNotice);
     return;
   }
   requested = w;
@@ -809,7 +826,7 @@ const on = {
   },
   apply(action) {
     if (exported && engineDead) {
-      showError(engineFailed);
+      showError(engineNotice);
       return;
     }
     void load(action);
@@ -1249,6 +1266,10 @@ function renderWork() {
 }
 
 function wire() {
+  byId("stop").addEventListener("click", () => {
+    engineNotice = engineStopped;
+    haltEngine();
+  });
   const findInput = byIdAs("find", HTMLInputElement);
   findInput.addEventListener("input", () => void find());
   findInput.addEventListener("keydown", (ev) => {

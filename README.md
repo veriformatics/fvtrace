@@ -250,8 +250,9 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
   what-ifs as in `fvtrace serve`. The page contains the whole trace, as `--bundle` does, but no
   evidence files. It shows the evidence as it was when you exported it: it cannot check the
   evidence files again. A browser that cannot run WebAssembly (for example,
-  Safari in Lockdown Mode) shows the facts as recorded, without what-ifs. The engine adds about
-  500 KB to the page.
+  Safari in Lockdown Mode) shows the facts as recorded, without what-ifs. If a what-if runs
+  longer than 10 seconds, the page shows a Stop button. Stop shows the facts as recorded; to run
+  what-ifs again, reload the page. The engine adds about 500 KB to the page.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
   outside the project folder. On another computer, go to `DIR/project` and run
   `fvtrace serve --trace ../trace.json`.
