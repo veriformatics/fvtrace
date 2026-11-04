@@ -13,13 +13,12 @@
 // on the first experiment row's id → its details, the view already held; shapes with experiments);
 // exported also `startup` (the symbol clicked as soon as the board shows, the engine still
 // starting → its answer).
-import { spawn } from "node:child_process";
-import { once } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
+import { serve } from "./serve-link.mjs";
 
 const [bin, dir, page] = process.argv.slice(2);
 if (!bin || !dir || !page) {
@@ -264,13 +263,7 @@ let stopping;
  * the browser, removes the folder; once, on every way out. */
 function stop() {
   stopping ??= (async () => {
-    if (server.pid !== undefined && server.exitCode === null && server.signalCode === null) {
-      const exited = once(server, "exit");
-      server.kill();
-      const force = setTimeout(() => server.kill("SIGKILL"), 5000);
-      await exited;
-      clearTimeout(force);
-    }
+    await stopServer();
     await launching?.then(
       (b) => b.close(),
       () => {},
@@ -289,34 +282,11 @@ for (const [signal, code] of /** @type {const} */ ([
 ]))
   process.once(signal, () => void stop().finally(() => process.exit(code)));
 const home = mkdtempSync(join(tmpdir(), "scale-gui-"));
-const server = spawn(
+const { link: linked, stop: stopServer } = serve(
   bin,
-  [
-    "serve",
-    "--port",
-    "0",
-    "--no-browser",
-    "--trace",
-    join(dir, "trace.json"),
-    "--project",
-    join(dir, "project"),
-  ],
-  { env: { ...process.env, FVTRACE_HOME: home }, stdio: ["ignore", "pipe", "ignore"] },
+  ["--trace", join(dir, "trace.json"), "--project", join(dir, "project")],
+  { env: { ...process.env, FVTRACE_HOME: home } },
 );
-let out = "";
-// Watched from the spawn on: a server that exits while the browser launches emits its `exit` before
-// a later listener exists, and the wait for its link never ended (until scale.sh's timeout).
-/** @type {Promise<string>} */
-const linked = new Promise((resolve, reject) => {
-  server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
-    out += chunk.toString();
-    const m = /http:\/\/\S+#token=[0-9a-f]+/.exec(out);
-    if (m) resolve(m[0]);
-  });
-  server.on("exit", () => reject(new Error(`fvtrace serve exited: ${out}`)));
-  server.on("error", reject);
-});
-linked.catch(() => {}); // awaited after the launch: a rejection during it is handled there
 try {
   launching = chromium.launch({ handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
   const b = await launching;

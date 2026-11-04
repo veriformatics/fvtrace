@@ -3,12 +3,12 @@
 // it; the link ends in `#token=…`, so view parameters append with `&`). Studies: `synthetic` = the
 // shipped example (examples/synthetic); `fixture` = the feature-rich test trace (exclusions,
 // prerequisites, waivers) with the example's proof files.
-import { spawn, spawnSync } from "node:child_process";
-import { once } from "node:events";
+import { spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { serve } from "../../tools/serve-link.mjs";
 
 const root = join(import.meta.dirname, "..", "..");
 const bin = join(root, ".lake", "build", "bin", "fvtrace");
@@ -90,31 +90,14 @@ export async function prepareStudy(study, edit) {
  * @returns {Promise<{ url: string, close: () => Promise<void> }>}
  */
 async function launch(args, cwd, env, dir) {
-  const server = spawn(bin, ["serve", "--port", "0", "--no-browser", ...args], { cwd, env });
+  const { server, link, stop } = serve(bin, args, { cwd, env });
   servers.add(server);
   server.on("exit", () => servers.delete(server));
-  const url = await new Promise(
-    /** @param {(link: string) => void} resolve */ (resolve, reject) => {
-      let out = "";
-      server.stdout.on("data", (/** @type {Buffer} */ chunk) => {
-        out += chunk.toString();
-        const link = /^(?:Open (http:\/\/\S+)|Serving (http:\/\/\S+) with the token in .+)$/m.exec(
-          out,
-        );
-        const found = link?.[1] ?? link?.[2];
-        if (found) resolve(found);
-      });
-      server.on("exit", (code) => reject(new Error(`fvtrace serve exited ${code}: ${out}`)));
-    },
-  );
+  const url = await link;
   return {
     url,
     close: async () => {
-      if (server.exitCode === null && server.signalCode === null) {
-        const exited = once(server, "exit");
-        server.kill();
-        await exited;
-      }
+      await stop();
       await rm(dir, { recursive: true, force: true });
       folders.delete(dir);
     },
