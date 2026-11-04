@@ -11,6 +11,15 @@ const block = engineOfPage(html);
 const snapshot = snapshotOfPage(html);
 const realInstantiate = WebAssembly.instantiate.bind(WebAssembly);
 
+// wasm.md Determinism: the block = gzip with no time, name or comment (the build's
+// `gzip.compress(…, mtime=0)`), so one module gives one block, whenever and wherever it is built.
+void test("the engine block is gzip with no time, name or comment", () => {
+  const gz = Buffer.from(block, "base64");
+  assert.deepEqual([...gz.subarray(0, 3)], [0x1f, 0x8b, 8], "gzip header, deflate");
+  assert.equal((gz[3] ?? 0xff) & 0x1c, 0, "FLG: no extra field, name or comment");
+  assert.equal(gz.readUInt32LE(4), 0, "MTIME = 0");
+});
+
 /** @param {WebAssembly.Exports} real @param {string} name @returns {(...args: number[]) => number} */
 function call(real, name) {
   const f = real[name];

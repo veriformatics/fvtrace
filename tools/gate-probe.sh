@@ -359,8 +359,8 @@ probe_assets() {
 # The page engine build (fvtrace-wasm, run by `lake build FvtraceEngine`): a pinned manifest digest
 # that the fetched tree does not match, an import the page's loader does not provide, a linker
 # warning outside the accepted two, a changed build step in lakefile.lean (Lake traces no target's
-# own step, so the engine target traces the file; else a cached engine would replay). Each plant
-# relinks (≈ 1 min); a failed build leaves the embedded engine as it was.
+# own step, so the engine target traces the file; else a cached engine would replay), a link with
+# dlmalloc. Each plant relinks (≈ 1 min); a failed build leaves the embedded engine as it was.
 engine_build() { lake build FvtraceEngine 2>&1; }
 
 probe_wasm() {
@@ -402,6 +402,9 @@ WebAssembly.instantiate = async (bytes, imports) => {
 PLANT
     expect engine-panic 'fvTrace engine: PANIC planted' node --import "$plant" tests/engine/engine.test.mjs
 }
+    keep FvtraceWasm/Build.lean
+    sed -i 's/"-sMALLOC=mimalloc"/"-sMALLOC=dlmalloc"/' FvtraceWasm/Build.lean
+    expect wasm-allocator 'links an allocator other than mimalloc' engine_build
 
 probe_examples() {
     keep Fvtrace/Proofs/Plan.lean
