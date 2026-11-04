@@ -599,7 +599,7 @@ probe_fast_engine() {
 # print, a green one stays green.
 probe_together() {
     # shellcheck disable=SC2016 # the inner script's own expansions
-    local run=(bash -c 'source tools/gate.sh; GATE_LEDGER=; ledger_begin probe
+    local run=(env GATE_LEDGER= bash -c 'source tools/gate.sh; ledger_begin probe
         code="$1"; meta() { echo "planted meta failure"; return "$code"; }
         together_start meta spec; together_finish
         [[ ${#failed[@]} -eq 0 ]] || { echo "failed: ${failed[*]}"; exit 1; }' _)
