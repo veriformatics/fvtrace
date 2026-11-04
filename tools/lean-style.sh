@@ -21,5 +21,22 @@ for f in "${files[@]}"; do
         printf '%s: no final newline\n' "$f"
         rc=1
     fi
+    # Layout (lean.md): Spec = the human-read claims (no proof imports, no theorem); shipped modules
+    # import `Init` + `Std` + their own alone (`import Lean` links all of Lean). TrustMain + tests
+    # are dev-only.
+    case "$f" in
+    Fvtrace/Spec.lean | Fvtrace/Spec/*)
+        LC_ALL=C.UTF-8 awk -v f="$f" '
+            /^import Fvtrace\.Proofs/ { printf "%s:%d: Spec imports Proofs\n", f, FNR; bad = 1 }
+            /^(private |protected )?(theorem|lemma) / { printf "%s:%d: Spec holds a theorem\n", f, FNR; bad = 1 }
+            END { exit bad }' "$f" || rc=1
+        ;;
+    TrustMain.lean | Test*.lean | Tests/* | lakefile.lean) ;;
+    *)
+        LC_ALL=C.UTF-8 awk -v f="$f" '
+            /^import Lean([. ]|$)/ { printf "%s:%d: shipped module imports Lean\n", f, FNR; bad = 1 }
+            END { exit bad }' "$f" || rc=1
+        ;;
+    esac
 done
 exit $rc
