@@ -332,4 +332,19 @@ def groupTests : TestM Unit := do
   checkEq "cli groups: subject order, then trace order inside a subject" got want
   checkEq "cli groups: P before T, each claim once" got [("P", ["P1", "P2"]), ("T", ["T1", "T2"])]
 
+/-- A command's help names --trace exactly when its parser takes it (resolving a project hashes
+its path: native suite). serve, schema + skills aside: serve would start serving, the others work
+on no project. -/
+def helpTraceTests : TestM Unit :=
+  IO.FS.withTempDir fun dir => do
+    let words := Fvtrace.Cli.commands.map (·.name) |>.eraseDups
+    let wrong ← words.filterM fun w => do
+      if ["serve", "schema", "skills"].contains w then return false
+      let (_, _, err) ← capture
+        (Fvtrace.Cli.runIn { home := dir, cwd := dir } [w, "--trace", (dir / "none.json").toString])
+      let takes := count err "unknown option --trace" == 0
+      let shows := count ((Fvtrace.Cli.commandUsage w).getD "") "--trace FILE" == 1
+      return takes != shows
+    checkEq "cli: each command's help names --trace exactly when the command takes it" wrong []
+
 end Tests.Cli

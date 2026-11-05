@@ -1,8 +1,9 @@
 // Renovate's regex managers compile each matchString with the `g` flag alone (no `m`): `^` anchors
 // at the file start only. Each custom manager must extract the dependencies of the file it names.
-// The hosted app compiles every regex with RE2, the tests here with JS RegExp: `re2Rejects` names
-// what JS accepts + RE2 refuses (github.com/google/re2/wiki/Syntax, "NOT SUPPORTED" rows), so a
-// pattern passing here + failing in the app fails here. Option validity = `tools/renovate.sh check`.
+// The hosted app compiles every regex with RE2, the tests here with JS RegExp: `re2Rejects` = a
+// deny-list of what JS accepts + RE2 refuses: the "NOT SUPPORTED" rows of
+// github.com/google/re2/wiki/Syntax + its repetition limit (above 1000, nested counts multiplied).
+// The full compile = `tools/renovate.sh check` (RE2 itself), run on each renovate.json edit.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -76,6 +77,13 @@ const regexes = entries(raw).flatMap(([key, s]) => {
 /** @param {string} re @returns {string | undefined} the first construct RE2 refuses */
 function re2Rejects(re) {
   let inClass = false;
+  /** @type {number[]} */
+  const open = [];
+  /** close index → open index of each group @type {Map<number, number>} */
+  const groupOf = new Map();
+  /** counted repetitions: the span they repeat + their largest count
+   * @type {{ from: number, to: number, count: number, text: string }[]} */
+  const counted = [];
   for (let i = 0; i < re.length; i++) {
     const c = re[i];
     if (c === "\\") {
@@ -88,11 +96,34 @@ function re2Rejects(re) {
       inClass = true;
       if (re[i + 1] === "^") i++;
       if (re[i + 1] === "]") i++;
-    } else if (c === "(" && (re[i + 1] === "?" || re[i + 1] === "*")) {
-      const head = re.slice(i, i + 4);
-      if (!/^\(\?(:|<[A-Za-z_]|P<|[imsU-]+[:)])/.test(head)) return head;
-      i++;
-    } else if ("*+?}".includes(c ?? "") && re[i + 1] === "+") return `${c}+`;
+    } else if (c === "(") {
+      open.push(i);
+      if (re[i + 1] === "?" || re[i + 1] === "*") {
+        const head = re.slice(i, i + 4);
+        if (!/^\(\?(:|<[A-Za-z_]|P<|[imsU-]+[:)])/.test(head)) return head;
+        i++;
+      }
+    } else if (c === ")") {
+      const o = open.pop();
+      if (o !== undefined) groupOf.set(i, o);
+    } else if (c === "{") {
+      const m = /^\{(\d+)(?:,(\d*))?\}/.exec(re.slice(i));
+      if (m?.[1] !== undefined) {
+        const low = Number(m[1]);
+        const high = m[2] ? Number(m[2]) : low;
+        const from = re[i - 1] === ")" ? (groupOf.get(i - 1) ?? i - 1) : i - 1;
+        counted.push({ from, to: i, count: Math.max(low, high), text: m[0] });
+        i += m[0].length - 1;
+        if (re[i + 1] === "+") return `${m[0]}+`;
+      }
+    } else if ("*+?".includes(c ?? "") && re[i + 1] === "+") return `${c}+`;
+  }
+  // RE2's limit: a counted repetition above 1000, the counts of enclosing repetitions multiplied.
+  for (const q of counted) {
+    const total = counted
+      .filter((r) => r.from <= q.from && q.to <= r.to)
+      .reduce((product, r) => product * r.count, 1);
+    if (total > 1000) return `${q.text} (repetition ${total} > 1000)`;
   }
   return undefined;
 }
@@ -106,7 +137,7 @@ void test("every regex compiles under RE2's syntax", () => {
   }
 });
 
-void test("re2Rejects names lookaround, backreferences, possessives + escapes RE2 lacks", () => {
+void test("re2Rejects names lookaround, backreferences, possessives, escapes + repetitions RE2 lacks", () => {
   for (const re of [
     "(?<!x)y",
     "(?=x)",
@@ -119,9 +150,25 @@ void test("re2Rejects names lookaround, backreferences, possessives + escapes RE
     "\\v",
     "\\cK",
     "[\\b]",
+    // RE2 1.27 (node-re2): "invalid repetition size" for each of these.
+    "x{1001}",
+    "x{2,1001}",
+    "x{1001,}",
+    "(a{100}){11}",
+    "(a{1000}){2}",
   ])
     assert.notEqual(re2Rejects(re), undefined, re);
-  for (const re of ["(?<v>\\S+)", "(?:^|\\n)x", "[^/]+\\.", "\\bx\\b", "(?i)x", "a+?b{2}"])
+  for (const re of [
+    "(?<v>\\S+)",
+    "(?:^|\\n)x",
+    "[^/]+\\.",
+    "\\bx\\b",
+    "(?i)x",
+    "a+?b{2}",
+    "x{1000}",
+    "(a{100}){10}",
+    "a{b}",
+  ])
     assert.equal(re2Rejects(re), undefined, re);
 });
 

@@ -25,17 +25,19 @@ open Fvtrace.Json
 structure Command where
   name : String
   block : List String
-  /-- Works on a project: `--project` + `--trace`. -/
+  /-- Works on a project: `--project`. -/
   project : Bool := true
+  /-- Reads a trace file named by `--trace` (`init` + `path` take the project alone). -/
+  trace : Bool := true
   /-- Reads `--whatif`, `--action`, `--cached` or `--json`. -/
   evaluates : Bool := false
 
 def commands : List Command := [
-  { name := "init",
+  { name := "init", trace := false,
     block := ["  init",
       "      Create the trace of the project and show where it is. The new trace is",
       "      valid and claims nothing."] },
-  { name := "path",
+  { name := "path", trace := false,
     block := ["  path",
       "      Print the location of the trace of the project."] },
   { name := "check",
@@ -125,7 +127,10 @@ def projectText : String :=
   "fvTrace keeps one trace for each project folder in its data folder (FVTRACE_HOME,\n" ++
   "else the data folder of the platform). A command works on the project in the\n" ++
   "current folder.\n" ++
-  "  --project DIR   Use the project in the folder DIR.\n" ++
+  "  --project DIR   Use the project in the folder DIR.\n"
+
+/-- The trace override, for the commands that read a trace. -/
+def traceLine : String :=
   "  --trace FILE    Read the trace in FILE (for example, a draft) instead.\n"
 
 /-- The options the evaluating commands share. -/
@@ -142,7 +147,7 @@ def exitText : String :=
   "error.\n"
 
 def usage : String :=
-  "usage: fvtrace <command> [options]\n\n" ++ projectText ++ "\nCommands:\n" ++
+  "usage: fvtrace <command> [options]\n\n" ++ projectText ++ traceLine ++ "\nCommands:\n" ++
   String.join (commands.map fun c => String.join (c.block.map (· ++ "\n"))) ++ "\n" ++
   sharedText ++ "  --version   Print the fvTrace version.\n" ++
   "  --help      Print this help.\n\n" ++ exitText
@@ -156,7 +161,7 @@ def commandUsage (name : String) : Option String :=
     let line := fun (l : String) =>
       if l.startsWith "      " then l else "usage: fvtrace " ++ (l.drop 2).toString
     some <| String.join (cs.map fun c => String.join (c.block.map (line · ++ "\n"))) ++
-      (if c.project then "\n" ++ projectText else "") ++
+      (if c.project then "\n" ++ projectText ++ (if c.trace then traceLine else "") else "") ++
       (if c.evaluates then "\n" ++ sharedText else "") ++ "\n" ++ exitText
 
 def say (line : String) : IO Unit := IO.println (Render.safe line)
