@@ -52,6 +52,7 @@ def pure : TestM Unit := do
 /-- Suites that call the C digest code, or run too long interpreted (plan-scale: 3 s, rerun by
 every mutant): native binary alone (`lake test`). -/
 def native : TestM Unit := do
+  area "cli-help" Tests.Cli.helpTraceTests
   area "digest" Tests.Digest.tests
   area "receipt" Tests.Receipt.tests
   area "cli-store" do
