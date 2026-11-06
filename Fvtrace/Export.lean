@@ -196,8 +196,10 @@ def pageWith (engineText : String) (l : Session.Loaded) : IO String := do
     throw (damaged "the page no longer links style.css + app.js as the export expects")
   unless (html.splitOn "</footer>").length == 2 do
     throw (damaged "the page no longer has the one footer the export's licenses close")
-  return (html.replace linked head).replace "</footer>"
-    (licensesHtml FvtraceEngine.licenses ++ "      </footer>")
+  -- The licenses go into the template before `head` does: a replace over the filled page scanned
+  -- its every character (a 74 MB page at the 16 MiB cap: half of the export's time).
+  let html := html.replace "</footer>" (licensesHtml FvtraceEngine.licenses ++ "      </footer>")
+  return html.replace linked head
 
 def page (l : Session.Loaded) : IO String := pageWith engine l
 
