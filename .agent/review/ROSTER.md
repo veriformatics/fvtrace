@@ -81,4 +81,6 @@ Session 2026-11-04 (resume after template refresh):
 - CI run for 5a5b828 (F70 + checkpoints): `.scratch/review/main/ci/wave-f70.log` (started in background); on green → ledger F70 + F52 CI ids, delete ci/wave-ci after its macOS rerun.
 | reviewer-51 | reviewer: closing diff a43d1c0..27158e4, every lens but security (`.agent/review/reviewer-51.md`, marker reviewer-51-DONE-1) | review | done (harvested: F78 F79 fixed a03414d; stopped) |
 
-Background: none (stopped at the pause; restart = the RESUME row in `.agent/spec.md`).
+| reviewer-52 | reviewer: F81 fix diff 7ebf099..0ba494b, every lens but security (`.agent/review/reviewer-52.md`, marker reviewer-52-DONE-1) | review | harvested: 8/8 pass, 0 findings; register ruled (T1 hash = kernel.md § Receipts hashes recorded-verified records alone; R4 + R8 = scope notes) |
+
+Background (F81 acceptance at 0ba494b): `bash .scratch/bench/b8f.sh 0ba494b` → `.scratch/bench/b8f.log` (ends `b8f rc=N`; waits for nixbox 0/2, holder from ci-wt); CI gate on 0ba494b = run 42209653840 green (every shard + four platforms); compare on the final binary e3c3485c… 0 differing.
