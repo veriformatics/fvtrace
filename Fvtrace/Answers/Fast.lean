@@ -10,12 +10,6 @@ scenario (`Spec.AnswersAgree`).
 
 namespace Fvtrace.Answers
 
-/-- `Counts.of` over need triples (id, status, must verify). -/
-def needCounts (ne : List (String × EStatus × Bool)) : Counts :=
-  { violated := ne.countP (·.2.1 == .violated)
-    unverified := ne.countP fun x => !x.2.1.verified
-    unrested := ne.countP fun x => !(x.2.1.asserted && (!x.2.2 || x.2.1.verified)) }
-
 /-- A claim's envelope member: each need's status + kind read once, its excluded pairs once; a
 what-if-free scenario changes nothing (`kernel.md` V-env). -/
 def viewWith (cx : Ctx) (s : Scenario) (core base : Core) (prospective : String → Bool)

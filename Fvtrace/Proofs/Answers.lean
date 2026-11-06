@@ -491,7 +491,7 @@ theorem has_eq (c : Claim) (n : String) :
 theorem incompatible_eq : Core.incompatible (cxOf s) s = s.incompatible := by
   funext c
   unfold Core.incompatible Scenario.incompatible
-  simp only [has_eq]
+  simp only [Thunk.get, has_eq]
   congr 1
   split
   · rename_i p hp
@@ -1737,6 +1737,48 @@ theorem node_optimistic' (c : Claim) (ids : List String) :
       (!(Core.incompatible (cxOf s) s c).isEmpty) = (s.applySuccess ids).optimistic c :=
   node_optimistic s c ids
 
+theorem filter_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
+    ((l.map fun n => (n, f n)).filter p).map (·.1) = l.filter fun n => p (n, f n) := by
+  induction l with
+  | nil => rfl
+  | cons a l ih =>
+    simp only [List.map_cons, List.filter_cons]
+    split <;> simp [ih]
+
+theorem countP_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
+    (l.map fun n => (n, f n)).countP p = l.countP fun n => p (n, f n) := by
+  rw [List.countP_map]; rfl
+
+/-- The coverage over the needs read once = `coverageOf`. -/
+theorem coverageNe_of (cx : Ctx) (core : Core) (needs : List String) (relIx : Index Nat) :
+    coverageNe cx core (needs.map fun n => (n, core.eff n, core.eff1 n, cx.mustVerify n)) relIx =
+      coverageOf cx core needs relIx := by
+  unfold coverageNe coverageOf premisesUnder gapsUnder
+  simp only [filter_pairs]
+
+/-- The counts over the needs read once, at `eff` (`pick` = `·.2.1`) or `eff1` (`·.2.2.1`). -/
+theorem needCounts_of (needs : List String) (e e1 : String → EStatus) (m : String → Bool)
+    (pick : EStatus × EStatus × Bool → EStatus) (g : String → EStatus)
+    (hg : ∀ n, pick (e n, e1 n, m n) = g n) :
+    needCounts ((needs.map fun n => (n, e n, e1 n, m n)).map fun x => (x.1, pick x.2, x.2.2.2)) =
+      Counts.of g (fun n => (g n).asserted && (!m n || (g n).verified)) needs := by
+  unfold needCounts Counts.of
+  simp only [List.map_map, Function.comp_def, hg, List.countP_map]
+
+/-- The counts at `eff` over the needs read once, in `Core.restsOn`'s terms. -/
+theorem needCounts_core (cx : Ctx) (core : Core) (needs : List String) :
+    needCounts ((needs.map fun n => (n, core.eff n, core.eff1 n, cx.mustVerify n)).map
+        fun x => (x.1, x.2.1, x.2.2.2)) = Counts.of core.eff (Core.restsOn cx core) needs :=
+  needCounts_of needs core.eff core.eff1 cx.mustVerify (fun x => x.1) core.eff (fun _ => rfl)
+
+/-- The final state from a claim's counts = `Core.final`. -/
+theorem final_counts (cx : Ctx) (sc : Scenario) (core : Core) (c : Claim) :
+    (if core.valid c.subject then
+        (Counts.of core.eff (Core.restsOn cx core) c.needsAll).state
+          (!(Core.incompatible cx sc c).isEmpty)
+      else .cannot) = Core.final cx sc core c :=
+  memo_final_core cx sc core c
+
 theorem memoAt_eq {α : Type} {key : List String} {v : α} {f : List String → α}
     (h : v = f key) : memoAt key v f = f := by
   funext ids
@@ -1752,6 +1794,8 @@ theorem plan_eq (closure : List String → List String) (hcl : closure = s.closu
   dsimp only
   rw [memoAt_eq
     (f := fun ids => Delta.build (cxOf s) s (coreOf s) (raisedBy (cxOf s) (coreOf s) ids)) rfl]
+  rw [coverageNe_of, needCounts_core,
+    needCounts_of _ _ _ _ (fun x => x.2.1) (coreOf s).eff1 (fun _ => rfl), final_counts]
   rw [relPos_eq, relevant_read, coverageOf_eq, valid_eq, costWith_eq, final_eq]
   simp only [raised_eq, node_valid, node_final, node_optimistic']
   rw [searchWith_eq s c _ _ _ (fun _ => rfl) (fun _ => rfl) (fun _ => rfl)]
