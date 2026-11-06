@@ -58,18 +58,6 @@ theorem summary_of_walk (s : Scenario) (fb : Experiment → ExperimentRow)
     · exact hgen
   · exact hgen
 
-theorem filter_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
-    ((l.map fun n => (n, f n)).filter p).map (·.1) = l.filter fun n => p (n, f n) := by
-  induction l with
-  | nil => rfl
-  | cons a l ih =>
-    simp only [List.map_cons, List.filter_cons]
-    split <;> simp [ih]
-
-theorem countP_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
-    (l.map fun n => (n, f n)).countP p = l.countP fun n => p (n, f n) := by
-  rw [List.countP_map]; rfl
-
 theorem any_pairs {β : Type} (l : List String) (f : String → β) (p : String × β → Bool) :
     (l.map fun n => (n, f n)).any p = l.any fun n => p (n, f n) := by
   rw [List.any_map]; rfl

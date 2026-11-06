@@ -195,8 +195,10 @@ def incompatible (c : Claim) : List String :=
   let cands := match cx.positionOf c with
     | some p => cx.bothNeeded.group (cmp := compare) p
     | none => ascending (c.needsAll.flatMap (cx.exclFirst.group (cmp := compare) ·))
-  let needs := Index.ofKeys compare c.needsAll
-  let has := fun n => (needs.first? (cmp := compare) n).isSome
+  -- Built on the first candidate: most claims have none, and sorting a long claim's needs cost
+  -- more than the rest of its details (deep, 134,196 needs).
+  let needs := Thunk.mk fun _ => Index.ofKeys compare c.needsAll
+  let has := fun n => (needs.get.first? (cmp := compare) n).isSome
   ((cands.filterMap (cx.exclusions[·]?)).filter fun x =>
       (s.exclusionEff x).asserted && has x.between.1 && has x.between.2).map (·.id)
 
@@ -224,6 +226,12 @@ def Counts.of (eff : String → EStatus) (rests : String → Bool) (needs : List
   { violated := needs.countP (eff · == .violated)
     unverified := needs.countP fun n => !(eff n).verified
     unrested := needs.countP (!rests ·) }
+
+/-- `Counts.of` over need triples (id, status, must verify). -/
+def needCounts (ne : List (String × EStatus × Bool)) : Counts :=
+  { violated := ne.countP (·.2.1 == .violated)
+    unverified := ne.countP fun x => !x.2.1.verified
+    unrested := ne.countP fun x => !(x.2.1.asserted && (!x.2.2 || x.2.1.verified)) }
 
 def Counts.state (k : Counts) (incompatible : Bool) : State :=
   if k.violated > 0 || incompatible then .cannot
@@ -560,6 +568,18 @@ def coverageOf (cx : Ctx) (core : Core) (needs : List String) (relIx : Index Nat
     uncovered := (per.filter (·.2.isEmpty)).map (·.1)
     alternatives := per.flatMap (·.2) }
 
+/-- A claim's needs, each with its `eff`, `eff1` + must-verify flag, read once. -/
+abbrev Needs := List (String × EStatus × EStatus × Bool)
+
+/-- `coverageOf` over the needs read once. -/
+def coverageNe (cx : Ctx) (core : Core) (ne : Needs) (relIx : Index Nat) : Coverage :=
+  let ids := fun (p : String × EStatus × EStatus × Bool → Bool) => (ne.filter p).map (·.1)
+  let per := (ids fun x => !x.2.1.verified).map fun n => (n, alternativesFor cx core relIx n)
+  { premises := ids fun x => x.2.1 == .assumed && !x.2.2.2
+    gaps := ids fun x => x.2.1.strength == 1 || (x.2.1 == .assumed && x.2.2.2)
+    uncovered := (per.filter (·.2.isEmpty)).map (·.1)
+    alternatives := per.flatMap (·.2) }
+
 /-- `f`, answering `key` with `v` (kept, not recomputed): equal to `f` whenever `v = f key`. -/
 def memoAt {α : Type} (key : List String) (v : α) (f : List String → α) : List String → α :=
   fun ids => if ids == key then v else f ids
@@ -569,19 +589,22 @@ whose nodes read deltas over the claim's own counts. -/
 def planOf (cx : Ctx) (closure : List String → List String) (s : Scenario) (core : Core)
     (c : Claim) : PlanResult :=
   let needsAll := c.needsAll
+  -- Each need's statuses + kind read once: the coverage, both counts + the final state read them
+  -- ≈ 20 times per need, each a search by id (a claim with 134,196 needs: 84% of its details).
+  let ne : Needs := needsAll.map fun n => (n, core.eff n, core.eff1 n, cx.mustVerify n)
   let relPos := relevantPositions cx core needsAll c.subject
   let rel := relPos.filterMap (cx.experiments[·]?)
-  let cov := coverageOf cx core needsAll (Index.ofKeys compare relPos)
+  let cov := coverageNe cx core ne (Index.ofKeys compare relPos)
   if !core.valid c.subject then .inconsistent cov
   else if rel.length > maxRelevant then .tooLarge cov
   else
     let needs := Index.ofKeys compare needsAll
     let times := fun d => needs.count (cmp := compare) d
     let incompatible := !(Core.incompatible cx s c).isEmpty
-    let counts := Counts.of core.eff (Core.restsOn cx core) needsAll
+    let counts := needCounts (ne.map fun x => (x.1, x.2.1, x.2.2.2))
     let rests1 := fun (eff1 : String → EStatus) (n : String) =>
       (eff1 n).asserted && (!cx.mustVerify n || (eff1 n).verified)
-    let counts1 := Counts.of core.eff1 (rests1 core.eff1) needsAll
+    let counts1 := needCounts (ne.map fun x => (x.1, x.2.2.1, x.2.2.2))
     -- The search's bound at its root, and with one relevant experiment its every costly node +
     -- the plan, is the closure of all relevant experiments: its delta is built once (a delta reads
     -- every raised fact: one experiment proving 43,949 facts built it five times per plan).
@@ -601,7 +624,9 @@ def planOf (cx : Ctx) (closure : List String → List String) (s : Scenario) (co
       (rel.map (·.id)) []
     let δ := delta p
     let after := finalAfter p
-    if after.rank ≤ (Core.final cx s core c).rank then .noImprovement cov
+    -- `Core.final`'s form (`.cannot` unreachable here), so `final_counts` rewrites it.
+    if after.rank ≤ (if core.valid c.subject then counts.state incompatible else .cannot).rank then
+      .noImprovement cov
     else .planned cov p after (premisesUnder cx δ.eff needsAll) (gapsUnder cx δ.eff needsAll)
       (p.any fun id => ((cx.L.experiment? id).map fun e =>
         e.success.any fun x => cx.isResult x.1).getD false)
