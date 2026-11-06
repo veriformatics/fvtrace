@@ -1,6 +1,6 @@
 # Units → tier → contract → evidence (IMPLEMENT — whole product)
 
-Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` = structural validator + live spot-check; `docs` = consistency pass). Closing review (U13) = every lens of `.agent/review.md` over the whole diff; mutation credit = `node tools/mutate.mjs` per tested Lean file (proved code needs none).
+Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` = structural validator + live spot-check; `docs` = consistency pass). Closing review (U13) = every lens of `.agent/archive/review-implement.md` over the whole diff; mutation credit = `node tools/mutate.mjs` per tested Lean file (proved code needs none).
 
 | unit | tier | contract | evidence |
 |---|---|---|---|
@@ -41,7 +41,7 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | mutation tool: `!·` sites | kernel (gate tool) | `.claude/rules/lean.md` mutation credit | `--list` shows Evaluate.lean:178 (absent before); campaigns over the 5 sites: 5/5 killed, 0 survivors |
 | verifier replay | kernel (shell, security) | `kernel.md` § Replay; Decisions Evidence binding (user rulings) | consultant-4 before code (V4 build dependency + V6 sequencing adopted; V2 security ruled by MAIN); schema corpus 7 cases (Node + Lean halves); Tests/Replay 18 checks (fixture verifier = the test binary); self-trace acceptance (`maxRelevant` 20 → 0: receipts current, P6 + P7 replays fail); mutation credit on Replay.lean + the CLI |
 | CI engine-build cache | kernel (gate) | `.claude/rules/ci.md`; `.claude/rules/wasm.md` CI cache | commit body: zizmor `cache-poisoning` fires on both cache steps under a planted release trigger, none under the real triggers; `gate-probe.sh wasm` on a cache-hit tree; probe `wasm-build-step` (red before `lakefile.lean` was traced); CI miss run + its rerun on a hit + a hit at another commit (`lean-build`, portability); reviewer-1 (R1–R7: F1–F4 fixed) |
-| e2e limits | kernel (gate: thresholds, user ruling) | `.claude/rules/web.md` e2e limits | 752ee38 (durations at load ≈ 2.6× + ≈ 3×); 27787a1 body: `tools/e2e-load.sh gate 3` on nixbox, 3 green runs, 1-min load ≥ 12 (1.5 × 8 CPUs) through each e2e stage |
+| e2e limits | kernel (gate: thresholds, user ruling) | `.claude/rules/web.md` e2e limits | 752ee38 (durations at load ≈ 2.6× + ≈ 3×); 27787a1 body: `tools/e2e-load.sh gate 3` on nixbox, 3 green runs, 1-min load ≥ 12 (1.5 × 8 CPUs) through each e2e stage; bcdfca2 (first engine answer after a load 60 s, long-board poll 120 s in a 180 s test): `e2e-load.sh measure 20` on nixbox at f45fa52, load 20.8–31.7 (mean 28.7 = 3.6×), every test passed, slowest `engine.spec.js:18` 183.9 s, `responsive.spec.js:93` 34.6 s, `smoke.spec.js:13` 28.6 s, first-answer tests ≤ 12.4 s; `e2e-load.sh gate 1` green (e2e at mean load 21.4) |
 
 # Units → tier → contract → evidence (IMPLEMENT — export: live what-ifs)
 
@@ -54,7 +54,7 @@ Tier law = `CLAUDE.md` Engineering (`kernel` = full adversarial battery; `data` 
 | U5 wasm build | kernel (build) | E-build, E-wasm (closure) | Tests/Wasm (lock, platform, manifest, wasm parser, link contract, warnings); probes (archive + manifest digest mismatch, unexpected import, missing or wrong-kind export, new link warning); two clean builds in different folders `cmp`; incremental witness (engine change ⇒ new embedded bytes; rerun reuses); gate timings cold + warm; Renovate extraction test; macOS + Windows = CI run (user push) |
 | U6 export page + GUI engine | kernel (shell, security: Export, E-abi bridge + `web/engine.js`) + data (GUI rendering) | E-page, E-abi, E-gui, E-sec; `.claude/rules/web.md` | Tests/Export; differential test (E-wasm classes; Node + Chromium); e2e file:// offline (two-fact stack, linked spec, refused spec, legacy action, engine failure, latest request wins); axe; mutation credit on Export; L-SEC (MAIN) |
 | U7 docs + rules | docs | README, skill, SECURITY, rules (web.md exported flow), Decisions | consistency pass (L-CLAIM): proofs of definitions vs tests of the compiled adapter vs export-time receipts |
-| U8 closing review | — | lenses fixed before reading | `.agent/review.md` |
+| U8 closing review | — | lenses fixed before reading | `.agent/archive/review-implement-export.md` |
 
 # Units → tier → contract → evidence (MAINTAIN — dependency upgrade)
 
