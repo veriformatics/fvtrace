@@ -296,8 +296,10 @@ for shape in "${shapes[@]}"; do
             if [[ $grade -eq 1 ]]; then
                 if [[ $wall == timeout ]]; then
                     fail "$shape $cmd n=$n: timeout after ${limit} s"
-                elif [[ $rc -ne 0 ]]; then
+                elif [[ $rc != 0 ]]; then
                     fail "$shape $cmd n=$n: rc $rc"
+                elif [[ ! $wall =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                    fail "$shape $cmd n=$n: no wall time"
                 elif awk -v w="$wall" -v m="$bound" 'BEGIN { exit !(w > m) }'; then
                     fail "$shape $cmd n=$n: wall $wall s > $bound s"
                 fi

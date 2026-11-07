@@ -600,6 +600,11 @@ STUB
         bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gexit" wide
     GUI_RC=124 expect scale-gui-session-timeout 'FAIL wide gui:served:select n=2: timeout after' \
         bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gexit" wide
+    # A row that exits 0 without a wall time fails (fastest picks such a run: scale-runs-pick).
+    local gnowall="$backup/scale-gui-nowall.mjs"
+    sed 's/"0.500"/"-"/' "$gui" >"$gnowall"
+    expect scale-gui-no-wall 'FAIL wide gui:served:select n=2: no wall time' \
+        bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gnowall" wide
     # A GUI session whose second run exits 3: every step of that session fails.
     local gflaky="$backup/scale-gui-flaky.mjs"
     cat >"$gflaky" <<'STUB'
