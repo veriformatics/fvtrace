@@ -2,19 +2,22 @@
 # Engine bounds (`.agent/contracts/kernel.md` § Performance, P-bound + P-evidence): times the
 # P-time + U-time rows on the generated shapes of tools/scale.mjs.
 #   tools/scale.sh [--assert] [--bin PATH] [--gui PATH] [--timeout S] [--max-wall S]
-#                  [--max-ratio R] [--n "N1 N2 …"] [shape…]
+#                  [--max-ratio R] [--runs K] [--n "N1 N2 …"] [shape…]
 # Default: every shape at n = cap/2 and cap (the largest n within 16 MiB; whatif: its what-if
-# within one argument too), the built binary, 900 s per run. Rows per shape + n: `check`, `eval`,
-# `action` (eval --action of action.txt), `details:<kind>` (eval --details of each items.txt
-# line), `export` (--html), on the F5 four the text commands `claims`, `gaps` (not on deep),
-# `experiments`, `plan` (of items.txt's claim; elsewhere their output grows by design, kernel.md
-# P-time); `serve` = one server: its launch (start → the recorded answer), then,
+# within one argument too), the built binary, 900 s per run, 3 runs per row. Rows per shape + n:
+# `check`, `eval`, `action` (eval --action of action.txt), `details:<kind>` (eval --details of
+# each items.txt line), `export` (--html), on the F5 four the text commands `claims`, `gaps`
+# (not on deep), `experiments`, `plan` (of items.txt's claim; elsewhere their output grows by
+# design, kernel.md P-time); `serve` = one server: its launch (start → the recorded answer), then,
 # as the GUI sends them, `serve:whatif` (a whatif.txt view), `serve:details:<kind>` at that view,
 # `serve:action` from it; `page` = the exported page's engine (tools/scale-page.mjs): start-up,
 # then the same steps; `gui:<served|page>:<step>` = the GUI in Chromium (tools/scale-gui.mjs or
-# --gui: U-time, each row with its own bound). One row per run (shape, n, input bytes, command,
-# rc, wall s, user s, max RSS MiB, output bytes; serve: the server's CPU + peak RSS so far; gui:
-# the page's live JS memory once the mode's steps end); per shape + command, the wall ratio of
+# --gui: U-time, each row with its own bound). One row per command + n = its fastest of --runs
+# runs (user ruling: one timing per n flips a per-doubling ratio on the reference host's
+# run-to-run spread), a failed run outranking the rest; a session (serve, page, gui) runs whole
+# each time, its steps picked alike: shape, n, input bytes, command, rc, wall s, user s, max RSS
+# MiB, output bytes (serve: the server's CPU + peak RSS so far; gui: the page's live JS memory
+# once the mode's steps end), every run's wall; per shape + command, the wall ratio of
 # consecutive rows, scaled to one doubling of n.
 # --assert grades the graded shapes (wide deep experiments exclusions outcomes prereqs whatif):
 # exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit)
@@ -29,10 +32,10 @@ export LC_ALL=C
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 bin="$root/.lake/build/bin/fvtrace"
 gui="$root/tools/scale-gui.mjs"
-limit=900 max_wall=10 max_ratio=2.5 assert=0
+limit=900 max_wall=10 max_ratio=2.5 assert=0 runs=3
 sizes=""
 shapes=()
-usage='usage: tools/scale.sh [--assert] [--bin PATH] [--gui PATH] [--timeout S] [--max-wall S] [--max-ratio R] [--n "N…"] [shape…]'
+usage='usage: tools/scale.sh [--assert] [--bin PATH] [--gui PATH] [--timeout S] [--max-wall S] [--max-ratio R] [--runs K] [--n "N…"] [shape…]'
 while [[ $# -gt 0 ]]; do
     case "$1" in
     --assert) assert=1; shift ;;
@@ -41,11 +44,13 @@ while [[ $# -gt 0 ]]; do
     --timeout) limit="$2"; shift 2 ;;
     --max-wall) max_wall="$2"; shift 2 ;;
     --max-ratio) max_ratio="$2"; shift 2 ;;
+    --runs) runs="$2"; shift 2 ;;
     --n) sizes="$2"; shift 2 ;;
     -*) printf '%s\n' "$usage" >&2; exit 2 ;;
     *) shapes+=("$1"); shift ;;
     esac
 done
+[[ $runs =~ ^[1-9][0-9]*$ ]] || { printf '%s\n' "$usage" >&2; exit 2; }
 graded=" wide deep experiments exclusions outcomes prereqs whatif "
 f5=" wide deep experiments exclusions "
 # Default: every shape the generator registers (`tools/scale.mjs shapes`), in its order.
@@ -63,6 +68,21 @@ doubling() {
     awk -v a="$1" -v b="$2" -v na="$3" -v nb="$4" -v m="$5" 'BEGIN { if (a > 0 && b > 0 && nb > na) {
         r = exp(log(b / a) * log(2) / log(nb / na)); printf "%.4f %d\n", r, (r > m) } }'
 }
+# Each step's graded row across its runs' rows (`step rc wall …`, files in run order): a failed
+# run (rc ≠ 0 or no wall time) outranks the rest, the first such row; else the fastest; a step
+# missing from a run's file (its session ended before it) is left out, which session_row reads as
+# failed. One file may hold every run of one step (the CLI rows).
+fastest() {
+    awk -v runs="$#" '
+        !($1 in seen) { seen[$1] = 1; order[++k] = $1 }
+        last[$1] != FILENAME { count[$1]++; last[$1] = FILENAME }
+        $2 != "0" || $3 !~ /^[0-9]+(\.[0-9]+)?$/ { if (!($1 in bad)) bad[$1] = $0; next }
+        !($1 in best) || $3 + 0 < wall[$1] { best[$1] = $0; wall[$1] = $3 + 0 }
+        END { for (i = 1; i <= k; i++) { s = order[i]
+            if (s in bad) print bad[s]; else if (count[s] == runs) print best[s] } }' "$@"
+}
+# Step $1's wall in each run's rows, comma-joined (the row's spread).
+walls() { local s="$1"; shift; awk -v s="$s" '$1 == s { printf "%s%s", c, $3; c = "," }' "$@"; }
 since() { awk -v a="$1" -v b="$EPOCHREALTIME" 'BEGIN { printf "%.2f", b - a }'; }
 tck="$(getconf CLK_TCK)"
 # The server's user CPU seconds (/proc stat field 14, in clock ticks) + its peak RSS (KiB).
@@ -142,6 +162,26 @@ gui_rows() {
     echo "$?" >"$dir/gui.rc"
 }
 
+# A session (serve | page | gui) for the trace in $2, run --runs times, stopping at a failed run
+# (session_row: its exit outranks its rows) → <kind>.rows = each step's graded row (fastest),
+# beside every run's rows (<kind>.rows.<run>) + the last run's exit (<kind>.rc).
+sessions() {
+    local kind="$1" dir="$2" r f rc=0 files=()
+    for ((r = 1; r <= runs; r++)); do
+        printf -v f '%s/%s.rows.%03d' "$dir" "$kind" "$r"
+        case "$kind" in
+        serve) serve_rows "$dir" "$3" ;;
+        page) page_rows "$dir" "$3" ;;
+        gui) gui_rows "$dir" ;;
+        esac
+        mv "$dir/$kind.rows" "$f"
+        files+=("$f")
+        [[ -f "$dir/$kind.rc" ]] && rc="$(<"$dir/$kind.rc")"
+        if [[ $rc != 0 ]] || ! awk '$2 != "0" { exit 1 }' "$f"; then break; fi
+    done
+    fastest "${files[@]}" >"$dir/$kind.rows"
+}
+
 # A session step's measurement (rc wall user rss bytes [bound]); a step without a row = the
 # session ended before it (rc 124 = it timed out).
 session_row() {
@@ -159,9 +199,9 @@ session_row() {
 
 printf 'binary %s sha256 %s\n' "$bin" "$(sha256sum "$bin" | cut -d' ' -f1)"
 printf 'host %s, %s CPUs, load %s at start\n' "$(uname -n)" "$(nproc)" "$(cut -d' ' -f1-3 /proc/loadavg)"
-row='%-12s %8s %9s %-24s %4s %9s %9s %8s %11s\n'
+row='%-12s %8s %9s %-24s %4s %9s %9s %8s %11s %s\n'
 # shellcheck disable=SC2059 # one format for the header + every row
-printf "$row" shape n bytes cmd rc wall user rss_mib out_bytes
+printf "$row" shape n bytes cmd rc wall user rss_mib out_bytes walls
 for shape in "${shapes[@]}"; do
     ns="${sizes:-}"
     if [[ -z "$ns" ]]; then
@@ -205,15 +245,11 @@ for shape in "${shapes[@]}"; do
             whatif=()
             [[ -n "$w" ]] && whatif=(--whatif "$w")
             case "$cmd" in
-            serve*)
-                [[ -f "$dir/serve.rows" ]] || serve_rows "$dir" "$w"
-                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd") ;;
-            page*)
-                [[ -f "$dir/page.rows" ]] || page_rows "$dir" "$w"
-                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd") ;;
-            gui*)
-                [[ -f "$dir/gui.rows" ]] || gui_rows "$dir"
-                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd") ;;
+            serve* | page* | gui*)
+                src="${cmd%%:*}"
+                [[ -f "$dir/$src.rows" ]] || sessions "$src" "$dir" "$w"
+                read -r rc wall user rss bytes bound < <(session_row "$dir" "$cmd")
+                spread="$(walls "$cmd" "$dir/$src.rows".*)" ;;
             *)
                 case "$cmd" in
                 check) args=(check) ;;
@@ -226,20 +262,27 @@ for shape in "${shapes[@]}"; do
                 plan) c="$(grep -m1 '^claim:' "$dir/items.txt")" && args=(plan "${c#claim:}") ;;
                 esac
                 args+=(--trace "$dir/trace.json" --project "$dir/project")
-                : >"$work/time"
-                # Output is counted, never stored: the tail shapes print gigabytes at their cap.
-                FVTRACE_HOME="$work/home" timeout "$limit" /usr/bin/time -o "$work/time" \
-                    -f '%e %U %M' "$bin" "${args[@]}" 2>/dev/null | wc -c >"$work/bytes"
-                rc=${PIPESTATUS[0]}
-                bytes="$(<"$work/bytes")"
-                # GNU time puts "Command exited with non-zero status N" above its format line.
-                wall="" user="" rss=0
-                read -r wall user rss < <(tail -n 1 "$work/time") || true
-                [[ $rc -eq 124 || -z "$wall" ]] && { wall=timeout; user=-; rss=0; } ;;
+                : >"$work/runs"
+                for ((r = 1; r <= runs; r++)); do
+                    : >"$work/time"
+                    # Output is counted, never stored: the tail shapes print gigabytes at their cap.
+                    FVTRACE_HOME="$work/home" timeout "$limit" /usr/bin/time -o "$work/time" \
+                        -f '%e %U %M' "$bin" "${args[@]}" 2>/dev/null | wc -c >"$work/bytes"
+                    rc=${PIPESTATUS[0]}
+                    # GNU time puts "Command exited with non-zero status N" above its format line.
+                    wall="" user="" rss=0
+                    read -r wall user rss < <(tail -n 1 "$work/time") || true
+                    [[ $rc -eq 124 || -z "$wall" ]] && { wall=timeout; user=-; rss=0; }
+                    printf '%s %s %s %s %s %s\n' "$cmd" "$rc" "$wall" "$user" "$rss" \
+                        "$(<"$work/bytes")" >>"$work/runs"
+                    [[ $rc -eq 0 && $wall != timeout ]] || break
+                done
+                read -r _ rc wall user rss bytes < <(fastest "$work/runs")
+                spread="$(walls "$cmd" "$work/runs")" ;;
             esac
             # shellcheck disable=SC2059
             printf "$row" "$shape" "$n" "$(stat -c %s "$dir/trace.json")" "$cmd" "$rc" "$wall" \
-                "$user" "$((rss / 1024))" "$bytes"
+                "$user" "$((rss / 1024))" "$bytes" "$spread"
             bound="${bound:-$max_wall}"
             ratio="" over=0 rratio="" rover=0 bratio="" bover=0
             if [[ -n "$prev" && "$wall" != timeout && "$prev" != timeout ]]; then
