@@ -499,12 +499,13 @@ probe_examples() {
 }
 
 # tools/scale.sh --assert (the F5 acceptance, run by hand on an idle host) grades rc, timeout, wall
-# time + per-doubling ratio. A stub stands in for fvtrace: it sleeps STUB_K × n² s (n from its
-# trace folder's name) and exits STUB_RC.
+# time + per-doubling ratio of each row's fastest run, a failed run outranking. A stub stands in for
+# fvtrace: it sleeps STUB_K × n² s (n from its trace folder's name) and exits STUB_RC.
 probe_scale() {
     allow scale-session-exits bash tests/tools/scale-session.sh
     allow scale-details-transition node --test tools/probes/scale-gui.test.mjs
     allow scale-spawn-cleanup node --test tools/probes/scale-spawn.test.mjs
+    allow scale-runs-pick bash tests/tools/scale-runs.sh
     local stub="$backup/fvtrace-stub"
     cat >"$stub" <<'STUB'
 #!/usr/bin/env bash
@@ -512,7 +513,8 @@ probe_scale() {
 # shape alone), n = the size in the trace folder's name; exits STUB_RC (STUB_ONLY: for that command
 # alone). `export` writes a page
 # whose engine cannot start; `serve` with STUB_SERVE = a server that answers with that HTTP status
-# after k·n² s.
+# after k·n² s. STUB_COUNT = a folder counting each command's runs per n: on run STUB_FAIL_RUN
+# it exits 3, and with STUB_SLOW_RUN it sleeps on that run alone.
 trace=""
 for ((i = 1; i < $#; i++)); do [[ ${!i} == --trace ]] && { j=$((i + 1)); trace="${!j}"; }; done
 dir="${trace%/trace.json}" n="${dir##*-}" shape="${dir##*/}"
@@ -531,6 +533,13 @@ class Answer(http.server.BaseHTTPRequestHandler):
 s = http.server.HTTPServer(("127.0.0.1", 0), Answer)
 print(f"Open http://fvtrace.localhost:{s.server_port}/#token=00", flush=True)
 s.serve_forever()' "$n"
+fi
+if [[ -n "${STUB_COUNT:-}" ]]; then
+    c="$STUB_COUNT/$1-$n"
+    run=$(($(cat "$c" 2>/dev/null || echo 0) + 1))
+    echo "$run" >"$c"
+    [[ $run == "${STUB_FAIL_RUN:-}" ]] && exit 3
+    [[ -n "${STUB_SLOW_RUN:-}" && $run != "$STUB_SLOW_RUN" ]] && STUB_K=0
 fi
 sleep "$(awk -v n="$n" -v k="${STUB_K:-0}" 'BEGIN { printf "%.3f", k * n * n }')"
 [[ $1 == export ]] && printf '%s' '<script type="application/json" id="fvtrace-data">{"snapshot":{}}</script><script type="application/octet-stream" id="fvtrace-engine">AAAA</script>' >"$3"
@@ -565,6 +574,16 @@ STUB
     STUB_SERVE=200 STUB_K=0.2 expect scale-serve-timeout 'FAIL wide serve:action n=4: timeout after 1 s' \
         "${run[@]}" --timeout 1
     expect scale-page 'FAIL wide page n=2: rc 2' "${run[@]}"
+    # Runs: a failure on the second run fails the row; a slow first run fails one run alone and
+    # passes as the fastest of three.
+    STUB_COUNT="$(mktemp -d -p "$backup")" STUB_FAIL_RUN=2 expect scale-runs-failed \
+        'FAIL wide check n=2: rc 3' "${run[@]}"
+    STUB_COUNT="$(mktemp -d -p "$backup")" STUB_SLOW_RUN=1 STUB_K=0.02 expect scale-runs-one \
+        'FAIL wide check n=4: wall [0-9.]+ s > 0.1 s' "${run[@]}" --max-wall 0.1 --runs 1
+    # shellcheck disable=SC2016 # the check's own script
+    STUB_COUNT="$(mktemp -d -p "$backup")" STUB_SLOW_RUN=1 STUB_K=0.02 allow scale-runs-fastest \
+        bash -c 'out="$("$@")"; grep -Eq "^wide +4 .* check +0 " <<<"$out" &&
+            ! grep -q "FAIL wide check n=4: wall" <<<"$out"' _ "${run[@]}" --max-wall 0.1
     # The GUI rows: a stand-in driver whose served selection takes 0.5 s against its 0.1 s bound.
     local gui="$backup/scale-gui-stub.mjs"
     cat >"$gui" <<'STUB'
@@ -581,6 +600,19 @@ STUB
         bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gexit" wide
     GUI_RC=124 expect scale-gui-session-timeout 'FAIL wide gui:served:select n=2: timeout after' \
         bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gexit" wide
+    # A GUI session whose second run exits 3: every step of that session fails.
+    local gflaky="$backup/scale-gui-flaky.mjs"
+    cat >"$gflaky" <<'STUB'
+import { readFileSync, writeFileSync } from "node:fs";
+let run = 1;
+try { run += Number(readFileSync(process.env.GUI_COUNT, "utf8")); } catch {}
+writeFileSync(process.env.GUI_COUNT, String(run));
+const steps = ["first", "select", "details", "busy", "whatif"].flatMap((s) => [`served:${s}`, `page:${s}`]);
+for (const s of [...steps, "page:startup"]) process.stdout.write(`gui:${s} 0 0.010 - 0 0 0.1\n`);
+process.exit(run === 2 ? 3 : 0);
+STUB
+    GUI_COUNT="$backup/gui-count" expect scale-runs-session 'FAIL wide gui:served:select n=2: rc 3' \
+        bash tools/scale.sh --assert --bin "$stub" --n 2 --gui "$gflaky" wide
     # A shape with experiments adds the experiment step: its row is graded at its own 1 s bound.
     local gexp="$backup/scale-gui-experiment.mjs"
     cat >"$gexp" <<'STUB'
