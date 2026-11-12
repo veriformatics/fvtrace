@@ -12,10 +12,12 @@
 // on the first card's first symbol → the busy state), `whatif` (→ its answer), `experiment` (a click
 // on the first experiment row's id → its details, the view already held; shapes with experiments);
 // exported also `startup` (the symbol clicked as soon as the board shows, the engine still
-// starting → its answer).
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+// starting → its answer). Served `first` navigates the moment the server prints its link, the
+// browser + page made before the spawn. `SCALE_GUI_PHASES=<file>` appends that view's phases
+// (`phases`).
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 import { serve } from "./serve-link.mjs";
@@ -185,17 +187,61 @@ async function heap(p) {
   }
 }
 
-/** Every step of one mode; the page's memory is read once its steps end (a collection between
- * timed steps would change the next one's time). @param {import("@playwright/test").Browser} browser
- * @param {"served" | "page"} mode @param {string} url */
-async function steps(browser, mode, url) {
+/** A fresh page in its own context. @param {import("@playwright/test").Browser} browser */
+async function blank(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const p = await context.newPage();
   p.setDefaultTimeout(patience);
+  return p;
+}
+
+/** The served first view's phases (ms) → one line appended to `SCALE_GUI_PHASES`: spawn → link,
+ * link → the page's time origin (its navigation's start; both wall clocks), then from the page's
+ * first answer request: its wait (request → response start), transfer, response end → painted,
+ * and the first view. Timing output, never graded.
+ * @param {import("@playwright/test").Page} p @param {number[]} at spawn, link (`performance.now`)
+ * @param {number | undefined} ms */
+async function phases(p, at, ms) {
+  const file = process.env.SCALE_GUI_PHASES;
+  if (!file || ms === undefined) return;
+  // Page clock (from navigation start), like `ms`; an entry's getters do not serialize.
+  const [origin, wait, transfer, end] = await p.evaluate(() => {
+    const e = performance
+      .getEntriesByType("resource")
+      .find((x) => x instanceof PerformanceResourceTiming && x.name.includes("api/answer"));
+    return e instanceof PerformanceResourceTiming
+      ? [
+          performance.timeOrigin,
+          e.responseStart - e.requestStart,
+          e.responseEnd - e.responseStart,
+          e.responseEnd,
+        ]
+      : [performance.timeOrigin];
+  });
+  const [spawn = 0, link = 0] = at;
+  const nav = origin === undefined ? undefined : origin - performance.timeOrigin - link;
+  const after = end === undefined ? undefined : ms - end;
+  const line = [link - spawn, nav, wait, transfer, after, ms].map((x) =>
+    x === undefined ? "-" : Math.round(x),
+  );
+  appendFileSync(file, `${basename(dir ?? "")} ${line.join(" ")}\n`);
+}
+
+/** Every step of one mode on page `p`; the page's memory is read once its steps end (a collection
+ * between timed steps would change the next one's time). @param {import("@playwright/test").Page} p
+ * @param {"served" | "page"} mode @param {string} url @param {number[]} [at] served: spawn + link */
+async function steps(p, mode, url, at) {
+  const context = p.context();
   /** @type {[string, number | undefined, number, number?][]} */
   const rows = [];
   try {
-    rows.push([`gui:${mode}:first`, await first(p, url), 10]);
+    const ms = await first(p, url);
+    rows.push([`gui:${mode}:first`, ms, 10]);
+    // Telemetry never fails a graded step.
+    if (at)
+      await phases(p, at, ms).catch((/** @type {unknown} */ e) => {
+        process.stderr.write(`${mode}: phases: ${String(e)}\n`);
+      });
     // The engine (or server) holds the shown view before a selection's details are timed.
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
     const ids = await p
@@ -257,13 +303,16 @@ async function steps(browser, mode, url) {
 /** The browser's launch: a signal during it still closes what it made (its profile folder). */
 /** @type {Promise<import("@playwright/test").Browser> | undefined} */
 let launching;
+/** The server, spawned once the browser + the served page exist. @type {ReturnType<typeof serve>
+ * | undefined} */
+let server;
 /** @type {Promise<void> | undefined} */
 let stopping;
 /** Stops the server and waits for its exit (it may still write its data folder until then), closes
  * the browser, removes the folder; once, on every way out. */
 function stop() {
   stopping ??= (async () => {
-    await stopServer();
+    await server?.stop();
     await launching?.then(
       (b) => b.close(),
       () => {},
@@ -273,8 +322,9 @@ function stop() {
   return stopping;
 }
 // Signals are handled here, not by Playwright (its SIGINT handler exits at once), and from before
-// the folder + server exist: without a listener a signal ends node by its default action, leaving
-// both behind. A listener runs between ticks, so it finds both made (the same tick makes them).
+// the folder + browser exist: without a listener a signal ends node by its default action, leaving
+// them behind. A listener runs between ticks; the tick that spawns the server first checks
+// `stopping`, so a stop either finds the server or prevents it.
 for (const [signal, code] of /** @type {const} */ ([
   ["SIGINT", 130],
   ["SIGTERM", 143],
@@ -282,17 +332,21 @@ for (const [signal, code] of /** @type {const} */ ([
 ]))
   process.once(signal, () => void stop().finally(() => process.exit(code)));
 const home = mkdtempSync(join(tmpdir(), "scale-gui-"));
-const { link: linked, stop: stopServer } = serve(
-  bin,
-  ["--trace", join(dir, "trace.json"), "--project", join(dir, "project")],
-  { env: { ...process.env, FVTRACE_HOME: home } },
-);
 try {
   launching = chromium.launch({ handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
   const b = await launching;
-  const link = await linked;
-  await steps(b, "served", hash ? `${link}&${hash}` : link);
-  await steps(b, "page", `${pathToFileURL(page).href}${hash ? `#${hash}` : ""}`);
+  // The served first view starts as `serve`'s own opener does: the browser open, navigation the
+  // moment the link prints (the launch evaluation then running). A page made after the spawn lands
+  // at an uncontrolled point of that evaluation, and the fastest of 3 can pick the latest landing.
+  const p = await blank(b);
+  if (stopping) throw new Error("stopped before the server started");
+  const spawned = performance.now();
+  server = serve(bin, ["--trace", join(dir, "trace.json"), "--project", join(dir, "project")], {
+    env: { ...process.env, FVTRACE_HOME: home },
+  });
+  const link = await server.link;
+  await steps(p, "served", hash ? `${link}&${hash}` : link, [spawned, performance.now()]);
+  await steps(await blank(b), "page", `${pathToFileURL(page).href}${hash ? `#${hash}` : ""}`);
 } finally {
   await stop();
 }
