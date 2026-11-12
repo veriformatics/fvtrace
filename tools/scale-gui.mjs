@@ -187,6 +187,18 @@ async function heap(p) {
   }
 }
 
+/** `SCALE_HOST_LOG` marks around one step (`tools/scale-host.mjs`; telemetry, never graded).
+ * @template T @param {string} step @param {() => Promise<T>} run */
+async function marked(step, run) {
+  const log = process.env.SCALE_HOST_LOG;
+  if (log) appendFileSync(log, `m ${Date.now()} start gui:${step}\n`);
+  try {
+    return await run();
+  } finally {
+    if (log) appendFileSync(log, `m ${Date.now()} end gui:${step}\n`);
+  }
+}
+
 /** A fresh page in its own context. @param {import("@playwright/test").Browser} browser */
 async function blank(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -235,7 +247,7 @@ async function steps(p, mode, url, at) {
   /** @type {[string, number | undefined, number, number?][]} */
   const rows = [];
   try {
-    const ms = await first(p, url);
+    const ms = await marked(`${mode}:first`, () => first(p, url));
     rows.push([`gui:${mode}:first`, ms, 10]);
     // Telemetry never fails a graded step.
     if (at)
@@ -248,23 +260,25 @@ async function steps(p, mode, url, at) {
       .locator(cardId)
       .evaluateAll((els) => els.slice(0, 2).map((e) => e.textContent ?? ""));
     const [a = "", b = a] = ids;
-    const [select] = await timed(p, [{ kind: "shown", id: a }], () =>
-      p.locator(cardId).first().click(),
+    const [select] = await marked(`${mode}:select`, () =>
+      timed(p, [{ kind: "shown", id: a }], () => p.locator(cardId).first().click()),
     );
     rows.push([`gui:${mode}:select`, select, 0.1]);
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
-    const [ready] = await timed(p, [{ kind: "ready", id: b }], () =>
-      p
-        .locator(cardId)
-        .nth(b === a ? 0 : 1)
-        .click(),
+    const [ready] = await marked(`${mode}:details`, () =>
+      timed(p, [{ kind: "ready", id: b }], () =>
+        p
+          .locator(cardId)
+          .nth(b === a ? 0 : 1)
+          .click(),
+      ),
     );
     rows.push([`gui:${mode}:details`, ready, 1]);
     await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
     const symbols = await p.locator(symbol).count();
     if (symbols > 0) {
-      const [busy, answered] = await timed(p, [{ kind: "busy" }, { kind: "answered" }], () =>
-        p.locator(symbol).first().click(),
+      const [busy, answered] = await marked(`${mode}:whatif`, () =>
+        timed(p, [{ kind: "busy" }, { kind: "answered" }], () => p.locator(symbol).first().click()),
       );
       rows.push([`gui:${mode}:busy`, busy, 0.1], [`gui:${mode}:whatif`, answered, 10]);
     }
@@ -273,8 +287,8 @@ async function steps(p, mode, url, at) {
     if ((await p.locator(experimentId).count()) > 0) {
       await p.waitForFunction(() => !document.body.hasAttribute("aria-busy"));
       const e = (await p.locator(experimentId).first().textContent()) ?? "";
-      const [shown] = await timed(p, [{ kind: "experiment", id: e }], () =>
-        p.locator(experimentId).first().click(),
+      const [shown] = await marked(`${mode}:experiment`, () =>
+        timed(p, [{ kind: "experiment", id: e }], () => p.locator(experimentId).first().click()),
       );
       rows.push([`gui:${mode}:experiment`, shown, 1]);
     }
@@ -282,10 +296,10 @@ async function steps(p, mode, url, at) {
       // A click while the engine starts: a fresh page, its symbol clicked once the board shows.
       const q = await context.newPage();
       q.setDefaultTimeout(patience);
-      await first(q, url);
-      const [startup] = await timed(q, [{ kind: "answered" }], () =>
-        q.locator(symbol).first().click(),
-      );
+      const [startup] = await marked("page:startup", async () => {
+        await first(q, url);
+        return timed(q, [{ kind: "answered" }], () => q.locator(symbol).first().click());
+      });
       rows.push(["gui:page:startup", startup, 10, await heap(q)]);
     }
   } catch (e) {
