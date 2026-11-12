@@ -57,8 +57,15 @@ f5=" wide deep experiments exclusions "
 [[ ${#shapes[@]} -gt 0 ]] || mapfile -t shapes < <(node "$root/tools/scale.mjs" shapes)
 
 work="$(mktemp -d)"
-srv=""
-trap '[[ -n "$srv" ]] && kill "$srv" 2>/dev/null; rm -rf "$work"' EXIT
+srv="" host=""
+trap '[[ -n "$srv" ]] && kill "$srv" 2>/dev/null; [[ -n "$host" ]] && kill "$host" && wait "$host"; rm -rf "$work"' EXIT
+# SCALE_HOST_LOG=<file>: tools/scale-host.mjs records the host's state there for the whole run,
+# beside `m <utc ms> start|end <shape>-<n> <cmd|session> <run> [rc]` marks (telemetry, never graded).
+mark() { [[ -z ${SCALE_HOST_LOG:-} ]] || printf 'm %s %s\n' "$(date +%s%3N)" "$*" >>"$SCALE_HOST_LOG"; }
+if [[ -n ${SCALE_HOST_LOG:-} ]]; then
+    node "$root/tools/scale-host.mjs" "$SCALE_HOST_LOG" &
+    host=$!
+fi
 fails=()
 fail() { fails+=("$1"); printf 'FAIL %s\n' "$1"; }
 declare -A last_rss=()
@@ -169,6 +176,7 @@ sessions() {
     local kind="$1" dir="$2" r f rc=0 files=()
     for ((r = 1; r <= runs; r++)); do
         printf -v f '%s/%s.rows.%03d' "$dir" "$kind" "$r"
+        mark start "${dir##*/}" "$kind" "$r"
         case "$kind" in
         serve) serve_rows "$dir" "$3" ;;
         page) page_rows "$dir" "$3" ;;
@@ -177,6 +185,7 @@ sessions() {
         mv "$dir/$kind.rows" "$f"
         files+=("$f")
         [[ -f "$dir/$kind.rc" ]] && rc="$(<"$dir/$kind.rc")"
+        mark end "${dir##*/}" "$kind" "$r" "$rc"
         if [[ $rc != 0 ]] || ! awk '$2 != "0" { exit 1 }' "$f"; then break; fi
     done
     fastest "${files[@]}" >"$dir/$kind.rows"
@@ -265,10 +274,12 @@ for shape in "${shapes[@]}"; do
                 : >"$work/runs"
                 for ((r = 1; r <= runs; r++)); do
                     : >"$work/time"
+                    mark start "$shape-$n" "$cmd" "$r"
                     # Output is counted, never stored: the tail shapes print gigabytes at their cap.
                     FVTRACE_HOME="$work/home" timeout "$limit" /usr/bin/time -o "$work/time" \
                         -f '%e %U %M' "$bin" "${args[@]}" 2>/dev/null | wc -c >"$work/bytes"
                     rc=${PIPESTATUS[0]}
+                    mark end "$shape-$n" "$cmd" "$r" "$rc"
                     # GNU time puts "Command exited with non-zero status N" above its format line.
                     wall="" user="" rss=0
                     read -r wall user rss < <(tail -n 1 "$work/time") || true
