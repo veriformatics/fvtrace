@@ -505,6 +505,7 @@ probe_scale() {
     allow scale-session-exits bash tests/tools/scale-session.sh
     allow scale-details-transition node --test tools/probes/scale-gui.test.mjs
     allow scale-spawn-cleanup node --test tools/probes/scale-spawn.test.mjs
+    allow scale-browser-first node --test tools/probes/scale-order.test.mjs
     allow scale-runs-pick bash tests/tools/scale-runs.sh
     local stub="$backup/fvtrace-stub"
     cat >"$stub" <<'STUB'
@@ -551,7 +552,7 @@ fi
 exit "${STUB_RC:-0}"
 STUB
     chmod +x "$stub"
-    # A server that exits while the GUI driver's browser launches: the driver reports it. Bounded,
+    # A server that exits before it prints its link: the driver reports it. Bounded,
     # since a driver that misses the exit waits for a link that never comes (rc 124, no cause).
     STUB_RC=3 expect scale-gui-serve-exit 'fvtrace serve exited' \
         timeout 60 node tools/scale-gui.mjs "$stub" "$backup/wide-2" "$backup/page.html"
