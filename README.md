@@ -296,6 +296,13 @@ and show you the verdicts. The skill also tells the agent to mark a fact verifie
 evidence and to leave the review to you. `fvtrace check` refuses a verified fact whose evidence
 is not pinned.
 
+A proof covers its own formal statement, not the sentence of the fact. Thus, before the agent
+marks a fact proved or checked, the skill tells it to try to show that the statement does not say
+what the fact says. The checks include edge cases, default values such as `x / 0 = 0` in Lean, the
+hypotheses of the proof, and the axioms that the proof relies on. The agent then writes a plain
+reading of the statement into the summary of the fact's evidence. `fvtrace serve` and an exported
+page show it in the details of the fact, so that you can check it when you review.
+
 ## How fvTrace verifies itself
 
 The rules that decide each verdict are Lean 4 definitions. The guarantees that the verdicts

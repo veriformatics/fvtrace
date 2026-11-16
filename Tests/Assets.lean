@@ -21,6 +21,12 @@ def tests : TestM Unit := do
   for (path, body) in FvtraceSkill.files do
     check s!"assets: skill/fvtrace/{path} embedded byte-equal"
       (body == (← IO.FS.readFile ("skill/fvtrace" / path)))
+  -- `skills install` writes `FvtraceSkill.files` alone: a file left out of it never ships.
+  let mut skillOnDisk : List String := []
+  for p in ← System.FilePath.walkDir ("skill" / "fvtrace") do
+    unless ← p.isDir do skillOnDisk := "/".intercalate (p.components.drop 2) :: skillOnDisk
+  checkEq "assets: every file in skill/fvtrace/ is embedded"
+    (skillOnDisk.mergeSort (· ≤ ·)) ((FvtraceSkill.files.map (·.1)).mergeSort (· ≤ ·))
   let skill := (FvtraceSkill.files.lookup "SKILL.md").getD ""
   let front := (skill.splitOn "---\n")[1]!
   let field := fun (k : String) => (front.splitOn "\n").find? (·.startsWith s!"{k}: ")
