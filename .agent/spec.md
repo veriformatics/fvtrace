@@ -54,6 +54,17 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
+- [ ] Deferred sweep 7 (queue body; finish line = its `Met when`; roster + ruling drafts → `.scratch/sweep7/`): rows in rank order below; libuv waits (Lean v4.36.0 names v1.48.0; v4.37.0-rc1 + master v1.53.0); fvapi client waits (fvapi in IMPLEMENT)
+- [ ] Deferred sweep 7, row Node holds: Node 26.13.1, pnpm 12.21.0, oxlint 1.94.0 + tsgolint 7.0.2007, @types/node 26.6.6, html-validate 11.21.1, lockfile refreshed
+- [ ] Deferred sweep 7, row HACL* rev → hacl-star `main` HEAD ≥ 7 days old, I2 re-pin
+- [ ] Deferred sweep 7, rows moving link + proxied wording: ruling drafts → the one `AskUserQuestion`
+- [ ] Deferred sweep 7, row fuzz targets (researcher-1 → fund or route)
+- [ ] Deferred sweep 7, row property-test audit
+- [ ] Deferred sweep 7, row CI speedup
+- [ ] Deferred sweep 7, row mutation credit (after the audit's commit; pilot first)
+- [ ] Deferred sweep 7, rows scale receipts · meta-lint fences · human-facing text · serve bind hint
+- [ ] Deferred sweep 7, row instantiation: ruling draft → the one `AskUserQuestion`
+- [ ] Deferred sweep 7: `AskUserQuestion`, the rows it unblocks, close (one `reviewer`, archive, full gate)
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase
