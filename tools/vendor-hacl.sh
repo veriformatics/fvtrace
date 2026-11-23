@@ -8,27 +8,28 @@ set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$root/c/hacl"
-# CPython main's Modules/_hacl/refresh.sh pins the same revision (3.14 + 3.15 pin 8ba599b2, whose
-# copies of every file below are byte-identical).
-rev=504c2987452f87fe44bce9b9f12e19d6e051761f
+# HACL* publishes no releases: latest = hacl-star `main` HEAD (deps.md release age by merge date).
+# CPython main's Modules/_hacl/refresh.sh pins 504c2987, whose copies differ from these in 5 files
+# alone (Hacl_Hash_SHA2.c + 4 KaRaMeL headers: a KaRaMeL regen, same algorithm).
+rev=f557259007db9933442dde10aa995c1b00bd3446
 base="https://raw.githubusercontent.com/hacl-star/hacl-star/$rev"
 
 # sha256 · local path · upstream path
 files="
-6cd390cc86d9054e3d577f75e1e4d1559a545ec22e4643179aa087c8bd612e4e Hacl_Hash_SHA2.c dist/gcc-compatible/Hacl_Hash_SHA2.c
+5b34672d592299b6557051c905b453cc968981f0e6529e6c48a12e43434aa273 Hacl_Hash_SHA2.c dist/gcc-compatible/Hacl_Hash_SHA2.c
 616685799d2d029411ec8fe5c15aaedd481ecd75edf29161b12cf3d9f20b7d4c Hacl_Hash_SHA2.h dist/gcc-compatible/Hacl_Hash_SHA2.h
 5bc854fe08765681fa241b51460e7a0107fc3ebc4f8db21435656c515e5937d5 Hacl_Krmllib.h dist/gcc-compatible/Hacl_Krmllib.h
 efc7bd11460744768425aedf4e004d3ad3397a5489752b80044ae785f30b78d4 Hacl_Streaming_Types.h dist/gcc-compatible/Hacl_Streaming_Types.h
 709c6272f77e2368f6cc0bf36527e3b16dd5d5f3dc26a2afdef8238200af8770 internal/Hacl_Hash_SHA2.h dist/gcc-compatible/internal/Hacl_Hash_SHA2.h
 d0f85cc010234fddd2e9c5c60be458b5498e5b754bc1902328005a958a99b357 internal/Hacl_Krmllib.h dist/gcc-compatible/internal/Hacl_Krmllib.h
 76997c7069a347ac78b65d26354a0324d54add4ca7a02e7be36d6d5e1c9702e0 internal/Hacl_Streaming_Types.h dist/gcc-compatible/internal/Hacl_Streaming_Types.h
-6d1a350ec272c83761f1789611d8f60947a4d69fed3d23d8eee38709a0ad2c0a include/krml/lowstar_endianness.h dist/karamel/include/krml/lowstar_endianness.h
+e04c778323be6ea171d0225b70fde1599f2d690e44d28860d8fe1dc3b5146f0a include/krml/lowstar_endianness.h dist/karamel/include/krml/lowstar_endianness.h
 c5a04a1f99807cea29ac1832ba17d8a3d3805862d3a713642583be2106e04edb include/krml/internal/compat.h dist/karamel/include/krml/internal/compat.h
-08bb43ef5626a8450f985da0af345b6658ac8bcc4585f77271decd0e41fc02e0 include/krml/internal/target.h dist/karamel/include/krml/internal/target.h
+b2bf3987517cc52bb759679af1c7419ce54afc846766668f0ca5e321653b0fc2 include/krml/internal/target.h dist/karamel/include/krml/internal/target.h
 ea6fc7766230993ddea9b2e9b537323a337eb1752eb80fc74303ebb5b03e897e include/krml/internal/types.h dist/karamel/include/krml/internal/types.h
-f01e3f0892935f3f659019875f580445b9ea23482afbe11ffbe7cdbd22dbd4d2 include/FStar_UInt_8_16_32_64.h dist/karamel/krmllib/dist/minimal/FStar_UInt_8_16_32_64.h
+8c625eb24fe5cba899cf4c5030aa5929ae19c77a13f2089b086d7ce2c66081e7 include/FStar_UInt_8_16_32_64.h dist/karamel/krmllib/dist/minimal/FStar_UInt_8_16_32_64.h
 1c9bee7ac4b987c73cc3aba6b7ceed8ec7e75c9a741810e4411f35602490e0d8 include/fstar_uint128_struct_endianness.h dist/karamel/krmllib/dist/minimal/fstar_uint128_struct_endianness.h
-69dc2e78411e9b271100eb0d2a2d8dc39dd2348afc26f8b4cfba14c025102c7f include/FStar_UInt128_Verified.h dist/karamel/krmllib/dist/minimal/FStar_UInt128_Verified.h
+bc6e40ce2af3c2c69db65904492b59f791dbcb50cf8c124bead58e240b228fd9 include/FStar_UInt128_Verified.h dist/karamel/krmllib/dist/minimal/FStar_UInt128_Verified.h
 c21cfe74bcbab804fc7a1e112e070ae7e70a0446106b7c77d651a517ee19631e include/LowStar_Endianness.h dist/karamel/krmllib/dist/minimal/LowStar_Endianness.h
 c5accbbd8546e94c34aed24afe689a617627d18eed5a6c48277e48db57c23851 LICENSE LICENSE
 "

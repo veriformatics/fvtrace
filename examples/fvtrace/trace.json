@@ -428,7 +428,7 @@
         "artifacts": [
           {
             "path": "tools/vendor-hacl.sh",
-            "sha256": "e41a1f4113bbbc891be15ee23a550fe287221a38c895081f3a5117b1c2029f6f",
+            "sha256": "d4f0c1c80b5437e6fa7e12ec5b4d03aa386cdfd0679ce045ad62979fd191d707",
             "role": "vendoring check"
           },
           {
