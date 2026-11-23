@@ -1,3 +1,5 @@
 # Every checkout keeps the bytes the index holds: embedded GUI + skill files, fixtures and pinned
 # evidence must match on every platform (a CRLF checkout breaks the export bundler + receipts).
 * text=auto eol=lf
+# Fuzz inputs are bytes, never text: a CR or a NUL inside one is the input itself.
+tests/fuzz/** -text

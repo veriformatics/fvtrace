@@ -18,6 +18,7 @@ stage lean-test lean_test
 stage lean-pure lean_pure
 stage cli cli
 stage examples examples
+stage fuzz fuzz
 engine_seen=.lake/fast-gate/engine.key
 key="$(engine_key)"
 if [[ -f "$engine_seen" && "$(<"$engine_seen")" == "$key" ]]; then
@@ -34,7 +35,7 @@ if [[ " $* " == *" --e2e "* ]]; then stage e2e e2e; fi
 together_finish
 
 # The skipped stages = the registry's (tools/gate.sh STAGES) minus the ones this run took.
-ran=" $TOGETHER lean-build lean-test lean-pure cli examples "
+ran=" $TOGETHER lean-build lean-test lean-pure cli examples fuzz "
 [[ -n ${skip_engine:-} ]] || ran+="engine "
 [[ " $* " != *" --e2e "* ]] || ran+="e2e "
 skipped=""

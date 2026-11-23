@@ -75,6 +75,7 @@ lean-pure   lean
 cli         lean
 examples    lean
 engine      lean
+fuzz        lean
 trust       lean
 c-analyze   checks
 vendor      checks
@@ -161,7 +162,9 @@ lean_style() { bash tools/lean-style.sh; }
 # WebAssembly engine + its build tool); every proof is kernel-checked here, and `warningAsError`
 # turns lints + deprecations into failures. The engine's first build per toolchain fetches
 # Emscripten + generates Init's C (minutes); later builds reuse both and recompile what changed.
-lean_build() { lake build Fvtrace fvtrace «fvtrace-tests» «fvtrace-trust» «fvtrace-wasm» FvtraceEngine; }
+lean_build() {
+    lake build Fvtrace fvtrace «fvtrace-tests» «fvtrace-trust» «fvtrace-wasm» FvtraceEngine «fvtrace-fuzz»
+}
 
 lean_test() { lake test; }
 
@@ -231,6 +234,11 @@ node_tests() {
 }
 
 engine() { node_tests tests/engine/; }
+
+# The fuzz targets (FvtraceFuzz.lean) on the committed seed corpus + every pinned crash input
+# (tests/fuzz/<target>/), unsanitized + without libFuzzer: the same Lean code the campaigns
+# (tools/fuzz.sh; scheduled CI fuzz.yml) drive. A panic aborts the replay (LEAN_ABORT_ON_PANIC).
+fuzz() { LEAN_ABORT_ON_PANIC=1 .lake/build/bin/fvtrace-fuzz replay tests/fuzz; }
 
 # What the engine stage reads: the built engine + its loader + worker, its tests + their traces,
 # the export + snapshot code that frames the page + answers natively, the toolchain. The fast gate

@@ -245,3 +245,11 @@ Ledger + check set + reviewer deliverables = `.agent/archive/review-maintain-cod
 | unit | tier | contract | evidence |
 |---|---|---|---|
 | faithfulness checks (skill) | docs (skill + README) + test (assets) | spec Decisions `Agent instructions` (Faithfulness); `references/faithfulness.md` | Lean 4.35 `lean --stdin` runs of each default value + the `sorryAx` + `native_decide` axiom lines; Mathlib v4.35 sources for each Mathlib value; replay recipe run end to end on a self-trace copy (P3: `pin --replay` rc 0, `verify --run` rc 0, another definition printed → rc 1 `output changed`); `#check` blind to a definition's value (`P := 1 = 1` vs `True` → same line, `#print` differs) → recipe prints each definition + builds first; Assets "every file in skill/fvtrace/ is embedded" red before the listing (1922/1923), green after (1924/1924); the reading → evidence `summary` (user ruling): a changed summary keeps the pinned fact proved (`check --strict` rc 0) + reaches `eval`'s fact verbatim; docs consistency pass |
+
+# Units → tier → contract → evidence (MAINTAIN — deferred rows, seventh sweep)
+
+| unit | tier | contract | evidence |
+|---|---|---|---|
+| Node toolchain holds | data (pins; every gate step reads them) | `deps.md` release age + recipes | a98a699: Node 26.13.1 `gpgv` good signature + tarball sha256; refresh-lock resolved 140; CI 45196113395 green |
+| HACL* rev | data (vendored C; `vendor` + `lean-test` re-check it) | `deps.md` HACL* recipe; self-trace I2 | 77c0fce: `--check` named exactly the 5 moved files, re-vendor + `--verify` + `--check` rc 0; I2 digest alone moved; trust 12/12 replays |
+| fuzz targets | kernel-adjacent tooling (dev-only; readers of other people's bytes) | `testing.md` Fuzz targets; deferred row "Fuzz targets" acceptance | 5 targets build + run (30 s each clean; CI `fuzz.yml`); planted `\n` off by one: missed by parse → print → parse in 4,139,847 inputs, found on input 2 from an empty corpus by the own-characters check; planted surrogate-pair off by one: found after 329,370 inputs (120 s) by the `\u` check; gate `fuzz` replays 21 inputs; probe `fuzz` 6/6 |

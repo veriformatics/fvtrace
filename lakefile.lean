@@ -41,6 +41,14 @@ lean_lib Fvtrace where
 
 lean_lib Tests
 
+/-- Dev-only fuzz targets (`FvtraceFuzz.lean`, `.claude/rules/testing.md`): `fvtrace-fuzz replay`
+runs them on the committed corpus (gate `fuzz`); `tools/fuzz.sh` compiles their C sanitized for
+libFuzzer campaigns. Never linked into `fvtrace`. -/
+lean_lib FvtraceFuzz
+
+lean_exe «fvtrace-fuzz» where
+  root := `FuzzMain
+
 /-- Build tooling for the exported page's WebAssembly engine (never linked into `fvtrace`). -/
 lean_lib FvtraceWasm
 

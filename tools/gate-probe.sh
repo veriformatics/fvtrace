@@ -823,6 +823,30 @@ probe_release_tmpdir() {
     allow release-tmpdir-clean test -z "$(ls -A "$tmp")"
 }
 
+# Gate `fuzz` (fvtrace-fuzz replay over tests/fuzz): a planted parser bug + its crash input fail it
+# naming the target + file; a folder naming no target, an emptied target + a run without
+# LEAN_ABORT_ON_PANIC fail it too. The bug plant rebuilds fvtrace-fuzz's closure (≈ 1 min), then
+# the restored tree rebuilds + replays clean.
+fuzz_rebuilt() { lake build «fvtrace-fuzz» >/dev/null && fuzz; }
+probe_fuzz() {
+    local corpus="$backup/fuzz" replay=(env LEAN_ABORT_ON_PANIC=1 .lake/build/bin/fvtrace-fuzz replay)
+    cp -r tests/fuzz "$corpus"
+    allow fuzz-clean "${replay[@]}" "$corpus"
+    mkdir "$corpus/bogus" && printf x >"$corpus/bogus/x"
+    expect fuzz-unknown-target 'FAIL .*/bogus: no target is named bogus' "${replay[@]}" "$corpus"
+    rm -r "$corpus/bogus" "$corpus/digest"
+    expect fuzz-empty-target 'fuzz-replay digest: FAIL no inputs' "${replay[@]}" "$corpus"
+    expect fuzz-panic-env 'set LEAN_ABORT_ON_PANIC=1' env -u LEAN_ABORT_ON_PANIC \
+        .lake/build/bin/fvtrace-fuzz replay tests/fuzz
+    keep Fvtrace/Json.lean
+    keep tests/fuzz/json/planted-crash
+    sed -i 's/| some 110 => out := out.push 10; j := j + 2/| some 110 => out := out.push 11; j := j + 2/' \
+        Fvtrace/Json.lean
+    printf '"a\\u000ab"' >tests/fuzz/json/planted-crash
+    expect fuzz-crash-input 'fuzz-replay json: FAIL tests/fuzz/json/planted-crash: property' fuzz_rebuilt
+    allow fuzz-restored fuzz_rebuilt
+}
+
 probe_dispatch() {
     expect dispatch-unknown 'unknown probe: __missing__' bash tools/gate-probe.sh __missing__
     local envfile="$backup/probe-env"
@@ -833,7 +857,7 @@ probe_dispatch() {
 
 probes=("$@")
 [[ ${#probes[@]} -gt 0 ]] ||
-    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler ci_gate meta_lint)
+    probes=(lean_style fanout meta trust capability replay_policy trust_cache audit vendor cli lean_pure palette assets engine examples wasm scale compare release locks dispatch mutate install release_guard release_tmpdir c_headers load ledger fast_engine together empty_inputs layout renovate provision install_dir leftovers filler ci_gate meta_lint fuzz)
 for p in "${probes[@]}"; do
     if ! declare -F "probe_$p" >/dev/null; then
         printf 'unknown probe: %s\n' "$p" >&2
