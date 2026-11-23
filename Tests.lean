@@ -30,12 +30,13 @@ def pure : TestM Unit := do
   area "cli" do
     Tests.Cli.tests; Tests.Cli.skillTests; Tests.Cli.writeTests; Tests.Cli.bindTests
     Tests.Cli.readTests; Tests.Cli.groupTests
-  area "json" Tests.Json.tests
+  area "json" do Tests.Json.tests; Tests.Json.propertyTests
   area "decode" do
     Tests.Decode.tests; Tests.Decode.sizeTests; Tests.Decode.outcomeOrderTests
+    Tests.Decode.propertyTests; Tests.Differential.codecTests
   area "schema" Tests.Schema.tests
   area "assets" Tests.Assets.tests
-  area "check" Tests.Check.tests
+  area "check" do Tests.Check.tests; Tests.Check.lintTableTests
   area "args" Tests.Args.tests
   area "engine" do
     Tests.Engine.tests; Tests.Engine.witnessTests; Tests.Engine.kindTests

@@ -1,5 +1,6 @@
 import Fvtrace.Json
 import Tests.Harness
+import Tests.Gen
 
 namespace Tests.Json
 open Tests Fvtrace.Json
@@ -143,6 +144,99 @@ def tests : TestM Unit := do
       check "json: canonical round-trips" (c.canonical == v.canonical)
       check "json: pretty round-trips" (p == v)
     | _, _ => check "json: canonical round-trips" false "reparse failed"
+
+/-! ## Properties (D-json + D-canon over generated values; `testing.md`: seed fixed + printed) -/
+
+def seed : UInt64 := 0x4A534F4E
+
+/-- A character from each class D-canon writes apart: `"`, `\`, `/`, the five short escapes, other
+C0, printable ASCII, DEL + C1, 2-, 3- + 4-byte UTF-8 (a `Char` is never a surrogate). -/
+def genChar : Gen Char := do
+  match ← draw 9 with
+  | 0 => pick ['"', '\\', '/']
+  | 1 => pick ['\x08', '\x0c', '\n', '\r', '\t']
+  | 2 => return Char.ofNat (← draw 32)
+  | 3 => return Char.ofNat (32 + (← draw 95))
+  | 4 => return Char.ofNat (0x7f + (← draw 0x21))
+  | 5 => return Char.ofNat (0xa0 + (← draw 0x760))
+  | 6 => return Char.ofNat (0x800 + (← draw (0xD800 - 0x800)))
+  | 7 => return Char.ofNat (0xE000 + (← draw 0x2000))
+  | _ => return Char.ofNat (0x10000 + (← draw 0x100000))
+
+def genString : Gen String := do
+  return String.ofList (← listOf (← draw 6) genChar)
+
+/-- An integer of 1–20 digits (D-json), either sign. -/
+def genInt : Gen Int := do
+  let digits ← listOf (1 + (← draw 20)) (draw 10)
+  let n : Int := digits.foldl (fun (acc : Int) (d : Nat) => acc * 10 + Int.ofNat d) 0
+  return if (← draw 2) == 0 then n else -n
+
+/-- A value of depth ≤ `depth`; object keys distinct (D-json rejects a repeat). -/
+def genValue : Nat → Gen Value
+  | 0 => do
+    match ← draw 4 with
+    | 0 => return .null
+    | 1 => return .bool ((← draw 2) == 0)
+    | 2 => return .num (← genInt)
+    | _ => return .str (← genString)
+  | depth + 1 => do
+    match ← draw 6 with
+    | 0 => return .arr (← listOf (← draw 4) (genValue depth))
+    | 1 => do
+      let kvs ← listOf (← draw 4) do return (← genString, ← genValue depth)
+      return .obj (kvs.foldl (fun acc kv => if acc.any (·.1 == kv.1) then acc else acc ++ [kv]) [])
+    | _ => genValue 0
+
+/-- D-canon's member order, from the contract: keys sorted by code point, at every level. -/
+partial def sortedDeep : Value → Value
+  | .arr xs => .arr (xs.map sortedDeep)
+  | .obj kvs => .obj ((kvs.map fun kv => (kv.1, sortedDeep kv.2)).mergeSort fun a b =>
+      a.1.toList.map Char.toNat ≤ b.1.toList.map Char.toNat)
+  | v => v
+
+/-- D-canon's string escapes (ECMAScript `JSON.stringify`), from the contract's table. -/
+def canonEscape (c : Char) : String :=
+  match c with
+  | '"' => "\\\"" | '\\' => "\\\\" | '\x08' => "\\b" | '\x0c' => "\\f" | '\n' => "\\n"
+  | '\r' => "\\r" | '\t' => "\\t"
+  | c => if c.toNat < 32 then
+      "\\u00" ++ String.ofList [Nat.toDigits 16 (c.toNat / 16) |>.head!,
+        Nat.toDigits 16 (c.toNat % 16) |>.head!]
+    else String.singleton c
+
+def propertyTests : TestM Unit := do
+  let n := 400
+  let values := sample seed (listOf n (genValue 4))
+  let mut bad : List String := []
+  for (v, i) in values.zipIdx do
+    match parse (bytes v.canonical), parse (bytes v.pretty) with
+    | .ok c, .ok p =>
+      unless c == sortedDeep v do bad := s!"{i} canonical: {v.canonical}" :: bad
+      unless p == v do bad := s!"{i} pretty: {v.pretty}" :: bad
+    | _, _ => bad := s!"{i} unparsed: {v.canonical}" :: bad
+  check s!"json property: canonical → parse = the value, keys sorted; pretty → parse = the value \
+    (seed={seed}, {n} values)" bad.isEmpty (", ".intercalate (bad.take 3))
+  let chars := sample (seed + 1) (listOf 2000 genChar)
+  let wrong := chars.filter fun c =>
+    (Value.str (String.singleton c)).canonical != "\"" ++ canonEscape c ++ "\""
+  check s!"json property: canonical escapes each character as D-canon's table \
+    (seed={seed + 1}, {chars.length} characters)" wrong.isEmpty
+    s!"{repr (wrong.take 5)}"
+  -- D-json numbers: an integer of ≤ 20 digits parses to its value, a longer one is refused.
+  let numbers := sample (seed + 2) (listOf 300 do
+    let len := 1 + (← draw 23)
+    let digits ← listOf len (draw 10)
+    let digits := if len > 1 && digits.head? == some 0 then 1 :: digits.tail else digits
+    return ((← draw 2) == 0, digits))
+  let misread := numbers.filter fun (neg, digits) =>
+    let text := (if neg then "-" else "") ++ String.ofList (digits.map fun d => Char.ofNat (48 + d))
+    let n : Int := digits.foldl (fun (acc : Int) (d : Nat) => acc * 10 + Int.ofNat d) 0
+    match parse (bytes text) with
+    | .ok v => digits.length > 20 || v != .num (if neg then -n else n)
+    | .error _ => digits.length ≤ 20
+  check s!"json property: integers of ≤ 20 digits parse to their value, longer ones are refused \
+    (seed={seed + 2}, {numbers.length} numbers)" misread.isEmpty s!"{repr (misread.take 3)}"
 
 /-- Documents inside the 16 MiB bound that cost hours when parsing was quadratic (D-json: a trace
 from someone else must not pin a core); native alone, a scale the interpreter would slow. -/

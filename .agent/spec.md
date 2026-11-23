@@ -58,8 +58,8 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] a98a699 Deferred sweep 7, row Node holds: Node 26.13.1, pnpm 12.21.0, oxlint 1.94.0 + tsgolint 7.0.2007, @types/node 26.6.6, html-validate 11.21.1, lockfile refreshed
 - [x] 77c0fce Deferred sweep 7, row HACL* rev → hacl-star `main` HEAD ≥ 7 days old, I2 re-pin
 - [ ] Deferred sweep 7, rows moving link + proxied wording: ruling drafts → the one `AskUserQuestion`
-- [ ] Deferred sweep 7, row fuzz targets (researcher-1 → fund or route)
-- [ ] Deferred sweep 7, row property-test audit
+- [x] 39f6756 Deferred sweep 7, row fuzz targets: FvtraceFuzz 5 targets + tools/fuzz.sh + CI fuzz.yml + gate `fuzz` + probe
+- [ ] Deferred sweep 7, row property-test audit: table + property tests committed; owes the mutation kills (one campaign with row mutation credit: .scratch/mut-a W1, mut-b W2, nixbox W3; survivors → a non-author ruling)
 - [ ] Deferred sweep 7, row CI speedup
 - [ ] Deferred sweep 7, row mutation credit (after the audit's commit; pilot first)
 - [ ] Deferred sweep 7, rows scale receipts · meta-lint fences · human-facing text · serve bind hint

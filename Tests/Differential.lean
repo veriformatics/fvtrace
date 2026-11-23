@@ -1,26 +1,14 @@
 import Tests.Harness
+import Tests.Gen
 import Fvtrace.Check
 import Fvtrace.Evaluate
+import Fvtrace.Encode
 
 /-! P-shared/P-claims/P-evidence: generated inputs → reference records; fast bodies stay outside
 the oracle. P-forest/P-plan-local/P-raisers include malformed prerequisite graphs + scenarios. -/
 
 namespace Tests.Differential
 open Fvtrace
-
-private abbrev Gen := StateM UInt64
-
-private def draw (bound : Nat) : Gen Nat := do
-  let x := (← get) * 6364136223846793005 + 1442695040888963407
-  set x
-  return (x >>> 32).toNat % max 1 bound
-
-private def pick {α : Type} [Inhabited α] (xs : List α) : Gen α := do
-  return (xs[(← draw xs.length)]?).getD default
-
-private def shuffled {α : Type} (xs : List α) : Gen (List α) := do
-  let keyed ← xs.mapM fun x => do return (← draw 1000003, x)
-  return (keyed.mergeSort fun a b => a.1 ≤ b.1).map (·.2)
 
 private def receipt : Evidence :=
   { summary := "Receipt", artifacts := [{ path := "proof/result", sha256 := some digest }],
@@ -37,8 +25,6 @@ private def experiment (id subject : String) (success : Overrides) : Gen Experim
     id, subject, kind := ← pick ExpKind.all, effort := ← pick Effort.all,
     title := s!"Run {id}", method := "Check the object", resources := "Time", success,
     caveat := "An inconclusive outcome asserts nothing." }
-
-private def sample {α : Type} (salt : UInt64) (g : Gen α) : α := (g.run' salt).run
 
 private def seed : UInt64 := 0x46565452414345
 
@@ -595,6 +581,53 @@ private def runCases : DiffM Unit := do
   check "differential every WF candidate kept" (kept == candidates.length)
   IO.println s!"differential seed={seed} traces={candidates.length + bad.length} \
     kept={kept} malformed={bad.length} scenarios={scenarios} comparisons={← get}"
+
+/-- The generated trace with the optional records its generator leaves out: an analysis source,
+a review, a waiver, a replay (pinned output + a failure notice) on a fact + on an exclusion. -/
+private def decorated (t : Trace) (i : Nat) : Trace :=
+  let replay : Replay := {
+    command := ["bash", "check.sh", s!"F{i}"]
+    output := some (String.ofList (List.replicate 64 'b'))
+    failed := some { date := "2026-02-29", reason := s!"exit {i + 1}" } }
+  let withReplay := fun (e : Option Evidence) =>
+    some { (e.getD receipt) with replay := some replay }
+  { t with
+    analysis := { t.analysis with source := some "lab notebook\nvolume 2" },
+    facts := t.facts.map fun f => if f.id == "F1" then { f with evidence := withReplay f.evidence }
+      else f,
+    exclusions := t.exclusions.map fun x => if x.id == "X0" then
+      { x with evidence := withReplay x.evidence } else x,
+    waivers := [⟨"L-result", "C0", "Counted elsewhere."⟩],
+    review := some review }
+where
+  review : Review := {
+    reviewer := "R. Reviewer", date := "2026-11-23"
+    digest := String.ofList (List.replicate 64 'c'), note := some "Checked “twice”." }
+
+/-- The trace as decoding yields it (G-codec's domain: a decoded trace): an outcome map = JSON
+object members, so keys distinct (the first kept) + in key order, as decode returns them; a review
+digest = 64 lowercase hex digits (D-sha; the generator's engine cases write a placeholder). -/
+private def decodable (t : Trace) : Trace :=
+  let outcome := fun (m : List (String × Status)) =>
+    (m.foldl (fun acc kv => if acc.any (·.1 == kv.1) then acc else acc ++ [kv]) []).mergeSort
+      fun a b => a.1 ≤ b.1
+  { t with
+    experiments := t.experiments.map fun e =>
+      { e with success := outcome e.success, failure := outcome e.failure }
+    review := t.review.map fun r => { r with digest := String.ofList (List.replicate 64 'd') } }
+
+/-- G-codec over the generated traces + their decorated copies, each as decoding yields it:
+`decode (encode t) = t`. -/
+def codecTests : TestM Unit := do
+  let generated :=
+    sample seed ((List.range (Route.all.length * Status.all.length)).mapM generatedTrace)
+  let traces := (generated ++ generated.zipIdx.map fun (t, i) => decorated t i).map decodable
+  let wrong := traces.zipIdx.filter fun (t, _) =>
+    match decodeTrace (Encode.trace t).canonical.toUTF8 with
+    | .ok u => u != t
+    | .error _ => true
+  check s!"codec property: decode (encode t) = t (seed={seed}, {traces.length} traces)"
+    wrong.isEmpty s!"traces {repr (wrong.map (·.2))}"
 
 def tests : TestM Unit := do
   let start ← IO.monoMsNow

@@ -162,4 +162,35 @@ def tests : TestM Unit := do
   let kept := "\u2029\u202f\u2065\u206a\u200d\u061b\u200b"
   checkEq "render: bidirectional range boundaries kept" (Render.safe kept) kept
 
+/-- L-* over its whole domain (`kernel.md` § Lints, the contract's table restated here): every claim
+level × every subset of the five kinds the rules ask for → exactly the rules whose levels hold the
+level and whose kind the claim does not need. -/
+def lintTableTests : TestM Unit := do
+  let t ← fixture
+  let rules : List (String × List Level × Kind) :=
+    [("L-result", [.descriptive, .inferential, .causal], .result),
+     ("L-statistical", [.inferential, .causal], .statistical),
+     ("L-interpretation", [.causal], .interpretation),
+     ("L-release", [.release], .release),
+     ("L-estimand", [.estimand], .estimand)]
+  let subject := ((t.claims.find? (·.id == "C2")).map (·.subject)).getD ""
+  let extra : List Fact := rules.zipIdx.map fun ((_, _, kind), i) =>
+    { id := s!"K{i}", subject, kind, text := "A fact of one kind.", status := .«open»,
+      route := .lean }
+  let base := { t with facts := t.facts ++ extra, waivers := [] }
+  let mut wrong : List String := []
+  let mut cases := 0
+  for level in Level.all do
+    for mask in [0:32] do
+      let present := extra.zipIdx.filter fun (_, i) => (mask >>> i) % 2 == 1
+      let traced := mapClaim base "C2" fun c => { c with level, needs := present.map (·.1.id) }
+      let got := ((Lint.warnings traced).filter (·.claim == "C2")).map (·.rule)
+      let want := (rules.filter fun (_, levels, kind) =>
+        levels.contains level && !present.any (·.1.kind == kind)).map (·.1)
+      unless got.mergeSort (· ≤ ·) == want.mergeSort (· ≤ ·) do
+        wrong := s!"{repr level} mask {mask}: {got}" :: wrong
+      cases := cases + 1
+  check s!"lint property: every level × kind subset fires exactly the contract's rules \
+    ({cases} cases)" wrong.isEmpty (", ".intercalate (wrong.take 3))
+
 end Tests.Check

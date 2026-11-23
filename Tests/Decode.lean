@@ -1,6 +1,7 @@
 import Fvtrace.Decode
 import Fvtrace.Encode
 import Tests.Harness
+import Tests.Gen
 
 namespace Tests.Decode
 open Tests Fvtrace
@@ -144,6 +145,119 @@ def tests : TestM Unit := do
   | .error ds =>
     checkEq "decode: syntax error located" (ds.toList.map (·.message))
       ["line 3, column 3: expected a string key"]
+
+/-! ## Properties: D-id, D-text, D-date, D-sha + the replay reason at their boundaries, against
+the published schema's patterns (`schema/trace.schema.json`, read here as code) -/
+
+def seed : UInt64 := 0x44454344
+
+def isLetter (c : Char) : Bool := (65 ≤ c.toNat && c.toNat ≤ 90) || (97 ≤ c.toNat && c.toNat ≤ 122)
+def isDigit (c : Char) : Bool := 48 ≤ c.toNat && c.toNat ≤ 57
+def digitsIn (lo hi : Nat) (a b : Char) : Bool :=
+  isDigit a && isDigit b && (let n := (a.toNat - 48) * 10 + (b.toNat - 48); lo ≤ n && n ≤ hi)
+
+/-- `^[A-Za-z][A-Za-z0-9_.-]{0,63}$` -/
+def schemaId (s : String) : Bool :=
+  match s.toList with
+  | c :: cs => isLetter c && cs.length ≤ 63 &&
+      cs.all fun c => isLetter c || isDigit c || c == '_' || c == '.' || c == '-'
+  | [] => false
+
+/-- `^(?=[\s\S]*[^ \n])[^\u0000-\u0009\u000b-\u001f\ud800-\udfff]*$` -/
+def schemaText (s : String) : Bool :=
+  s.toList.any (fun c => c != ' ' && c != '\n') &&
+    s.toList.all fun c => !(c.toNat ≤ 9 || (11 ≤ c.toNat && c.toNat ≤ 31))
+
+/-- `^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$` -/
+def schemaDate (s : String) : Bool :=
+  match s.toList with
+  | [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2] =>
+    [y1, y2, y3, y4].all isDigit && digitsIn 1 12 m1 m2 && digitsIn 1 31 d1 d2
+  | _ => false
+
+/-- `^[0-9a-f]{64}$` -/
+def schemaSha (s : String) : Bool :=
+  s.length == 64 && s.toList.all fun c => isDigit c || (97 ≤ c.toNat && c.toNat ≤ 102)
+
+/-- `^(timeout|cannot start|output changed|exit N)$`, N = 1 … 4294967295 without a leading zero
+(the schema's alternation spells that range digit by digit). -/
+def schemaReason (s : String) : Bool :=
+  s == "timeout" || s == "cannot start" || s == "output changed" ||
+    match s.toList with
+    | 'e' :: 'x' :: 'i' :: 't' :: ' ' :: d :: ds =>
+      let digits := d :: ds
+      d != '0' && digits.all isDigit && digits.length ≤ 10 &&
+        digits.foldl (fun n c => n * 10 + (c.toNat - 48)) 0 ≤ 4294967295
+    | _ => false
+
+def genFrom (pool : List Char) (len : Nat) : Gen String := do
+  return String.ofList (← listOf len (pick pool))
+
+/-- A length at, beside or away from `bound`. -/
+def nearLength (bound : Nat) : Gen Nat := do
+  match ← draw 4 with
+  | 0 => pick [0, 1, 2]
+  | 1 => pick [bound - 1, bound, bound + 1]
+  | _ => draw (bound + 8)
+
+def genId : Gen String := do
+  let first ← pick ['a', 'Z', 'q', 'A', '0', '_', '-', 'é', ' ']
+  let rest ← genFrom ['a', 'z', 'A', 'Z', 'm', '0', '9', '_', '.', '-', '@', '`', '[', '/', ':',
+    ' ', 'é', '{'] ((← nearLength 64) - 1)
+  return if (← draw 8) == 0 then rest else first.toString ++ rest
+
+def genText : Gen String := do
+  genFrom ['a', ' ', '\n', '\t', '\r', '\x00', '\x0b', '\x09', '\x1f', '\x20', '\x7f', 'é',
+    '😀'] (← draw 5)
+
+def genDate : Gen String := do
+  let two := fun (hi : Nat) => do
+    let n ← draw hi
+    return String.ofList [Char.ofNat (48 + n / 10), Char.ofNat (48 + n % 10)]
+  let year ← genFrom ['0', '1', '2', '9', 'x'] 4
+  let sep ← pick ['-', '-', '-', '/']
+  let date := year ++ sep.toString ++ (← two 20) ++ "-" ++ (← two 40)
+  match ← draw 6 with
+  | 0 => return date.drop 1 |>.toString
+  | 1 => return date ++ "1"
+  | _ => return date
+
+/-- A valid digest, then one character swapped for one at a class edge, or the length moved. -/
+def genSha : Gen String := do
+  let base ← genFrom ['0', '9', 'a', 'f', '5', 'c', 'e'] 64
+  let at_ ← draw 64
+  match ← draw 4 with
+  | 0 => return base
+  | 1 => return String.ofList (base.toList.set at_ (← pick ['g', 'A', 'F', ' ', '/', ':', '`']))
+  | 2 => return (base.drop (1 + (← draw 2))).toString
+  | _ => return base ++ (← genFrom ['0', 'a', 'f'] (1 + (← draw 2)))
+
+def genReason : Gen String := do
+  match ← draw 5 with
+  | 0 => pick ["timeout", "cannot start", "output changed", "Timeout", "exit", "exit ", "exit 0",
+      "cannot  start", "output changed "]
+  | _ => do
+    let len := 1 + (← draw 11)
+    let digits ← listOf len (draw 10)
+    let digits := if (← draw 3) == 0 then digits else
+      if len == 10 then 4 :: 2 :: 9 :: 4 :: 9 :: 6 :: 7 :: 2 :: 9 :: (digits.drop 9) else digits
+    return "exit " ++ String.ofList (digits.map fun d => Char.ofNat (48 + d))
+
+def agrees (name : String) (salt : UInt64) (gen : Gen String) (impl oracle : String → Bool) :
+    TestM Unit := do
+  let cases := sample salt (listOf 2000 gen)
+  let wrong := cases.filter fun s => impl s != oracle s
+  let accepted := (cases.filter oracle).length
+  check s!"decode property: {name} = the schema's pattern (seed={salt}, {cases.length} strings, \
+    {accepted} accepted)" (wrong.isEmpty && accepted > 0 && accepted < cases.length)
+    s!"{repr (wrong.take 5)}"
+
+def propertyTests : TestM Unit := do
+  agrees "D-id" seed genId Decode.validId schemaId
+  agrees "D-text" (seed + 1) genText Decode.validText schemaText
+  agrees "D-date" (seed + 2) genDate Decode.validDate schemaDate
+  agrees "D-sha" (seed + 3) genSha Decode.validSha schemaSha
+  agrees "replay reason" (seed + 4) genReason Decode.validFailReason schemaReason
 
 /-- G-codec on an outcome map written out of key order (pretty keeps member order). -/
 def outcomeOrderTests : TestM Unit := do
