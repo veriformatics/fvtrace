@@ -418,6 +418,18 @@ provision() {
         awk -v run="${f#*:}" '/uses: \$\/\.github\/actions\/page-engine$/ { p = NR } index($0, "run: " run) && !l { l = NR }
             END { exit !(p && l && p < l) }' "${f%%:*}" || bad+=("${f%%:*} builds without the page-engine step before it")
     done
+    # The Lake build cache (gate.yml alone): per shard + OS + arch + toolchain, skipped on the
+    # weekly run, restored before the gate step; a release never restores one (from scratch).
+    f="$(awk '/- name: Cache the Lake build$/ { on = 1 } on && /^ *key: / { print; exit }' "$g")"
+    [[ "$f" == *'key: lake-${{ matrix.shard }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('"'lean-toolchain'"') }}-'* ]] ||
+        bad+=("$g Lake cache key lacks shard + OS + arch + lean-toolchain")
+    awk '/- name: Cache the Lake build$/ { on = 1; next } on && /^ *if: / { print; exit } on && /^ *- name: / { exit }' "$g" |
+        grep -qF "github.event_name != 'schedule'" || bad+=("$g restores the Lake build on the weekly run")
+    awk '/- name: Cache the Lake build$/ { p = NR } index($0, "run: bash tools/gate.sh --shard") && !l { l = NR }
+        END { exit !(p && l && p < l) }' "$g" || bad+=("$g restores the Lake build after the gate step")
+    for f in "$b" "$r"; do
+        ! grep -qF '.lake/build/*' "$f" || bad+=("$f caches the Lake build (a release builds from scratch)")
+    done
     grep -qF 'cache: ${{ !inputs.release && github.event_name != '"'schedule'"' }}' "$b" ||
         bad+=("$b caches the engine on a release or the weekly run")
     grep -qF 'cache: ${{ github.event_name != '"'schedule'"' }}' "$g" || bad+=("$g caches the engine on the weekly run")

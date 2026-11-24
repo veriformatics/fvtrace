@@ -116,6 +116,19 @@ probe_provision() {
     keep .github/workflows/build.yml
     sed -i '/uses: \$\/.github\/actions\/page-engine$/d' .github/workflows/build.yml
     expect provision-order 'build.yml builds without the page-engine step before it' fanout
+    keep .github/workflows/gate.yml
+    sed -i "s/^        if: matrix.shard != 'checks' \&\& github.event_name != 'schedule'$/        if: matrix.shard != 'checks'/" \
+        .github/workflows/gate.yml
+    expect provision-lake-weekly 'gate.yml restores the Lake build on the weekly run' fanout
+    keep .github/workflows/gate.yml
+    sed -i "s/-\${{ hashFiles('lean-toolchain') }}-\${{ github.sha }}/-\${{ github.sha }}/" .github/workflows/gate.yml
+    expect provision-lake-key 'Lake cache key lacks shard \+ OS \+ arch \+ lean-toolchain' fanout
+    keep .github/workflows/build.yml
+    sed -i 's|^          path: dist/fvtrace-\*$|          path: dist/fvtrace-* .lake/build/*|' .github/workflows/build.yml
+    expect provision-lake-release 'build.yml caches the Lake build' fanout
+    keep .github/workflows/gate.yml
+    sed -i '/- name: Cache the Lake build$/d' .github/workflows/gate.yml
+    expect provision-lake-order 'gate.yml restores the Lake build after the gate step' fanout
 }
 
 probe_fanout() {

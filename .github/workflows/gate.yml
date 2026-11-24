@@ -53,6 +53,22 @@ jobs:
         with:
           cache: ${{ github.event_name != 'schedule' }}
 
+      # Lake's build outputs + the trust stage's verdict key, per shard, from the newest earlier green
+      # run this ref may read (its own branch, then main): Lake rebuilds each module whose traced
+      # inputs changed, and trust replays unless its key matches a pass. A failed job saves
+      # nothing; the weekly run builds + replays from scratch (.claude/rules/ci.md).
+      - name: Cache the Lake build
+        if: matrix.shard != 'checks' && github.event_name != 'schedule'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake/build/*
+            !.lake/build/wasm
+            .lake/trust
+          key: lake-${{ matrix.shard }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ matrix.shard }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain') }}-
+
       # The lean shard's Node stage (engine) imports no package.
       - name: Install pnpm
         if: matrix.shard != 'lean'
