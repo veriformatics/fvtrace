@@ -62,7 +62,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [ ] Deferred sweep 7, row property-test audit: table + property tests committed; owes the mutation kills (one campaign with row mutation credit: .scratch/mut-a W1, mut-b W2, nixbox W3; survivors → a non-author ruling)
 - [ ] Deferred sweep 7, row CI speedup: Lake build cache landed (bf87c94); owes the measurement (a Lean-changing commit on a ci branch holding the cache; < 521 s e2e + < 491 s lean)
 - [ ] Deferred sweep 7, row mutation credit (after the audit's commit; pilot first)
-- [ ] Deferred sweep 7, row scale receipts
+- [x] 13ba7a1 Deferred sweep 7, row scale receipts: no action rows on a shape offering no action
 - [ ] Deferred sweep 7, row meta-lint fences
 - [ ] Deferred sweep 7, row human-facing text
 - [ ] Deferred sweep 7, row serve bind hint

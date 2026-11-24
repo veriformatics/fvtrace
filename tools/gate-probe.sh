@@ -394,6 +394,12 @@ probe_meta_lint() {
     # shellcheck disable=SC2016 # backticks = the spec's literal text
     sed -i '0,/^- `lakefile.lean` = /s//- `tools\/missing-planted.sh` + `lakefile.lean` = /' .agent/spec.md
     expect meta-lint-artifact 'Artifacts: tools/missing-planted.sh matches no tracked file' spec
+    # A fenced `## ` line is no section heading (spec-lint skips it): Artifacts goes on past it.
+    keep .agent/spec.md
+    # shellcheck disable=SC2016 # backticks = the spec's literal text
+    sed -i -e '0,/^## Artifacts$/s//## Artifacts\n\n```\n## Planted inside a fence\n```\n/' \
+        -e '0,/^- `lakefile.lean` = /s//- `tools\/missing-planted.sh` + `lakefile.lean` = /' .agent/spec.md
+    expect meta-lint-fence 'Artifacts: tools/missing-planted.sh matches no tracked file' spec
     keep .agent/spec.md
     # shellcheck disable=SC2016 # backticks = the spec's literal text
     sed -i 's/tag `prototype-lint`/tag `prototype-planted`/' .agent/spec.md

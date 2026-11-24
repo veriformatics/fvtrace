@@ -37,10 +37,42 @@ for (const name of readdirSync(".claude/rules")
   }
 }
 
+/** A Markdown file's `## ` sections by name, fences read as spec-lint reads them (a `## ` line
+ * inside a fence would otherwise end its section, leaving the rest unchecked): ≥ 3 backticks or
+ * tildes after ≤ 3 spaces open one (a backtick opener's info string holds no backtick); a line of
+ * the opener's character alone, at least as long, closes it.
+ * @param {string} text */
+const sections = (text) => {
+  /** @type {Map<string, string[]>} */
+  const out = new Map();
+  let name = "";
+  let fence = "";
+  let size = 0;
+  for (const raw of text.replace(/^\uFEFF/, "").split("\n")) {
+    const line = raw.replace(/\r$/, "");
+    const t = line.replace(/^ {0,3}/, "");
+    const c = t[0] ?? "";
+    let n = 0;
+    if (c === "`" || c === "~") while (t[n] === c) n++;
+    if (fence) {
+      if (c === fence && n >= size && /^[ \t]*$/.test(t.slice(n))) fence = "";
+    } else if (n >= 3 && (c === "~" || !t.slice(n).includes("`"))) {
+      fence = c;
+      size = n;
+    } else if (line.startsWith("## ")) {
+      name = line.slice(3).replace(/[ \t]+$/, "");
+      out.set(name, out.get(name) ?? []);
+      continue;
+    }
+    out.get(name)?.push(line);
+  }
+  return out;
+};
+
 const spec = readFileSync(".agent/spec.md", "utf8");
 // Artifacts: a backticked token with a `/` or a `.` whose first segment is a tracked top-level
 // entry = a repo path (commands, flags, hosts + built outputs fall outside).
-const artifacts = spec.split(/^## /m).find((s) => s.startsWith("Artifacts\n")) ?? "";
+const artifacts = (sections(spec).get("Artifacts") ?? []).join("\n");
 const tops = new Set(files.map((f) => f.split("/")[0] ?? ""));
 for (const [, token = ""] of artifacts.matchAll(/`([^`\s]+)`/g)) {
   const first = token.split("/")[0] ?? "";
