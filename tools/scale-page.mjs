@@ -1,6 +1,6 @@
 // The exported page's engine timed (`.agent/contracts/kernel.md` P-time: the page engine, its
 // loader in Node): one instance answers the page's requests in the order the GUI sends them.
-//   node tools/scale-page.mjs <page.html> <whatif> <action> [item…]
+//   node tools/scale-page.mjs <page.html> <whatif> <action> [item…]   ("" = no action row)
 // Steps: `page` = start-up (the engine started from the page's engine block, the snapshot block
 // loaded: E-state); `page:whatif` (a nonempty what-if: the view the page opens at);
 // `page:details:<kind>` per item at that view (the first one there evaluates it: E-state computes
@@ -12,7 +12,7 @@ import { startEngine } from "../web/engine.js";
 import { engineOfPage, snapshotOfPage } from "../tests/engine/cases.mjs";
 
 const [page, whatif = "", action, ...items] = process.argv.slice(2);
-if (!page || !action) {
+if (!page || action === undefined) {
   process.stderr.write("usage: node tools/scale-page.mjs <page.html> <whatif> <action> [item…]\n");
   process.exit(2);
 }
@@ -66,5 +66,5 @@ if (engine) {
   if (whatif) ask("page:whatif", engine, { whatif });
   for (const item of items)
     ask(`page:details:${item.split(":")[0] ?? ""}`, engine, { whatif, details: item });
-  ask("page:action", engine, { whatif, action });
+  if (action) ask("page:action", engine, { whatif, action });
 }

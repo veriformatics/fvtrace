@@ -144,8 +144,9 @@ serve_rows() {
             srv_ask "serve:details:${item%%:*}" \
                 "$(jq -cn --arg w "$w" --arg i "$item" '{whatif: $w, details: $i}')"
         done <"$dir/items.txt"
-        srv_ask serve:action "$(jq -cn --arg w "$w" --arg a "$(<"$dir/action.txt")" \
-            '{whatif: $w, action: $a}')"
+        [[ -f "$dir/action.txt" ]] &&
+            srv_ask serve:action "$(jq -cn --arg w "$w" --arg a "$(<"$dir/action.txt")" \
+                '{whatif: $w, action: $a}')"
     fi
     kill "$srv" 2>/dev/null
     wait "$srv" 2>/dev/null
@@ -156,8 +157,10 @@ serve_rows() {
 page_rows() {
     local dir="$1" w="$2" items=()
     while read -r item; do items+=("$item"); done <"$dir/items.txt"
+    local action=""
+    [[ -f "$dir/action.txt" ]] && action="$(<"$dir/action.txt")"
     timeout "$((limit * (${#items[@]} + 3)))" node "$root/tools/scale-page.mjs" "$dir/page.html" \
-        "$w" "$(<"$dir/action.txt")" "${items[@]}" >"$dir/page.rows" 2>"$work/page.err"
+        "$w" "$action" "${items[@]}" >"$dir/page.rows" 2>"$work/page.err"
     echo "$?" >"$dir/page.rc"
 }
 
@@ -225,7 +228,10 @@ for shape in "${shapes[@]}"; do
     # P-time's rows: the costliest action + the costliest item of each kind (tools/scale.mjs).
     kinds=()
     while read -r item; do kinds+=("${item%%:*}"); done <"$first/items.txt"
-    cmds=(check eval action "${kinds[@]/#/details:}" export)
+    # A shape offering no action writes no action.txt (tools/scale.mjs) ⇒ no action rows.
+    act=()
+    [[ -f "$first/action.txt" ]] && act=(action)
+    cmds=(check eval "${act[@]}" "${kinds[@]/#/details:}" export)
     # Text commands on the F5 four. Deep's `gaps` rows each name the claim's other open facts
     # (n/2 rows × n/2 ids: output that grows by design, kernel.md P-time) → left out.
     if [[ "$f5" == *" $shape "* ]]; then
@@ -235,9 +241,9 @@ for shape in "${shapes[@]}"; do
     fi
     cmds+=(serve)
     [[ -f "$first/whatif.txt" ]] && cmds+=(serve:whatif)
-    cmds+=("${kinds[@]/#/serve:details:}" serve:action page)
+    cmds+=("${kinds[@]/#/serve:details:}" "${act[@]/#/serve:}" page)
     [[ -f "$first/whatif.txt" ]] && cmds+=(page:whatif)
-    cmds+=("${kinds[@]/#/page:details:}" page:action)
+    cmds+=("${kinds[@]/#/page:details:}" "${act[@]/#/page:}")
     gsteps=(first select details busy whatif)
     [[ " ${kinds[*]} " == *" experiment "* ]] && gsteps+=(experiment)
     for mode in served page; do

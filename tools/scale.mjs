@@ -363,9 +363,11 @@ const whatifOf = (shape) =>
 
 /**
  * Each shape's costliest one-click what-if (kernel.md P-time `eval --action`): the action whose
- * expansion is largest.
+ * expansion is largest; none for a shape that offers none (receipts: every fact at its ceiling,
+ * no experiment, every claim Fully supported), so no action row times a refusal.
  * @param {string} shape
  * @param {number} n
+ * @returns {string | undefined}
  */
 const actionOf = (shape, n) => {
   const third = Math.floor(n / 3);
@@ -378,6 +380,8 @@ const actionOf = (shape, n) => {
       return "success:R0";
     case "deep":
       return "suppose:F1";
+    case "receipts":
+      return undefined;
     default:
       return "suppose:E0";
   }
@@ -470,6 +474,7 @@ if (arg === "cap") {
   writeFileSync(join(dir, "trace.json"), trace(shape, n));
   const whatif = whatifOf(shape);
   if (whatif) writeFileSync(join(dir, "whatif.txt"), whatif(n));
-  writeFileSync(join(dir, "action.txt"), `${actionOf(shape, n)}\n`);
+  const action = actionOf(shape, n);
+  if (action) writeFileSync(join(dir, "action.txt"), `${action}\n`);
   writeFileSync(join(dir, "items.txt"), `${itemsOf(shape, n).join("\n")}\n`);
 }
