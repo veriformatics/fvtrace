@@ -59,9 +59,9 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 77c0fce Deferred sweep 7, row HACL* rev → hacl-star `main` HEAD ≥ 7 days old, I2 re-pin
 - [ ] Deferred sweep 7, rows moving link + proxied wording: ruling drafts → the one `AskUserQuestion`
 - [x] 39f6756 Deferred sweep 7, row fuzz targets: FvtraceFuzz 5 targets + tools/fuzz.sh + CI fuzz.yml + gate `fuzz` + probe
-- [ ] Deferred sweep 7, row property-test audit: kills recorded (`units.md` § Mutation credit); closes in this commit
+- [x] 79e0637 Deferred sweep 7, row property-test audit: kills + survivor rulings (`units.md` § Mutation credit), `commandProperty`
 - [x] bf87c94 Deferred sweep 7, row CI speedup: Lake build cache; measured on 13eb794 (cache restored: gate (lean) 207 s, gate (e2e) 142 s)
-- [ ] Deferred sweep 7, row mutation credit (after the audit's commit; pilot first)
+- [ ] Deferred sweep 7, row mutation credit: Json 326 + Decode 71 + Snapshot 5 recorded (`units.md` § Mutation credit); closes in this commit
 - [x] 13ba7a1 Deferred sweep 7, row scale receipts: no action rows on a shape offering no action
 - [x] 6c2c0d9 Deferred sweep 7, row meta-lint fences: sections read as spec-lint reads them + probe `meta-lint-fence`
 - [x] 3a1e32c Deferred sweep 7, row human-facing text: 140 splits, 28 kept with reasons, F1 + F2 fixed
