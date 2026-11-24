@@ -60,7 +60,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [ ] Deferred sweep 7, rows moving link + proxied wording: ruling drafts → the one `AskUserQuestion`
 - [x] 39f6756 Deferred sweep 7, row fuzz targets: FvtraceFuzz 5 targets + tools/fuzz.sh + CI fuzz.yml + gate `fuzz` + probe
 - [ ] Deferred sweep 7, row property-test audit: table + property tests committed; owes the mutation kills (one campaign with row mutation credit: .scratch/mut-a W1, mut-b W2, nixbox W3; survivors → a non-author ruling)
-- [ ] Deferred sweep 7, row CI speedup: Lake build cache landed (bf87c94); owes the measurement (a Lean-changing commit on a ci branch holding the cache; < 521 s e2e + < 491 s lean)
+- [x] bf87c94 Deferred sweep 7, row CI speedup: Lake build cache; measured on 13eb794 (cache restored: gate (lean) 207 s, gate (e2e) 142 s)
 - [ ] Deferred sweep 7, row mutation credit (after the audit's commit; pilot first)
 - [x] 13ba7a1 Deferred sweep 7, row scale receipts: no action rows on a shape offering no action
 - [x] 6c2c0d9 Deferred sweep 7, row meta-lint fences: sections read as spec-lint reads them + probe `meta-lint-fence`
