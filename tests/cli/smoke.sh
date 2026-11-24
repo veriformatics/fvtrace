@@ -182,6 +182,19 @@ if [[ "$(uname -s)" == Linux ]]; then
         expect "--token-file: a missing file, named on one line" "fvtrace: cannot read the token file …" "$out"
 fi
 
+# A shell in a project folder that is itself a link (`current` → a release) keys on the link through
+# PWD (the process's own current folder is the real path): the trace stays when the link moves.
+mkdir -p "$tmp/rel1" "$tmp/rel2"
+ln -s "$tmp/rel1" "$tmp/cur"
+fvl() { (cd "$tmp/cur" && env -i PATH="$PATH" PWD="$PWD" FVTRACE_HOME="$tmp/fvl" "$bin" "$@"); }
+fvl init >/dev/null 2>&1
+expect "link: init in a link folder rc" 0 $?
+first="$(fvl path)"
+ln -sfn "$tmp/rel2" "$tmp/cur"
+expect "link: a moved link keeps its trace (PWD)" "$first" "$(fvl path)"
+fvl check >/dev/null 2>&1
+expect "link: check through the moved link rc" 0 $?
+
 rm -rf "$tmp/proj/rel"
 after="$(inventory)"
 expect "project folder unchanged" "$before" "$after"

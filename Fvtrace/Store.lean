@@ -21,6 +21,9 @@ own (Lean cannot set an environment variable in-process). -/
 structure Env where
   home : System.FilePath
   cwd : System.FilePath
+  /-- The shell's name for `cwd` (`PWD`), kept only when absolute + naming `cwd`: a link it ends
+  in keys the project (`keyOf`), since the process's own current folder is always the real path. -/
+  logical : Option System.FilePath := none
 
 /-- `p` as given when absolute, else under `base` (`FilePath./` would append an absolute path). -/
 def absolute (base : System.FilePath) (p : String) : System.FilePath :=
@@ -52,10 +55,19 @@ def platformData : IO (Except String System.FilePath) := do
     return .ok (h / ".local" / "share")
   return .error "cannot find the user's data folder; set FVTRACE_HOME"
 
+/-- `PWD` when it is absolute and names `cwd` (a stale or relative one is dropped). -/
+def logicalCwd (cwd : System.FilePath) : IO (Option System.FilePath) := do
+  let some p ← envVar "PWD" | return none
+  let p : System.FilePath := p
+  unless p.isAbsolute do return none
+  try return if (← IO.FS.realPath p) == (← IO.FS.realPath cwd) then some p else none
+  catch _ => return none
+
 def Env.detect : IO (Except String Env) := do
   let cwd ← IO.currentDir
-  if let some h ← envVar "FVTRACE_HOME" then return .ok { home := absolute cwd h, cwd }
-  return (← platformData).map fun base => { home := base / "fvtrace", cwd }
+  let logical ← logicalCwd cwd
+  if let some h ← envVar "FVTRACE_HOME" then return .ok { home := absolute cwd h, cwd, logical }
+  return (← platformData).map fun base => { home := base / "fvtrace", cwd, logical }
 
 /-- A 255-byte component leaves room for `-` + twelve digest digits. -/
 def entryPrefixBytes : Nat := 255 - 1 - 12
@@ -77,6 +89,9 @@ structure Target where
   trace : System.FilePath
   /-- The project folder (real path): receipts are checked against it. -/
   project : System.FilePath
+  /-- The path that names the entry (`keyOf`): the project's real path, or the link it was named
+  through; `project.json` records it. -/
+  key : System.FilePath := project
   /-- The project's folder in the data folder (it may not exist yet). -/
   entry : System.FilePath
 
@@ -93,10 +108,37 @@ def projectJson (project : System.FilePath) : Value := .obj [("path", .str proje
 def Target.ensureEntry (t : Target) : IO Unit := do
   IO.FS.createDirAll t.entry
   unless ← pathPresent (projectFile t.entry) do
-    IO.FS.writeFile (projectFile t.entry) (projectJson t.project).pretty
+    IO.FS.writeFile (projectFile t.entry) (projectJson t.key).pretty
+
+/-- `path` (present or a dangling link) is a link: its real path is not its folder's real path +
+its name. Lean 4.35's `symlinkMetadata` follows links on Windows (it is `metadata` there), so the
+test goes through real paths. -/
+def isLink (path : System.FilePath) : IO Bool := do
+  let some parent := path.parent | return false
+  let some name := path.fileName | return false
+  try return (← IO.FS.realPath path) != (← IO.FS.realPath parent) / name
+  catch _ => return true
+
+/-- The path that keys a project's entry: a folder that is itself a link (`current` → a release
+folder; user ruling) = the link's own path, its parent resolved (a link above it, e.g. macOS `/tmp`,
+changes nothing), so the trace stays when the link moves; any other folder = its real path. -/
+def keyOf (p : System.FilePath) : IO System.FilePath := do
+  -- `--project current/` names the link too: its trailing separators go.
+  let cs := p.toString.toList.reverse.dropWhile (System.FilePath.pathSeparators.contains ·)
+  let cs := cs.reverse
+  let p : System.FilePath := if cs.isEmpty then p else String.ofList cs
+  let real ← IO.FS.realPath p
+  match p.parent, p.fileName with
+  | some parent, some name =>
+    -- `fileName` is `none` for `.`, `..` + a trailing separator; `normalize` (case on Windows)
+    -- keeps a typed case from faking a link.
+    let named := (← IO.FS.realPath parent) / name
+    return if named.normalize != real.normalize then named else real
+  | _, _ => return real
 
 /-- The project recorded beside a trace in the data folder, if `file` is one. -/
-def recordedProject (env : Env) (file : System.FilePath) : IO (Option System.FilePath) := do
+def recordedProject (env : Env) (file : System.FilePath) :
+    IO (Option (System.FilePath × System.FilePath)) := do
   try
     let some dir := file.parent | return none
     let some above := (← IO.FS.realPath dir).parent | return none
@@ -105,7 +147,7 @@ def recordedProject (env : Env) (file : System.FilePath) : IO (Option System.Fil
     | .ok (.obj [("path", .str p)]) =>
       let p : System.FilePath := p
       unless ← p.isDir do return none
-      return some (← IO.FS.realPath p)
+      return some (← IO.FS.realPath p, ← keyOf p)
     | _ => return none
   catch _ => return none
 
@@ -116,26 +158,19 @@ def resolve (env : Env) (project trace : Option String) : IO (Except String Targ
     | some dir =>
       let p := absolute env.cwd dir
       unless ← p.isDir do return .error s!"no folder {dir}; give --project an existing folder"
-      pure (some (← IO.FS.realPath p))
+      pure (some (← IO.FS.realPath p, ← keyOf p))
     | none => pure none
   let file := trace.map (absolute env.cwd)
   let recorded ← match given, file with
     | none, some f => recordedProject env f
     | _, _ => pure none
-  let root ← match given <|> recorded with
+  let (root, key) ← match given <|> recorded with
     | some r => pure r
-    | none => IO.FS.realPath env.cwd
-  let entry := env.home / (← entryName root)
-  return .ok { trace := file.getD (entry / "trace.json"), project := root, entry }
-
-/-- `path` (present or a dangling link) is a link: its real path is not its folder's real path +
-its name. Lean 4.35's `symlinkMetadata` follows links on Windows (it is `metadata` there), so the
-test goes through real paths. -/
-def isLink (path : System.FilePath) : IO Bool := do
-  let some parent := path.parent | return false
-  let some name := path.fileName | return false
-  try return (← IO.FS.realPath path) != (← IO.FS.realPath parent) / name
-  catch _ => return true
+    | none => do
+      let real ← IO.FS.realPath env.cwd
+      pure (real, ← match env.logical with | some l => keyOf l | none => pure real)
+  let entry := env.home / (← entryName key)
+  return .ok { trace := file.getD (entry / "trace.json"), project := root, key, entry }
 
 /-- Deletes `dir` and everything in it, removing each link itself instead of entering it (Lean
 4.35's `removeDirAll` enters a link to a folder on Windows and deletes what it points at). -/

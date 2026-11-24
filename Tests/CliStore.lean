@@ -306,7 +306,8 @@ def tests : TestM Unit := do
     let (_, out, _) ← run ["check", "--trace", draft]
     check "store: a draft reads the current folder's project"
       (count out s!"project: {projReal}" == 1) out
-    -- Entries: same-named folders differ, a symlinked folder shares its target's entry.
+    -- Entries: same-named folders differ; a folder named through a link keys on the link (user
+    -- ruling: the trace stays when the link moves, `linkTests`), not on its target's entry.
     IO.FS.createDirAll (dir / "a" / "analysis")
     IO.FS.createDirAll (dir / "b" / "analysis")
     let (_, pa, _) ← capture (Cli.runIn away ["path", "--project", "a/analysis"])
@@ -315,7 +316,8 @@ def tests : TestM Unit := do
     let linked ← symlink proj (dir / "link")
     check "store: a symlink to the project can be made" linked
     let (_, pl, _) ← capture (Cli.runIn away ["path", "--project", "link"])
-    checkEq "store: a symlinked folder shares its target's entry" (line pl) trace
+    check "store: a folder named through a link keys on the link"
+      (line pl != trace && (line pl).startsWith s!"{home / "link"}-") pl
     unlink (dir / "link")
     -- An entry keeps the folder name's letters, digits, `-`, `_` + `.`; any other character → `-`.
     IO.FS.createDirAll (dir / "my_proj.v-2 x")
@@ -418,6 +420,43 @@ def referenceTests : TestM Unit := do
     let (rc, _, _) ←
       capture (Cli.runIn repo (["eval", "--details", "claim:C2", "--complete"] ++ ex))
     checkEq "cli: --details with --complete rc" rc 2
+
+/-- A project named through a link (`--project LINK`, or the shell's `PWD`) keys its entry on the
+link (user ruling): the trace stays when the link moves; the folder reached by its real path, `.`
+and a trailing separator keep their own keys. -/
+def linkTests : TestM Unit := do
+  IO.FS.withTempDir fun dir => do
+    let home := dir / "home"
+    for r in ["r1", "r2"] do IO.FS.createDirAll (dir / r)
+    let cur := dir / "cur"
+    unless ← symlink (dir / "r1") cur do
+      IO.println "  (no folder links here: the link key is not checked)"
+      return
+    let env : Store.Env := { home, cwd := dir }
+    let run := fun (e : Store.Env) (args : List String) => capture (Cli.runIn e args)
+    let (rc, _, _) ← run env ["init", "--project", cur.toString]
+    checkEq "store: init through a link rc" rc 0
+    let (_, before, _) ← run env ["path", "--project", cur.toString]
+    unlink cur
+    let moved ← symlink (dir / "r2") cur
+    let (_, after, _) ← run env ["path", "--project", cur.toString]
+    check "store: a moved link keeps its trace (path)" (moved && after == before)
+      s!"{before} | {after}"
+    let (rc, _, err) ← run env ["check", "--project", cur.toString]
+    checkEq "store: a moved link keeps its trace (check rc)" rc 0
+    check "store: check through the moved link reads the trace" err.isEmpty err
+    let (_, slash, _) ← run env ["path", "--project", cur.toString ++ "/"]
+    checkEq "store: a trailing separator names the same link" slash before
+    let r2 ← IO.FS.realPath (dir / "r2")
+    let (_, real, _) ← run env ["path", "--project", r2.toString]
+    check "store: the folder reached by its real path keeps its own entry" (real != before) real
+    let (_, dot, _) ← run { env with cwd := r2 } ["path", "--project", "."]
+    checkEq "store: --project . = the real path (no link)" dot real
+    let (_, logical, _) ← run { env with cwd := r2, logical := some cur } ["path"]
+    checkEq "store: a shell in the link folder (PWD) keys on the link" logical before
+    let (_, plain, _) ← run { env with cwd := r2, logical := some r2 } ["path"]
+    checkEq "store: a PWD that is no link keys on the real path" plain real
+    unlink cur
 
 /-- A data folder entry that cannot take the digest cache (another user's, read-only) answers as
 before. -/

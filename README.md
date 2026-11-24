@@ -242,7 +242,9 @@ it. The data folder is
 `~/.local/share/fvtrace` on Linux, `~/Library/Application Support/fvtrace` on macOS, and
 `%LOCALAPPDATA%\fvtrace` on Windows. The project folders are keyed by their full path. So a
 moved project gets a new folder. After you move a project, run `fvtrace init` in its new
-location. Then copy the old trace file to the path that `fvtrace path` prints.
+location. Then copy the old trace file to the path that `fvtrace path` prints. A project that
+you open through a link, for example `current`, is named after the link. Its trace stays when the
+link moves to another folder. The folder that the link points to keeps its own data folder.
 
 ## Sharing
 
