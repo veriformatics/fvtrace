@@ -253,6 +253,14 @@ Ledger + check set + reviewer deliverables = `.agent/archive/review-maintain-cod
 | Node toolchain holds | data (pins; every gate step reads them) | `deps.md` release age + recipes | a98a699: Node 26.13.1 `gpgv` good signature + tarball sha256; refresh-lock resolved 140; CI 45196113395 green |
 | HACL* rev | data (vendored C; `vendor` + `lean-test` re-check it) | `deps.md` HACL* recipe; self-trace I2 | 77c0fce: `--check` named exactly the 5 moved files, re-vendor + `--verify` + `--check` rc 0; I2 digest alone moved; trust 12/12 replays |
 | fuzz targets | kernel-adjacent tooling (dev-only; readers of other people's bytes) | `testing.md` Fuzz targets; deferred row "Fuzz targets" acceptance | 5 targets build + run (30 s each clean; CI `fuzz.yml`); planted `\n` off by one: missed by parse → print → parse in 4,139,847 inputs, found on input 2 from an empty corpus by the own-characters check; planted surrogate-pair off by one: found after 329,370 inputs (120 s) by the `\u` check; gate `fuzz` replays 21 inputs; probe `fuzz` 6/6 |
+| CI speedup (Lake build cache) | data (CI config; every stage still runs) | ops.md + ci.md; row acceptance (< 521 s e2e + < 491 s lean on a Lean-changing commit) | bf87c94 + 0cb792a: 13eb794's run restored bf87c94's cache in both shards (lean-build 46.8 → 15.3 s, 40.2 → 23.1 s; jobs 207 + 142 s); provision checks + 4 probes; the uncached run already met the bar (page-engine cache) |
+| scale receipts | data (timing tool; reported shape) | row acceptance | 13ba7a1: unfixed `action` rc 2, `serve:action` 400, `page:action` rc 1 at n 40 + 80 → no action rows; probe `scale` 29/29 |
+| meta-lint fences | kernel (gate tool) | row acceptance | 6c2c0d9: a fenced `## ` plant passed on bf87c94's meta-lint (rc 0) → rc 1 naming the path; probe `meta-lint-fence` |
+| serve bind hint | kernel (shell) | row acceptance; server.md Bind | 13eb794: red 1935/1936 (`--host` hint); the busy-port pin kills a hand mutant (`--list` = 0 mutants) |
+| human-facing text | docs | Authoring `Human-facing` | 3a1e32c: reviewer-1 171 rows (140 splits, 28 kept with reasons, F1 + F2 fixed, F3 deferred); YAML frontmatter re-parsed (advisor catch) |
+| moving link | kernel (shell) | Decisions Product (user ruling) | f03c3c7: red 125/131 + smoke red on 79e0637's binary; Store mutants 3/5 killed, :134 a dead guard (removed), :63 killed by smoke |
+| proxied problem text | kernel (shell) | Decisions GUI access (user ruling); server.md | eb07121: e2e red (2 failed) on f03c3c7's binary; hand mutants killed (pure ×8, e2e ×2); `--list` 0 + 1 mutants |
+| reused facts | kernel (semantics + proofs) | kernel.md § Model, WF-route, S-override; Decisions (user ruling) | 36349ab: trust 26 claims 0 findings, 6 kernels; compare 1253 runs 0 diffs; red check + what-if + eval; `mustVerifyWith` 3 killed + 4 compile/proof; chain cost measured + owed to the user (deferred) |
 
 ## Property-test audit (`testing.md` Test form; each `kernel.md` predicate on tested code → its form)
 
@@ -290,7 +298,7 @@ Proved predicates (WF ↔ `check`, S-*, S-state + G2 breakdown, Sentences G6, Ra
 
 ## Mutation credit (seventh sweep: the property-test audit's files + the page-engine closure's tested files)
 
-Base = 72da483 (Fvtrace/ identical through the sweep's later commits but `Cli.lean`, `Tests/` grown). Command per file = `node tools/mutate.mjs Fvtrace/<f>.lean --test "lake test"` (default operators; `--timeout 1800`, Json lines 128–248 + 312–382 at `--timeout 600`), in rsync'd copies (`.scratch/mut-*`, own `.lake`) + a nixbox worktree, split by `--lines`, every split reconciled against `--list` (each mutant one verdict, 0 mismatches).
+Base = 72da483 (the five campaign files Json, Decode, Encode, Lint + Snapshot unchanged through 36349ab; `Tests/` grown). Command per file = `node tools/mutate.mjs Fvtrace/<f>.lean --test "lake test"` (default operators; `--timeout 1800`, Json lines 128–248 + 312–382 at `--timeout 600`), in rsync'd copies (`.scratch/mut-*`, own `.lake`) + a pool host worktree, split by `--lines`, every split reconciled against `--list` (each mutant one verdict, 0 mismatches).
 
 Equal strength of the engine-stub build: each copy's `target engine` reads the unmutated tree's `engine.b64` instead of relinking the page engine per mutant. `lake test` reads that engine only as bytes (`Tests/Assets`: embed = file; `Tests/Export`: page block = `Export.engine`), equal under either build, and never executes it (the page engine's behavior = `tests/engine/` + e2e, outside `lake test`) ⇒ every `lake test` check sees the same mutated native code under the stub and the default build. `mutate.mjs` refuses a campaign whose unmutated build or suite fails (baseline check), so no kill comes from a broken copy.
 
