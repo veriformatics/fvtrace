@@ -36,7 +36,7 @@ def commands : List Command := [
   { name := "init", trace := false,
     block := ["  init",
       "      Create the trace of the project and show where it is. The new trace is",
-      "      valid and claims nothing."] },
+      "      valid. It claims nothing."] },
   { name := "path", trace := false,
     block := ["  path",
       "      Print the location of the trace of the project."] },
@@ -51,16 +51,16 @@ def commands : List Command := [
     block := ["  pin [--replay [--timeout S]]",
       "      Record the sha256 of each evidence artifact and statement in the trace.",
       "      With --replay, first run each replay command of the trace in the project",
-      "      folder and record the sha256 of its output. A replay that fails keeps the",
-      "      pin and leaves a notice on its fact until a later replay passes."] },
+      "      folder. Record the sha256 of its output. A replay that fails keeps the pin.",
+      "      It leaves a notice on its fact until a later replay passes."] },
   { name := "verify",
     block := ["  verify [--run [--timeout S] | --log] [--json]",
       "      List the replay command of each fact. With --run, run each command in the",
-      "      project folder: it passes when it exits with 0 and its output is unchanged",
+      "      project folder. It passes when it exits with 0 and its output is unchanged",
       "      since pin --replay. A failed replay leaves a notice on its fact in the",
-      "      trace, and a passing replay removes it. An output that pin --replay did",
-      "      not record fails the replay but leaves no notice. A command runs with",
-      "      your rights: run only the commands of a trace that you trust.",
+      "      trace. A passing replay removes it. An output that pin --replay did not",
+      "      record fails the replay. It leaves no notice. A command runs with your",
+      "      rights. Run only the commands of a trace that you trust.",
       "      With --log, show every replay that ran for this project and how it ended."] },
   { name := "review",
     block := ["  review --reviewer NAME [--note TEXT]",
@@ -87,11 +87,11 @@ def commands : List Command := [
   { name := "eval",
     block := ["  eval [--details ITEM | --complete]",
       "      Print the full evaluation as JSON (fvtrace.evaluation/2). --details ITEM",
-      "      prints the details of one item: experiment:ID (its prerequisites, what",
-      "      its success raises and the claims it changes), claim:ID (its sentence,",
-      "      the facts it needs that exclude each other, and its full plan) or fact:ID",
-      "      (the experiments that raise it). --complete prints the evaluation and the",
-      "      details of every item."],
+      "      prints the details of one item. For experiment:ID, it prints its",
+      "      prerequisites, what its success raises and the claims it changes. For",
+      "      claim:ID, it prints its sentence, the facts it needs that exclude each",
+      "      other, and its full plan. For fact:ID, it prints the experiments that",
+      "      raise it. --complete prints the evaluation and the details of every item."],
     evaluates := true },
   { name := "export",
     block := ["  export --html FILE | --bundle DIR",
@@ -100,22 +100,24 @@ def commands : List Command := [
       "      its evidence files for another computer with fvtrace."] },
   { name := "serve",
     block := ["  serve [--port N] [--host ADDRESS] [--token-file FILE] [--cached] [--no-browser]",
-      "      Show the claims in your browser: the command opens it. The port is 8718",
+      "      Show the claims in your browser. The command opens it. The port is 8718",
       "      by default (0 = any free port). With --no-browser, or where it cannot open",
       "      a browser (an SSH session), it prints a link to open instead. With --host,",
       "      computers on your network can open the page at ADDRESS. The page is not",
-      "      encrypted: share it on a network that you trust. With --token-file, the",
-      "      server takes its secret token from FILE (at least 32 letters, digits, - or",
-      "      _), for a proxy that logs users in and sends the token for them. The",
-      "      command then opens no browser and prints no link."] },
+      "      encrypted. Share it on a network that you trust. With --token-file, the",
+      "      server takes its secret token from FILE. The token has at least 32",
+      "      characters, each a letter, a digit, - or _. Use this option for a proxy",
+      "      that logs users in and sends the token for them. The command then opens",
+      "      no browser and prints no link."] },
   { name := "schema",
     block := ["  schema",
       "      Print the JSON Schema of the trace format."],
     project := false },
   { name := "skills",
     block := ["  skills install [--agent claude|agents] [--dir DIR]",
-      "      Install the fvtrace skill for coding agents: Claude Code reads it from",
-      "      ~/.claude/skills, other agents from ~/.agents/skills (both by default)."],
+      "      Install the fvtrace skill for coding agents. Claude Code reads it from",
+      "      ~/.claude/skills. Other agents read it from ~/.agents/skills. The command",
+      "      installs it to both by default."],
     project := false },
   { name := "skills",
     block := ["  skills show",
@@ -136,11 +138,11 @@ def traceLine : String :=
 /-- The options the evaluating commands share. -/
 def sharedText : String :=
   "claims, gaps, experiments, plan and eval accept --whatif FACT=STATUS,... to\n" ++
-  "suppose statuses, --action ID to apply a suggested what-if from the evaluation\n" ++
-  "(such as plan:C2) on top of them, and --cached to reuse the digest of an\n" ++
-  "evidence file that kept its size and modification time (faster for large\n" ++
-  "files, but it misses an edit that keeps both). check, claims, gaps,\n" ++
-  "experiments and plan accept --json for machine output.\n"
+  "suppose statuses. They accept --action ID to apply a suggested what-if from the\n" ++
+  "evaluation (such as plan:C2) on top of them. They accept --cached to reuse the\n" ++
+  "digest of an evidence file that kept its size and modification time. This is\n" ++
+  "faster for large files, but it misses an edit that keeps both. check, claims,\n" ++
+  "gaps, experiments and plan accept --json for machine output.\n"
 
 def exitText : String :=
   "Exit status: 0 = success, 1 = an invalid or failing trace, 2 = a usage or read\n" ++

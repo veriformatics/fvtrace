@@ -3,8 +3,8 @@
 A proof covers its own formal statement, not the sentence of the fact. The same is true for a
 proved checker: its proof covers the checker's specification. The Lean kernel checks the proof.
 Nothing checks that the statement means the sentence. A statement can be wrong, weaker than the
-sentence, or empty, and its proof still passes. fvTrace trusts this reading, and the user's review
-is the only other check. Thus you must try to break each statement before you record a fact
+sentence, or empty. Its proof still passes. fvTrace trusts this reading. The user's review is the
+only other check. Thus you must try to break each statement before you record a fact
 `proved` or `checked`.
 
 ## When to run the checks
@@ -17,13 +17,13 @@ is the only other check. Thus you must try to break each statement before you re
 
 ## How to read
 
-- Assume that the author of the proof has your blind spots. Often an AI agent wrote the proof,
-  and it can be you. A wrong statement reads as smoothly as a correct one.
+- Assume that the author of the proof has your blind spots. Often an AI agent wrote the proof.
+  That agent can be you. A wrong statement reads as smoothly as a correct one.
 - Read the statement itself. Do not trust its name, its comment, the evidence summary or the fact
   text.
 - Read the full statement. In Lean, `#check @Name` shows every hypothesis, also the hypotheses that
   come from `variable` lines and the instance arguments. `#check` does not show the value of a
-  definition: read the value of each definition that the statement uses (`#print Name`).
+  definition. Read the value of each definition that the statement uses (`#print Name`).
 - For a checker, read the theorem that says what its acceptance proves. Do not rely on its
   documentation.
 - If your agent tool can start a separate agent with a fresh context, give that agent this file,
@@ -45,7 +45,7 @@ is the only other check. Thus you must try to break each statement before you re
 
 ### Object
 
-The fact names one thing, and the statement must be about that thing. For example, the fact is
+The fact names one thing. The statement must be about that thing. For example, the fact is
 about the mean marker level of the recorded cohort, but the theorem is about the median. Or the
 theorem is about the mean of any list of numbers, and nothing connects that list to the cohort. A
 theorem about an ideal model (real numbers, an infinite population) is not about the code that
@@ -64,8 +64,8 @@ Compare each definition with the one that the analysis uses:
 
 ### Edge cases
 
-Find out what the statement says for degenerate inputs, and compare it with the analysis: an empty
-group, one sample, ties, zero counts, missing values, and all values equal.
+Find out what the statement says for degenerate inputs. Compare it with the analysis. Check an
+empty group, one sample, ties, zero counts, missing values, and all values equal.
 
 ### Default values
 
@@ -105,9 +105,9 @@ the same definitions. If a case fails, or you cannot state it, the statement doe
 fact says.
 
 You write into the project folder only when the user asks. If the user agrees, put the cases in a
-file in the project, add that file to the evidence as an artifact with the role `sanity check`, and
-run `fvtrace pin` again. If not, run the cases with `lake env lean --stdin`, and give them with the
-plain reading.
+file in the project. Add that file to the evidence as an artifact with the role `sanity check`. Run
+`fvtrace pin` again. If not, run the cases with `lake env lean --stdin`. Give them with the plain
+reading.
 
 ### Generality
 
@@ -121,8 +121,8 @@ In Lean, `#print axioms Name` lists the axioms that the proof relies on:
 - `propext`, `Classical.choice` and `Quot.sound` are the standard axioms of Lean.
 - `sorryAx` means that the proof is not finished. The fact is not proved.
 - Each other axiom adds trust. For example, `native_decide` adds an axiom whose name contains
-  `native_decide`: the proof then trusts the Lean compiler too. Name it in the `trusts` of the
-  fact, and tell the user.
+  `native_decide`. The proof then trusts the Lean compiler too. Name it in the `trusts` of the
+  fact. Tell the user.
 
 For other verifiers, name each tool that the verification relies on in `trusts`.
 
@@ -154,7 +154,7 @@ fact:
 
 Put the reading in the `summary` of the fact's evidence, after the name of the proof or the
 checker. `fvtrace serve` and an exported page show the summary in the details of the fact, as one
-paragraph: write sentences, not a list. Give the reading to the user at hand-over too. A change to
+paragraph. Write sentences, not a list. Give the reading to the user at hand-over too. A change to
 the summary after the review makes the review stale.
 
 ## A replay that shows the statement
@@ -167,13 +167,13 @@ the command can be:
 ["sh", "-c", "lake build MyAnalysis.Result >&2 && printf '%s\\n' 'import MyAnalysis.Result' '#check @MyAnalysis.mean_rise' '#print MyAnalysis.meanLevel' '#print axioms MyAnalysis.mean_rise' | lake env lean --stdin"]
 ```
 
-- The command builds the module first. `lean` reads the last build of a module that it imports,
-  so without the build the replay can show an old statement. The build writes to standard error,
-  and `fvtrace` pins only the standard output.
+- The command builds the module first. `lean` reads the last build of a module that it imports.
+  Without the build, the replay can thus show an old statement. The build writes to standard
+  error. `fvtrace` pins only the standard output.
 - `#check` shows the name of a definition, not its value. Add one `#print` line for each
   definition of the analysis that the statement uses, also the definitions that those definitions
-  use. A definition that the replay does not print can change, and the replay still passes.
+  use. A definition that the replay does not print can change. The replay then still passes.
 
 Read the output before you record `proved`. `fvtrace pin --replay` pins the output that the command
-prints, also when the output shows `sorryAx`: the command exits with 0 when a proof uses `sorry`.
+prints, also when the output shows `sorryAx`. The command exits with 0 when a proof uses `sorry`.
 Write a replay only when the user asks for one.

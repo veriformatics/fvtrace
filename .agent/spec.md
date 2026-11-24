@@ -65,7 +65,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [x] 13ba7a1 Deferred sweep 7, row scale receipts: no action rows on a shape offering no action
 - [x] 6c2c0d9 Deferred sweep 7, row meta-lint fences: sections read as spec-lint reads them + probe `meta-lint-fence`
 - [ ] Deferred sweep 7, row human-facing text
-- [ ] Deferred sweep 7, row serve bind hint
+- [x] 13eb794 Deferred sweep 7, row serve bind hint: `Cli.bindHint` (--host + no interface → --host hint)
 - [ ] Deferred sweep 7, row instantiation: ruling draft → the one `AskUserQuestion`
 - [ ] Deferred sweep 7: `AskUserQuestion`, the rows it unblocks, close (one `reviewer`, archive, full gate)
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`

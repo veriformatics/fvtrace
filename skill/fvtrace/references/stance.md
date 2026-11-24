@@ -21,20 +21,21 @@
 | `human-ruling` | `assumed` (`tested` for a must-verify fact) | interpretation, study design, reviewer judgment |
 | `empirical` | `assumed` (`tested` for a must-verify fact) | observations, measurements, statistical evidence |
 
-A status above the route's ceiling is an error (`fvtrace check`). Must-verify kinds (`entailment`, `result`, `estimand`, `numerical`, `implementation`, `dataflow`) are never `assumed`, recorded or in an outcome: `fvtrace check` reports an error.
+A status above the route's ceiling is an error (`fvtrace check`). Must-verify kinds (`entailment`, `result`, `estimand`, `numerical`, `implementation`, `dataflow`) are never `assumed`, recorded or in an outcome. `fvtrace check` reports an error for each.
 
 ## Verdict of a claim (decided by fvtrace)
 
 - **Fully supported**: every need, the entailment included, is verified with a current receipt.
-- **Conditional**: no need is violated, every must-verify need is verified, and the other needs are verified or assumed; the claim is stated as "Assuming …: claim".
+- **Conditional**: no need is violated, every must-verify need is verified, and the other needs are verified or assumed. The claim is stated as "Assuming …: claim".
 - **Pending verification**: some need is open, tested or stale.
 - **Claim not possible**: a need is violated, the claim needs both sides of a verified or assumed exclusion, or a what-if conflicts.
 
-An entailment that only a person can rule on keeps the claim at Pending verification: reword the claim to what a proof can cover, or split the judgment out as a separate, contestable background condition (never one that only restates "the conclusion follows"). A subject that a new experiment would create holds only `open` facts until the experiment runs.
+An entailment that only a person can rule on keeps the claim at Pending verification. Reword the claim to what a proof can cover. Or split the judgment out as a separate, contestable background condition. Never use a condition that only restates "the conclusion follows". A subject that a new experiment would create holds only `open` facts until the experiment runs.
 
 ## Experiment outcomes
 
-- `checked` only via a proved checker on the actual data; `proved` only via a completed proof.
-- Empirical support raises a background condition to `assumed` at most; it cannot raise a must-verify fact.
-- A failure is an established counterexample (`violated`); an inconclusive outcome changes nothing (`{}`).
+- `checked` only via a proved checker on the actual data.
+- `proved` only via a completed proof.
+- Empirical support raises a background condition to `assumed` at most. It cannot raise a must-verify fact.
+- A failure is an established counterexample (`violated`). An inconclusive outcome changes nothing (`{}`).
 - An experiment that creates new data (`subject` = a prospective subject) supports claims about that data, never the existing analysis.

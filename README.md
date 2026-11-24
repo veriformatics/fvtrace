@@ -5,7 +5,7 @@ fvTrace shows which claims your analysis can make and which it cannot.
 fvTrace takes one stance: you can make a claim only when every fact that the claim needs is
 formally verified. A fact is verified when a proof covers it, or when a proved checker accepted
 the actual data or code. If an analysis has no verification yet, fvTrace shows where verification
-would make the most claims available. It also shows which experiments could fill each gap, and
+would make the most claims available. It also shows which experiments could fill each gap. It shows
 which claims an assumption or a violated fact holds back.
 
 You describe the analysis in a *trace*: the scientific questions, the claims, the facts that each
@@ -24,10 +24,10 @@ fvTrace checks the trace and decides every verdict. fvTrace never calls a langua
 Each claim also needs one *entailment* fact, its reasoning: "these facts entail the claim as
 worded". A claim that only restates one result needs no entailment fact. Only background conditions can be assumed, for example how the samples were collected,
 or that they are independent. A reasoning, result, measurement, calculation, implementation or
-data-flow fact must be verified: if the trace records one as `assumed`, `fvtrace check` reports
+data-flow fact must be verified. If the trace records one as `assumed`, `fvtrace check` reports
 an error. Thus a claim whose reasoning is a person's judgment reads **Pending verification** at
 best. Some conditions hold for every claim: the records are honest, the instruments work, and the
-labels are correct. Do not list these universal premises as facts of each claim: the review
+labels are correct. Do not list these universal premises as facts of each claim. The review
 vouches for them once. Until a reviewer signs off the trace, every verdict is provisional.
 
 ## Install
@@ -72,8 +72,8 @@ projects whose code `fvtrace` contains.
    Python 3.10 or later, `curl`, `tar` and `git`, because it compiles the engine of the exported
    page (see [Sharing](#sharing)). CI builds and tests fvTrace on Linux, macOS and Windows.
 2. In this folder, run `lake build fvtrace`. The first build downloads Emscripten (about 300 MB;
-   700 MB on Windows) and the Lean runtime sources, and checks each download against the SHA-256
-   digest in `tools/wasm.lock`. Then it compiles the engine, which takes several minutes. Later
+   700 MB on Windows) and the Lean runtime sources. It checks each download against the SHA-256
+   digest in `tools/wasm.lock`. Then it compiles the engine. This takes several minutes. Later
    builds reuse these files.
 3. Copy `.lake/build/bin/fvtrace` to a folder on your `PATH`.
 4. Run `fvtrace --version` to check the installation.
@@ -83,11 +83,12 @@ projects whose code `fvtrace` contains.
 1. Go to the folder of your analysis: `cd my-analysis`.
 2. Create the trace: `fvtrace init`. The command shows where the trace is.
 3. Describe the analysis in that file. To let your coding agent draft it, run
-   `fvtrace skills install` once, then ask the agent to set up fvTrace for the analysis.
-4. If a fact is verified, name its evidence files (a proof, a checker log) in the trace, then
-   pin them: `fvtrace pin` records the digests of the files, so that a later change shows.
+   `fvtrace skills install` once. Then ask the agent to set up fvTrace for the analysis.
+4. If a fact is verified, name its evidence files (a proof, a checker log) in the trace. Then
+   pin them with `fvtrace pin`. The command records the digests of the files so that a later
+   change shows.
 5. Check the trace: `fvtrace check`. Correct each error that it shows.
-6. Read the verdicts: `fvtrace claims`. To use the browser view, run `fvtrace serve`: it opens
+6. Read the verdicts: `fvtrace claims`. To use the browser view, run `fvtrace serve`. It opens
    the page in your browser.
 7. When the trace is correct, sign it off: `fvtrace review --reviewer "Your Name"`.
 
@@ -99,7 +100,7 @@ marker. To see it, go to `examples/synthetic/project` and run `fvtrace serve --t
 `fvtrace serve` shows the claims of each scientific question in your browser, at
 `fvtrace.localhost:8718`. It opens the page itself. Where it cannot open a browser, for example
 in an SSH session, it prints a link instead. In an SSH session, forward the port first
-(`ssh -L 8718:localhost:8718 HOST`), then open the link on your own computer. To get the link in
+(`ssh -L 8718:localhost:8718 HOST`). Then open the link on your own computer. To get the link in
 every case, add `--no-browser`. To learn the page, press **Take the tour**.
 
 - Each claim shows a plain headline. To read the exact statement that the proofs cover, open
@@ -108,15 +109,15 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
   assumes, with the reason that the claim needs it.
 - A diagram under the claim shows each fact that the claim needs, one symbol for each fact. To
   suppose that a fact has the best status that its route allows, press its symbol. fvTrace then
-  shows every verdict under that supposition, and the address of the page keeps it. To return,
+  shows every verdict under that supposition. The address of the page keeps it. To return,
   press **Show the facts as recorded**.
 - To see the details of a claim, a fact or an experiment, press its name. You can select and
-  copy any text: a drag selects the text and does not open the details.
+  copy any text. A drag selects the text. It does not open the details.
 - **Text** shows the same claims as plain sentences.
 - To go to a claim, a fact or an experiment, type its id or words from its text in **Find a
   claim, fact or experiment**. Then press its id, or press Enter for the first match.
 - A line above each list tells how many items it has. On a large trace, the page adds claims and
-  rows while you scroll, and a line at the end of a list tells how many items it does not show yet.
+  rows while you scroll. A line at the end of a list tells how many items it does not show yet.
 - When an answer takes more than one second, the page shows **Working…**.
 - Below the claims, the page shows the suggested experiments, the facts whose verification makes
   the most claims available, the violated facts, and what each claim may be missing.
@@ -128,9 +129,9 @@ every case, add `--no-browser`. To learn the page, press **Take the tour**.
 | `fvtrace init` | Creates the trace of the project and shows where it is. |
 | `fvtrace path` | Prints the location of the trace. |
 | `fvtrace check [--strict]` | Checks the trace and the evidence of each verified fact. With `--strict`, a warning without a waiver, changed evidence or a failed replay also fails. |
-| `fvtrace pin [--replay]` | Records the SHA-256 of each evidence file and statement. With `--replay`, it first runs each replay command and records the SHA-256 of its output. A replay that fails keeps the pin and leaves a notice on its fact. |
-| `fvtrace verify [--run \| --log]` | Lists the replay command of each fact. With `--run`, it runs each command and checks that it exits with 0 and prints the same output as when it was pinned. With `--log`, it shows every replay that ran for the project and how it ended. |
-| `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. The review vouches that the claims and facts match the study, that each headline says no more than its exact statement, and that the universal premises hold. |
+| `fvtrace pin [--replay]` | Records the SHA-256 of each evidence file and statement. With `--replay`, it first runs each replay command. It records the SHA-256 of its output. A replay that fails keeps the pin. It leaves a notice on its fact. |
+| `fvtrace verify [--run \| --log]` | Lists the replay command of each fact. With `--run`, it runs each command. It checks that the command exits with 0 and prints the same output as when it was pinned. With `--log`, it shows every replay that ran for the project. It shows how each ended. |
+| `fvtrace review --reviewer NAME` | Records that NAME reviewed the current trace. The review vouches that the claims and facts match the study. It vouches that each headline says no more than its exact statement. It vouches that the universal premises hold. |
 | `fvtrace claims` | Shows each claim with its verdict, by question. |
 | `fvtrace gaps` | Shows the facts whose verification makes the most claims available. |
 | `fvtrace experiments` | Shows the suggested experiments and what each one changes. |
@@ -146,14 +147,14 @@ To see the options of one command, run `fvtrace COMMAND --help`. A command works
 in the current folder. To use another folder, add
 `--project DIR`. To read a trace file directly, for example a draft, add `--trace FILE`. To
 suppose other statuses, add `--whatif FACT=STATUS,...` to `claims`, `gaps`, `experiments` or
-`plan`. A what-if is a supposition, not evidence: fvTrace marks each verdict that depends on it.
+`plan`. A what-if is a supposition, not evidence. fvTrace marks each verdict that depends on it.
 
 To apply one of the suggested what-ifs on top of yours, add `--action ID`, where ID is an
 action from the evaluation, for example `plan:C2` or `suppose:O3`.
 
 `claims`, `gaps`, `experiments`, `plan` and `check` accept `--json` for scripts and agents.
 `fvtrace eval` prints the full evaluation as JSON. The evaluation lists each suggested what-if
-by its ID. It leaves out the long lists, so that its size grows in step with the trace. To get
+by its ID. It leaves out the long lists. Its size then grows in step with the trace. To get
 the lists for one item, add `--details ITEM`:
 
 - `experiment:ID` gives the experiments that must run first, the facts that its success raises
@@ -175,10 +176,10 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 - **Questions**: the scientific questions of the analysis.
 - **Claims**: the sentences that the analysis wants to state. fvTrace shows them word for word.
   A claim's `text` is its exact statement. An optional `headline` gives a plain form for
-  readers; it must not say more than the exact statement, and the reviewer checks that. A claim
-  that only restates one result needs no entailment fact: mark it `"restates": true`.
+  readers. It must not say more than the exact statement. The reviewer checks that. A claim
+  that only restates one result needs no entailment fact. Mark it `"restates": true`.
 - **Facts**: one statement each. A fact has a **status** (`proved`, `checked`, `assumed`,
-  `tested`, `open`, `violated`) and a **route**: how it could be verified (`lean`,
+  `tested`, `open`, `violated`). It has a **route**: how it could be verified (`lean`,
   `refinement`, `runtime-checker`, `human-ruling`, `empirical`). A route limits the status: a
   human ruling or empirical evidence makes a fact `assumed` at best, or `tested` at best when
   the fact must be verified. An optional `why` says in plain words why a claim needs the fact.
@@ -187,33 +188,33 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
   verified until you pin again. fvTrace checks that the files are unchanged, not that they prove
   the fact. `fvtrace check`, `fvtrace export` and each command that shows verdicts read the
   evidence files of every verified fact again. For large files, add `--cached` to
-  `claims`, `gaps`, `experiments`, `plan` or `serve`: it reuses the digest of a file that kept
-  its size and modification time, which is faster but misses an edit that keeps both.
+  `claims`, `gaps`, `experiments`, `plan` or `serve`. It reuses the digest of a file that kept
+  its size and modification time. This is faster, but it misses an edit that keeps both.
 - **Replay**: a fact's evidence can also name a command that checks the fact again, for example
   a build that prints the statement that a proof covers: `"replay": {"command": ["lake",
   "build"]}`. The digests cannot see a change outside the pinned files, for example a definition
-  that the statement uses. A replay can: `fvtrace pin --replay` records the SHA-256 of the
-  command's output, and `fvtrace verify --run` runs the command again and fails when it exits
-  with another code than 0 or prints another output. A replay never changes a verdict. The
-  command runs in the project folder with your rights, and it can write there, for example its
+  that the statement uses. A replay can. `fvtrace pin --replay` records the SHA-256 of the
+  command's output. `fvtrace verify --run` runs the command again. It fails when the command
+  exits with another code than 0. It also fails when the command prints another output. A replay never changes a verdict. The
+  command runs in the project folder with your rights. It can write there, for example its
   build files. Nothing runs without `--run` or `--replay`. Before you use them on a trace from
   someone else, for example a bundle, run `fvtrace verify` to read the commands. Use `--run` only
   when you trust them.
-- **Failed replays**: when a replay fails, `pin --replay` still records the digests, and both
-  commands write a notice into the trace: the date and the reason (`exit 1`, `timeout`, `cannot
-  start` or `output changed`). If `pin --replay` never recorded the output of a command,
-  `verify --run` fails that replay but writes no notice: an exit code of 0 alone shows neither
+- **Failed replays**: when a replay fails, `pin --replay` still records the digests. Both
+  commands write a notice into the trace. The notice gives the date and the reason (`exit 1`,
+  `timeout`, `cannot start` or `output changed`). If `pin --replay` never recorded the output of a command,
+  `verify --run` fails that replay. It writes no notice. An exit code of 0 alone shows neither
   agreement nor a failure. Run `fvtrace pin --replay` first. The next replay of that fact that passes removes the notice. So
-  `verify --run` can also rewrite the trace file. `fvtrace check` shows each notice, and
-  `check --strict` fails while one is there. The page shows a line under the review line, and
-  the fact's details show the date and the reason. A notice does not change the review. Every
-  replay that runs, passed or failed, also goes into a log in the data folder: `fvtrace verify
+  `verify --run` can also rewrite the trace file. `fvtrace check` shows each notice.
+  `check --strict` fails while one is there. The page shows a line under the review line. The
+  fact's details show the date and the reason. A notice does not change the review. Every
+  replay that runs, passed or failed, also goes into a log in the data folder. `fvtrace verify
   --log` shows it. The log keeps each command and the end of its error output.
 - **Subjects**: what the facts are about. The existing analysis is one subject. Data that an
-  experiment would create is another subject: such an experiment can raise claims about the new
+  experiment would create is another subject. Such an experiment can raise claims about the new
   data, never the claims of the existing analysis.
 - **Experiments**: suggested work to fill gaps. A *dry* experiment uses existing data, code or
-  proofs; a *wet* experiment needs new samples or bench work. List an experiment after the
+  proofs. A *wet* experiment needs new samples or bench work. List an experiment after the
   experiments that it requires.
 
 ### Results, exclusions and violated facts
@@ -221,48 +222,48 @@ A trace is one JSON file. `fvtrace schema` prints its full format. The main part
 - A **result** fact states the value or pattern that a claim reports. `fvtrace check` warns when a
   claim lacks a kind of fact that its level usually needs, for example a causal claim without an
   interpretation fact. If the fact does not apply, record a **waiver** with the reason.
-- An **exclusion** records two facts that cannot both hold. An exclusion has its own status, and
+- An **exclusion** records two facts that cannot both hold. An exclusion has its own status.
   fvTrace uses it only when it is verified or assumed. Then a claim that needs both sides cannot
   be made. If the exclusion is verified and one side is verified, fvTrace marks the other side
   violated, unless that side is verified or assumed too. Two sides that are both verified or
-  assumed contradict each other: `fvtrace check` reports an error for the recorded trace, and a
+  assumed contradict each other. `fvtrace check` reports an error for the recorded trace. A
   what-if that supposes both sides makes every claim on that subject **Claim not possible**.
 - A **violated** fact is false as worded. fvTrace lists it apart, with the claims that it
-  blocks: reword those claims, or collect new data.
+  blocks. Reword those claims, or collect new data.
 
 ## Where fvTrace keeps its files
 
 fvTrace keeps its own files in its data folder: one folder for each project, with the trace, the
 project location, a cache of file digests and the replay log. The folder `serve` holds the page that sends your
-browser to `fvtrace serve`; only you can open that folder. It writes into your project folder only where you
+browser to `fvtrace serve`. Only you can open that folder. It writes into your project folder only where you
 point it: `--trace` at a file there, or `FVTRACE_HOME` or `skills install --dir` at a folder in
 it. The data folder is
 `FVTRACE_HOME` if you set it. Otherwise it is the data folder of your platform plus `fvtrace`:
 `~/.local/share/fvtrace` on Linux, `~/Library/Application Support/fvtrace` on macOS, and
-`%LOCALAPPDATA%\fvtrace` on Windows. The project folders are keyed by their full path, so a
+`%LOCALAPPDATA%\fvtrace` on Windows. The project folders are keyed by their full path. So a
 moved project gets a new folder. After you move a project, run `fvtrace init` in its new
-location, then copy the old trace file to the path that `fvtrace path` prints.
+location. Then copy the old trace file to the path that `fvtrace path` prints.
 
 ## Sharing
 
 - `fvtrace export --html ../claims.html` writes one page outside the project folder. The page
-  needs no server and no network. It holds the fvTrace engine, compiled to WebAssembly: when you
-  press a fact's symbol, the engine computes every verdict in your browser, and you can combine
+  needs no server and no network. It holds the fvTrace engine, compiled to WebAssembly. When you
+  press a fact's symbol, the engine computes every verdict in your browser. You can combine
   what-ifs as in `fvtrace serve`. The page contains the whole trace, as `--bundle` does, but no
-  evidence files. It shows the evidence as it was when you exported it: it cannot check the
+  evidence files. It shows the evidence as it was when you exported it. It cannot check the
   evidence files again. A browser that cannot run WebAssembly (for example,
   Safari in Lockdown Mode) shows the facts as recorded, without what-ifs. If a what-if runs
-  longer than 10 seconds, the page shows a Stop button. Stop shows the facts as recorded; to run
+  longer than 10 seconds, the page shows a Stop button. Stop shows the facts as recorded. To run
   what-ifs again, reload the page. The engine adds about 500 KB to the page.
 - `fvtrace export --bundle DIR` writes the trace and copies of its evidence files. `DIR` must be
-  outside the project folder. On another computer, go to `DIR/project` and run
+  outside the project folder. On another computer, go to `DIR/project`. Then run
   `fvtrace serve --trace ../trace.json`.
 - `fvtrace serve` answers on this computer only. Each run makes a new secret token, unless you
   give it one with `--token-file` (see below). Only a request that carries the token can read
-  the claims, so other users of this computer cannot read them. A program that runs as your
+  the claims. So other users of this computer cannot read them. A program that runs as your
   user can find the token, for example in the storage of your browser. With `--host ADDRESS`,
   computers on your network can open the page with the link that the command prints. The page
-  is not encrypted, so use `--host` only on a network that you trust.
+  is not encrypted. So use `--host` only on a network that you trust.
 - To let a web server that asks for a password show the page (a proxy, for example Caddy or
   nginx), give `fvtrace serve` a token file:
 
@@ -271,16 +272,16 @@ location, then copy the old trace file to the path that `fvtrace path` prints.
   fvtrace serve --host ADDRESS --token-file token
   ```
 
-  Keep the token secret: make it with a random generator, as above, and let only the proxy and
-  the server read the file. fvTrace reads the file when it starts, so restart it after you
-  change the token. The command then prints no link and opens no browser.
+  Keep the token secret. Make it with a random generator, as above. Let only the proxy and the
+  server read the file. fvTrace reads the file when it starts. So restart it after you change
+  the token. The command then prints no link and opens no browser.
 
   Set the proxy to log users in first. Then it must send each request on to
-  `http://ADDRESS:8718/` with the header `Authorization: Bearer TOKEN` in place of the header
-  that the browser sent, where `TOKEN` is the content of the file, and with the header
+  `http://ADDRESS:8718/`. It must set the header `Authorization: Bearer TOKEN` in place of the
+  header that the browser sent. `TOKEN` is the content of the file. It must also set the header
   `Host: ADDRESS:8718`. The proxy can show the page under a path, for example `/fvtrace/`, if it
   removes that path from each request. Also send the address without the last slash
-  (`/fvtrace`) to the address with it. The page holds no token, so the login of the proxy
+  (`/fvtrace`) to the address with it. The page holds no token. So the login of the proxy
   decides who can see the claims. Every page at the same address as the proxy (the same scheme,
   host name and port) can also read the claims. If you do not trust all those pages, give
   fvTrace an address of its own, for example its own host name.
@@ -293,7 +294,7 @@ in another folder, add `--dir DIR`. `fvtrace skills show` prints the instruction
 
 The skill tells the agent to read the analysis, draft the trace honestly, run `fvtrace check`,
 and show you the verdicts. The skill also tells the agent to mark a fact verified only with its
-evidence and to leave the review to you. `fvtrace check` refuses a verified fact whose evidence
+evidence. It tells the agent to leave the review to you. `fvtrace check` refuses a verified fact whose evidence
 is not pinned.
 
 A proof covers its own formal statement, not the sentence of the fact. Thus, before the agent
@@ -301,19 +302,19 @@ marks a fact proved or checked, the skill tells it to try to show that the state
 what the fact says. The checks include edge cases, default values such as `x / 0 = 0` in Lean, the
 hypotheses of the proof, and the axioms that the proof relies on. The agent then writes a plain
 reading of the statement into the summary of the fact's evidence. `fvtrace serve` and an exported
-page show it in the details of the fact, so that you can check it when you review.
+page show it in the details of the fact. You can check it when you review.
 
 ## How fvTrace verifies itself
 
 The rules that decide each verdict are Lean 4 definitions. The guarantees that the verdicts
 rely on are Lean theorems, stated in `Fvtrace/Spec` and proved in `Fvtrace/Proofs`. Examples:
-"Fully supported" holds only when every fact is verified with current evidence; "Conditional"
-holds only when the facts that must be verified are verified; a claim with a human ruling for its
-entailment reads neither of the two; a suggested plan is the best that the suggested experiments
+"Fully supported" holds only when every fact is verified with current evidence. "Conditional"
+holds only when the facts that must be verified are verified. A claim with a human ruling for its
+entailment reads neither of the two. A suggested plan is the best that the suggested experiments
 allow. `bash tools/trust.sh` checks every proof again with independent
 kernels (lean4lean and nanoda). It skips the check only when the same proofs, compiled by the same
 toolchain, already passed it. The well-formedness check that `fvtrace check` applies to a
-decoded trace is proved to accept exactly the well-formed traces; the JSON decoding before it is
+decoded trace is proved to accept exactly the well-formed traces. The JSON decoding before it is
 tested, not proved.
 
 The `fvtrace` program does not run those definitions directly. It reads a trace through sorted
@@ -323,7 +324,7 @@ prove that these fast paths give the same answers as the definitions, for every 
 what-if (`Fvtrace/Spec/Fast.lean`). Thus the other guarantees cover what the program shows.
 
 `examples/fvtrace/trace.json` applies fvTrace to itself. Seven of its claims read **Fully
-supported**: each claim says what one, two or three Lean theorems prove, and its entailment fact
+supported**. Each claim says what one, two or three Lean theorems prove. Its entailment fact
 is that proof. One of them says that the fast paths give the same answers as the definitions.
 Two claims read **Pending verification**, because facts that they need are tested but not
 proved:
@@ -333,16 +334,16 @@ proved:
 - An overlooked direction (no other site, and no other server on this computer, can read what
   `fvtrace serve` shows) needs the access check of the server.
 
-Each proof fact of the self-trace also has a replay: `tools/statement.sh` builds fvTrace and
+Each proof fact of the self-trace also has a replay. `tools/statement.sh` builds fvTrace. It
 prints every definition that the theorem's statement uses. If one of these definitions changes
 while the pinned proof files stay the same, `fvtrace verify --run` fails for that fact.
 
-The exported page runs the same Lean definitions: `lake build` compiles them, with the Lean
+The exported page runs the same Lean definitions. `lake build` compiles them, with the Lean
 runtime, to WebAssembly. A test gives the page's engine and the native engine (the code that the
 `fvtrace` program runs) the same inputs: hundreds of what-ifs on several traces, invalid ones too.
 It requires the same answers, byte for byte, in Node and in Chromium. This is a test, not a proof.
 
-Like every analysis, the self-trace takes its instruments on trust: it does not list them for each
+Like every analysis, the self-trace takes its instruments on trust. It does not list them for each
 claim. fvTrace trusts these parts without verifying them: the Lean kernel and compiler, the C
 compiler, the proofs of the HACL* SHA-256 code that fvTrace uses, the evidence files that you pin
 (fvTrace checks their digests, not their content), every human ruling in the trace, and the
@@ -378,9 +379,9 @@ A reviewer checks that each sentence says what its theorem proves.
   or when the time or the memory grows more than 2.5 times when the trace doubles. It reports
   the other shapes without a limit. Run it on an idle computer.
 - `bash tools/compare.sh OLD NEW` runs two `fvtrace` programs on the same inputs. It fails when
-  a run does not finish in time. It also fails when the outputs differ: outputs in the same
+  a run does not finish in time. It also fails when the outputs differ. Outputs in the same
   format must be equal byte for byte. When the older program prints the earlier evaluation
-  format, the tool first translates that output to the current format and then compares the
+  format, the tool first translates that output to the current format. It then compares the
   structure.
 - `bash tools/pin-wasm.sh emsdk VERSION` or `bash tools/pin-wasm.sh lean VERSION` updates the
   pinned downloads of the engine build (`tools/wasm.lock`).
