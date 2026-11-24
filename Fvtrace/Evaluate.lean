@@ -47,7 +47,7 @@ def factJson (A : Answers) (bindingFor : String → Option Receipt.Binding) (f :
   let b := bindingFor f.id
   .obj ([("id", .str f.id), ("subject", .str f.subject), ("kind", .str f.kind.name),
     ("text", .str f.text), ("route", .str f.route.name), ("recorded", .str f.status.name),
-    ("effective", .str e.name), ("ceiling", .str f.ceiling.name),
+    ("effective", .str e.name), ("ceiling", .str (f.ceiling (A.lookups.mustVerify f.id)).name),
     ("closable", .bool (A.closable f)),
     ("supposed", .bool ((A.override? f.id).isSome)),
     ("derivedFrom", .arr ((A.derivations f.id).map fun (x, src) =>
@@ -147,7 +147,8 @@ success or failure, a claim's plan (`claimPlans` = each claim with its plan, in 
 def actionsWith (t : Trace) (A : Answers) (claimPlans : List (Claim × PlanResult)) :
     List (String × String × String × Overrides) :=
   (t.facts.filter A.closable).map (fun f =>
-      (s!"suppose:{f.id}", "suppose", f.id, A.withOverrides [(f.id, f.ceiling)])) ++
+      (s!"suppose:{f.id}", "suppose", f.id,
+        A.withOverrides [(f.id, f.ceiling (A.lookups.mustVerify f.id))])) ++
   t.experiments.map (fun e =>
       (s!"success:{e.id}", "success", e.id, A.withOverrides (A.raised (A.closure [e.id])))) ++
   (t.experiments.filter (!·.failure.isEmpty)).map (fun e =>
@@ -187,7 +188,7 @@ def expandWith (t : Trace) (A : Answers) (id : String) : Except String Overrides
     match kind with
     | "suppose" =>
       match t.facts.find? (fun f => f.id == target && A.closable f) with
-      | some f => done [(f.id, f.ceiling)]
+      | some f => done [(f.id, f.ceiling (A.lookups.mustVerify f.id))]
       | none => refuse
     | "success" =>
       match t.experiments.find? (·.id == target) with

@@ -32,14 +32,20 @@ private def seed : UInt64 := 0x46565452414345
 private def generatedTrace (n : Nat) : Gen Trace := do
   let route := Route.all[n / Status.all.length]!
   let status := Status.all[n % Status.all.length]!
+  -- A reuse of `B` (a result) must be verified; one of `Bg` (a background condition) need not
+  -- (user ruling): each kind × route × status the rule allows occurs.
+  let mv := fun (f : Fact) => f.kind.mustVerify || f.instantiates == some "B"
+  let allowedAs := fun (f : Fact) => { f with status := if f.allows (mv f) status then status
+    else .«open» }
   let mut fs := Kind.all.zipIdx.map fun (kind, i) =>
-    let f := fact s!"F{i}" "S0" kind route status
-    { f with
-      status := if f.allows status then status else .«open»,
+    allowedAs { fact s!"F{i}" "S0" kind route status with
       instantiates := if kind == .instantiation then some "B" else none }
-  fs := fs ++ [fact "R" "S0" .result .runtimeChecker .checked,
+  fs := fs ++ [allowedAs { fact "Fbg" "S0" .instantiation route status with
+      instantiates := some "Bg" },
+    fact "R" "S0" .result .runtimeChecker .checked,
     fact "Reason" "S0" .entailment .lean .proved,
     fact "B" "S1" .result .runtimeChecker (if n % 2 == 0 then .checked else .«open»),
+    fact "Bg" "S1" .statistical .humanRuling .assumed,
     fact "Xsource" "S0" .statistical .lean .proved]
   let mut xs := []
   for (st, i) in Status.all.zipIdx do
@@ -63,8 +69,8 @@ private def generatedTrace (n : Nat) : Gen Trace := do
         else ["Xside0", "Xsource"], entailment := some "Reason", latent := true },
     { id := "C3", question := "Q0", subject := "S1", level := .descriptive,
       text := "The other subject's result.", needs := ["B"], restates := true }]
-  let allowed := fs.filter fun f => f.subject == "S0" && f.ceiling.asserted
-  let support ← shuffled (allowed.map fun f => (f.id, f.ceiling))
+  let allowed := fs.filter fun f => f.subject == "S0" && (f.ceiling (mv f)).asserted
+  let support ← shuffled (allowed.map fun f => (f.id, f.ceiling (mv f)))
   let repeats ← shuffled [("Xsource", Status.assumed), ("Xsource", .proved),
     ("Xside1", .assumed), ("Xside1", .checked), ("Xsource", .assumed)]
   let e0 ← experiment "E0" "S0" (repeats ++ support.take (1 + (← draw 5)))
@@ -93,7 +99,9 @@ private def generatedTrace (n : Nat) : Gen Trace := do
       createdBy := some creator }]
     fs := fs ++ [fact r sub .result .runtimeChecker .«open»,
       fact ent sub .entailment .lean .«open»,
-      { fact inst sub .instantiation .empirical .«open» with instantiates := some "R" }]
+      -- A reuse an experiment may assume reuses a background condition (a result's reuse must
+      -- be verified, user ruling).
+      { fact inst sub .instantiation .empirical .«open» with instantiates := some "Xsource" }]
     cs := cs ++ [{
       id := sub ++ "Claim", subject := sub, question := s!"Q{p}",
       level := .inferential, text := s!"Future claim {p}.", needs := [r, inst],
@@ -548,7 +556,7 @@ private def runCases : DiffM Unit := do
     if errors.isEmpty then
       kept := kept + 1
       let arbitrary := sample salt (arbitraryOverrides t.factIds)
-      let overrides := [[], arbitrary, t.facts.map (fun f => (f.id, f.ceiling)),
+      let overrides := [[], arbitrary, t.facts.map (fun f => (f.id, f.ceiling (t.mustVerify f.id))),
         t.facts.map (fun f => (f.id, Status.assumed)) ++ arbitrary]
       for (o, j) in overrides.zipIdx do
         let scenarioSalt := salt + UInt64.ofNat j
@@ -574,7 +582,8 @@ private def runCases : DiffM Unit := do
   for kind in Kind.all do
     for route in Route.all do
       for status in Status.all do
-        if (fact "Probe" "S0" kind route status).allows status then
+        -- A reuse may be assumed when its source may (`Fbg`): the kind alone decides here.
+        if (fact "Probe" "S0" kind route status).allows kind.mustVerify status then
           check s!"differential matrix {kind.name}/{route.name}/{status.name}"
             (generated.any fun t => t.facts.any fun f =>
               f.kind == kind && f.route == route && f.status == status)

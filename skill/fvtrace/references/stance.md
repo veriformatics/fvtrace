@@ -6,7 +6,7 @@
 |---|---|---|
 | `proved` | a completed proof covers the fact | a Lean or refinement proof exists, named as an artifact and pinned |
 | `checked` | a proved checker accepted the actual object | a verified checker ran on the actual data or code, its output pinned |
-| `assumed` | a declared premise | a background condition (kinds `statistical`, `provenance`, `interpretation`, `release`, `spec-review`, `instantiation`) rests on judgment, convention or empirical support; never for a fact that must be verified |
+| `assumed` | a declared premise | a background condition (kinds `statistical`, `provenance`, `interpretation`, `release`, `spec-review`, or an `instantiation` of one) rests on judgment, convention or empirical support; never for a fact that must be verified, nor for a reuse of one |
 | `tested` | tests pass, nothing proves it | unit tests, spot checks, simulations |
 | `open` | nobody has established it | the default |
 | `violated` | it is false as worded | a counterexample is established |

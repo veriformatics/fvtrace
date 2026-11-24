@@ -97,6 +97,14 @@ theorem fact?_mem {t : Trace} {id : String} {f : Fact} (h : t.fact? id = some f)
   unfold Trace.fact? at h
   exact ⟨List.mem_of_find?_eq_some h, by simpa using List.find?_some h⟩
 
+/-- A fact whose own kind must be verified must be verified (`Trace.mustVerify`'s first step: the
+walk's fuel = the fact count, at least one since the fact is listed). -/
+theorem mustVerify_of_kind {t : Trace} {id : String} {f : Fact} (h : t.fact? id = some f)
+    (hk : f.kind.mustVerify = true) : t.mustVerify id = true := by
+  obtain ⟨n, hn⟩ : ∃ n, t.facts.length = n + 1 :=
+    ⟨_, (Nat.succ_pred_eq_of_pos (List.length_pos_of_mem (fact?_mem h).1)).symm⟩
+  simp [Trace.mustVerify, hn, mustVerifyWith, h, hk]
+
 theorem eff_verified {s : Scenario} {n : String} (h : (s.eff n).verified = true) :
     (s.eff1 n).verified = true := by
   unfold Scenario.eff at h
@@ -199,7 +207,7 @@ theorem conditionalNeedsVerified : Spec.ConditionalNeedsVerified := by
       · cases hi
 
 /-- A fact's allowed status is allowed by its route. -/
-theorem allows_route {f : Fact} {st : Status} (h : f.allows st = true) :
+theorem allows_route {f : Fact} {mv : Bool} {st : Status} (h : f.allows mv st = true) :
     f.route.allows st = true := by
   unfold Fact.allows at h
   simp only [Bool.and_eq_true] at h
@@ -228,13 +236,14 @@ theorem rulingCeiling : Spec.RulingCeiling := by
       | none =>
         simp only [hl, hf] at h1
         unfold Scenario.eff0 at h1
-        have hallow : f.allows f.status = true := hwf.2.2.2.2.2.1.1 f hmem
+        have hallow : f.allows (s.trace.mustVerify f.id) f.status = true :=
+          hwf.2.2.2.2.2.1.1 f hmem
         have := ruling_not_verified hroute (allows_route hallow)
         simp [this, ofStatus_verified] at h1
   -- WF-entail: the entailment is a must-verify (reasoning) fact.
   have hmv : s.mustVerify e = true := by
     have hk := ((hwf.2.2.2.1 c hc).2.1 e hce).1 f hf
-    simp [Scenario.mustVerify, hf, hk, Kind.mustVerify]
+    exact mustVerify_of_kind hf (by simp [hk, Kind.mustVerify])
   cases hfin : s.final c with
   | cannot => simp [State.rank]
   | «open» => simp [State.rank]
@@ -280,8 +289,9 @@ theorem assumedNeedsArePremises : Spec.AssumedNeedsArePremises := by
         split at h1
         · cases h1
         · cases hs : f.status <;> simp_all [EStatus.ofStatus]
-      have hallow : f.allows f.status = true := hwf.2.2.2.2.2.1.1 f (fact?_mem hf).1
-      rw [hst] at hallow
+      have hallow : f.allows (s.trace.mustVerify f.id) f.status = true :=
+        hwf.2.2.2.2.2.1.1 f (fact?_mem hf).1
+      rw [hst, (fact?_mem hf).2] at hallow
       simp [Fact.allows] at hallow
       simpa using hallow.2
 

@@ -20,6 +20,7 @@ section Reference
 variable (t : Trace)
 
 @[simp] theorem ref_fact? : (Lookups.reference t).fact? = t.fact? := rfl
+@[simp] theorem ref_mustVerify : (Lookups.reference t).mustVerify = t.mustVerify := rfl
 @[simp] theorem ref_subject? : (Lookups.reference t).subject? = t.subject? := rfl
 @[simp] theorem ref_claim? : (Lookups.reference t).claim? = t.claim? := rfl
 @[simp] theorem ref_experiment? : (Lookups.reference t).experiment? = t.experiment? := rfl
@@ -267,6 +268,11 @@ theorem fast_eq_reference (t : Trace) : Lookups.fast t = Lookups.reference t := 
   simp only [Lookups.fast, Lookups.reference, thunk_get_mk]
   congr 1
   · funext id; exact find?_map t.facts (·.id) id
+  · funext id
+    unfold Trace.mustVerify
+    congr 1
+    funext id
+    exact find?_map t.facts (·.id) id
   · funext id; exact find?_map t.subjects (·.id) id
   · funext id; exact find?_map t.claims (·.id) id
   · funext id; exact find?_map t.experiments (·.id) id

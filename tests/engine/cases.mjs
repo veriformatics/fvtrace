@@ -275,6 +275,28 @@ function verifiedExclusion() {
   return t;
 }
 
+/** A fact reused on subject T from `source` (`withReuses`). */
+const reuseOf = (/** @type {string} */ id, /** @type {string} */ source) => ({
+  id,
+  subject: "T",
+  kind: "instantiation",
+  text: `${source} holds on the other data too.`,
+  status: "open",
+  route: "human-ruling",
+  instantiates: source,
+});
+
+/** The feature fixture + two reuses on another subject (user ruling): I2 reuses O2 (a result: must
+ * be verified, so `I2=assumed` is refused), I3 reuses O3 (a background condition: may be assumed). */
+function withReuses() {
+  const t = traceAt("tests/fixtures/synthetic.trace.json");
+  return {
+    ...t,
+    subjects: [...records(t["subjects"]), { id: "T", title: "Other data", kind: "existing" }],
+    facts: [...records(t["facts"]), reuseOf("I2", "O2"), reuseOf("I3", "O3")],
+  };
+}
+
 /** Twenty-one experiments on one claim: above the plan search's limit (`tooLarge`). */
 function wide() {
   const ids = Array.from({ length: 21 }, (_, i) => i);
@@ -403,6 +425,7 @@ export function cases(seed) {
     ["feature fixture", traceAt("tests/fixtures/synthetic.trace.json"), {}],
     ["restating fixture", traceAt("tests/fixtures/restates.trace.json"), {}],
     ["verified exclusion", verifiedExclusion(), {}],
+    ["feature fixture + reused facts", withReuses(), {}],
     ["verified exclusion, stale receipt", verifiedExclusion(), { stale: ["X1"] }],
     ["synthetic, replay notices on O1 + O2", withNotices(synthetic, ["O1", "O2"]), {}],
     ["verified exclusion, a replay notice on X1", withNotices(verifiedExclusion(), ["X1"]), {}],
@@ -430,7 +453,11 @@ export function cases(seed) {
     const snapshot = snapshotOf(trace, opts);
     const facts = factIds(trace);
     const first = facts[0] ?? "O1";
-    const conflicting = name.startsWith("verified exclusion") ? ["O4=assumed,O5=assumed"] : [];
+    const conflicting = name.startsWith("verified exclusion")
+      ? ["O4=assumed,O5=assumed"]
+      : name.includes("reused facts")
+        ? ["I2=assumed", "I3=assumed", "I2=tested,I3=assumed"]
+        : [];
     // The large cases keep to a few specs: each one is a full evaluation of a large trace in both
     // engines (one load answers them all).
     if (name.startsWith("a 4 MB"))

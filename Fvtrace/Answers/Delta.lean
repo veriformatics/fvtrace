@@ -124,7 +124,7 @@ def positionOf (c : Claim) : Option Nat :=
 /-- How often claim `p`'s `needsAll` names `id`. -/
 def needs (id : String) (p : Nat) : Nat := cx.needCount.count (cmp := compare) (id, p)
 
-def mustVerify (id : String) : Bool := (cx.L.fact? id).any (·.kind.mustVerify)
+def mustVerify (id : String) : Bool := cx.L.mustVerify id
 
 end Ctx
 
@@ -473,7 +473,7 @@ def movesUnder (cx : Ctx) (s : Scenario) (core : Core) (memo : Thunk (Array Clai
 conditional/can when `f` alone reaches its ceiling. -/
 def unlocksOf (cx : Ctx) (s : Scenario) (core : Core) (memo : Thunk (Array ClaimMemo))
     (f : Fact) : List String :=
-  let δ := Delta.build cx s core [(f.id, f.ceiling)]
+  let δ := Delta.build cx s core [(f.id, f.ceiling (cx.mustVerify f.id))]
   (cx.gatePositions f.id).filterMap fun p => (cx.claims[p]?).bind fun c =>
     match memo.get[p]? with
     | some m =>

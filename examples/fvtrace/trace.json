@@ -52,12 +52,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "b381be15b49b8577b1ad4ba0ce2dd17c76cdd70e83165a5cc851aba1f532b2d2",
+            "sha256": "eaa50b3c69dd3b966b3d82aaf7504321171a8713c3d692b75b7254029a9f01b5",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "dacc57f21ff74d1c6d9266a408ddd69a3337997461aaa350f921fc9fe4785d0c",
+            "sha256": "273c2f497ae2296bf8f791e475063155754dac61753b91d4d27ab234bb0951d8",
             "role": "proof"
           }
         ],
@@ -70,7 +70,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckAcceptsExactlyWellFormed"
           ],
-          "output": "a404eed6d398f79fb8dfcd3eec1104e2c33198dcf86e0d5a67867d852e56223a"
+          "output": "4b035757334d552c2e37013487e7803e74d9b19182c3e3b27b267b62c62a4200"
         }
       },
       "trusts": [
@@ -94,12 +94,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "b381be15b49b8577b1ad4ba0ce2dd17c76cdd70e83165a5cc851aba1f532b2d2",
+            "sha256": "eaa50b3c69dd3b966b3d82aaf7504321171a8713c3d692b75b7254029a9f01b5",
             "role": "statement"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "dacc57f21ff74d1c6d9266a408ddd69a3337997461aaa350f921fc9fe4785d0c",
+            "sha256": "273c2f497ae2296bf8f791e475063155754dac61753b91d4d27ab234bb0951d8",
             "role": "proof"
           }
         ],
@@ -112,7 +112,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CheckViolationsSound"
           ],
-          "output": "7ffe8a7957f50c3fae756aad8bafc186f1ebb0270c6091a856c83bd55745c017"
+          "output": "b7bce3c73abdc4197e9df9e4d12cf99825795136ea7b993597f788aa73a733ca"
         }
       },
       "trusts": [
@@ -141,7 +141,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f",
             "role": "proof"
           }
         ],
@@ -154,7 +154,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.RecordedCanIsVerified"
           ],
-          "output": "1631ff7aa82b93ff213d7a8ecdccbf8ff77ff1234867f40cf22ac8ea83c28660"
+          "output": "f2403a8bad0c58ec78a9efe49f07c0459d23cd185bdd1dcb4f08b4bb4923e6fa"
         }
       },
       "trusts": [
@@ -183,7 +183,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f",
             "role": "proof"
           }
         ],
@@ -196,7 +196,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.RulingCeiling"
           ],
-          "output": "914240bf6bfa343ba50dc8ae111abde2faf68cdd8fc9b3c94951eb2762bbc6fe"
+          "output": "71af9d76278217c7791806ec6917199939ff161ead98b1de8b9a040985a94024"
         }
       },
       "trusts": [
@@ -225,7 +225,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f",
             "role": "proof"
           }
         ],
@@ -238,7 +238,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.CannotExplained"
           ],
-          "output": "8e1a02d9462e00d56a8c3e9921481715a5a00459f8d899187cb642f6f8710458"
+          "output": "46cd895784ff41b1b42c91e1bd4c2ab4befe7e66e753f2c9c5e54226b985c828"
         }
       },
       "trusts": [
@@ -280,7 +280,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanSound"
           ],
-          "output": "2bd0de97520527eb54d7ce932871f68a228882c95be0bfb7d66f0ecf23b4820a"
+          "output": "049e9f9addc5abcbb32c8e63180f87560cf6eb80568616ff03d1f00c6d714aa7"
         }
       },
       "trusts": [
@@ -322,7 +322,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.PlanOptimal"
           ],
-          "output": "315dba10959759a07e7f7c67dc414f7187c7502deca6cfd32d63bc3f6e77914b"
+          "output": "579f3d5ee902761a5e4db01b198a965110ca0f2a571980c10e22eb93ed4257aa"
         }
       },
       "trusts": [
@@ -351,7 +351,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020",
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f",
             "role": "proof"
           }
         ],
@@ -364,7 +364,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.SubjectIsolation"
           ],
-          "output": "39f4ea31ee618a7610a54897cd77d5dbe59518c5fe982a06e055c4913fe7333f"
+          "output": "fd1663b5a934657583b58c4965a9d01ff105e84287f120149e1aa349f68fcb87"
         }
       },
       "trusts": [
@@ -380,7 +380,7 @@
       "id": "P9",
       "subject": "S",
       "kind": "implementation",
-      "text": "A claim reads Conditional only when every reasoning, result, measurement, calculation, code and data-flow fact it needs is verified.",
+      "text": "A claim reads Conditional only when every reasoning, result, measurement, calculation, code and data-flow fact it needs is verified, a reuse of one of them included.",
       "status": "proved",
       "route": "lean",
       "evidence": {
@@ -392,19 +392,19 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.ConditionalNeedsVerified",
-        "statementDigest": "54943c653ad53fb6ed7598583347e5d9d8c06d122220e96c63a86518f86a23ea",
+        "statementDigest": "68ff7725224a7d9ceabd1b7e2eb2fb173e97eeb9731afb9dd9696c8a746e817d",
         "replay": {
           "command": [
             "bash",
             "tools/statement.sh",
             "Fvtrace.Spec.ConditionalNeedsVerified"
           ],
-          "output": "325402012940b4d42709a41a3ed03bcab783da1bba9bc69568be149ee5a177da"
+          "output": "f7ae80da5d2ba81f383c857b503478ef6057eed713196b02a43ab86e9cce1dcd"
         }
       },
       "trusts": [
@@ -456,12 +456,12 @@
         "artifacts": [
           {
             "path": "Fvtrace/Server.lean",
-            "sha256": "b989ccbd2d6393d51fe691657c329a9d5130c9b5f8ed57086d6684648199cb23",
+            "sha256": "e40261c50f86050889afc6f6aac98c69587f3dbbdf4ff49e0e32465e2cdaf24c",
             "role": "code"
           },
           {
             "path": "Tests/Server.lean",
-            "sha256": "119868e8d8eafbd1dbe3aa261b2ea771d3feca42a92c11b0743c434a0d3852b8",
+            "sha256": "dd11ecbf2f35337fcaf587fbe49c30e3d074fd0554336e35338622219fc60ca7",
             "role": "tests"
           }
         ],
@@ -509,11 +509,11 @@
         "artifacts": [
           {
             "path": "Fvtrace/Spec/WellFormed.lean",
-            "sha256": "b381be15b49b8577b1ad4ba0ce2dd17c76cdd70e83165a5cc851aba1f532b2d2"
+            "sha256": "eaa50b3c69dd3b966b3d82aaf7504321171a8713c3d692b75b7254029a9f01b5"
           },
           {
             "path": "Fvtrace/Proofs/Check.lean",
-            "sha256": "dacc57f21ff74d1c6d9266a408ddd69a3337997461aaa350f921fc9fe4785d0c"
+            "sha256": "273c2f497ae2296bf8f791e475063155754dac61753b91d4d27ab234bb0951d8"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -553,7 +553,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -585,7 +585,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -649,7 +649,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
@@ -694,12 +694,12 @@
           },
           {
             "path": "Fvtrace/Proofs/Engine.lean",
-            "sha256": "8f4c77ecc5d2ed1ca36164bbcdc0c9fff98480a3f312bbc84a0a00dcca66e020"
+            "sha256": "bcb93b12de568856ed04b133923cd6b240f691284fa23b2cd520ac6f4dc97b2f"
           }
         ],
         "verifier": "Lean 4.35.0 kernel; replayed by lean4lean and nanoda (tools/trust.sh)",
         "statement": "Fvtrace.Spec.ConditionalNeedsVerified",
-        "statementDigest": "f54a7a301c5b15bfdb17638cc663b931bc6113a10ff02036afd8df67fac1af98"
+        "statementDigest": "ee0b17e9aa3f9dbef4c93c2bdd9a1f6496b3618f834e26db807c3617da357710"
       },
       "trusts": [
         "Lean 4.35.0 kernel",
@@ -731,7 +731,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "f07a8ab147c03fe788baac61dc1d2479d42a37a84f763d52fee52e317e484c99",
+            "sha256": "7aa9e276216eb060848008a31209bd612ee0801965b3c4e4721f801923d084d7",
             "role": "proof"
           },
           {
@@ -765,7 +765,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.AnswersAgree"
           ],
-          "output": "5131321b14511b36e9a315ad46aa85acb7501f7cca25ff3ca5e7872d6aa64970"
+          "output": "4fea5f53fcda28e26b61761d0fe2beb4258c2ac620a6c02445bdad55412aa46e"
         }
       },
       "trusts": [
@@ -794,7 +794,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Lookups.lean",
-            "sha256": "7799b55629ff4bd5383bf5313c24510a1e1729dcc08db53bbdfc0feac6c4bd59",
+            "sha256": "aecfe14575b82a109df59e3e78fa4a96fdfbda64671216aa10598ee3ae9c2399",
             "role": "proof"
           }
         ],
@@ -807,7 +807,7 @@
             "tools/statement.sh",
             "Fvtrace.Spec.LookupsAgree"
           ],
-          "output": "1c572926399bde29a1727d252ded450cb53c3afdc7483f59b11be1b69eb6f899"
+          "output": "0fa9882b54d669e51bde034a195e1e7d8990d4ab0be9ffbffc0baf4bbb9e4739"
         }
       },
       "trusts": [
@@ -881,7 +881,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Answers.lean",
-            "sha256": "f07a8ab147c03fe788baac61dc1d2479d42a37a84f763d52fee52e317e484c99"
+            "sha256": "7aa9e276216eb060848008a31209bd612ee0801965b3c4e4721f801923d084d7"
           },
           {
             "path": "Fvtrace/Proofs/Walk.lean",
@@ -905,7 +905,7 @@
           },
           {
             "path": "Fvtrace/Proofs/Lookups.lean",
-            "sha256": "7799b55629ff4bd5383bf5313c24510a1e1729dcc08db53bbdfc0feac6c4bd59"
+            "sha256": "aecfe14575b82a109df59e3e78fa4a96fdfbda64671216aa10598ee3ae9c2399"
           },
           {
             "path": "Fvtrace/Proofs/Json.lean",
@@ -1002,7 +1002,7 @@
       "question": "Q2",
       "subject": "S",
       "level": "descriptive",
-      "text": "A claim reads Conditional only when every reasoning, result, measurement, calculation, code and data-flow fact it needs is verified.",
+      "text": "A claim reads Conditional only when every reasoning, result, measurement, calculation, code and data-flow fact it needs is verified, a reuse of one of them included.",
       "needs": [
         "P9"
       ],

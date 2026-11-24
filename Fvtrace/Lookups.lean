@@ -28,6 +28,8 @@ end Check
 
 structure Lookups where
   fact? : String → Option Fact
+  /-- `Trace.mustVerify`: the fact must be verified, by its kind or the fact it reuses. -/
+  mustVerify : String → Bool
   subject? : String → Option Subject
   claim? : String → Option Claim
   experiment? : String → Option Experiment
@@ -66,6 +68,7 @@ def factSubject? (L : Lookups) (id : String) : Option String := (L.fact? id).map
 /-- The original expressions over the trace's lists. -/
 def reference (t : Trace) : Lookups where
   fact? := t.fact?
+  mustVerify := t.mustVerify
   subject? := t.subject?
   claim? := t.claim?
   experiment? := t.experiment?
@@ -127,7 +130,12 @@ alone. -/
     Index.ofKeys compare (t.experiments.map fun d => (d.id, d.subject))
   let pairIx := Thunk.mk fun _ => Index.ofKeys compare (t.exclusions.map pairKey)
   let waiverIx := Thunk.mk fun _ => Index.ofKeys compare (t.waivers.map fun w => (w.rule, w.claim))
-  { fact? := fun id => (factIx.get.first? (cmp := compare) id).bind (facts.get[·]?)
+  let fact? := fun id => (factIx.get.first? (cmp := compare) id).bind (facts.get[·]?)
+  -- The walk per call: a reuse chain's depth per fact (an ungraded deep chain costs depth × facts,
+  -- `.agent/deferred.md`); the count once.
+  let count := t.facts.length
+  { fact?
+    mustVerify := mustVerifyWith fact? count
     subject? := fun id => (subjectIx.get.first? (cmp := compare) id).bind (subjects.get[·]?)
     claim? := fun id => (claimIx.get.first? (cmp := compare) id).bind (claims.get[·]?)
     experiment? := fun id =>

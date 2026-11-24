@@ -295,14 +295,23 @@ def Kind.mustVerify : Kind → Bool
   | _ => false
 
 /-- A status the fact may hold (recorded, in an outcome or a what-if): its route allows it, and a
-must-verify fact is never `assumed`. -/
-def Fact.allows (f : Fact) (s : Status) : Bool :=
-  f.route.allows s && (s != .assumed || !f.kind.mustVerify)
+fact that must be verified (`mv` = `Trace.mustVerify`: by its kind or the fact it reuses) is never
+`assumed`. -/
+def Fact.allows (f : Fact) (mv : Bool) (s : Status) : Bool :=
+  f.route.allows s && (s != .assumed || !mv)
 
 /-- The strongest status the fact may reach: its route's ceiling, or `tested` where that ceiling is
-`assumed` and the fact must be verified. -/
-def Fact.ceiling (f : Fact) : Status :=
-  if f.kind.mustVerify && f.route.ceiling == .assumed then .tested else f.route.ceiling
+`assumed` and the fact must be verified (`mv`). -/
+def Fact.ceiling (f : Fact) (mv : Bool) : Status :=
+  if mv && f.route.ceiling == .assumed then .tested else f.route.ceiling
+
+/-- Fact `id` must be verified (user rulings): its kind is a must-verify kind, or it reuses
+(`instantiation`) a fact that must be verified, followed through reuses of reuses; `fuel` bounds the
+walk, so a cycle of reuses reaches no must-verify kind (false). -/
+def mustVerifyWith (fact? : String → Option Fact) : Nat → String → Bool
+  | 0, _ => false
+  | n + 1, id => (fact? id).any fun f =>
+    f.kind.mustVerify || (f.kind == .instantiation && f.instantiates.any (mustVerifyWith fact? n))
 
 /-! ## Lookups -/
 
@@ -326,6 +335,10 @@ def experiment? (t : Trace) (id : String) : Option Experiment := t.experiments.f
 
 /-- The subject a fact id lives on, when it resolves. -/
 def factSubject? (t : Trace) (id : String) : Option String := (t.fact? id).map (·.subject)
+
+/-- `mustVerifyWith` over the trace's facts, fuel = their count (a chain without a cycle is
+shorter). -/
+def mustVerify (t : Trace) (id : String) : Bool := mustVerifyWith t.fact? t.facts.length id
 
 end Trace
 

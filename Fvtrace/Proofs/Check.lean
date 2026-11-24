@@ -221,10 +221,10 @@ theorem entail_iff (t : Trace) :
 theorem route_iff (t : Trace) : Check.route (Lookups.reference t) t = [] ↔ RoutesRespected t := by
   unfold Check.route RoutesRespected
   simp only [List.append_eq_nil_iff]
-  rw [flatMap_zipIdx_eq_nil (P := fun f => f.allows f.status = true)
+  rw [flatMap_zipIdx_eq_nil (P := fun f => f.allows (t.mustVerify f.id) f.status = true)
       (fun f i => by simp [ensure_eq_nil]),
     flatMap_zipIdx_eq_nil (P := fun e => ∀ p ∈ e.success ++ e.failure, ∀ f, t.fact? p.1 = some f →
-        f.allows p.2 = true)
+        f.allows (t.mustVerify p.1) p.2 = true)
       (fun e i => by
         unfold outcomeRoutes
         ref_simp

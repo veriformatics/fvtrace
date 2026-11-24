@@ -1030,9 +1030,10 @@ theorem unlocks_eq (f : Fact) :
       s.unlocks f := by
   unfold unlocksOf Scenario.unlocks
   dsimp only
-  rw [gatePositions_eq]
+  rw [gatePositions_eq, mustVerify_eq]
   let h := fun (c : Claim) => if (c.needsAll.contains f.id && (s.final c).rank ≤ 1 &&
-      ((s.withOverrides [(f.id, f.ceiling)]).final c).rank ≥ 2) then some c.id else none
+      ((s.withOverrides [(f.id, f.ceiling (s.mustVerify f.id))]).final c).rank ≥ 2) then some c.id
+      else none
   have hsup : ∀ x ∈ s.trace.claims.zipIdx, (h x.1).isSome = true →
       decide (f.id ∈ x.1.needsAll) = true := by
     intro x _ hs
@@ -1049,7 +1050,7 @@ theorem unlocks_eq (f : Fact) :
     simp only [decide_eq_true_eq] at hq
     simp only [cxOf, ctx_claims, List.getElem?_toArray, List.getElem?_eq_getElem hlt,
       Option.bind_some, thunk_get_mk, Array.getElem?_map, Option.map_some]
-    have h1 := memo_final s [(f.id, f.ceiling)] p hlt
+    have h1 := memo_final s [(f.id, f.ceiling (s.mustVerify f.id))] p hlt
     have h2 := memo_base_final s p hlt
     simp only [cxOf, deltaOf] at h1 h2
     rw [h1, h2]
@@ -1275,8 +1276,10 @@ variable (s : Scenario)
 
 theorem closable_eq (f : Fact) :
     (let e := (coreOf s).eff f.id
-     e != .violated && e.strength < (EStatus.ofStatus f.ceiling).strength) = s.closable f := by
-  rw [eff_eq]; rfl
+     e != .violated &&
+       e.strength < (EStatus.ofStatus (f.ceiling ((cxOf s).mustVerify f.id))).strength) =
+      s.closable f := by
+  rw [eff_eq, mustVerify_eq]; rfl
 
 theorem work_eq :
     (((s.trace.facts.filterMap fun f =>

@@ -109,8 +109,9 @@ def incompatible (c : Claim) : List String :=
     (s.exclusionEff x).asserted && c.needsAll.contains x.between.1 &&
       c.needsAll.contains x.between.2).map (·.id)
 
-/-- The need names a fact of a must-verify kind (an id naming no fact: no). -/
-def mustVerify (id : String) : Bool := (s.trace.fact? id).any (·.kind.mustVerify)
+/-- The need names a fact that must be verified (`Trace.mustVerify`: by its kind or the fact it
+reuses; an id naming no fact: no). -/
+def mustVerify (id : String) : Bool := s.trace.mustVerify id
 
 /-- A need a Conditional claim may rest on: verified, or assumed when it is a background
 condition. -/
@@ -152,7 +153,7 @@ variable (s : Scenario)
 /-- A fact verification work could still raise (not violated, below its ceiling). -/
 def closable (f : Fact) : Bool :=
   let e := s.eff f.id
-  e != .violated && e.strength < (EStatus.ofStatus f.ceiling).strength
+  e != .violated && e.strength < (EStatus.ofStatus (f.ceiling (s.mustVerify f.id))).strength
 
 def gates (f : Fact) : List String :=
   (s.trace.claims.filter fun c => c.needsAll.contains f.id).map (·.id)
@@ -160,7 +161,7 @@ def gates (f : Fact) : List String :=
 /-- Claims that verifying `f` to its ceiling alone would move from open/cannot to
 can/conditional. -/
 def unlocks (f : Fact) : List String :=
-  let raised := s.withOverrides [(f.id, f.ceiling)]
+  let raised := s.withOverrides [(f.id, f.ceiling (s.mustVerify f.id))]
   (s.trace.claims.filter fun c =>
     c.needsAll.contains f.id && (s.final c).rank ≤ 1 && (raised.final c).rank ≥ 2).map (·.id)
 
@@ -411,7 +412,7 @@ def PlanResult.summary : PlanResult → PlanSummary
 
 /-- S-override validity: each key names a fact, once, with a status the fact allows. -/
 def Overrides.valid (t : Trace) (o : Overrides) : Bool :=
-  (o.map (·.1)).Nodup && o.all fun (k, st) => (t.fact? k).any fun f => f.allows st
+  (o.map (·.1)).Nodup && o.all fun (k, st) => (t.fact? k).any fun f => f.allows (t.mustVerify k) st
 
 /-- Keys in ascending order (one normalized form per what-if). -/
 def Overrides.normalize (o : Overrides) : Overrides := o.mergeSort fun a b => a.1 ≤ b.1
@@ -431,8 +432,10 @@ def Overrides.parseWith (L : Lookups) (spec : String) : Except String Overrides 
       let some f := L.fact? k | throw s!"\"{k}\" is not a fact on record"
       unless f.route.allows st do
         throw s!"{k} cannot reach {v} by route {f.route.name}"
-      unless f.allows st do
-        throw s!"{k} cannot be assumed: facts of its kind must be verified"
+      unless f.allows (L.mustVerify k) st do
+        if f.kind.mustVerify then
+          throw s!"{k} cannot be assumed: facts of its kind must be verified"
+        throw s!"{k} cannot be assumed: it reuses {f.instantiates.getD ""}, which must be verified"
       if (seen.first? (cmp := compare) k).any (· < i) then
         throw s!"{k} appears twice in the what-if"
       out := out.push (k, st)

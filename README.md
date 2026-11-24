@@ -24,8 +24,8 @@ fvTrace checks the trace and decides every verdict. fvTrace never calls a langua
 Each claim also needs one *entailment* fact, its reasoning: "these facts entail the claim as
 worded". A claim that only restates one result needs no entailment fact. Only background conditions can be assumed, for example how the samples were collected,
 or that they are independent. A reasoning, result, measurement, calculation, implementation or
-data-flow fact must be verified. If the trace records one as `assumed`, `fvtrace check` reports
-an error. Thus a claim whose reasoning is a person's judgment reads **Pending verification** at
+data-flow fact must be verified. So must such a fact reused on other data (an `instantiation`).
+If the trace records one as `assumed`, `fvtrace check` reports an error. Thus a claim whose reasoning is a person's judgment reads **Pending verification** at
 best. Some conditions hold for every claim: the records are honest, the instruments work, and the
 labels are correct. Do not list these universal premises as facts of each claim. The review
 vouches for them once. Until a reviewer signs off the trace, every verdict is provisional.

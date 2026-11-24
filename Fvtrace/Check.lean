@@ -189,30 +189,40 @@ def needs (L : Lookups) (t : Trace) : Found :=
     ensure (!c.needs.isEmpty) s!"/claims/{i}/needs" "a claim needs at least one fact" ++
     ensure (L.nodup c.needs) s!"/claims/{i}/needs" "a fact is listed twice"
 
-/-- Why fact `f` may not hold `st`: above its route, or an assumed must-verify fact. -/
+/-- Why fact `f` may not hold `st`: above its route, or an assumed fact that must be verified, by
+its kind or (user ruling) the fact it reuses (named: the direct source). -/
 def disallowed (f : Fact) (st : Status) : String :=
   if f.route.allows st then
-    s!"{f.id} cannot be assumed: facts of kind {f.kind.name} must be verified, so record open, \
-      tested or a verified status"
+    if f.kind.mustVerify then
+      s!"{f.id} cannot be assumed: facts of kind {f.kind.name} must be verified, so record open, \
+        tested or a verified status"
+    else match f.instantiates with
+      | some src => s!"{f.id} reuses {src}, which must be verified, so {f.id} cannot be assumed."
+      -- The rule reads the first fact with this id (a duplicate id is its own error, WF-ids).
+      | none => s!"{f.id} cannot be assumed: the fact listed first with this id must be verified"
   else s!"{st.name} exceeds route {f.route.name}"
 
 /-- Both outcome sides use this diagnostic; omitting the entry is a valid repair for either. -/
 def disallowedOutcome (f : Fact) (st : Status) : String :=
   if f.route.allows st then
-    s!"an outcome cannot assume {f.id}: facts of kind {f.kind.name} must be verified; \
-      leave {f.id} out"
+    if f.kind.mustVerify then
+      s!"an outcome cannot assume {f.id}: facts of kind {f.kind.name} must be verified; \
+        leave {f.id} out"
+    else s!"an outcome cannot assume {f.id}: it reuses {f.instantiates.getD ""}, which must be \
+      verified; leave {f.id} out"
   else s!"{st.name} exceeds route {f.route.name}"
 
 def outcomeRoutes (L : Lookups) (e : Experiment) (i : Nat) : Found :=
   (e.success ++ e.failure).flatMap fun q =>
     match L.fact? q.1 with
     | some f =>
-      ensure (f.allows q.2) s!"/experiments/{i}" s!"outcome \"{q.1}\": {disallowedOutcome f q.2}"
+      ensure (f.allows (L.mustVerify q.1) q.2) s!"/experiments/{i}"
+        s!"outcome \"{q.1}\": {disallowedOutcome f q.2}"
     | none => []
 
 def route (L : Lookups) (t : Trace) : Found :=
   (t.facts.zipIdx.flatMap fun (f, i) =>
-    ensure (f.allows f.status) s!"/facts/{i}/status" (disallowed f f.status)) ++
+    ensure (f.allows (L.mustVerify f.id) f.status) s!"/facts/{i}/status" (disallowed f f.status)) ++
   (t.experiments.zipIdx.flatMap fun (e, i) => outcomeRoutes L e i) ++
   (t.exclusions.zipIdx.flatMap fun (x, i) =>
     ensure (x.route.allows x.status) s!"/exclusions/{i}/status"

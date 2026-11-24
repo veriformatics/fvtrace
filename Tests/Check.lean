@@ -17,6 +17,59 @@ def mapExperiment (t : Trace) (id : String) (f : Experiment → Experiment) : Tr
 def expect (name : String) (t : Trace) (want : List (String × String)) : TestM Unit :=
   checkEq name (found t) want
 
+/-- Reused facts (user ruling; kernel.md WF-route): a reuse (`instantiation`) of a fact that must
+be verified must be verified too, through reuses of reuses, naming the direct source; a reuse of a
+background condition, or a cycle of reuses reaching no must-verify kind, may be assumed. -/
+def reuseTests : TestM Unit := do
+  let t ← fixture
+  let k := t.facts.length
+  let reuse := fun (fid sub src : String) (st : Status) =>
+    ({ id := fid, subject := sub, kind := .instantiation, text := s!"{fid} holds here too.",
+       status := st, route := .humanRuling, instantiates := some src } : Fact)
+  let withFacts := fun (fs : List Fact) => { t with
+    subjects := t.subjects ++ [{ id := "T", title := "Other data", kind := .existing }],
+    facts := t.facts ++ fs }
+  let messages := fun (x : Trace) => (Check.violations x).map (·.message)
+  let direct := withFacts [reuse "I2" "T" "O2" .assumed]
+  expect "check: a reused result recorded assumed" direct [("WF-route", s!"/facts/{k}/status")]
+  checkEq "check: the refusal names the reuse + its source" (messages direct)
+    ["I2 reuses O2, which must be verified, so I2 cannot be assumed."]
+  let chain := withFacts [reuse "I2" "T" "O2" .«open», reuse "I2b" "S" "I2" .assumed]
+  checkEq "check: a reuse of a reuse of a result names its direct source" (messages chain)
+    ["I2b reuses I2, which must be verified, so I2b cannot be assumed."]
+  expect "check: a reused background condition may be assumed"
+    (withFacts [reuse "I3" "T" "O3" .assumed]) []
+  expect "check: a cycle of reuses reaches no must-verify kind"
+    (withFacts [reuse "Ca" "T" "Cb" .assumed, reuse "Cb" "S" "Ca" .assumed]) []
+  -- A second fact under a taken id is judged by the first (WF-ids reports the duplicate).
+  let dup := { t with facts := t.facts ++ [{ (t.fact? "O3").get! with
+    id := "O2", status := .assumed, route := .humanRuling }] }
+  checkEq "check: a duplicate id's record names the first fact, not an empty source"
+    ((Check.violations dup).filterMap fun v => if v.path == s!"/facts/{k}/status" then
+      some v.message else none)
+    ["O2 cannot be assumed: the fact listed first with this id must be verified"]
+  -- Fuel = the fact count, at its bound: every fact but the source is one chain, so the far end's
+  -- walk takes exactly that many steps (one fewer would read the far end as no must-verify fact).
+  let m := 6
+  let chained := { withFacts [] with
+    facts := [(t.fact? "O2").get!] ++ (List.range m).map fun i =>
+      reuse s!"L{i}" (if i % 2 == 0 then "T" else "S") (if i == 0 then "O2" else s!"L{i - 1}")
+        (if i + 1 == m then .assumed else .«open»),
+    subjects := (withFacts []).subjects.filter (·.id != "N"),
+    claims := [], experiments := [], exclusions := [], waivers := [] }
+  checkEq "check: the far end of a chain of every fact but its source must be verified"
+    (messages chained)
+    [s!"L{m - 1} reuses L{m - 2}, which must be verified, so L{m - 1} cannot be assumed."]
+  let e := { t.experiments.head! with
+    id := "E4", subject := "T", success := [("I2", .assumed)], failure := [], requires := [] }
+  let outcome := { withFacts [reuse "I2" "T" "O2" .«open»] with
+    experiments := t.experiments ++ [e] }
+  expect "check: an outcome cannot assume a reused result" outcome
+    [("WF-route", s!"/experiments/{t.experiments.length}")]
+  checkEq "check: the outcome refusal names the source" (messages outcome)
+    ["outcome \"I2\": an outcome cannot assume I2: it reuses O2, which must be verified; \
+      leave I2 out"]
+
 def tests : TestM Unit := do
   let t ← fixture
   expect "check: the synthetic fixture is well-formed" t []

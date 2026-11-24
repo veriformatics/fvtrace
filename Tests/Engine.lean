@@ -346,6 +346,39 @@ def kindTests : TestM Unit := do
     "O2 cannot be assumed: facts of its kind must be verified"
   checkEq "engine: the what-if may assume a background condition"
     (Overrides.parse t "O3=assumed").toOption (some [("O3", .assumed)])
+  -- Reused facts (user ruling): a reuse of a result is must-verify for the what-if, its ceiling,
+  -- suppose actions + the Conditional rule; a reuse of a background condition is not.
+  let reused := { t with
+    subjects := t.subjects ++ [{ id := "T", title := "Other data", kind := .existing }],
+    facts := t.facts ++ [
+      { id := "I2", subject := "T", kind := .instantiation, text := "O2 holds here too.",
+        status := .«open», route := .humanRuling, instantiates := some "O2" },
+      { id := "I3", subject := "T", kind := .instantiation, text := "O3 holds here too.",
+        status := .«open», route := .humanRuling, instantiates := some "O3" }],
+    claims := t.claims ++ [
+      { id := "CT", question := (t.claims.head!).question, subject := "T", level := .descriptive,
+        text := "The result holds on the other data.", needs := ["I2", "I3"], restates := false,
+        entailment := none }] }
+  checkEq "engine: the what-if refuses an assumed reuse of a result, naming its source"
+    (match Overrides.parse reused "I2=assumed" with | .error m => m | .ok _ => "")
+    "I2 cannot be assumed: it reuses O2, which must be verified"
+  checkEq "engine: the what-if may assume a reuse of a background condition"
+    (Overrides.parse reused "I3=assumed").toOption (some [("I3", .assumed)])
+  let sr : Scenario := { s with trace := reused }
+  checkEq "engine: a reuse of a result on a ruling route tops out at tested"
+    (((reused.fact? "I2").get!).ceiling (sr.mustVerify "I2"), ((reused.fact? "I3").get!).ceiling
+      (sr.mustVerify "I3")) (.tested, .assumed)
+  -- `tested` asserts nothing: like R3-K2, the reuse is never closable, so no action supposes it
+  -- (before the ruling: `suppose:I2` = `I2=assumed`, the bypass itself).
+  checkEq "engine: no suppose action for a reused result, one for a reused background condition"
+    (((Evaluate.actions sr).filter (·.1.startsWith "suppose:I")).map fun (id, _, _, w) => (id, w))
+    [("suppose:I3", [("I3", .assumed)])]
+  -- Built past the input checks: assumed reuse of a result never reads Conditional (S-state gate).
+  let ga := sr.withOverrides [("I2", .assumed), ("I3", .assumed)]
+  checkEq "engine: an assumed reuse of a result keeps its claim pending" (finalOf ga "CT")
+    .«open»
+  checkEq "engine: the assumed reuse of a result is a gap, of a background condition a premise"
+    (ga.gaps (claimNamed reused "CT"), ga.premises (claimNamed reused "CT")) (["I2"], ["I3"])
 
 /-- Plan search at the ruled limit: 20 relevant experiments on one claim (2^20 candidates for an
 exhaustive search; the branch and bound skips subtrees it proves to hold no better plan). -/

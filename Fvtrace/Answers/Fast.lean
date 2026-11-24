@@ -41,7 +41,7 @@ def fast (s : Scenario) : Answers :=
     (cx.claims[p]?).map (·.id)
   let closable := fun (f : Fact) =>
     let e := core.eff f.id
-    e != .violated && e.strength < (EStatus.ofStatus f.ceiling).strength
+    e != .violated && e.strength < (EStatus.ofStatus (f.ceiling (cx.mustVerify f.id))).strength
   let premises := fun (c : Claim) => premisesUnder cx core.eff c.needsAll
   let factText := fun id => ((cx.L.fact? id).map (·.text)).getD id
   let final := Core.final cx s core
