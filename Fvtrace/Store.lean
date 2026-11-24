@@ -110,13 +110,19 @@ def Target.ensureEntry (t : Target) : IO Unit := do
   unless ← pathPresent (projectFile t.entry) do
     IO.FS.writeFile (projectFile t.entry) (projectJson t.key).pretty
 
+/-- `dir / name` with one separator: Lean's `/` adds one after a root's own (`/` + `usr` → `//usr`),
+and a real path never holds two. -/
+def childOf (dir : System.FilePath) (name : String) : System.FilePath :=
+  if System.FilePath.pathSeparators.any (dir.toString.endsWith ·.toString) then dir.toString ++ name
+  else dir / name
+
 /-- `path` (present or a dangling link) is a link: its real path is not its folder's real path +
 its name. Lean 4.35's `symlinkMetadata` follows links on Windows (it is `metadata` there), so the
 test goes through real paths. -/
 def isLink (path : System.FilePath) : IO Bool := do
   let some parent := path.parent | return false
   let some name := path.fileName | return false
-  try return (← IO.FS.realPath path) != (← IO.FS.realPath parent) / name
+  try return (← IO.FS.realPath path) != childOf (← IO.FS.realPath parent) name
   catch _ => return true
 
 /-- The path that keys a project's entry: a folder that is itself a link (`current` → a release
@@ -132,7 +138,7 @@ def keyOf (p : System.FilePath) : IO System.FilePath := do
   | some parent, some name =>
     -- `fileName` is `none` for `.`, `..` + a trailing separator; `normalize` (case on Windows)
     -- keeps a typed case from faking a link.
-    let named := (← IO.FS.realPath parent) / name
+    let named := childOf (← IO.FS.realPath parent) name
     return if named.normalize != real.normalize then named else real
   | _, _ => return real
 

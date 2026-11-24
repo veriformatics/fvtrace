@@ -123,6 +123,14 @@ probe_provision() {
     keep .github/workflows/gate.yml
     sed -i "s/-\${{ hashFiles('lean-toolchain') }}-\${{ github.sha }}/-\${{ github.sha }}/" .github/workflows/gate.yml
     expect provision-lake-key 'Lake cache key lacks shard \+ OS \+ arch \+ lean-toolchain' fanout
+    keep .github/workflows/gate.yml
+    sed -i "s/-\${{ hashFiles('lean-toolchain') }}-\${{ github.sha }}/-\${{ hashFiles('lean-toolchain') }}-/" \
+        .github/workflows/gate.yml
+    expect provision-lake-sha 'Lake cache key lacks shard \+ OS \+ arch \+ lean-toolchain \+ commit' fanout
+    keep .github/workflows/gate.yml
+    sed -i "s/^        if: matrix.shard != 'checks' \&\& github.event_name != 'schedule'$/        if: matrix.shard != 'checks' || github.event_name != 'schedule'/" \
+        .github/workflows/gate.yml
+    expect provision-lake-weekly-or 'gate.yml restores the Lake build on the weekly run' fanout
     keep .github/workflows/build.yml
     sed -i 's|^          path: dist/fvtrace-\*$|          path: dist/fvtrace-* .lake/build/*|' .github/workflows/build.yml
     expect provision-lake-release 'build.yml caches the Lake build' fanout

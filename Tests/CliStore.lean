@@ -457,6 +457,14 @@ def linkTests : TestM Unit := do
     let (_, plain, _) ← run { env with cwd := r2, logical := some r2 } ["path"]
     checkEq "store: a PWD that is no link keys on the real path" plain real
     unlink cur
+    -- A folder right under the root: Lean's `/` doubles the root's separator (`//usr`), which must
+    -- not read as a link (reviewer-3 R4).
+    let top : System.FilePath := "/usr"
+    if ← top.isDir then
+      let (_, a, _) ← run env ["path", "--project", "/usr"]
+      let (_, b, _) ← run env ["path", "--project", "/usr/."]
+      checkEq "store: a folder under the root keys on its real path" a b
+      check "store: a folder under the root is no link" !(← Store.isLink top)
 
 /-- A data folder entry that cannot take the digest cache (another user's, read-only) answers as
 before. -/

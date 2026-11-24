@@ -242,9 +242,10 @@ it. The data folder is
 `~/.local/share/fvtrace` on Linux, `~/Library/Application Support/fvtrace` on macOS, and
 `%LOCALAPPDATA%\fvtrace` on Windows. The project folders are keyed by their full path. So a
 moved project gets a new folder. After you move a project, run `fvtrace init` in its new
-location. Then copy the old trace file to the path that `fvtrace path` prints. A project that
-you open through a link, for example `current`, is named after the link. Its trace stays when the
-link moves to another folder. The folder that the link points to keeps its own data folder.
+location. Then copy the old trace file to the path that `fvtrace path` prints. When the project
+folder itself is a link, for example `current`, its data folder is named after the link. Its trace
+stays when the link moves to another folder. The folder that the link points to keeps its own data
+folder.
 
 ## Sharing
 
@@ -326,8 +327,8 @@ prove that these fast paths give the same answers as the definitions, for every 
 what-if (`Fvtrace/Spec/Fast.lean`). Thus the other guarantees cover what the program shows.
 
 `examples/fvtrace/trace.json` applies fvTrace to itself. Seven of its claims read **Fully
-supported**. Each claim says what one, two or three Lean theorems prove. Its entailment fact
-is that proof. One of them says that the fast paths give the same answers as the definitions.
+supported**. Each of these seven says what one, two or three Lean theorems prove. Its entailment
+fact is that proof. One of them says that the fast paths give the same answers as the definitions.
 Two claims read **Pending verification**, because facts that they need are tested but not
 proved:
 

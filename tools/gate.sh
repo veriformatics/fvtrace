@@ -420,11 +420,13 @@ provision() {
     done
     # The Lake build cache (gate.yml alone): per shard + OS + arch + toolchain, skipped on the
     # weekly run, restored before the gate step; a release never restores one (from scratch).
+    # Exact lines: a prefix or substring test passed a key without the commit and an `||` skip.
     f="$(awk '/- name: Cache the Lake build$/ { on = 1 } on && /^ *key: / { print; exit }' "$g")"
-    [[ "$f" == *'key: lake-${{ matrix.shard }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('"'lean-toolchain'"') }}-'* ]] ||
-        bad+=("$g Lake cache key lacks shard + OS + arch + lean-toolchain")
+    [[ "$f" == '          key: lake-${{ matrix.shard }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('"'lean-toolchain'"') }}-${{ github.sha }}' ]] ||
+        bad+=("$g Lake cache key lacks shard + OS + arch + lean-toolchain + commit")
     awk '/- name: Cache the Lake build$/ { on = 1; next } on && /^ *if: / { print; exit } on && /^ *- name: / { exit }' "$g" |
-        grep -qF "github.event_name != 'schedule'" || bad+=("$g restores the Lake build on the weekly run")
+        grep -qxF "        if: matrix.shard != 'checks' && github.event_name != 'schedule'" ||
+        bad+=("$g restores the Lake build on the weekly run")
     awk '/- name: Cache the Lake build$/ { p = NR } index($0, "run: bash tools/gate.sh --shard") && !l { l = NR }
         END { exit !(p && l && p < l) }' "$g" || bad+=("$g restores the Lake build after the gate step")
     for f in "$b" "$r"; do
