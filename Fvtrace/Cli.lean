@@ -1042,6 +1042,18 @@ both addresses for a link typed by hand. -/
 def loopbackHosts (port : UInt16) : List String :=
   ["fvtrace.localhost", "localhost", "127.0.0.1", "[::1]"].map (s!"{·}:{port}")
 
+/-- What a failed bind's message suggests. -/
+def portHint : String := "Give another --port (0 = any)."
+
+/-- Under `--host`, Lean's libuv mapping makes an address that no interface holds (EADDRNOTAVAIL)
+or a family this computer lacks (EAFNOSUPPORT) an `unsupportedOperation`: every port fails alike
+(e.g. a service started at boot before its network). -/
+def bindHint (host : Bool) : IO.Error → String
+  | .unsupportedOperation .. =>
+    if host then "No network interface on this computer has that address now. Give another \
+      address with --host, or start fvtrace again when the address exists." else portHint
+  | _ => portHint
+
 /-- Serves on `127.0.0.1:port` and `[::1]:port`: `localhost` names reach either address (Chromium
 tries `::1` first), so a program holding the other one would own the page's origin. `[::1]` busy:
 refused on a fixed port, another free port under `port = 0`; no IPv6: IPv4 alone. `start` binds one
@@ -1142,14 +1154,14 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
                         cached := p.has "--cached" } : Server.Config)
   let started ← try
       if host.isSome then pure (.ok (← Server.start cfg addr cache kept).2)
-      else serveLoopback port fun a => do
+      else (·.mapError (·, portHint)) <$> serveLoopback port fun a => do
         let (server, bound) ← Server.start cfg a cache kept
         return (bound, Server.stop server)
-    catch e => pure (.error (toString e))
+    catch e => pure (.error (toString e, bindHint host.isSome e))
   let bound ← match started with
     | .ok b => pure b
-    | .error why =>
-      complain s!"fvtrace: cannot serve on {name}:{port}: {why}. Give another --port (0 = any)."
+    | .error (why, hint) =>
+      complain s!"fvtrace: cannot serve on {name}:{port}: {why}. {hint}"
       return 2
   let (hosts, site) := if host.isSome then ([s!"{name}:{bound}"], s!"http://{name}:{bound}/")
     else (loopbackHosts bound, s!"http://fvtrace.localhost:{bound}/")

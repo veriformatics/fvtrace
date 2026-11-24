@@ -63,7 +63,7 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 - [ ] Deferred sweep 7, row CI speedup: Lake build cache landed (bf87c94); owes the measurement (a Lean-changing commit on a ci branch holding the cache; < 521 s e2e + < 491 s lean)
 - [ ] Deferred sweep 7, row mutation credit (after the audit's commit; pilot first)
 - [x] 13ba7a1 Deferred sweep 7, row scale receipts: no action rows on a shape offering no action
-- [ ] Deferred sweep 7, row meta-lint fences
+- [x] 6c2c0d9 Deferred sweep 7, row meta-lint fences: sections read as spec-lint reads them + probe `meta-lint-fence`
 - [ ] Deferred sweep 7, row human-facing text
 - [ ] Deferred sweep 7, row serve bind hint
 - [ ] Deferred sweep 7, row instantiation: ruling draft → the one `AskUserQuestion`

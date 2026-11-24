@@ -95,6 +95,45 @@ def projectionTests (run : List String → IO (UInt32 × String × String)) : Te
       (parsed.bind (field · "plan")).any fun p =>
         (field p "result").isSome && (field p "alternatives").isSome) out
 
+/-- `serve`'s argument + bind checks; `home` + `proj` = the CLI test's data folder + project. -/
+def serveTests (run : List String → IO (UInt32 × String × String))
+    (home proj : System.FilePath) : TestM Unit := do
+  -- serve: a port out of range is a usage error; a bind failure (an address of no local
+  -- interface, TEST-NET-1) exits 2 naming the address + default port.
+  let (rc, _, err) ← run ["serve", "--port", "65536"]
+  check "cli: serve --port 65536 is refused" (rc == 2 && count err "--port is 0 to 65535" == 1)
+    err
+  let (rc, _, err) ← run ["serve", "--host", "192.0.2.1"]
+  check "cli: serve names the address it cannot bind (default port 8718)"
+    (rc == 2 && count err "cannot serve on 192.0.2.1:8718" == 1) err
+  -- No interface holds it, so every port fails alike: the hint names --host, never --port.
+  let (rc, _, err) ← run ["serve", "--host", "192.0.2.1", "--port", "0"]
+  check "cli: serve on an address no interface holds hints --host, not --port"
+    (rc == 2 && count err "Give another address with --host," == 1 && count err "--port" == 0)
+    err
+  -- Another program on [::1] would own the `fvtrace.localhost` origin (Chromium tries ::1
+  -- first): serve refuses a fixed port it cannot hold on both loopback addresses.
+  let cfg ← IO.mkRef ({ target := { trace := home / "x.json", project := proj, entry := home },
+                        explicit := true, token := "x", hosts := [] } : Server.Config)
+  let held ← try
+      some <$> Server.start cfg (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := 0 })
+        (← IO.mkRef {}) (← Std.Mutex.new {})
+    catch _ => pure none
+  match held with
+  | some (other, port) =>
+    let (rc, _, err) ← run ["serve", "--port", toString port, "--no-browser"]
+    check "cli: serve refuses a port another program holds on [::1]"
+      (rc == 2 && count err s!"another program serves [::1]:{port}" == 1) err
+    Server.stop other
+  | none => IO.println "  (no IPv6 loopback here: the [::1] refusal is not checked)"
+  -- A fixed port another listener holds: another port helps, so the --port hint stays.
+  let (other, port) ← Server.start cfg (.v4 { addr := .ofParts 127 0 0 1, port := 0 })
+    (← IO.mkRef {}) (← Std.Mutex.new {})
+  let (rc, _, err) ← run ["serve", "--host", "127.0.0.1", "--port", toString port]
+  check "cli: serve on a busy fixed port keeps its --port hint"
+    (rc == 2 && count err "Give another --port (0 = any)." == 1 && count err "--host" == 0) err
+  Server.stop other
+
 /-- The data folder, receipts + evaluation commands through the CLI, in temporary folders. -/
 def tests : TestM Unit := do
   let fixture ← fixture
@@ -218,29 +257,7 @@ def tests : TestM Unit := do
         count out "Stays as it is: O3 (no route allows a stronger status)." == 1) out
     let (rc, _, _) ← run ["plan", "C9"]
     checkEq "cli: plan on an unknown claim rc" rc 2
-    -- serve: a port out of range is a usage error; a bind failure (an address of no local
-    -- interface, TEST-NET-1) exits 2 naming the address + default port.
-    let (rc, _, err) ← run ["serve", "--port", "65536"]
-    check "cli: serve --port 65536 is refused" (rc == 2 && count err "--port is 0 to 65535" == 1)
-      err
-    let (rc, _, err) ← run ["serve", "--host", "192.0.2.1"]
-    check "cli: serve names the address it cannot bind (default port 8718)"
-      (rc == 2 && count err "cannot serve on 192.0.2.1:8718" == 1) err
-    -- Another program on [::1] would own the `fvtrace.localhost` origin (Chromium tries ::1
-    -- first): serve refuses a fixed port it cannot hold on both loopback addresses.
-    let cfg ← IO.mkRef ({ target := { trace := home / "x.json", project := proj, entry := home },
-                          explicit := true, token := "x", hosts := [] } : Server.Config)
-    let held ← try
-        some <$> Server.start cfg (.v6 { addr := .ofParts 0 0 0 0 0 0 0 1, port := 0 })
-          (← IO.mkRef {}) (← Std.Mutex.new {})
-      catch _ => pure none
-    match held with
-    | some (other, port) =>
-      let (rc, _, err) ← run ["serve", "--port", toString port, "--no-browser"]
-      check "cli: serve refuses a port another program holds on [::1]"
-        (rc == 2 && count err s!"another program serves [::1]:{port}" == 1) err
-      Server.stop other
-    | none => IO.println "  (no IPv6 loopback here: the [::1] refusal is not checked)"
+    serveTests run home proj
     let (rc, out, _) ← run ["gaps"]
     checkEq "cli: gaps rc" rc 0
     check "cli: gaps lists closable facts, each with what its claims need together with it"
