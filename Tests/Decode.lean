@@ -252,7 +252,32 @@ def agrees (name : String) (salt : UInt64) (gen : Gen String) (impl oracle : Str
     {accepted} accepted)" (wrong.isEmpty && accepted > 0 && accepted < cases.length)
     s!"{repr (wrong.take 5)}"
 
+/-- A replay command (§ Model: a non-empty argv, each argument non-empty without NUL) reports one
+`invalid-arg` per refused slot at its index and `invalid-replay` only for an empty array: a refused
+slot never shortens the array (an all-refused one read as empty would add `invalid-replay`). -/
+def commandProperty : TestM Unit := do
+  -- (argument, its JSON) pairs; the JSON is written here, apart from the printer under test.
+  let pool := [("lake", "\"lake\""), ("build", "\"build\""), ("", "\"\""),
+    ("a\x00b", "\"a\\u0000b\"")]
+  let cases := sample (seed + 5) (listOf 400 do listOf (← draw 5) (pick pool))
+  let path := "/facts/0/evidence/replay/command"
+  let refused := fun (a : String) => a.isEmpty || a.contains '\x00'
+  let wanted := fun (args : List (String × String)) =>
+    if args.isEmpty then [("invalid-replay", path)] else
+      (args.zipIdx.filter (refused ·.1.1)).map fun (_, i) => ("invalid-arg", s!"{path}/{i}")
+  let input := fun (args : List (String × String)) =>
+    let json := ", ".intercalate (args.map (·.2))
+    doc (factOk.replace "\"route\": \"runtime-checker\"}"
+      s!"\"route\": \"runtime-checker\", \"evidence\": \{\"summary\": \"A log.\", \
+        \"replay\": \{\"command\": [{json}]}}}") claimOk ""
+  let wrong := cases.filter fun args => errorsOf (input args) != wanted args
+  let allRefused := (cases.filter fun args => !args.isEmpty && args.all (refused ·.1)).length
+  check s!"decode property: replay command diagnostics (seed={seed + 5}, {cases.length} commands, \
+    {allRefused} all refused)" (wrong.isEmpty && allRefused > 0)
+    s!"{repr ((wrong.take 3).map fun args => (args.map (·.1), errorsOf (input args)))}"
+
 def propertyTests : TestM Unit := do
+  commandProperty
   agrees "D-id" seed genId Decode.validId schemaId
   agrees "D-text" (seed + 1) genText Decode.validText schemaText
   agrees "D-date" (seed + 2) genDate Decode.validDate schemaDate

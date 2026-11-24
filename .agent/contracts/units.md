@@ -287,3 +287,19 @@ Proved predicates (WF ↔ `check`, S-*, S-state + G2 breakdown, Sentences G6, Ra
 | E-build, E-wasm, E-page, E-sec, E-gui | `FvtraceWasm`, `web/` | example-only | build products + browser behavior: Tests/Wasm, `tests/engine/loader.test.mjs`, e2e `export.spec.js` (each page state one case) |
 | U-lookups, U-select, U-update, U-long, U-busy, U-coalesce, U-access | `web/` | example-only | browser interaction: e2e identity, order + focus checks per rule |
 | digest shim: streaming = one shot (trusted base: HACL* called unchanged) | `c/fvtrace_digest.c` | property (fuzz) + examples | fuzz `digest` (sliced updates = one update, ASan); Tests/Digest NIST vectors + a million `a` |
+
+## Mutation credit (seventh sweep: the property-test audit's files + the page-engine closure's tested files)
+
+Base = 72da483 (Fvtrace/ identical through the sweep's later commits but `Cli.lean`, `Tests/` grown). Command per file = `node tools/mutate.mjs Fvtrace/<f>.lean --test "lake test"` (default operators; `--timeout 1800`, Json lines 128–248 + 312–382 at `--timeout 600`), in rsync'd copies (`.scratch/mut-*`, own `.lake`) + a nixbox worktree, split by `--lines`, every split reconciled against `--list` (each mutant one verdict, 0 mismatches).
+
+Equal strength of the engine-stub build: each copy's `target engine` reads the unmutated tree's `engine.b64` instead of relinking the page engine per mutant. `lake test` reads that engine only as bytes (`Tests/Assets`: embed = file; `Tests/Export`: page block = `Export.engine`), equal under either build, and never executes it (the page engine's behavior = `tests/engine/` + e2e, outside `lake test`) ⇒ every `lake test` check sees the same mutated native code under the stub and the default build. `mutate.mjs` refuses a campaign whose unmutated build or suite fails (baseline check), so no kill comes from a broken copy.
+
+| file | mutants | killed | survived | incompetent | survivors (ruling: reviewer-2, non-author; `kernel.md` clause) |
+|---|---|---|---|---|---|
+| `Fvtrace/Decode.lean` | 71 | 67 → 68 | 4 → 3 | 0 | :65 `10`→`11` equivalent (an 11-digit exit code exceeds the unchanged UInt32 bound); :117 `false`→`true` **specified** (D-shape: `command: [""]` gained a false `invalid-replay`) → killed by `Tests/Decode` `commandProperty` (seed + 5, 400 generated commands); :167 `false`→`true` open (a helper's partial value beside its diagnostics; the byte entry refuses alike); :170 `≤`→`<` equivalent (the parser refuses duplicate keys, so no tie reaches the sort) |
+| `Fvtrace/Encode.lean` | 3 | 3 | 0 | 0 | — |
+| `Fvtrace/Lint.lean` | 3 | 3 | 0 | 0 | — |
+| `Fvtrace/Snapshot.lean` | 5 | 5 | 0 | 0 | — |
+| `Fvtrace/Json.lean` | 326 | 295 | 11 | 20 | equivalent: :114 `<`→`<=` (the end-of-input path gives the same error), :116 `false`→`true` (exact-capacity copy, same bytes), :123 `<`→`<=` + `32`→`33` (`plainEnd` consumes byte 32 first), :161 `34`→`35` (fast path off; `stringSlow` returns the same token), :206 `<`→`<=` (key offsets never tie), :311 `<`→`<=`, `32`→`33`, `&&`→`\|\|` + :313 `false`→`true` (escape-scan false positives; the fold emits the same bytes); open: :289 `+ 2`→`+ 3` (initial fuel: success paths fit both; only a refused input's offset moves; D-json names no offset; the offset defect beside it → `.agent/deferred.md`) |
+
+Json incompetent = 20 compile-time refusals, each elaborated alone: index proofs (:65, :102, :309), termination proofs (:104, :106, :312, :314), the three fuel matches (:213–214, :238–239, :257–258: missing cases / invalid pattern), a redundant match alternative (:134), a syntax error inside `>>>` (:299), and two mutants of the sort fast path that `Fvtrace/Proofs/Json.lean` (`Spec.SortMembersAgree`) rejects (:337, :343; the proof elaborates on the unmutated module). No incompetent came from a timeout.
