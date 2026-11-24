@@ -1153,7 +1153,8 @@ def serveCmd (env : Store.Env) (args : List String) : IO UInt32 := do
   let cache ← Session.openCache tg
   let kept ← Std.Mutex.new ({} : Server.Kept)
   let cfg ← IO.mkRef ({ target := tg, explicit := (p.value? "--trace").isSome, token, hosts := [],
-                        cached := p.has "--cached" } : Server.Config)
+                        cached := p.has "--cached", shared := host.isSome || tokenFile.isSome } :
+                        Server.Config)
   let started ← try
       if host.isSome then pure (.ok (← Server.start cfg addr cache kept).2)
       else (·.mapError (·, portHint)) <$> serveLoopback port fun a => do

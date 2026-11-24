@@ -40,8 +40,42 @@ def decidedKind : Action → Option String
   | .reply r => problemKind r
   | _ => none
 
+def problemMessage (r : Reply) : Option String :=
+  match body r with
+  | some (.obj [("problem", .obj ps)]) => match ps.lookup "message" with
+    | some (.str m) => some m
+    | _ => none
+  | _ => none
+
+/-- Record problems in the GUI's words (user rulings): on this computer the command to run; on a
+page others read (`--token-file`, `--host`) the person who acts, no command. -/
+def problemTextTests : TestM Unit := do
+  let cases : List (Session.Problem × String × String × String) := [
+    (.noTrace "/p", "no-trace", "This project has no claims and facts on record yet. ",
+      "To start, run fvtrace init in the project folder."),
+    (.unreadable "/p/t.json" "is a folder", "unreadable",
+      "The claims and facts on record cannot be read. ",
+      "To see why, run fvtrace check in the project folder."),
+    (.undecodable "/p/t.json" #[], "invalid", "The claims and facts on record have errors. ",
+      "To see them, run fvtrace check in the project folder."),
+    (.illFormed "/p/t.json" [], "invalid", "The claims and facts on record have errors. ",
+      "To see them, run fvtrace check in the project folder.")]
+  for (p, kind, problem, command) in cases do
+    let here := problemReply false p
+    let shared := problemReply true p
+    let act := match kind with
+      | "no-trace" => "record them" | "unreadable" => "see why" | _ => "see them"
+    checkEq s!"server: {kind} on this computer names the command"
+      (here.status.toCode, problemKind here, problemMessage here)
+      (409, some kind, some (problem ++ command))
+    checkEq s!"server: {kind} on a page others read names who acts, no command"
+      (shared.status.toCode, problemKind shared, problemMessage shared)
+      (409, some kind,
+        some (problem ++ s!"The person who runs fvTrace for this project can {act}."))
+
 /-- Access, host + routing decisions (no I/O). -/
 def pureTests : TestM Unit := do
+  problemTextTests
   let c := cfgAt "/nowhere"
   checkEq "server: the body cap = 16 MiB + 1 KiB (kernel.md V-serve)" bodyCap
     (16 * 1024 * 1024 + 1024)

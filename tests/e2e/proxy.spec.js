@@ -4,10 +4,10 @@
 // a token from the address that the proxy refuses (401) is not kept, a stored one is forgotten.
 import http from "node:http";
 import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test, expect } from "@playwright/test";
-import { serveFvtrace } from "./fvtrace-server.js";
+import { fvtrace, serveFvtrace } from "./fvtrace-server.js";
 
 const login = { username: "reader", password: randomBytes(16).toString("hex") };
 const basic = `Basic ${Buffer.from(`${login.username}:${login.password}`).toString("base64")}`;
@@ -110,6 +110,59 @@ test("behind a login proxy, the page needs the proxy's login alone", async ({ br
   } finally {
     await context.close();
     proxy.close();
+    await web.close();
+  }
+});
+
+/** The three record problems on a page others read (user ruling: who acts, no command); the
+ * same problems on this computer keep their commands (`gui.spec.js`).
+ * @param {import("@playwright/test").Page} page @param {string} url @param {string} trace */
+async function personNamed(page, url, trace) {
+  const title = page.getByRole("heading", { level: 1 });
+  const alert = page.getByRole("alert");
+  const who = "The person who runs fvTrace for this project can";
+  await rm(trace);
+  await page.goto(url);
+  await expect(title).toHaveText("This analysis cannot be shown");
+  await expect(alert).toHaveText(
+    `This project has no claims and facts on record yet. ${who} record them.`,
+  );
+  await mkdir(trace);
+  await page.reload();
+  await expect(alert).toHaveText(`The claims and facts on record cannot be read. ${who} see why.`);
+  await rm(trace, { recursive: true });
+  await writeFile(trace, "{}\n");
+  await page.reload();
+  await expect(alert).toHaveText(`The claims and facts on record have errors. ${who} see them.`);
+}
+
+test("behind a login proxy, a record problem names who acts, not a command", async ({
+  browser,
+}) => {
+  const token = randomBytes(32).toString("hex");
+  const web = await serveFvtrace("synthetic", undefined, async (dir) => {
+    const file = join(dir, "token");
+    await writeFile(file, `${token}\n`, { mode: 0o600 });
+    return ["--token-file", file];
+  });
+  const proxy = await loginProxy(web.base, token);
+  const context = await browser.newContext({ httpCredentials: login });
+  try {
+    await personNamed(await context.newPage(), proxy.url, fvtrace(["path"], web.project, web.env));
+  } finally {
+    await context.close();
+    proxy.close();
+    await web.close();
+  }
+});
+
+test("on the network (--host), a record problem names who acts, not a command", async ({
+  page,
+}) => {
+  const web = await serveFvtrace("synthetic", undefined, async () => ["--host", "127.0.0.1"]);
+  try {
+    await personNamed(page, web.url, fvtrace(["path"], web.project, web.env));
+  } finally {
     await web.close();
   }
 });

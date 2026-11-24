@@ -30,6 +30,9 @@ structure Config where
   hosts : List String
   /-- Reuse an evidence digest while the file keeps its size + mtime (`serve --cached`). -/
   cached : Bool := false
+  /-- Other people read the page (`--token-file`: behind a login proxy; `--host`: on the network):
+  a login, no shell, so record problems name who acts, not a command (`problemReply`). -/
+  shared : Bool := false
 
 /-- What the server keeps between requests (`kernel.md` P-cache): the last checked trace, by the
 SHA-256 of its bytes, and the last answer's answers + its envelope's UTF-8 once printed, by its view
@@ -129,20 +132,24 @@ def decide (cfg : Config) (req : Req) : Action :=
     | some (_, contentType, body) => .reply { status := .ok, contentType, body := body.toUTF8 }
     | none => text .notFound "Not found."
 
-/-- Claims and facts that `fvtrace check` refuses, in the GUI's words (user ruling; the
-other record problems below likewise name the command to run, never a file). -/
-def recordErrors : String :=
-  "The claims and facts on record have errors. " ++
-    "To see them, run fvtrace check in the project folder."
+/-- What a record problem's reader can do (user rulings): on this computer, the command to run
+(never a file); on a page others read (`Config.shared`), who acts, without a command. -/
+def nextStep (shared : Bool) (act command : String) : String :=
+  if shared then s!"The person who runs fvTrace for this project can {act}." else command
 
-def problemReply : Session.Problem → Reply
+/-- Claims and facts that `fvtrace check` refuses, in the GUI's words. -/
+def recordErrors (shared : Bool) : String :=
+  "The claims and facts on record have errors. " ++
+    nextStep shared "see them" "To see them, run fvtrace check in the project folder."
+
+def problemReply (shared : Bool) : Session.Problem → Reply
   | .noTrace _ => problemJson .conflict "no-trace" <|
     "This project has no claims and facts on record yet. " ++
-      "To start, run fvtrace init in the project folder."
+      nextStep shared "record them" "To start, run fvtrace init in the project folder."
   | .unreadable _ _ => problemJson .conflict "unreadable" <|
     "The claims and facts on record cannot be read. " ++
-      "To see why, run fvtrace check in the project folder."
-  | .undecodable _ _ | .illFormed _ _ => problemJson .conflict "invalid" recordErrors
+      nextStep shared "see why" "To see why, run fvtrace check in the project folder."
+  | .undecodable _ _ | .illFormed _ _ => problemJson .conflict "invalid" (recordErrors shared)
   | .badWhatif m => problemJson .badRequest "what-if" m
   | .badAction m => problemJson .badRequest "action" m
   | .badItem m => problemJson .badRequest "item" m
@@ -158,8 +165,9 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
     let raw ← Session.readRawWithin maxTraceBytes cfg.target cfg.explicit
     let bytes ← match raw with
       | .ok (.ok b) => pure b
-      | .ok (.error ds) => set ({} : Kept); return problemReply (.undecodable cfg.target.trace ds)
-      | .error p => set ({} : Kept); return problemReply p
+      | .ok (.error ds) =>
+        set ({} : Kept); return problemReply cfg.shared (.undecodable cfg.target.trace ds)
+      | .error p => set ({} : Kept); return problemReply cfg.shared p
     let key ← Digest.ofBytes bytes
     let st ← get
     let fresh := fun _ : Unit => Session.checked cfg.target (decodeTraceWithin maxTraceBytes bytes)
@@ -167,16 +175,16 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
     let (tr, prep) ← match st.trace with
       | some (k, tr, prep) => if k == key then pure (tr, prep) else match fresh () with
         | .ok tr => pure (tr, ← Session.prepare tr)
-        | .error p => set ({} : Kept); return problemReply p
+        | .error p => set ({} : Kept); return problemReply cfg.shared p
       | none => match fresh () with
         | .ok tr => pure (tr, ← Session.prepare tr)
-        | .error p => set ({} : Kept); return problemReply p
+        | .error p => set ({} : Kept); return problemReply cfg.shared p
     set { st with trace := some (key, tr, prep) }
     let loaded ← Session.bindPrepared cfg.target tr prep (some r.whatif) (!cfg.cached) cache
     Session.closeCache cfg.target cache
     let l ← match loaded with
       | .ok l => pure l
-      | .error p => return problemReply p
+      | .error p => return problemReply cfg.shared p
     -- The answers at a view: the kept ones when it is the last answer's view.
     let answersAt := fun (l : Session.Loaded) (v : String) => match st.last with
       | some (v', A, _) => if v' == v then A else Answers.fast l.scenario
@@ -187,7 +195,7 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
         | .ok o =>
           let l' := { l with scenario := { l.scenario with overrides := o } }
           pure (l', ← Session.viewOf l')
-        | .error m => return (problemReply (.badAction m)).withView v0
+        | .error m => return (problemReply cfg.shared (.badAction m)).withView v0
       | none => pure (l, v0)
     let A := answersAt l' v
     let text := match st.last with
@@ -201,7 +209,7 @@ def answer (cfg : Config) (cache : IO.Ref Receipt.Cache) (kept : Std.Mutex Kept)
     match r.details with
     | some item => return match Evaluate.detailsWith l'.scenario A l'.digest l'.review item with
       | .ok d => tagged (json .ok d)
-      | .error m => tagged (problemReply (.badItem m))
+      | .error m => tagged (problemReply cfg.shared (.badItem m))
     | none =>
       let body := text.getD
         (Evaluate.envelopeWith l'.scenario A l'.bindings l'.digest l'.review).pretty.toUTF8
