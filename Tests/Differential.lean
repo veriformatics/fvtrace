@@ -28,13 +28,31 @@ private def experiment (id subject : String) (success : Overrides) : Gen Experim
 
 private def seed : UInt64 := 0x46565452414345
 
+/-- `fs` in its order, each reuse held back until its source is out (WF-kind: a source is listed
+before its reuse), so a shuffled trace stays well-formed; a source never listed stays held. -/
+private def sourcesFirst (fs : List Fact) : List Fact := Id.run do
+  let mut out : Array Fact := #[]
+  let mut held : List Fact := []
+  for f in fs do
+    held := held ++ [f]
+    let mut ready := held.find? fun g => g.instantiates.all fun src => out.any (·.id == src)
+    while ready.isSome do
+      let g := ready.get!
+      out := out.push g
+      held := held.filter (·.id != g.id)
+      ready := held.find? fun g => g.instantiates.all fun src => out.any (·.id == src)
+  return out.toList ++ held
+
 /-- Every allowed kind×route×status occurs; random order, prerequisites + optional fields vary. -/
 private def generatedTrace (n : Nat) : Gen Trace := do
   let route := Route.all[n / Status.all.length]!
   let status := Status.all[n % Status.all.length]!
-  -- A reuse of `B` (a result) must be verified; one of `Bg` (a background condition) need not
-  -- (user ruling): each kind × route × status the rule allows occurs.
-  let mv := fun (f : Fact) => f.kind.mustVerify || f.instantiates == some "B"
+  -- A reuse of `B` (a result) must be verified, and so must `Fchain`, a reuse of that reuse; one of
+  -- `Bg` (a background condition) need not (user rulings): each kind × route × status the rule
+  -- allows occurs. Every source precedes its reuse (`sourcesFirst`), as WF-kind demands.
+  let reuseId := s!"F{Kind.all.idxOf .instantiation}"
+  let mv := fun (f : Fact) => f.kind.mustVerify || f.instantiates == some "B" ||
+    f.instantiates == some reuseId
   let allowedAs := fun (f : Fact) => { f with status := if f.allows (mv f) status then status
     else .«open» }
   let mut fs := Kind.all.zipIdx.map fun (kind, i) =>
@@ -42,6 +60,7 @@ private def generatedTrace (n : Nat) : Gen Trace := do
       instantiates := if kind == .instantiation then some "B" else none }
   fs := fs ++ [allowedAs { fact "Fbg" "S0" .instantiation route status with
       instantiates := some "Bg" },
+    allowedAs { fact "Fchain" "S1" .instantiation route status with instantiates := some reuseId },
     fact "R" "S0" .result .runtimeChecker .checked,
     fact "Reason" "S0" .entailment .lean .proved,
     fact "B" "S1" .result .runtimeChecker (if n % 2 == 0 then .checked else .«open»),
@@ -119,7 +138,7 @@ private def generatedTrace (n : Nat) : Gen Trace := do
     analysis := { id := s!"A{n}", title := "Differential", summary := "Generated trace" },
     subjects := ← shuffled subs, questions := ← shuffled ((List.range 3).map fun i =>
       { id := s!"Q{i}", title := s!"Question {i}", text := "What follows?" }),
-    facts := ← shuffled fs, claims := ← shuffled cs, experiments := es,
+    facts := sourcesFirst (← shuffled fs), claims := ← shuffled cs, experiments := es,
     exclusions := ← shuffled xs, waivers := ← shuffled ws,
     review := if n % 3 == 0 then none else some
       { reviewer := "Reviewer α", date := "2026-01-01", digest := "digest",
@@ -312,7 +331,12 @@ private def malformed (t : Trace) (n : Nat) : Trace := Id.run do
       { c with id := "\x00α", restates := true, needs := ["Missing", f.id], entailment := none },
       { c with restates := true, needs := [f.id], entailment := some "Shared" },
       { c with id := "Other", restates := false, entailment := some "Shared" }] ++ t.claims,
-      facts := [{ f with id := "" }, { f with id := "\x00α" }, f] ++ t.facts }
+      -- A reuse listed before its source + one of itself (WF-kind's order rule).
+      facts := [{ f with id := "" }, { f with id := "\x00α" }, f,
+        { f with id := "Early", subject := "S1", kind := .instantiation,
+                 instantiates := some "B", status := .assumed, route := .humanRuling },
+        { f with id := "Selfie", kind := .instantiation, instantiates := some "Selfie" }] ++
+        t.facts }
 
 private def idArgs (t : Trace) : List String :=
   (t.allIds ++ t.claims.flatMap (·.needsAll) ++ t.claims.filterMap (·.variantOf) ++
@@ -373,6 +397,7 @@ private def compareLookups (ctx : Context) (got want : Lookups) : DiffM Unit := 
   let ids := idArgs t
   for id in ids do
     same ctx "Lookups.fact?" id (got.fact? id) (want.fact? id)
+    same ctx "Lookups.mustVerify" id (got.mustVerify id) (want.mustVerify id)
     same ctx "Lookups.subject?" id (got.subject? id) (want.subject? id)
     same ctx "Lookups.claim?" id (got.claim? id) (want.claim? id)
     same ctx "Lookups.experiment?" id (got.experiment? id) (want.experiment? id)
@@ -394,6 +419,9 @@ private def compareLookups (ctx : Context) (got want : Lookups) : DiffM Unit := 
     same ctx "Lookups.nodup" xs (got.nodup xs) (want.nodup xs)
     for c in t.claimIds ++ ["Missing", ""] do
       same ctx "Lookups.soleRestater" (xs, c) (got.soleRestater xs c) (want.soleRestater xs c)
+  for i in List.range (t.facts.length + 2) ++ [4294967296] do
+    for s in t.factIds ++ ["Missing"] do
+      same ctx "Lookups.earlierFact" (i, s) (got.earlierFact i s) (want.earlierFact i s)
   for i in List.range (t.experiments.length + 2) ++ [4294967296] do
     for e in t.experiments do
       for sub in [e.subject, "Missing"] do

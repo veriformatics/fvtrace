@@ -330,10 +330,56 @@ def waiver (L : Lookups) (t : Trace) : Found :=
   ensure (L.waiversNodup ()) "/waivers"
     "a rule is waived twice for one claim"
 
-def kind (t : Trace) : Found :=
-  t.facts.zipIdx.flatMap fun (f, i) =>
+/-- Each fact's position: on a cycle of reuses or not. A fact reuses one fact at most, so a walk
+from a fact either ends, joins a walk already finished, or closes a cycle on itself; each position
+is walked once (linear). Read only to word an order error. -/
+def reuseCycles (t : Trace) : Array Bool := Id.run do
+  let ix := Index.ofKeys compare (t.facts.map (·.id))
+  let next := t.facts.toArray.map fun f => f.instantiates.bind (ix.first? (cmp := compare))
+  let n := next.size
+  -- 0 = not walked yet, 1 = on the current walk, 2 = finished
+  let mut state := Array.replicate n (0 : Nat)
+  let mut cyclic := Array.replicate n false
+  for start in [0:n] do
+    let mut path : Array Nat := #[]
+    let mut cur := if state[start]?.getD 0 == 0 then some start else none
+    -- n new positions at most, then the step that meets one again: n + 1 steps.
+    for _ in [0:n + 1] do
+      match cur with
+      | none => break
+      | some u =>
+        if state[u]?.getD 0 == 0 then
+          state := state.set! u 1
+          path := path.push u
+          cur := next[u]?.getD none
+        else
+          -- Back on this walk: the positions from `u` to the walk's end form a cycle.
+          if state[u]?.getD 0 == 1 then
+            for v in path.extract ((path.findIdx? (· == u)).getD 0) path.size do
+              cyclic := cyclic.set! v true
+          cur := none
+    for v in path do
+      state := state.set! v 2
+  return cyclic
+
+/-- A reuse's source, where it resolves, is listed before it (user ruling: reuse chains), so one
+pass in list order decides every fact's `Trace.mustVerify`; `cycles` words the error. -/
+def sourceEarlier (L : Lookups) (cycles : Thunk (Array Bool)) (f : Fact) (i : Nat) : Found :=
+  match f.instantiates with
+  | some s => ensure (!L.hasFact s || L.earlierFact i s) s!"/facts/{i}/instantiates"
+      (if s == f.id then s!"{f.id} cannot reuse itself."
+       else if cycles.get[i]?.getD false then
+         s!"{f.id} reuses {s}, which reuses {f.id} in turn, directly or through other facts. \
+           Remove one reuse from this cycle."
+       else s!"{f.id} reuses {s}, which is not listed before it. List {s} before {f.id}.")
+  | none => []
+
+def kind (L : Lookups) (t : Trace) : Found :=
+  let cycles := Thunk.mk fun _ => reuseCycles t
+  (t.facts.zipIdx.flatMap fun (f, i) =>
     ensure ((f.kind == .instantiation) == f.instantiates.isSome) s!"/facts/{i}"
-      "an instantiation fact (and only one) names `instantiates`"
+      "an instantiation fact (and only one) names `instantiates`") ++
+  (t.facts.zipIdx.flatMap fun (f, i) => sourceEarlier L cycles f i)
 
 def Rule.check : Rule → Lookups → Trace → Found
   | .ids => fun L _ => Check.ids L | .refs => Check.refs | .subject => Check.subject
@@ -341,7 +387,7 @@ def Rule.check : Rule → Lookups → Trace → Found
   | .outcome => Check.outcome | .receipt => fun _ => Check.receipt
   | .path => fun _ => Check.path | .prospective => Check.prospective
   | .variant => Check.variant | .exclusion => Check.exclusion
-  | .consistent => Check.consistent | .waiver => Check.waiver | .kind => fun _ => Check.kind
+  | .consistent => Check.consistent | .waiver => Check.waiver | .kind => Check.kind
 
 /-- Every broken rule instance, in rule order, read through `L`. -/
 def violationsWith (L : Lookups) (t : Trace) : List Violation :=

@@ -17,9 +17,10 @@ def mapExperiment (t : Trace) (id : String) (f : Experiment → Experiment) : Tr
 def expect (name : String) (t : Trace) (want : List (String × String)) : TestM Unit :=
   checkEq name (found t) want
 
-/-- Reused facts (user ruling; kernel.md WF-route): a reuse (`instantiation`) of a fact that must
-be verified must be verified too, through reuses of reuses, naming the direct source; a reuse of a
-background condition, or a cycle of reuses reaching no must-verify kind, may be assumed. -/
+/-- Reused facts (user rulings; kernel.md WF-route + WF-kind): a reuse (`instantiation`) of a fact
+that must be verified must be verified too, through reuses of reuses, naming the direct source; a
+reuse of a background condition may be assumed; a source that resolves is listed before its reuse
+(so a cycle of reuses is an error). -/
 def reuseTests : TestM Unit := do
   let t ← fixture
   let k := t.facts.length
@@ -39,8 +40,45 @@ def reuseTests : TestM Unit := do
     ["I2b reuses I2, which must be verified, so I2b cannot be assumed."]
   expect "check: a reused background condition may be assumed"
     (withFacts [reuse "I3" "T" "O3" .assumed]) []
-  expect "check: a cycle of reuses reaches no must-verify kind"
-    (withFacts [reuse "Ca" "T" "Cb" .assumed, reuse "Cb" "S" "Ca" .assumed]) []
+  -- Reuse chains (user ruling: a source listed first): a cycle breaks the order at its first reuse.
+  let cycle := withFacts [reuse "Ca" "T" "Cb" .assumed, reuse "Cb" "S" "Ca" .assumed]
+  expect "check: a cycle of reuses is an error at its first reuse" cycle
+    [("WF-kind", s!"/facts/{k}/instantiates")]
+  checkEq "check: a cycle's error says to break it (no order repairs a cycle)" (messages cycle)
+    ["Ca reuses Cb, which reuses Ca in turn, directly or through other facts. \
+      Remove one reuse from this cycle."]
+  -- A trace that is one cycle and nothing else: the walk meets its start only after visiting every
+  -- fact, one step past the facts' count.
+  let bare := { withFacts [] with
+    facts := [reuse "Ca" "T" "Cb" .«open», reuse "Cb" "S" "Ca" .«open»],
+    subjects := (withFacts []).subjects.filter (·.id != "N"),
+    claims := [], experiments := [], exclusions := [], waivers := [] }
+  checkEq "check: a trace that is one cycle names the cycle" (messages bare)
+    ["Ca reuses Cb, which reuses Ca in turn, directly or through other facts. \
+      Remove one reuse from this cycle."]
+  -- A longer cycle + a fact leading into it: each forward reuse on the cycle names the cycle; the
+  -- one leading in is told to move, since moving it repairs it.
+  let ring := withFacts [reuse "X" "S" "Ra" .«open», reuse "Ra" "T" "Rb" .«open»,
+    reuse "Rb" "S" "Rc" .«open», reuse "Rc" "T" "Rd" .«open», reuse "Rd" "S" "Ra" .«open»]
+  checkEq "check: a cycle of four + a reuse leading into it" (messages ring)
+    (["X reuses Ra, which is not listed before it. List Ra before X."] ++
+      (["Ra", "Rb", "Rc"].zip ["Rb", "Rc", "Rd"]).map fun (x, y) =>
+        s!"{x} reuses {y}, which reuses {x} in turn, directly or through other facts. \
+          Remove one reuse from this cycle.")
+  -- A reuse listed before its source reads the source as not reached: the order error alone,
+  -- never the must-verify one its source would give.
+  let early := withFacts [reuse "J1" "S" "J2" .assumed, reuse "J2" "T" "O2" .«open»]
+  expect "check: a reuse listed before its result source = the order error alone" early
+    [("WF-kind", s!"/facts/{k}/instantiates")]
+  checkEq "check: the order error names the source to move" (messages early)
+    ["J1 reuses J2, which is not listed before it. List J2 before J1."]
+  let self := withFacts [reuse "Z" "T" "Z" .«open»]
+  expect "check: a fact reusing itself = its subject + the order error" self
+    [("WF-subject", s!"/facts/{k}/instantiates"), ("WF-kind", s!"/facts/{k}/instantiates")]
+  checkEq "check: the self reuse's own message" ((messages self).getLast?)
+    (some "Z cannot reuse itself.")
+  expect "check: a missing source = the reference error alone"
+    (withFacts [reuse "I9" "T" "Absent" .«open»]) [("WF-refs", s!"/facts/{k}/instantiates")]
   -- A second fact under a taken id is judged by the first (WF-ids reports the duplicate).
   let dup := { t with facts := t.facts ++ [{ (t.fact? "O3").get! with
     id := "O2", status := .assumed, route := .humanRuling }] }
@@ -48,8 +86,8 @@ def reuseTests : TestM Unit := do
     ((Check.violations dup).filterMap fun v => if v.path == s!"/facts/{k}/status" then
       some v.message else none)
     ["O2 cannot be assumed: the fact listed first with this id must be verified"]
-  -- Fuel = the fact count, at its bound: every fact but the source is one chain, so the far end's
-  -- walk takes exactly that many steps (one fewer would read the far end as no must-verify fact).
+  -- Every fact but the source is one chain, listed in order: the far end is decided from its
+  -- source's answer, itself decided from its own (list order, one pass).
   let m := 6
   let chained := { withFacts [] with
     facts := [(t.fact? "O2").get!] ++ (List.range m).map fun i =>
@@ -69,6 +107,33 @@ def reuseTests : TestM Unit := do
   checkEq "check: the outcome refusal names the source" (messages outcome)
     ["outcome \"I2\": an outcome cannot assume I2: it reuses O2, which must be verified; \
       leave I2 out"]
+
+/-- `Check.reuseCycles` against an independent oracle on every reuse graph over up to four facts
+(each fact reusing nothing, a missing id or any of four ids, itself included): position i is on a
+cycle iff following sources (the first fact with each id) from i returns to i within n steps. -/
+def cycleProperty : TestM Unit := do
+  let ids := ["a0", "a1", "a2", "a3"]
+  let choices : List (Option String) := none :: some "zz" :: ids.map some
+  let mut graphs := 0
+  let mut wrong : List (List (Option String)) := []
+  for k in [0:5] do
+    let picks := (List.range k).foldl (fun acc _ => acc.flatMap fun l => choices.map (l ++ [·]))
+      [[]]
+    for p in picks do
+      let facts := (ids.take k).zip p |>.map fun (id, src) =>
+        ({ id, subject := "S", kind := .instantiation, text := id, status := .«open»,
+           route := .humanRuling, instantiates := src } : Fact)
+      let t : Trace := { analysis := { id := "A", title := "A", summary := "A" }, subjects := [],
+                         questions := [], facts, claims := [] }
+      let next := fun (i : Nat) =>
+        (facts[i]?.bind (·.instantiates)).bind fun s => facts.findIdx? (·.id == s)
+      let reach := fun (i m : Nat) => (List.range m).foldl (fun x _ => x.bind next) (some i)
+      let want := (List.range k).map fun i => (List.range k).any fun m => reach i (m + 1) == some i
+      graphs := graphs + 1
+      if (Check.reuseCycles t).toList != want then wrong := wrong ++ [p]
+  checkEq s!"check: reuseCycles = the reachability oracle on all {graphs} graphs (0–4 facts)"
+    (wrong.take 3) []
+  checkEq "check: every graph over up to four facts enumerated" graphs (1 + 6 + 36 + 216 + 1296)
 
 def tests : TestM Unit := do
   let t ← fixture

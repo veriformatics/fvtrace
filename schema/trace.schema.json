@@ -324,6 +324,7 @@
           }
         },
         "instantiates": {
+          "description": "The fact this one reuses, on another subject. It must be listed before this fact.",
           "$ref": "#/$defs/id"
         },
         "why": {

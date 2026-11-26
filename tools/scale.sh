@@ -19,7 +19,8 @@
 # MiB, output bytes (serve: the server's CPU + peak RSS so far; gui: the page's live JS memory
 # once the mode's steps end), every run's wall; per shape + command, the wall ratio of
 # consecutive rows, scaled to one doubling of n.
-# --assert grades the graded shapes (wide deep experiments exclusions outcomes prereqs whatif):
+# --assert grades the graded shapes (wide deep experiments exclusions outcomes prereqs whatif
+# reuses):
 # exit 1 on a nonzero rc, a timeout, a wall time above --max-wall (10: Nielsen's attention limit)
 # or a GUI row's own bound, a per-doubling wall or RSS ratio above --max-ratio (2.5) or eval output
 # ratio above 2.2 (P-bound), or an outcomes, prereqs or whatif eval (outcomes + prereqs: serve too)
@@ -51,7 +52,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 [[ $runs =~ ^[1-9][0-9]*$ ]] || { printf '%s\n' "$usage" >&2; exit 2; }
-graded=" wide deep experiments exclusions outcomes prereqs whatif "
+graded=" wide deep experiments exclusions outcomes prereqs whatif reuses "
 f5=" wide deep experiments exclusions "
 # Default: every shape the generator registers (`tools/scale.mjs shapes`), in its order.
 [[ ${#shapes[@]} -gt 0 ]] || mapfile -t shapes < <(node "$root/tools/scale.mjs" shapes)
@@ -63,6 +64,11 @@ trap '[[ -n "$srv" ]] && kill "$srv" 2>/dev/null; [[ -n "$host" ]] && kill "$hos
 # beside `m <utc ms> start|end <shape>-<n> <cmd|session> <run> [rc]` marks (telemetry, never graded).
 mark() { [[ -z ${SCALE_HOST_LOG:-} ]] || printf 'm %s %s\n' "$(date +%s%3N)" "$*" >>"$SCALE_HOST_LOG"; }
 if [[ -n ${SCALE_HOST_LOG:-} ]]; then
+    # A fresh copy of the tree (a pool host's worktree) lacks gitignored folders such as .scratch.
+    if ! { mkdir -p -- "$(dirname -- "$SCALE_HOST_LOG")" && : >>"$SCALE_HOST_LOG"; }; then
+        printf 'scale: cannot write the host log %s\n' "$SCALE_HOST_LOG" >&2
+        exit 2
+    fi
     node "$root/tools/scale-host.mjs" "$SCALE_HOST_LOG" &
     host=$!
 fi

@@ -21,6 +21,9 @@
 //               creates (a creator cycle), proving K_i
 //   whatif      wide, evaluated under a what-if naming every fact (F_i assumed, E_i tested: every
 //               E_i stays closable, so each suppose action expands to the whole what-if)
+//   reuses      one result G + a chain I_0..I_{n-1} (open, human-ruling: I_0 reuses G, I_i reuses
+//               I_{i-1}, subjects T and S alternating), each needed by its own claim C_i with
+//               entailment E_i on I_i's subject (each I_i must be verified through the chain)
 // Reported, never graded:
 //   hub         n claims C_i: needs [H, F_i] + E_i, all open on lean; X_i between H and G_i (G_i
 //               open, needed by no claim), proved with a current receipt
@@ -338,6 +341,22 @@ const shapes = {
     return { ...t, subjects, experiments };
   },
   whatif: wide,
+  reuses(n) {
+    const facts = [];
+    const claims = [];
+    facts.push(fact("G", "result", "open", "runtime-checker"));
+    for (let i = 0; i < n; i++) {
+      const subject = i % 2 === 0 ? "T" : "S";
+      facts.push({
+        ...fact(`I${i}`, "instantiation", "open", "human-ruling"),
+        subject,
+        instantiates: i === 0 ? "G" : `I${i - 1}`,
+      });
+      facts.push({ ...fact(`E${i}`, "entailment", "open", "lean"), subject });
+      claims.push({ ...claim(i, [`I${i}`]), subject });
+    }
+    return { subjects: [{ id: "T", title: "Other study", kind: "existing" }], facts, claims };
+  },
   invalid(n) {
     const t = wide(n);
     const experiments = [];
@@ -382,6 +401,8 @@ const actionOf = (shape, n) => {
       return "suppose:F1";
     case "receipts":
       return undefined;
+    case "reuses":
+      return `suppose:E${n - 1}`;
     default:
       return "suppose:E0";
   }
@@ -402,8 +423,8 @@ const itemsOf = (shape, n) => {
     questions: "R0",
     invalid: "R0",
   }[shape];
-  const c = shape === "prereqs" ? `C${third - 1}` : "C0";
-  const f = shape === "deep" ? "F1" : "E0";
+  const c = shape === "prereqs" ? `C${third - 1}` : shape === "reuses" ? `C${n - 1}` : "C0";
+  const f = shape === "deep" ? "F1" : shape === "reuses" ? `I${n - 1}` : "E0";
   return [...(r ? [`experiment:${r}`] : []), `claim:${c}`, `fact:${f}`];
 };
 

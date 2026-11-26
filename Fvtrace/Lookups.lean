@@ -46,6 +46,8 @@ structure Lookups where
   soleEntailment : String → String → Bool
   /-- Every claim restating `needs` is the claim with id `c`. -/
   soleRestater : List String → String → Bool
+  /-- A fact before position `i` has id `s`. -/
+  earlierFact : Nat → String → Bool
   /-- An experiment before position `i` has id `r` + subject `s`. -/
   earlierExperiment : Nat → String → String → Bool
   /-- An exclusion before position `i` relates the same pair on the same subject. -/
@@ -81,6 +83,7 @@ def reference (t : Trace) : Lookups where
   duplicateIds _ := (Check.duplicates t.allIds).eraseDups
   soleEntailment e c := t.claims.all fun d => d.entailment != some e || d.id == c
   soleRestater needs c := t.claims.all fun d => !d.restates || d.needs != needs || d.id == c
+  earlierFact i s := (t.facts.take i).any (·.id == s)
   earlierExperiment i r s := (t.experiments.take i).any fun d => d.id == r && d.subject == s
   earlierPair i x := (t.exclusions.take i).any (Check.samePair x)
   waiversNodup _ := decide (t.waivers.map fun w => (w.rule, w.claim)).Nodup
@@ -102,6 +105,17 @@ def keyed {α κ : Type} (l : List α) (key : α → Option κ) : List (κ × Na
 /-- The restated result of a claim that restates exactly one fact. -/
 def restatedOne (c : Claim) : Option String :=
   if c.restates then match c.needs with | [n] => some n | _ => none else none
+
+/-- One step of `mustVerifyAll`: fact `f`'s answer appended, its source's read from `acc` (absent =
+listed at or after `f`: false). -/
+def mustVerifyStep (pos : String → Option Nat) (acc : Array Bool) (f : Fact) : Array Bool :=
+  acc.push (f.kind.mustVerify || (f.kind == .instantiation &&
+    f.instantiates.any fun src => (pos src).any fun j => acc[j]?.getD false))
+
+/-- `mustVerifyAt` at every position in one pass (`pos` = the first position of an id): a reuse
+reads its source's answer, already in the array when the source is listed before it. -/
+def mustVerifyAll (facts : List Fact) (pos : String → Option Nat) : Array Bool :=
+  facts.foldl (mustVerifyStep pos) #[]
 
 /-- The same answers from sorted indexes: O(log n) per by-id question, a whole-list answer once.
 An index is built on its first question (a `Thunk`), so a consumer pays for the ones it asks
@@ -130,12 +144,11 @@ alone. -/
     Index.ofKeys compare (t.experiments.map fun d => (d.id, d.subject))
   let pairIx := Thunk.mk fun _ => Index.ofKeys compare (t.exclusions.map pairKey)
   let waiverIx := Thunk.mk fun _ => Index.ofKeys compare (t.waivers.map fun w => (w.rule, w.claim))
-  let fact? := fun id => (factIx.get.first? (cmp := compare) id).bind (facts.get[·]?)
-  -- The walk per call: a reuse chain's depth per fact (an ungraded deep chain costs depth × facts,
-  -- `.agent/deferred.md`); the count once.
-  let count := t.facts.length
+  let factPos := fun id => factIx.get.first? (cmp := compare) id
+  let fact? := fun id => (factPos id).bind (facts.get[·]?)
+  let mustVerify := Thunk.mk fun _ => mustVerifyAll t.facts factPos
   { fact?
-    mustVerify := mustVerifyWith fact? count
+    mustVerify := fun id => (factPos id).any fun i => mustVerify.get[i]?.getD false
     subject? := fun id => (subjectIx.get.first? (cmp := compare) id).bind (subjects.get[·]?)
     claim? := fun id => (claimIx.get.first? (cmp := compare) id).bind (claims.get[·]?)
     experiment? := fun id =>
@@ -153,6 +166,7 @@ alone. -/
       entIx.get.count (cmp := compare) e == entIdIx.get.count (cmp := compare) (e, c)
     soleRestater := fun needs c =>
       restIx.get.count (cmp := compare) needs == restIdIx.get.count (cmp := compare) (needs, c)
+    earlierFact := fun i s => (factPos s).any (· < i)
     earlierExperiment := fun i r s => (earlierIx.get.first? (cmp := compare) (r, s)).any (· < i)
     earlierPair := fun i x => (pairIx.get.first? (cmp := compare) (pairKey x)).any (· < i)
     waiversNodup := fun _ => Index.nodup compare (t.waivers.map fun w => (w.rule, w.claim))

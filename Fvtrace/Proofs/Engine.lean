@@ -97,13 +97,19 @@ theorem fact?_mem {t : Trace} {id : String} {f : Fact} (h : t.fact? id = some f)
   unfold Trace.fact? at h
   exact ⟨List.mem_of_find?_eq_some h, by simpa using List.find?_some h⟩
 
-/-- A fact whose own kind must be verified must be verified (`Trace.mustVerify`'s first step: the
-walk's fuel = the fact count, at least one since the fact is listed). -/
+/-- The fact `t.fact? id` finds sits at the first position whose id is `id`. -/
+theorem findIdx?_of_fact? {t : Trace} {id : String} {f : Fact} (h : t.fact? id = some f) :
+    ∃ i, t.facts.findIdx? (·.id == id) = some i ∧ t.facts[i]? = some f := by
+  unfold Trace.fact? at h
+  rwa [List.find?_eq_bind_findIdx?_getElem?, Option.bind_eq_some_iff] at h
+
+/-- A fact whose own kind must be verified must be verified (`mustVerifyAt` at its position). -/
 theorem mustVerify_of_kind {t : Trace} {id : String} {f : Fact} (h : t.fact? id = some f)
     (hk : f.kind.mustVerify = true) : t.mustVerify id = true := by
-  obtain ⟨n, hn⟩ : ∃ n, t.facts.length = n + 1 :=
-    ⟨_, (Nat.succ_pred_eq_of_pos (List.length_pos_of_mem (fact?_mem h).1)).symm⟩
-  simp [Trace.mustVerify, hn, mustVerifyWith, h, hk]
+  obtain ⟨i, hi, hf⟩ := findIdx?_of_fact? h
+  unfold Trace.mustVerify
+  rw [hi, Option.any_some, mustVerifyAt, hf]
+  simp [hk]
 
 theorem eff_verified {s : Scenario} {n : String} (h : (s.eff n).verified = true) :
     (s.eff1 n).verified = true := by

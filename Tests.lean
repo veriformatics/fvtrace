@@ -36,7 +36,9 @@ def pure : TestM Unit := do
     Tests.Decode.propertyTests; Tests.Differential.codecTests
   area "schema" Tests.Schema.tests
   area "assets" Tests.Assets.tests
-  area "check" do Tests.Check.tests; Tests.Check.lintTableTests; Tests.Check.reuseTests
+  area "check" do
+    Tests.Check.tests; Tests.Check.lintTableTests; Tests.Check.reuseTests
+    Tests.Check.cycleProperty
   area "args" Tests.Args.tests
   area "engine" do
     Tests.Engine.tests; Tests.Engine.witnessTests; Tests.Engine.kindTests

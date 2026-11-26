@@ -95,6 +95,17 @@ def exclusions (n : Nat) : Trace :=
       { id := s!"X{i}", subject := "S", between := (s!"E{i}", s!"F{(i + 1) % n}"),
         text := "They exclude each other.", status := .assumed, route := .humanRuling } }
 
+/-- One result G + a chain of n reuses (`tools/scale.mjs` reuses): I_0 reuses G, I_i reuses I_{i-1},
+subjects T and S alternating, each needed by its own claim C_i with entailment E_i. -/
+def reuses (n : Nat) : Trace :=
+  let sub := fun (i : Nat) => if i % 2 == 0 then "T" else "S"
+  let t := base (fact "G" .result .«open» .runtimeChecker :: (List.range n).flatMap fun i =>
+      [{ fact s!"I{i}" .instantiation .«open» .humanRuling with
+          subject := sub i, instantiates := some (if i == 0 then "G" else s!"I{i - 1}") },
+       { fact s!"E{i}" .entailment .«open» .lean with subject := sub i }])
+    ((List.range n).map fun i => { claim i [s!"I{i}"] with subject := sub i })
+  { t with subjects := t.subjects ++ [{ id := "T", title := "Other study", kind := .existing }] }
+
 /-- The checker + lints on each shape: well-formed, one role warning per claim. -/
 def checkTests : TestM Unit := do
   for (name, t, claims) in [("wide", wide 10000, 10000), ("deep", deep 30000, 1),
@@ -249,5 +260,17 @@ def evalTests : TestM Unit := do
     s!"{bytes} bytes"
   let ms := (← IO.monoMsNow) - t0
   check s!"eval-scale: whatif {n} evaluates within {boundMs} ms" (ms ≤ boundMs) s!"{ms} ms"
+  -- reuses: a chain of reuses is decided in one pass in list order (user ruling: a source listed
+  -- first); the walk per fact it replaced took 100 s to check this n on a desktop.
+  let n := 16000
+  let t0 ← IO.monoMsNow
+  let t := reuses n
+  checkEq "scale: reuses is well-formed" (Check.violations t).length 0
+  checkEq "scale: reuses → the chain's far end must be verified"
+    ((Lookups.fast t).mustVerify s!"I{n - 1}") true
+  checkEq "eval-scale: reuses → every claim open" (count (env t) "open") (some (.num n))
+  let ms := (← IO.monoMsNow) - t0
+  check s!"eval-scale: reuses {n} checks + evaluates within {boundMs} ms" (ms ≤ boundMs)
+    s!"{ms} ms"
 
 end Tests.Scale

@@ -128,14 +128,25 @@ def RecordedConsistent (t : Trace) : Prop :=
 def WaiversProper (t : Trace) : Prop :=
   (∀ w ∈ t.waivers, w.rule ∈ Check.lintRules) ∧ (t.waivers.map fun w => (w.rule, w.claim)).Nodup
 
-/-- WF-kind: exactly the `instantiation` facts name a source fact. -/
-def KindsProper (t : Trace) : Prop := ∀ f ∈ t.facts, f.kind = .instantiation ↔ f.instantiates.isSome
+/-- WF-kind: exactly the `instantiation` facts name a source fact; a source that resolves is listed
+before its reuse (so a chain of reuses is acyclic and decided in list order). -/
+def KindsProper (t : Trace) : Prop :=
+  (∀ f ∈ t.facts, f.kind = .instantiation ↔ f.instantiates.isSome) ∧
+  ∀ i (h : i < t.facts.length), ∀ s, t.facts[i].instantiates = some s → s ∈ t.factIds →
+    ∃ d ∈ t.facts.take i, d.id = s
 
 /-- A trace fvTrace will evaluate. -/
 def WellFormed (t : Trace) : Prop :=
   IdsUnique t ∧ RefsResolve t ∧ SubjectsAgree t ∧ EntailmentsProper t ∧ NeedsProper t ∧
   RoutesRespected t ∧ OutcomesProper t ∧ ReceiptsComplete t ∧ PathsSafe t ∧ SubjectsProper t ∧
   VariantsProper t ∧ ExclusionsProper t ∧ RecordedConsistent t ∧ WaiversProper t ∧ KindsProper t
+
+/-- On a well-formed trace, a fact must be verified exactly when its kind must be or it reuses a
+fact that must be verified: `Trace.mustVerify`'s list-order definition = the rule as worded,
+followed through reuses of reuses. -/
+def MustVerifyFollowsReuses : Prop :=
+  ∀ t : Trace, WellFormed t → ∀ f ∈ t.facts, t.mustVerify f.id =
+    (f.kind.mustVerify || (f.kind == .instantiation && f.instantiates.any t.mustVerify))
 
 /-- The rule a listed violation names. -/
 def Rule.Holds : Check.Rule → Trace → Prop

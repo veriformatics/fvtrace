@@ -41,6 +41,8 @@ variable (t : Trace)
 @[simp] theorem ref_soleRestater (needs : List String) (c : String) :
     (Lookups.reference t).soleRestater needs c =
       t.claims.all fun d => !d.restates || d.needs != needs || d.id == c := rfl
+@[simp] theorem ref_earlierFact (i : Nat) (s : String) :
+    (Lookups.reference t).earlierFact i s = (t.facts.take i).any (·.id == s) := rfl
 @[simp] theorem ref_earlierExperiment (i : Nat) (r s : String) :
     (Lookups.reference t).earlierExperiment i r s =
       (t.experiments.take i).any fun d => d.id == r && d.subject == s := rfl
@@ -258,6 +260,56 @@ theorem restatedOne_beq (c : Claim) (f : String) :
   · simp
   · rcases hn : c.needs with _ | ⟨n, _ | ⟨m, rest⟩⟩ <;> simp
 
+/-! ## The one-pass `mustVerify` -/
+
+/-- After a prefix `p` of `facts`, the array holds `mustVerifyAt facts` at each of its positions. -/
+theorem mustVerifyStep_prefix (facts : List Fact) : ∀ p rest, facts = p ++ rest →
+    (p.foldl (Lookups.mustVerifyStep fun s => facts.findIdx? (·.id == s)) #[]).toList =
+      (List.range p.length).map (mustVerifyAt facts) := by
+  refine snoc_induction (P := fun p => ∀ rest, facts = p ++ rest → _) ?_ ?_
+  · intro _ _; simp
+  · intro q f ih rest hfacts
+    have hq := ih (f :: rest) (by simp [hfacts])
+    rw [List.foldl_append, List.foldl_cons, List.foldl_nil, List.length_append,
+      List.length_singleton, List.range_succ, List.map_append]
+    generalize q.foldl (Lookups.mustVerifyStep fun s => facts.findIdx? (·.id == s)) #[] = acc
+      at hq ⊢
+    have hget : ∀ j,
+        (acc[j]?).getD false = if j < q.length then mustVerifyAt facts j else false := by
+      intro j
+      rw [← Array.getElem?_toList, hq]
+      by_cases hj : j < q.length
+      · simp [hj]
+      · rw [List.getElem?_eq_none (by simp; omega)]; simp [hj]
+    unfold Lookups.mustVerifyStep
+    rw [Array.toList_push, hq]
+    congr 2
+    have hf : facts[q.length]? = some f := by simp [hfacts]
+    rw [mustVerifyAt, hf]
+    simp only
+    congr 1
+    congr 1
+    cases hi : f.instantiates with
+    | none => rfl
+    | some src =>
+      simp only [Option.any_some]
+      cases hp : facts.findIdx? (·.id == src) with
+      | none => rfl
+      | some j => simp only [Option.any_some, hget]
+
+/-- The one pass answers `mustVerifyAt` at every position (past the end: false, as the
+definition). -/
+theorem mustVerifyAll_getD (facts : List Fact) (i : Nat) :
+    ((Lookups.mustVerifyAll facts fun s => facts.findIdx? (·.id == s))[i]?).getD false =
+      mustVerifyAt facts i := by
+  unfold Lookups.mustVerifyAll
+  rw [← Array.getElem?_toList, mustVerifyStep_prefix facts facts [] (by simp)]
+  by_cases hi : i < facts.length
+  · simp [hi]
+  · have : facts[i]? = none := List.getElem?_eq_none (by omega)
+    rw [List.getElem?_eq_none (by simp; omega)]
+    simp [mustVerifyAt, this]
+
 theorem cmp_beq_comm (x y : String) : (compare y x == .eq) = (x == y) := by
   rw [cmp_beq, Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]; exact eq_comm
 
@@ -270,9 +322,12 @@ theorem fast_eq_reference (t : Trace) : Lookups.fast t = Lookups.reference t := 
   · funext id; exact find?_map t.facts (·.id) id
   · funext id
     unfold Trace.mustVerify
+    have hpos : (fun s => (Index.ofKeys compare (t.facts.map (·.id))).first? (cmp := compare) s) =
+        fun s => t.facts.findIdx? (·.id == s) := funext fun s => first?_map t.facts (·.id) s
+    rw [hpos, first?_map]
     congr 1
-    funext id
-    exact find?_map t.facts (·.id) id
+    funext i
+    exact mustVerifyAll_getD t.facts i
   · funext id; exact find?_map t.subjects (·.id) id
   · funext id; exact find?_map t.claims (·.id) id
   · funext id; exact find?_map t.experiments (·.id) id
@@ -315,6 +370,8 @@ theorem fast_eq_reference (t : Trace) : Lookups.fast t = Lookups.reference t := 
     congr 1
     funext d
     cases d.restates <;> simp [bne]
+  · funext i s
+    rw [first?_map, findIdx?_any_lt]
   · funext i r s
     rw [first?_map, findIdx?_any_lt]
     rfl

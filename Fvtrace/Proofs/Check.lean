@@ -12,8 +12,8 @@ open Fvtrace Fvtrace.Check Fvtrace.Spec Fvtrace.Proofs.Lookups
 /-- Reads each `Lookups.reference` answer as the original expression it stands for. -/
 local macro "ref_simp" : tactic => `(tactic| try simp only [ref_fact?, ref_subject?, ref_claim?,
   ref_experiment?, ref_factSubject?, ref_hasQuestion, ref_hasSubject, ref_hasFact, ref_hasClaim,
-  ref_hasExperiment, ref_idsNodup, ref_soleEntailment, ref_soleRestater, ref_earlierExperiment,
-  ref_earlierPair, ref_waiversNodup, ref_nodup])
+  ref_hasExperiment, ref_idsNodup, ref_soleEntailment, ref_soleRestater, ref_earlierFact,
+  ref_earlierExperiment, ref_earlierPair, ref_waiversNodup, ref_nodup])
 
 theorem ensure_eq_nil {ok : Bool} {p m : String} : ensure ok p m = [] ↔ ok = true := by
   unfold ensure; cases ok <;> simp
@@ -39,12 +39,6 @@ theorem needs_iff (t : Trace) : Check.needs (Lookups.reference t) t = [] ↔ Nee
   intro c i
   simp [ensure_eq_nil]
 
-theorem kind_iff (t : Trace) : Check.kind t = [] ↔ KindsProper t := by
-  unfold Check.kind KindsProper
-  rw [flatMap_zipIdx_eq_nil (P := fun f => f.kind = .instantiation ↔ f.instantiates.isSome)]
-  intro f i
-  simp only [ensure_eq_nil]
-  cases f.instantiates <;> cases f.kind <;> simp
 
 theorem claimRefs_iff (t : Trace) (c : Claim) (i : Nat) : claimRefs (Lookups.reference t) c i = [] ↔
     (c.question ∈ t.questionIds ∧ c.subject ∈ t.subjectIds ∧ (∀ n ∈ c.needs, n ∈ t.factIds) ∧
@@ -110,6 +104,29 @@ theorem flatMap_zipIdx_eq_nil_idx {α β : Type} {l : List α} {g : α × Nat �
     have := hp q.2 hi
     rw [heq] at this
     exact (h q.1 q.2).mpr this
+
+theorem kind_iff (t : Trace) : Check.kind (Lookups.reference t) t = [] ↔ KindsProper t := by
+  unfold Check.kind KindsProper
+  simp only [List.append_eq_nil_iff]
+  rw [flatMap_zipIdx_eq_nil (P := fun f => f.kind = .instantiation ↔ f.instantiates.isSome)
+      (fun f i => by simp only [ensure_eq_nil]; cases f.instantiates <;> cases f.kind <;> simp),
+    flatMap_zipIdx_eq_nil_idx (P := fun i f => ∀ s, f.instantiates = some s → s ∈ t.factIds →
+        ∃ d ∈ t.facts.take i, d.id = s)
+      (fun f i => by
+        unfold sourceEarlier
+        cases f.instantiates with
+        | none => simp
+        | some s =>
+          ref_simp
+          simp [ensure_eq_nil, List.any_eq_true, Bool.or_eq_true]
+          constructor
+          · rintro (h | h) hs
+            · exact absurd hs h
+            · exact h
+          · intro h
+            by_cases hs : s ∈ t.factIds
+            · exact Or.inr (h hs)
+            · exact Or.inl hs)]
 
 theorem onSubject_iff (t : Trace) (id s : String) :
     onSubject (Lookups.reference t) id s = true ↔ OnSubject t id s := by
@@ -386,5 +403,53 @@ theorem checkViolationsSound : Spec.CheckViolationsSound := by
   have := (rule_check_iff r t).mpr hholds
   rw [this] at hpm
   simp at hpm
+
+/-- WF-ids: no two facts share an id. -/
+theorem factIds_nodup (t : Trace) (h : IdsUnique t) : (t.facts.map (·.id)).Nodup := by
+  unfold IdsUnique Trace.allIds at h
+  have hs : (t.facts.map (·.id)).Sublist
+      (t.subjectIds ++ t.questionIds ++ t.factIds ++ t.claimIds ++ t.experimentIds ++
+        t.exclusionIds) := by
+    unfold Trace.factIds
+    exact ((List.sublist_append_right _ _).trans (List.sublist_append_left _ _)).trans
+      ((List.sublist_append_left _ _).trans (List.sublist_append_left _ _))
+  exact h.sublist hs
+
+/-- On a well-formed trace every source sits before its reuse, so the list-order definition reads
+the source's own answer (`Spec.MustVerifyFollowsReuses`). -/
+theorem mustVerifyFollowsReuses : Spec.MustVerifyFollowsReuses := by
+  intro t hwf f hf
+  obtain ⟨hids, -, -, -, -, -, -, -, -, -, -, -, -, -, -, horder⟩ := hwf
+  have hnd := factIds_nodup t hids
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hf
+  have hpos : t.facts.findIdx? (·.id == t.facts[i].id) = some i := by
+    refine List.findIdx?_eq_some_iff_getElem.mpr ⟨hi, by simp, fun j hj hjeq => ?_⟩
+    have hj' : j < t.facts.length := by omega
+    have : (t.facts.map (·.id))[j]'(by simpa using hj') = (t.facts.map (·.id))[i]'(by simpa) := by
+      simpa using hjeq
+    have := (List.Nodup.getElem_inj hnd).mp this
+    omega
+  unfold Trace.mustVerify
+  rw [hpos, Option.any_some, mustVerifyAt, List.getElem?_eq_getElem hi]
+  simp only
+  congr 2
+  cases hs : t.facts[i].instantiates with
+  | none => rfl
+  | some s =>
+    simp only [Option.any_some]
+    cases hj : t.facts.findIdx? (·.id == s) with
+    | none => rfl
+    | some j =>
+      simp only [Option.any_some]
+      obtain ⟨hjl, hjs, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hj
+      have hmem : s ∈ t.factIds := by
+        unfold Trace.factIds
+        exact List.mem_map.mpr ⟨_, List.getElem_mem hjl, by simpa using hjs⟩
+      obtain ⟨d, hd, hds⟩ := horder i hi s hs hmem
+      have hany : (t.facts.findIdx? (·.id == s)).any (· < i) = true := by
+        rw [findIdx?_any_lt, List.any_eq_true]
+        exact ⟨d, hd, by simp [hds]⟩
+      rw [hj, Option.any_some] at hany
+      simp [of_decide_eq_true hany]
 
 end Fvtrace.Proofs.Check

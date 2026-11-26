@@ -305,13 +305,21 @@ def Fact.allows (f : Fact) (mv : Bool) (s : Status) : Bool :=
 def Fact.ceiling (f : Fact) (mv : Bool) : Status :=
   if mv && f.route.ceiling == .assumed then .tested else f.route.ceiling
 
-/-- Fact `id` must be verified (user rulings): its kind is a must-verify kind, or it reuses
-(`instantiation`) a fact that must be verified, followed through reuses of reuses; `fuel` bounds the
-walk, so a cycle of reuses reaches no must-verify kind (false). -/
-def mustVerifyWith (fact? : String → Option Fact) : Nat → String → Bool
-  | 0, _ => false
-  | n + 1, id => (fact? id).any fun f =>
-    f.kind.mustVerify || (f.kind == .instantiation && f.instantiates.any (mustVerifyWith fact? n))
+/-- The fact at position `i` of `facts` must be verified (user rulings): its kind is a must-verify
+kind, or it reuses (`instantiation`) a fact listed before it that must be verified. A reuse is
+decided after its source (WF-kind lists every source first), so a chain of reuses of reuses is
+decided in list order; a source listed at or after its reuse is not reached (false). -/
+def mustVerifyAt (facts : List Fact) (i : Nat) : Bool :=
+  match facts[i]? with
+  | none => false
+  | some f => f.kind.mustVerify || (f.kind == .instantiation &&
+    match f.instantiates with
+    | none => false
+    | some src =>
+      match facts.findIdx? (·.id == src) with
+      | none => false
+      | some j => if j < i then mustVerifyAt facts j else false)
+termination_by i
 
 /-! ## Lookups -/
 
@@ -336,9 +344,9 @@ def experiment? (t : Trace) (id : String) : Option Experiment := t.experiments.f
 /-- The subject a fact id lives on, when it resolves. -/
 def factSubject? (t : Trace) (id : String) : Option String := (t.fact? id).map (·.subject)
 
-/-- `mustVerifyWith` over the trace's facts, fuel = their count (a chain without a cycle is
-shorter). -/
-def mustVerify (t : Trace) (id : String) : Bool := mustVerifyWith t.fact? t.facts.length id
+/-- Fact `id` must be verified: `mustVerifyAt` at the first fact with that id (none: false). -/
+def mustVerify (t : Trace) (id : String) : Bool :=
+  (t.facts.findIdx? (·.id == id)).any (mustVerifyAt t.facts)
 
 end Trace
 
