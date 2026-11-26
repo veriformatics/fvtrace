@@ -54,7 +54,6 @@ Users will interact with fvTrace through a CLI and web-accessible GUI. If fvTrac
 
 ## Tasks
 
-- [ ] Deferred sweep 7, row reuse-chain cost (user ruling: source listed first): positional `Trace.mustVerify` + one-pass `Lookups.fast` (LookupsAgree) + WF-kind order rule + graded scale shape `reuses`; then reference-host timing (run 3 at b8d7a24 → `.scratch/sweep7/scale-assert-3.log`) + its row
 - Deferred queue → `.agent/deferred.md`; PROTOTYPE + ITERATE + IMPLEMENT + MAINTAIN history → `.agent/archive/`
 
 ## Phase

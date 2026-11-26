@@ -261,6 +261,7 @@ Ledger + check set + reviewer deliverables = `.agent/archive/review-maintain-cod
 | moving link | kernel (shell) | Decisions Product (user ruling) | f03c3c7: red 125/131 + smoke red on 79e0637's binary; Store mutants 3/5 killed, :134 a dead guard (removed), :63 killed by smoke |
 | proxied problem text | kernel (shell) | Decisions GUI access (user ruling); server.md | eb07121: e2e red (2 failed) on f03c3c7's binary; hand mutants killed (pure ×8, e2e ×2); `--list` 0 + 1 mutants |
 | reused facts | kernel (semantics + proofs) | kernel.md § Model, WF-route, S-override; Decisions (user ruling) | 36349ab: trust 26 claims 0 findings, 6 kernels; compare 1253 runs 0 diffs; red check + what-if + eval; `mustVerifyWith` 3 killed + 4 compile/proof; chain cost measured + owed to the user (deferred) |
+| reuse chains | kernel (semantics + proofs) | kernel.md § Model, WF-kind, P-bound (`reuses`); Decisions (user ruling: source listed first) | 1fa9643: trust 27 claims 0 findings, 6 kernels, replays 12/12; compare 1324 runs 0 diffs; red 1974/1980 (b8d7a24 code) + 1980/1982 (cycle wording) + 1983/1985 (walk bound); same trace check 100.4 → 1.22 s, eval 756.5 → 2.68 s (desktop); reviewer-4 D1–D10 + RR green; reference-host grade owed (deferred) |
 
 ## Property-test audit (`testing.md` Test form; each `kernel.md` predicate on tested code → its form)
 
