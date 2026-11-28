@@ -9,5 +9,5 @@ emsdk 6.0.13 darwin-x86_64 3b2e7dd84910f7866e8e5f16627410a2f5255507b90963e460d6a
 emsdk 6.0.13 linux-aarch64 18cd1b9df0ef1b6c35648d24cffc8596374a9c02f943ce8e1d2cf468de5033b5 https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries-arm64.tar.xz
 emsdk 6.0.13 linux-x86_64 cda6801012ff3319a539111826ed02a9abd7eff135c2ef261c8941caf5a3763e https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries.tar.xz
 emsdk 6.0.13 windows-x86_64 937b834b397e33645923794c1a20566a86c63ebc02b213e537c0a86dd380ab6c https://storage.googleapis.com/webassembly/emscripten-releases-builds/win/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries.zip
-lean-runtime 4.35.0 eb6cafb7290e8bd5f2937522d8d804f58f02bafc b590df3d2367ec02b8e682a058fb2338fa8ebab61f3295d4188beafd60b38158 https://github.com/leanprover/lean4
+lean-runtime 4.36.0 eb6cafb7290e8bd5f2937522d8d804f58f02bafc b590df3d2367ec02b8e682a058fb2338fa8ebab61f3295d4188beafd60b38158 https://github.com/leanprover/lean4
 libuv 1.48.0 e9f29cb984231524e3931aa0ae2c5dae1a32884e 87218dbe4ad38fd5c4c64f71592ad1aa106cd66369898615c72a9ec23afe073d https://github.com/libuv/libuv
